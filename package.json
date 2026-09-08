@@ -1,0 +1,14 @@
+{
+  "name": "light-weight",
+  "private": true,
+  "packageManager": "pnpm@12.3.4",
+  "scripts": {
+    "build": "pnpm --recursive run build",
+    "dev": "pnpm --recursive --parallel run dev",
+    "test": "pnpm --recursive run test",
+    "lint": "pnpm --recursive run lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
