@@ -1,119 +1,396 @@
-import React, { useState } from 'react';
-import { estimateOneRm, calculateVolume, type LoggedSet } from '@light-weight/domain';
-import { cn } from '@light-weight/ui';
-import { Dumbbell, Activity, ShieldCheck, Flame } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Header } from './components/Header.js';
+import { BottomNav, TabType } from './components/BottomNav.js';
+import { RestTimerBar } from './components/RestTimerBar.js';
+import { HomeView } from './views/HomeView.js';
+import { WorkoutView, ActiveExerciseSession } from './views/WorkoutView.js';
+import { StatsView } from './views/StatsView.js';
+import { PlanView } from './views/PlanView.js';
+import { LibraryView } from './views/LibraryView.js';
+import { INITIAL_EXERCISES } from './mockData.js';
+import { Routine, Exercise, WorkoutSession, MuscleGroup, getPreviousPerformance } from '@light-weight/domain';
+import {
+  getStoredHistory,
+  saveCompletedWorkout,
+  getStoredActiveWorkout,
+  saveActiveWorkout,
+  clearActiveWorkout,
+  getStoredRoutines,
+  calculateAllPersonalRecords
+} from './lib/storage.js';
+import { requestWakeLock, releaseWakeLock } from './lib/wakelock.js';
 
-export default function App() {
-  const [weight, setWeight] = useState<number>(100);
-  const [reps, setReps] = useState<number>(5);
+export function App() {
+  const [currentTab, setCurrentTab] = useState<TabType>('home');
+  const [exercises, setExercises] = useState<Exercise[]>(INITIAL_EXERCISES);
+  const [routines, setRoutines] = useState<Routine[]>(getStoredRoutines());
+  const [history, setHistory] = useState<WorkoutSession[]>(getStoredHistory());
 
-  const oneRm = estimateOneRm(weight, reps);
+  // Workout Session State
+  const [isWorkoutActive, setIsWorkoutActive] = useState(false);
+  const [workoutSeconds, setWorkoutSeconds] = useState(0);
+  const [activeRoutineName, setActiveRoutineName] = useState<string>('Entrenamiento Libre');
+  const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>([]);
+  const [workoutStartTime, setWorkoutStartTime] = useState<string>('');
 
-  const sampleSets: LoggedSet[] = [
-    { setIndex: 1, weightKg: weight, reps: reps, completed: true, isWarmup: false },
-    { setIndex: 2, weightKg: weight, reps: Math.max(1, reps - 1), completed: true, isWarmup: false },
-    { setIndex: 3, weightKg: weight, reps: Math.max(1, reps - 2), completed: true, isWarmup: false }
-  ];
+  // Rest Timer State
+  const [restSecondsLeft, setRestSecondsLeft] = useState<number>(0);
+  const [restTotalSeconds, setRestTotalSeconds] = useState<number>(90);
 
-  const totalVolume = calculateVolume(sampleSets);
+  // Restore Active Session from localStorage on mount if exists
+  useEffect(() => {
+    const saved = getStoredActiveWorkout();
+    if (saved && saved.isWorkoutActive) {
+      setIsWorkoutActive(true);
+      setWorkoutSeconds(saved.workoutSeconds || 0);
+      setActiveRoutineName(saved.activeRoutineName || 'Entrenamiento Libre');
+      setExerciseSessions(saved.exerciseSessions || []);
+      setWorkoutStartTime(saved.workoutStartTime || new Date().toISOString());
+      requestWakeLock();
+    }
+  }, []);
+
+  // Save active workout to localStorage whenever it changes
+  useEffect(() => {
+    if (isWorkoutActive) {
+      saveActiveWorkout({
+        isWorkoutActive,
+        workoutSeconds,
+        activeRoutineName,
+        exerciseSessions,
+        workoutStartTime
+      });
+    }
+  }, [isWorkoutActive, workoutSeconds, activeRoutineName, exerciseSessions, workoutStartTime]);
+
+  // Workout Timer Interval
+  useEffect(() => {
+    let interval: any;
+    if (isWorkoutActive) {
+      interval = setInterval(() => {
+        setWorkoutSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isWorkoutActive]);
+
+  // Rest Timer Countdown Interval
+  useEffect(() => {
+    let interval: any;
+    if (restSecondsLeft > 0) {
+      interval = setInterval(() => {
+        setRestSecondsLeft((prev) => {
+          if (prev <= 1) {
+            if ('vibrate' in navigator) {
+              try {
+                navigator.vibrate([150, 80, 150]);
+              } catch {}
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [restSecondsLeft]);
+
+  // Format Elapsed Workout Time
+  const formatDuration = (totalSec: number) => {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Helper to create an ActiveExerciseSession with previous record lookup
+  const createExerciseSession = (ex: Exercise): ActiveExerciseSession => {
+    const prev = getPreviousPerformance(history, ex.id);
+    const prs = calculateAllPersonalRecords(history);
+    const bestRecord = prs[ex.id] ? `${prs[ex.id].weightKg} kg × ${prs[ex.id].reps}` : undefined;
+
+    const defaultWeight =
+      ex.category === 'barbell'
+        ? 60
+        : ex.category === 'dumbbell'
+        ? 22
+        : ex.category === 'bodyweight'
+        ? 0
+        : 45;
+
+    const initialSets = [
+      { setIndex: 1, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, rir: 2 },
+      { setIndex: 2, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, rir: 2 },
+      { setIndex: 3, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, rir: 1 }
+    ];
+
+    return {
+      exercise: ex,
+      previousRecord: prev ? prev.summary : undefined,
+      bestRecord,
+      targetRepRange: [6, 12],
+      sets: initialSets
+    };
+  };
+
+  // Handler: Iniciar Entrenamiento (Libre o desde Rutina)
+  const handleStartWorkout = (routineId?: string) => {
+    requestWakeLock();
+    setWorkoutStartTime(new Date().toISOString());
+    setWorkoutSeconds(0);
+    setIsWorkoutActive(true);
+
+    if (routineId) {
+      const selected = routines.find((r) => r.id === routineId);
+      if (selected) {
+        setActiveRoutineName(selected.name);
+        const routineExs = exercises.filter((ex) => selected.exerciseIds.includes(ex.id));
+        const initialExerciseSessions = routineExs.map(createExerciseSession);
+        setExerciseSessions(initialExerciseSessions);
+        setCurrentTab('workout');
+        return;
+      }
+    }
+
+    // Libre / Ad-hoc: Arranca con los 2 primeros ejercicios sugeridos o vacío para añadir al gusto
+    setActiveRoutineName('Entrenamiento Libre');
+    setExerciseSessions([createExerciseSession(exercises[0])]);
+    setCurrentTab('workout');
+  };
+
+  // Handler: Agregar Ejercicio a la sesión activa
+  const handleAddExerciseToWorkout = (exercise: Exercise) => {
+    setExerciseSessions((prev) => {
+      if (prev.some((item) => item.exercise.id === exercise.id)) return prev;
+      return [...prev, createExerciseSession(exercise)];
+    });
+  };
+
+  // Handler: Quitar Ejercicio de la sesión activa
+  const handleRemoveExerciseFromWorkout = (exerciseId: string) => {
+    setExerciseSessions((prev) => prev.filter((item) => item.exercise.id !== exerciseId));
+  };
+
+  // Handler: Crear Ejercicio Personalizado
+  const handleCreateCustomExercise = (name: string, primaryMuscle: MuscleGroup) => {
+    const newEx: Exercise = {
+      id: `ex-custom-${Date.now()}`,
+      name,
+      category: 'other',
+      primaryMuscle,
+      isCustom: true
+    };
+    setExercises((prev) => [newEx, ...prev]);
+    if (isWorkoutActive) {
+      handleAddExerciseToWorkout(newEx);
+    }
+  };
+
+  // Handler: Toggle Set Check (trigger rest timer)
+  const handleToggleSet = (exerciseId: string, setIndex: number) => {
+    setExerciseSessions((prev) =>
+      prev.map((item) => {
+        if (item.exercise.id !== exerciseId) return item;
+        return {
+          ...item,
+          sets: item.sets.map((s) => {
+            if (s.setIndex !== setIndex) return s;
+            return { ...s, completed: !s.completed };
+          })
+        };
+      })
+    );
+  };
+
+  // Handler: Update Set Weight / Reps / RIR
+  const handleUpdateSet = (
+    exerciseId: string,
+    setIndex: number,
+    field: 'weightKg' | 'reps' | 'rir',
+    value: number
+  ) => {
+    setExerciseSessions((prev) =>
+      prev.map((item) => {
+        if (item.exercise.id !== exerciseId) return item;
+        return {
+          ...item,
+          sets: item.sets.map((s) => {
+            if (s.setIndex !== setIndex) return s;
+            return { ...s, [field]: value };
+          })
+        };
+      })
+    );
+  };
+
+  // Handler: Add Set
+  const handleAddSet = (exerciseId: string) => {
+    setExerciseSessions((prev) =>
+      prev.map((item) => {
+        if (item.exercise.id !== exerciseId) return item;
+        const lastSet = item.sets[item.sets.length - 1];
+        const newSetIndex = item.sets.length + 1;
+        return {
+          ...item,
+          sets: [
+            ...item.sets,
+            {
+              setIndex: newSetIndex,
+              weightKg: lastSet ? lastSet.weightKg : 50,
+              reps: lastSet ? lastSet.reps : 8,
+              completed: false,
+              isWarmup: false,
+              rir: lastSet ? lastSet.rir : 2
+            }
+          ]
+        };
+      })
+    );
+  };
+
+  // Handler: Remove Last Set
+  const handleRemoveSet = (exerciseId: string) => {
+    setExerciseSessions((prev) =>
+      prev.map((item) => {
+        if (item.exercise.id !== exerciseId) return item;
+        if (item.sets.length <= 1) return item;
+        return {
+          ...item,
+          sets: item.sets.slice(0, -1)
+        };
+      })
+    );
+  };
+
+  // Rest Timer Controls
+  const handleStartRestTimer = (seconds: number) => {
+    setRestTotalSeconds(seconds);
+    setRestSecondsLeft(seconds);
+  };
+
+  const handleAddRestSeconds = (delta: number) => {
+    setRestSecondsLeft((prev) => Math.max(0, prev + delta));
+  };
+
+  const handleDismissRestTimer = () => {
+    setRestSecondsLeft(0);
+  };
+
+  // Handler: Finish and Save Workout
+  const handleFinishWorkout = () => {
+    const completedSetsRecord: Record<string, any[]> = {};
+    for (const exSession of exerciseSessions) {
+      completedSetsRecord[exSession.exercise.id] = exSession.sets;
+    }
+
+    const newSession: WorkoutSession = {
+      id: `sess-${Date.now()}`,
+      userId: 'user-operator',
+      routineName: activeRoutineName,
+      startedAt: workoutStartTime || new Date(Date.now() - workoutSeconds * 1000).toISOString(),
+      endedAt: new Date().toISOString(),
+      sets: completedSetsRecord
+    };
+
+    const updatedHistory = saveCompletedWorkout(newSession);
+    setHistory(updatedHistory);
+
+    releaseWakeLock();
+    clearActiveWorkout();
+    setIsWorkoutActive(false);
+    setRestSecondsLeft(0);
+    setCurrentTab('stats');
+  };
+
+  // Handler: Cancel Workout
+  const handleCancelWorkout = () => {
+    if (confirm('¿Deseas descartar el entrenamiento actual?')) {
+      releaseWakeLock();
+      clearActiveWorkout();
+      setIsWorkoutActive(false);
+      setRestSecondsLeft(0);
+      setCurrentTab('home');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center p-6 sm:p-10 font-sans">
-      <header className="w-full max-w-3xl flex items-center justify-between pb-6 border-b border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400">
-            <Dumbbell className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              light-weight
-              <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-mono">F&F</span>
-            </h1>
-            <p className="text-xs text-zinc-400">Private Gym Tracker • Domain Engine Active</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Operator Access Only</span>
-        </div>
-      </header>
+    <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
+      {/* Header Fijo */}
+      <Header
+        isWorkoutActive={isWorkoutActive}
+        activeWorkoutDuration={formatDuration(workoutSeconds)}
+        onNavigateToWorkout={() => setCurrentTab('workout')}
+      />
 
-      <main className="w-full max-w-3xl mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* 1RM Calculator & Domain Test Card */}
-        <section className={cn("p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 flex flex-col gap-5 shadow-xl")}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-400" />
-              1RM Estimator (@light-weight/domain)
-            </h2>
-          </div>
+      {/* Main Container */}
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-8">
+        {currentTab === 'home' && (
+          <HomeView
+            todayRoutine={routines[0]}
+            history={history}
+            onStartWorkout={handleStartWorkout}
+            onNavigateToStats={() => setCurrentTab('stats')}
+            onNavigateToPlan={() => setCurrentTab('plan')}
+          />
+        )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-zinc-400">Weight (kg)</label>
-              <input
-                type="number"
-                value={weight}
-                onChange={(e) => setWeight(Number(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-lg text-white font-mono focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-zinc-400">Reps completed</label>
-              <input
-                type="number"
-                value={reps}
-                onChange={(e) => setReps(Number(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-lg text-white font-mono focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-          </div>
+        {currentTab === 'workout' && (
+          <WorkoutView
+            routineName={activeRoutineName}
+            sessionDuration={formatDuration(workoutSeconds)}
+            exerciseSessions={exerciseSessions}
+            availableExercises={exercises}
+            onToggleSet={handleToggleSet}
+            onUpdateSet={handleUpdateSet}
+            onAddSet={handleAddSet}
+            onRemoveSet={handleRemoveSet}
+            onAddExercise={handleAddExerciseToWorkout}
+            onRemoveExercise={handleRemoveExerciseFromWorkout}
+            onCreateCustomExercise={handleCreateCustomExercise}
+            onFinishWorkout={handleFinishWorkout}
+            onCancelWorkout={handleCancelWorkout}
+            onStartRestTimer={handleStartRestTimer}
+          />
+        )}
 
-          <div className="grid grid-cols-3 gap-3 p-4 rounded-xl bg-zinc-950/60 border border-zinc-800/80 text-center">
-            <div>
-              <div className="text-xs text-zinc-500 font-mono">Epley</div>
-              <div className="text-lg font-bold text-white font-mono">{oneRm.epley} kg</div>
-            </div>
-            <div className="border-x border-zinc-800">
-              <div className="text-xs text-zinc-500 font-mono">Brzycki</div>
-              <div className="text-lg font-bold text-white font-mono">{oneRm.brzycki} kg</div>
-            </div>
-            <div>
-              <div className="text-xs text-emerald-400 font-mono">Average 1RM</div>
-              <div className="text-lg font-bold text-emerald-400 font-mono">{oneRm.average} kg</div>
-            </div>
-          </div>
-        </section>
+        {currentTab === 'stats' && <StatsView history={history} exercises={exercises} />}
 
-        {/* Volume & Progression Preview Card */}
-        <section className="p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 flex flex-col gap-5 shadow-xl justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                <Flame className="w-4 h-4 text-amber-400" />
-                Session Volume Preview
-              </h2>
-            </div>
-            <p className="text-xs text-zinc-400 mt-2">
-              Calculates pure tonnage using the shared domain engine:
-            </p>
-            <div className="mt-4 space-y-2">
-              {sampleSets.map((s) => (
-                <div key={s.setIndex} className="flex justify-between items-center text-xs py-1.5 px-3 rounded bg-zinc-950 border border-zinc-800/60">
-                  <span className="text-zinc-400">Set {s.setIndex}</span>
-                  <span className="font-mono text-zinc-300">{s.weightKg} kg × {s.reps} reps</span>
-                  <span className="font-mono text-emerald-400 font-semibold">{s.weightKg * s.reps} kg</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        {currentTab === 'plan' && (
+          <PlanView
+            routines={routines}
+            exercises={exercises}
+            onSelectAndStartRoutine={handleStartWorkout}
+          />
+        )}
 
-          <div className="flex justify-between items-center pt-4 border-t border-zinc-800/80">
-            <span className="text-sm text-zinc-400 font-medium">Total Volume Tonnage:</span>
-            <span className="text-xl font-bold font-mono text-emerald-400">{totalVolume} kg</span>
-          </div>
-        </section>
+        {currentTab === 'exercises' && (
+          <LibraryView
+            exercises={exercises}
+            isWorkoutActive={isWorkoutActive}
+            onAddExerciseToActiveWorkout={handleAddExerciseToWorkout}
+            onStartWorkoutWithExercise={(ex) => {
+              handleStartWorkout();
+              setExerciseSessions([createExerciseSession(ex)]);
+            }}
+          />
+        )}
       </main>
+
+      {/* Temporizador de Descanso Flotante */}
+      <RestTimerBar
+        secondsLeft={restSecondsLeft}
+        totalSeconds={restTotalSeconds}
+        onAddSeconds={handleAddRestSeconds}
+        onDismiss={handleDismissRestTimer}
+      />
+
+      {/* Barra de Navegación Inferior (Thumb Zone) */}
+      <BottomNav
+        currentTab={currentTab}
+        onSelectTab={(tab) => setCurrentTab(tab)}
+        isWorkoutActive={isWorkoutActive}
+      />
     </div>
   );
 }
+
+export default App;

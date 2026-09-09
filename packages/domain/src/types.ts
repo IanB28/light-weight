@@ -33,6 +33,7 @@ export interface LoggedSet {
   weightKg: number;
   reps: number;
   rpe?: number;
+  rir?: number;
   completed: boolean;
   isWarmup: boolean;
 }
@@ -41,6 +42,7 @@ export interface WorkoutSession {
   id: string;
   userId: string;
   routineId?: string;
+  routineName?: string;
   startedAt: string;
   endedAt?: string;
   notes?: string;
@@ -55,8 +57,20 @@ export interface Routine {
   exerciseIds: string[];
 }
 
+export type OneRmFormula = 'epley' | 'brzycki' | 'lombardi';
+
 export interface OneRmEstimate {
   epley: number;
   brzycki: number;
+  lombardi: number;
   average: number;
 }
+
+export interface BestSetRecord {
+  est: number;
+  w: number;
+  r: number;
+  date?: string;
+}
+
+export type ProgressionPolicy = 'off' | 'linear' | 'greyskull' | 'double' | 'time';

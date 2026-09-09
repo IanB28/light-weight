@@ -1,48 +1,213 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateEpley, calculateBrzycki, estimateOneRm } from './onerm.js';
-import { calculateVolume, checkProgressionTarget } from './progression.js';
-import type { LoggedSet } from './types.js';
+import {
+  calculateEpley,
+  calculateBrzycki,
+  calculateLombardi,
+  estimateOneRm,
+  estimate1RM,
+  bestSetOf,
+  is1RMRecord,
+  REP_CAP
+} from './onerm.js';
+import {
+  calculateVolume,
+  checkProgressionTarget,
+  calculateDeload,
+  defaultIncrement,
+  evaluateNextWeight
+} from './progression.js';
+import { rirToRpe, rpeToRir } from './effort.js';
+import {
+  calculateSessionTotalVolume,
+  getPreviousPerformance,
+  getExerciseProgressSeries,
+  getNeglectedMuscles,
+  calculateMuscleFatigue
+} from './history.js';
+import { evaluateRelativeStrength } from './strengthStandards.js';
+import type { LoggedSet, WorkoutSession } from './types.js';
 
-test('1RM estimation formulas', () => {
-  // 1 rep of 100kg should always be 100kg 1RM
-  assert.equal(calculateEpley(100, 1), 100);
-  assert.equal(calculateBrzycki(100, 1), 100);
+test('1RM estimation with openGym REP_CAP = 12', () => {
+  // 1 rep of 100kg is exactly 100kg
+  assert.equal(estimate1RM(100, 1), 100);
 
-  // 100kg for 10 reps
-  // Epley: 100 * (1 + 10/30) = 133.3
-  assert.equal(calculateEpley(100, 10), 133.3);
-  // Brzycki: 100 * (36 / 27) = 133.3
-  assert.equal(calculateBrzycki(100, 10), 133.3);
+  // 10 reps of 100kg
+  assert.equal(estimate1RM(100, 10, 'epley'), 133.3);
+  assert.equal(estimate1RM(100, 10, 'brzycki'), 133.3);
+  assert.equal(calculateLombardi(100, 10), 125.9);
 
-  const estimate = estimateOneRm(100, 10);
-  assert.equal(estimate.average, 133.3);
+  // Above REP_CAP (12) must refuse to guess and return null
+  assert.equal(estimate1RM(100, 13), null);
+  assert.equal(estimate1RM(100, 20), null);
+  assert.equal(calculateEpley(100, 15), 0);
+
+  // Non-positive values return null
+  assert.equal(estimate1RM(-10, 5), null);
+  assert.equal(estimate1RM(100, 0), null);
 });
 
-test('volume calculation', () => {
+test('bestSetOf and is1RMRecord', () => {
   const sets: LoggedSet[] = [
-    { setIndex: 1, weightKg: 100, reps: 5, completed: true, isWarmup: false },
-    { setIndex: 2, weightKg: 100, reps: 5, completed: true, isWarmup: false },
-    { setIndex: 3, weightKg: 60, reps: 10, completed: true, isWarmup: true }, // warmup should be ignored
-    { setIndex: 4, weightKg: 100, reps: 5, completed: false, isWarmup: false } // failed set ignored
+    { setIndex: 1, weightKg: 80, reps: 10, completed: true, isWarmup: false }, // 80 * (1 + 10/30) = 106.7
+    { setIndex: 2, weightKg: 90, reps: 8, completed: true, isWarmup: false },  // 90 * (1 + 8/30) = 114
+    { setIndex: 3, weightKg: 100, reps: 4, completed: false, isWarmup: false } // not completed
   ];
 
-  assert.equal(calculateVolume(sets), 1000);
+  const best = bestSetOf(sets, 'epley');
+  assert.ok(best);
+  assert.equal(best.w, 90);
+  assert.equal(best.r, 8);
+  assert.equal(best.est, 114);
+
+  // Check new PR detection
+  const newSetPr: LoggedSet = { setIndex: 4, weightKg: 100, reps: 6, completed: true, isWarmup: false }; // 100 * (1 + 6/30) = 120
+  const prResult = is1RMRecord(114, newSetPr, 'epley');
+  assert.ok(prResult);
+  assert.equal(prResult.isPr, true);
+  assert.equal(prResult.newEst, 120);
+  assert.equal(prResult.diff, 6);
+
+  // Non-PR
+  const nonPrSet: LoggedSet = { setIndex: 5, weightKg: 80, reps: 5, completed: true, isWarmup: false };
+  const nonPrResult = is1RMRecord(114, nonPrSet, 'epley');
+  assert.ok(nonPrResult);
+  assert.equal(nonPrResult.isPr, false);
 });
 
-test('double progression threshold check', () => {
-  const successfulSets: LoggedSet[] = [
-    { setIndex: 1, weightKg: 80, reps: 12, completed: true, isWarmup: false },
-    { setIndex: 2, weightKg: 80, reps: 12, completed: true, isWarmup: false },
-    { setIndex: 3, weightKg: 80, reps: 12, completed: true, isWarmup: false }
-  ];
-
-  assert.equal(checkProgressionTarget(successfulSets, 3, 12), true);
-
-  const incompleteSets: LoggedSet[] = [
-    { setIndex: 1, weightKg: 80, reps: 12, completed: true, isWarmup: false },
-    { setIndex: 2, weightKg: 80, reps: 10, completed: true, isWarmup: false }
-  ];
-
-  assert.equal(checkProgressionTarget(incompleteSets, 3, 12), false);
+test('Effort scale conversions', () => {
+  assert.equal(rirToRpe(0), 10);
+  assert.equal(rirToRpe(2), 8);
+  assert.equal(rpeToRir(8), 2);
+  assert.equal(rpeToRir(10), 0);
 });
+
+test('Progression deload and muscle increments', () => {
+  // Lower body vs Upper body increments
+  assert.equal(defaultIncrement('quadriceps'), 5.0);
+  assert.equal(defaultIncrement('chest'), 2.5);
+
+  // Deload calculation (10% drop snapped to 2.5)
+  // 100kg * 0.9 = 90kg
+  assert.equal(calculateDeload(100, 2.5), 90);
+  // 82.5kg * 0.9 = 74.25 -> snapped to 75
+  assert.equal(calculateDeload(82.5, 2.5), 75);
+
+  // Deload after 3 stalls
+  const failedSets: LoggedSet[] = [
+    { setIndex: 1, weightKg: 100, reps: 6, completed: true, isWarmup: false },
+    { setIndex: 2, weightKg: 100, reps: 5, completed: true, isWarmup: false }
+  ];
+  const evalDeload = evaluateNextWeight(100, failedSets, 3, 8, 'chest', 2, 'double');
+  assert.equal(evalDeload.isDeload, true);
+  assert.equal(evalDeload.nextWeightKg, 90);
+});
+
+test('History volume and previous performance lookup', () => {
+  const session1: WorkoutSession = {
+    id: 's1',
+    userId: 'u1',
+    startedAt: '2026-09-01T10:00:00Z',
+    sets: {
+      'ex-bench': [
+        { setIndex: 1, weightKg: 80, reps: 8, completed: true, isWarmup: false },
+        { setIndex: 2, weightKg: 80, reps: 8, completed: true, isWarmup: false }
+      ]
+    }
+  };
+
+  const session2: WorkoutSession = {
+    id: 's2',
+    userId: 'u1',
+    startedAt: '2026-09-05T10:00:00Z',
+    sets: {
+      'ex-bench': [
+        { setIndex: 1, weightKg: 82.5, reps: 8, completed: true, isWarmup: false }
+      ]
+    }
+  };
+
+  assert.equal(calculateSessionTotalVolume(session1), 1280);
+
+  const prev = getPreviousPerformance([session1, session2], 'ex-bench');
+  assert.ok(prev);
+  assert.equal(prev.summary, '82.5 kg × 8');
+
+  // Exercise Progress Series
+  const series = getExerciseProgressSeries([session1, session2], 'ex-bench');
+  assert.equal(series.length, 2);
+  assert.equal(series[0].topWeightKg, 80);
+  assert.equal(series[1].topWeightKg, 82.5);
+
+  // Neglected Muscles Detection
+  const exercisesById = {
+    'ex-bench': { id: 'ex-bench', name: 'Bench', category: 'barbell' as const, primaryMuscle: 'chest' as const }
+  };
+  const analysis = getNeglectedMuscles([session1, session2], exercisesById, 0);
+  assert.equal(analysis.worked.some(w => w.muscle === 'chest'), true);
+  assert.equal(analysis.neglected.includes('hamstrings'), true);
+  assert.equal(analysis.neglected.includes('biceps'), true);
+});
+
+test('calculateMuscleFatigue physiological model with RIR and time decay', () => {
+  const nowMs = 1700000000000;
+  // Session 1: 12h ago, 4 hard sets at RIR 0 (to failure)
+  const sessionRecentHard: WorkoutSession = {
+    id: 's-hard',
+    userId: 'u1',
+    startedAt: new Date(nowMs - 12 * 3600000).toISOString(),
+    sets: {
+      'ex-bench': [
+        { setIndex: 1, weightKg: 100, reps: 6, rir: 0, completed: true, isWarmup: false },
+        { setIndex: 2, weightKg: 100, reps: 6, rir: 0, completed: true, isWarmup: false },
+        { setIndex: 3, weightKg: 100, reps: 5, rir: 0, completed: true, isWarmup: false },
+        { setIndex: 4, weightKg: 100, reps: 5, rir: 0, completed: true, isWarmup: false }
+      ]
+    }
+  };
+
+  const exercisesById = {
+    'ex-bench': {
+      id: 'ex-bench',
+      name: 'Bench Press',
+      category: 'barbell' as const,
+      primaryMuscle: 'chest' as const,
+      secondaryMuscles: ['triceps' as const, 'shoulders' as const]
+    }
+  };
+
+  const fatigueRecent = calculateMuscleFatigue([sessionRecentHard], exercisesById, nowMs);
+  // Chest should be fatigued (> 4.5)
+  assert.equal(fatigueRecent.chest.status, 'fatigued');
+  assert.ok(fatigueRecent.chest.fatigueScore >= 4.5);
+  assert.equal(fatigueRecent.chest.hoursSinceLastTrained, 12);
+  assert.equal(fatigueRecent.chest.recentHardSetsCount, 4);
+
+  // Now simulate 60 hours later with same workout
+  const fatigueLater = calculateMuscleFatigue([sessionRecentHard], exercisesById, nowMs + 48 * 3600000);
+  // Chest should now be recovered/ready
+  assert.equal(fatigueLater.chest.status, 'ready');
+  assert.ok(fatigueLater.chest.fatigueScore < 1.8);
+});
+
+test('evaluateRelativeStrength StrengthLevel gamification and gender standards', () => {
+  // Male with 80kg BW benching 100kg -> ratio 1.25 -> Novice/Intermediate boundary (Intermediate: 1.25)
+  const maleEval = evaluateRelativeStrength('chest', 100, 80, 'male');
+  assert.equal(maleEval.tier, 'intermediate');
+  assert.equal(maleEval.currentRatio, 1.25);
+  assert.equal(maleEval.nextTier, 'advanced');
+  assert.ok(maleEval.kgToNextTier !== null && maleEval.kgToNextTier > 0);
+
+  // Female with 60kg BW benching 45kg -> ratio 0.75 -> Intermediate (Female intermediate: 0.75)
+  const femaleEval = evaluateRelativeStrength('chest', 45, 60, 'female');
+  assert.equal(femaleEval.tier, 'intermediate');
+  assert.equal(femaleEval.currentRatio, 0.75);
+  assert.equal(femaleEval.nextTier, 'advanced');
+
+  // Elite lifter: Male 80kg benching 170kg -> ratio 2.125 >= 2.05 (Elite)
+  const eliteEval = evaluateRelativeStrength('chest', 170, 80, 'male');
+  assert.equal(eliteEval.tier, 'elite');
+  assert.equal(eliteEval.nextTier, null);
+  assert.equal(eliteEval.emoji, '💎');
+});
+
