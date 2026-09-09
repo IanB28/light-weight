@@ -84,7 +84,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           placeholder="Buscar ejercicio o grupo muscular..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full h-11 pl-10 pr-4 rounded-2xl bg-[#141618] border border-white/[0.06] text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
+          className="w-full h-11 pl-10 pr-4 rounded-2xl bg-[#121416]/80 backdrop-blur-xl border border-white/[0.08] text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors shadow-inner"
         />
       </div>
 
@@ -96,10 +96,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             <button
               key={chip.id}
               onClick={() => setSelectedMuscle(chip.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-[0.93] cursor-pointer ${
                 isActive
-                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                  : 'bg-[#141618] border border-white/[0.06] text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/25'
+                  : 'bg-[#121416]/80 backdrop-blur-md border border-white/[0.08] text-zinc-400 hover:text-zinc-200'
               }`}
             >
               {chip.label}
@@ -116,10 +116,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             <button
               key={chip.id}
               onClick={() => setSelectedEquipment(chip.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-[0.93] cursor-pointer ${
                 isActive
-                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                  : 'bg-[#141618] border border-white/[0.06] text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/25'
+                  : 'bg-[#121416]/80 backdrop-blur-md border border-white/[0.08] text-zinc-400 hover:text-zinc-200'
               }`}
             >
               {chip.label}
@@ -135,15 +135,16 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           return (
             <div
               key={ex.id}
-              className="p-3 rounded-3xl bg-[#141618] border border-white/[0.06] hover:border-white/[0.12] transition-all flex items-center justify-between shadow-xl"
+              className="p-3.5 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] transition-all flex items-center justify-between shadow-xl relative overflow-hidden"
             >
+              <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-zinc-800/80 border border-white/[0.06] flex items-center justify-center text-zinc-400 overflow-hidden">
+                <div className="w-11 h-11 rounded-2xl bg-zinc-800/80 border border-white/[0.08] flex items-center justify-center text-zinc-400 overflow-hidden">
                   <Dumbbell className="w-5 h-5 stroke-[1.8] text-zinc-300" />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white tracking-tight">{ex.name}</h4>
-                  <p className="text-[11px] text-zinc-400 capitalize mt-0.5">
+                  <p className="text-[11px] text-zinc-400 capitalize mt-0.5 font-mono">
                     {ex.primaryMuscle} • {ex.category}
                   </p>
                 </div>
@@ -152,12 +153,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               <button
                 type="button"
                 onClick={() => handleAction(ex)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 active:scale-[0.92] cursor-pointer ${
                   isAdded
-                    ? 'bg-emerald-500 text-black'
+                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/25'
                     : isWorkoutActive
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500 hover:text-black'
-                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-white/[0.06]'
                 }`}
               >
                 {isAdded ? (

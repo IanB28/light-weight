@@ -2,4 +2,79 @@
 
 :root {
   color-scheme: dark;
+
+  /* Apple Fluid Motion Spring & Easing Curves */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --spring-snappy: cubic-bezier(0.19, 1, 0.22, 1);
+
+  /* Glassmorphism Surface Variables */
+  --glass-bg-subtle: rgba(255, 255, 255, 0.03);
+  --glass-bg-base: rgba(18, 20, 22, 0.75);
+  --glass-bg-elevated: rgba(24, 26, 29, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-highlight: rgba(255, 255, 255, 0.16);
+}
+
+/* Base ergonomics and typography tuning */
+html {
+  background-color: #000000;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+  user-select: none;
+}
+
+body {
+  background-color: #000000;
+  color: #F4F4F5;
+  overflow-x: hidden;
+}
+
+/* Safe area support for iOS home indicator and notch */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0.75rem);
+}
+
+/* Custom interactive tactile active states (Emil & Apple Design) */
+button, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Glassmorphism Card Utility */
+.glass-card {
+  background: var(--glass-bg-base);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-card-highlight {
+  border-top: 1px solid var(--glass-border-highlight);
+}
+
+/* Subtle scrollbar for sleek dark look */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }

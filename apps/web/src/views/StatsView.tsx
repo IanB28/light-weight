@@ -306,11 +306,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 1. SECCIÓN: MÚSCULOS, FATIGA & FORTALEZA                                  */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#141618] border border-white/[0.06] overflow-hidden transition-all shadow-xl">
+      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
         <button
           type="button"
           onClick={() => toggleSection('muscles')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors"
+          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -621,11 +622,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 2. SECCIÓN: PROGRESO POR EJERCICIO                                        */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#141618] border border-white/[0.06] overflow-hidden transition-all shadow-xl">
+      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
         <button
           type="button"
           onClick={() => toggleSection('exercise')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors"
+          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
@@ -775,11 +777,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 3. SECCIÓN: CONSISTENCIA & CALENDARIO                                     */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#141618] border border-white/[0.06] overflow-hidden transition-all shadow-xl">
+      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
         <button
           type="button"
           onClick={() => toggleSection('consistency')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors"
+          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -876,11 +879,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 4. SECCIÓN: PESO CORPORAL & META                                          */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#141618] border border-white/[0.06] overflow-hidden transition-all shadow-xl">
+      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
         <button
           type="button"
           onClick={() => toggleSection('bodyweight')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors"
+          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
@@ -966,11 +970,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 5. SECCIÓN: CALCULADORA 1RM                                               */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#141618] border border-white/[0.06] overflow-hidden transition-all shadow-xl">
+      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
         <button
           type="button"
           onClick={() => toggleSection('calculator')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors"
+          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">

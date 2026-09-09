@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Upload, ChevronRight, Plus, Dumbbell, Calendar } from 'lucide-react';
 import { Routine, Exercise } from '@light-weight/domain';
 
@@ -43,16 +43,17 @@ export const PlanView: React.FC<PlanViewProps> = ({
       <div className="space-y-2.5">
         <span className="text-xs font-bold text-zinc-400 block px-1">Week schedule</span>
 
-        <div className="rounded-3xl bg-[#141618] border border-white/[0.06] divide-y divide-white/[0.04] overflow-hidden shadow-xl">
+        <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] divide-y divide-white/[0.04] overflow-hidden shadow-xl relative">
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
           {weeklySchedule.map((item, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-between p-3.5 hover:bg-zinc-800/40 transition-colors"
+              className="flex items-center justify-between p-3.5 hover:bg-white/[0.03] transition-colors"
             >
               <span className="text-xs font-semibold text-zinc-200">{item.day}</span>
 
               {item.isRest ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800/80 text-zinc-400 text-xs font-semibold">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800/80 text-zinc-400 text-xs font-semibold border border-white/[0.04]">
                   <span>Rest</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </div>
@@ -64,7 +65,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
                     );
                     if (matched) onSelectAndStartRoutine(matched.id);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 active:scale-[0.94] transition-all cursor-pointer"
                 >
                   <Dumbbell className="w-3 h-3 stroke-[2.5]" />
                   <span>{item.routine}</span>
@@ -80,7 +81,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
       <div className="space-y-2.5 pt-1">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-bold text-zinc-400">Routines</span>
-          <button className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 transition-all cursor-pointer">
+          <button className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 active:scale-[0.94] transition-all cursor-pointer">
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
             New
           </button>
@@ -91,8 +92,9 @@ export const PlanView: React.FC<PlanViewProps> = ({
             <div
               key={routine.id}
               onClick={() => onSelectAndStartRoutine(routine.id)}
-              className="p-4 rounded-3xl bg-[#141618] border border-white/[0.06] hover:border-white/[0.12] transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] group shadow-xl"
+              className="p-4 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] transition-all flex items-center justify-between cursor-pointer active:scale-[0.98] group shadow-xl relative overflow-hidden"
             >
+              <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                   <Dumbbell className="w-5 h-5 stroke-[2.5]" />
@@ -101,7 +103,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
                   <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
                     {routine.name}
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-xs text-zinc-400 mt-0.5 font-mono">
                     {routine.exerciseIds.length} exercises
                   </p>
                 </div>

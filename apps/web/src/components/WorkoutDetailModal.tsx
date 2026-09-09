@@ -38,12 +38,15 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="w-full max-w-md bg-[#121416] border border-white/[0.08] rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
+      <div className="w-full max-w-md bg-[#121416]/92 backdrop-blur-2xl border border-white/[0.12] rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl shadow-black/90 animate-in slide-in-from-bottom-6 duration-200">
+        {/* iOS Mobile Sheet Grab Handle */}
+        <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto mt-2.5 mb-0.5 sm:hidden" />
+
         {/* Header */}
         <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-white">
+            <h3 className="text-base font-extrabold text-white tracking-tight">
               {session.routineName || 'Entrenamiento Libre'}
             </h3>
             <span className="text-[11px] text-zinc-400 font-mono capitalize">
@@ -52,65 +55,77 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white"
+            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 stroke-[2.2]" />
           </button>
         </div>
 
-        {/* Metrics Banner */}
-        <div className="grid grid-cols-3 gap-2 p-3 bg-black/40 border-b border-white/[0.04] text-center">
-          <div>
-            <span className="text-[10px] text-zinc-500 font-mono block">Duración</span>
-            <span className="text-sm font-bold text-white font-mono">{durationMin} min</span>
-          </div>
-          <div className="border-x border-white/[0.06]">
-            <span className="text-[10px] text-zinc-500 font-mono block">Tonelaje</span>
-            <span className="text-sm font-bold text-emerald-400 font-mono">
+        {/* Summary Metric Chips */}
+        <div className="grid grid-cols-3 gap-2 p-4 bg-white/[0.02] border-b border-white/[0.04] text-center font-mono">
+          <div className="p-2 rounded-2xl bg-black/40 border border-white/[0.04]">
+            <span className="text-[10px] text-zinc-500 block uppercase">Tonelaje</span>
+            <span className="text-sm font-extrabold text-emerald-400">
               {totalVolume.toLocaleString()} kg
             </span>
           </div>
-          <div>
-            <span className="text-[10px] text-zinc-500 font-mono block">Series</span>
-            <span className="text-sm font-bold text-white font-mono">{totalSets} sets</span>
+
+          <div className="p-2 rounded-2xl bg-black/40 border border-white/[0.04]">
+            <span className="text-[10px] text-zinc-500 block uppercase">Series</span>
+            <span className="text-sm font-extrabold text-white">{totalSets}</span>
+          </div>
+
+          <div className="p-2 rounded-2xl bg-black/40 border border-white/[0.04]">
+            <span className="text-[10px] text-zinc-500 block uppercase">Duración</span>
+            <span className="text-sm font-extrabold text-white">{durationMin} min</span>
           </div>
         </div>
 
-        {/* Exercises & Sets List */}
+        {/* Exercise Breakdown */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {Object.entries(session.sets).map(([exId, sets]) => {
-            const exercise = exercisesById[exId];
-            const completedSets = sets.filter((s) => s.completed);
+            const exercise = exercisesById[exId] || {
+              id: exId,
+              name: 'Ejercicio',
+              category: 'other',
+              primaryMuscle: 'chest'
+            };
+            const completedSets = sets.filter((s) => s.completed && !s.isWarmup);
 
             return (
               <div
                 key={exId}
-                className="p-3.5 rounded-2xl bg-[#181A1D] border border-white/[0.04] space-y-2.5"
+                className="p-3.5 rounded-2xl bg-black/40 border border-white/[0.04] space-y-2.5"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Dumbbell className="w-4 h-4 text-emerald-400" />
-                    <h4 className="text-sm font-bold text-white">
-                      {exercise ? exercise.name : exId}
-                    </h4>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">{exercise.name}</h4>
+                    <span className="text-[10px] font-mono capitalize text-zinc-400">
+                      {exercise.primaryMuscle}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-zinc-400 capitalize font-mono">
-                    {exercise?.primaryMuscle || ''}
+                  <span className="text-xs font-mono font-bold text-zinc-400">
+                    {completedSets.length} series
                   </span>
                 </div>
 
+                {/* Sets Table */}
                 <div className="space-y-1">
-                  {completedSets.map((s, idx) => (
+                  {sets.map((s, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between py-1 px-2.5 rounded-lg bg-black/40 text-xs font-mono"
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-mono ${
+                        s.completed
+                          ? 'bg-white/[0.03] text-zinc-200'
+                          : 'opacity-40 text-zinc-500'
+                      }`}
                     >
-                      <span className="text-zinc-500">Serie {s.setIndex}</span>
-                      <span className="text-zinc-200 font-bold">
+                      <span className="text-zinc-500 text-[11px]">S{idx + 1}</span>
+                      <span className="font-bold">
                         {s.weightKg} kg × {s.reps} reps
                       </span>
-                      <span className="text-emerald-400 text-[11px]">
-                        {s.weightKg * s.reps} kg
+                      <span className="text-[11px] text-zinc-500">
+                        {s.rir !== undefined ? `RIR ${s.rir}` : '—'}
                       </span>
                     </div>
                   ))}
@@ -118,13 +133,6 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
               </div>
             );
           })}
-
-          {session.notes && (
-            <div className="p-3 rounded-xl bg-zinc-900/80 border border-white/[0.04] text-xs text-zinc-400">
-              <span className="font-bold text-zinc-300 block mb-0.5">Notas:</span>
-              {session.notes}
-            </div>
-          )}
         </div>
       </div>
     </div>

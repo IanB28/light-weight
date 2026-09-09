@@ -46,7 +46,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </div>
 
       {/* Botón Principal de Acción Rápida: Iniciar Sesión Libre */}
-      <div className="p-5 rounded-3xl bg-gradient-to-br from-emerald-500/15 via-[#141618] to-black border border-emerald-500/30 shadow-xl space-y-3">
+      <div className="p-5 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-emerald-500/30 shadow-2xl shadow-emerald-500/10 relative overflow-hidden space-y-3">
+        {/* Hairline reflection */}
+        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 font-mono">
             SESIÓN INMEDIATA
@@ -58,14 +61,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <h2 className="text-lg font-bold text-white tracking-tight">
             ¿Listo para entrenar hoy?
           </h2>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
             Comienza sin rutinas fijas: añade cualquier ejercicio sobre la marcha y registra tus cargas.
           </p>
         </div>
 
         <button
           onClick={() => onStartWorkout()}
-          className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-black font-extrabold text-sm rounded-2xl transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.97] text-black font-extrabold text-sm rounded-2xl transition-all duration-150 shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
         >
           <Play className="w-4 h-4 fill-black stroke-black" />
           Iniciar Entrenamiento Libre
@@ -74,9 +77,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
       {/* Tarjeta de Rutina Guardada (si existe) */}
       {todayRoutine && (
-        <div className="p-4 rounded-3xl bg-[#141618] border border-white/[0.06] flex items-center justify-between shadow-xl">
+        <div className="p-4 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] flex items-center justify-between shadow-xl relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-800/80 border border-white/[0.06] flex items-center justify-center text-zinc-300">
+            <div className="w-10 h-10 rounded-2xl bg-zinc-800/80 border border-white/[0.08] flex items-center justify-center text-zinc-300">
               <Dumbbell className="w-5 h-5 stroke-[2]" />
             </div>
             <div>
@@ -93,7 +97,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
           <button
             onClick={() => onStartWorkout(todayRoutine.id)}
-            className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-white font-bold text-xs tracking-tight transition-all border border-white/[0.08]"
+            className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-[0.94] text-white font-bold text-xs tracking-tight transition-all duration-150 border border-white/[0.08] cursor-pointer"
           >
             Cargar
           </button>
@@ -102,7 +106,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
       {/* Resumen de Último Entrenamiento */}
       {lastSession && (
-        <div className="p-5 rounded-3xl bg-[#141618] border border-white/[0.06] shadow-xl space-y-3">
+        <div className="p-5 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] shadow-xl space-y-3 relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-zinc-400 flex items-center gap-1.5">
               <Flame className="w-4 h-4 text-amber-500" />
@@ -121,7 +126,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {Object.keys(lastSession.sets).map((exId) => (
                 <span
                   key={exId}
-                  className="px-2 py-0.5 rounded-md text-[10px] bg-zinc-800/80 text-zinc-300 border border-white/[0.04] font-mono"
+                  className="px-2 py-0.5 rounded-md text-[10px] bg-zinc-800/80 text-zinc-300 border border-white/[0.06] font-mono"
                 >
                   {exId.replace('ex-', '')}: {lastSession.sets[exId].filter((s) => s.completed).length} sets
                 </span>
@@ -131,7 +136,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
           <button
             onClick={onNavigateToStats}
-            className="text-xs text-emerald-400 font-semibold hover:underline block pt-1"
+            className="text-xs text-emerald-400 font-semibold hover:underline block pt-1 active:scale-[0.98] transition-transform w-fit"
           >
             Ver analíticas y récords →
           </button>

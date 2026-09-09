@@ -38,101 +38,83 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="w-full max-w-sm bg-[#121416] border border-white/[0.08] rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
+      <div className="w-full max-w-sm bg-[#121416]/92 backdrop-blur-2xl border border-white/[0.12] rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl shadow-black/90 animate-in slide-in-from-bottom-6 duration-200">
+        {/* iOS Mobile Sheet Grab Handle */}
+        <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto -mt-1 mb-1 sm:hidden" />
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Scale className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-base font-bold text-white">Peso Corporal</h3>
+            <h3 className="text-base font-extrabold text-white tracking-tight">Peso Corporal</h3>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white"
+            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 stroke-[2.2]" />
           </button>
         </div>
 
-        {/* Tab switch: [ Registrar Pesaje | Meta ] */}
-        <div className="p-1 rounded-xl bg-zinc-900 border border-white/[0.04] grid grid-cols-2 gap-1 text-xs">
+        {/* Mode switcher */}
+        <div className="p-1 rounded-2xl bg-white/[0.04] border border-white/[0.06] grid grid-cols-2 gap-1 text-xs">
           <button
             type="button"
             onClick={() => setActiveMode('log')}
-            className={`py-1.5 rounded-lg font-bold transition-all ${
+            className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 active:scale-[0.96] transition-all cursor-pointer ${
               activeMode === 'log'
-                ? 'bg-zinc-800 text-white shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-300'
+                ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
+            <Scale className="w-3.5 h-3.5" />
             Registrar Hoy
           </button>
           <button
             type="button"
             onClick={() => setActiveMode('goal')}
-            className={`py-1.5 rounded-lg font-bold transition-all ${
+            className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 active:scale-[0.96] transition-all cursor-pointer ${
               activeMode === 'goal'
-                ? 'bg-zinc-800 text-white shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-300'
+                ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Definir Meta
+            <Target className="w-3.5 h-3.5" />
+            Meta de Peso
           </button>
         </div>
 
-        {/* Input Form */}
-        {activeMode === 'log' ? (
-          <div className="space-y-2">
-            <label className="text-xs text-zinc-400 block">Peso actual (kg):</label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.1"
-                inputMode="decimal"
-                value={weightInput}
-                onChange={(e) => setWeightInput(e.target.value)}
-                autoFocus
-                className="w-full py-3 px-4 rounded-2xl bg-zinc-900 border border-white/[0.08] text-2xl font-bold font-mono text-white text-center focus:outline-none focus:border-emerald-500"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-500">
-                kg
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-500 text-center">
-              Pésate en ayunas y a la misma hora para mayor consistencia.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <label className="text-xs text-zinc-400 block">Peso objetivo / meta (kg):</label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.5"
-                inputMode="decimal"
-                value={goalInput}
-                onChange={(e) => setGoalInput(e.target.value)}
-                autoFocus
-                className="w-full py-3 px-4 rounded-2xl bg-zinc-900 border border-white/[0.08] text-2xl font-bold font-mono text-amber-400 text-center focus:outline-none focus:border-amber-500"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-500">
-                kg
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-500 text-center">
-              Esta meta se reflejará como la línea dorada de referencia en tus gráficas.
-            </p>
-          </div>
-        )}
+        {/* Input Box */}
+        <div className="p-4 rounded-2xl bg-black/50 border border-white/[0.06] text-center space-y-2">
+          <label className="text-xs text-zinc-400 uppercase font-mono tracking-wider block">
+            {activeMode === 'log' ? 'Pesaje actual (kg)' : 'Peso objetivo / meta (kg)'}
+          </label>
 
-        {/* Submit Button */}
+          <div className="flex items-center justify-center gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={activeMode === 'log' ? weightInput : goalInput}
+              onChange={(e) => {
+                if (activeMode === 'log') setWeightInput(e.target.value);
+                else setGoalInput(e.target.value);
+              }}
+              className="w-32 text-center text-4xl font-extrabold font-mono text-white bg-transparent border-b-2 border-emerald-500 focus:outline-none tabular-nums pb-1"
+              autoFocus
+            />
+            <span className="text-xl font-bold text-zinc-500 font-mono">kg</span>
+          </div>
+        </div>
+
+        {/* Action Button */}
         <button
           type="button"
           onClick={handleSave}
-          className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 transition-all active:scale-98 shadow-lg shadow-emerald-500/20"
+          className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.97] text-black font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/25 cursor-pointer"
         >
           <Check className="w-4 h-4 stroke-[3]" />
-          <span>Guardar {activeMode === 'log' ? 'Pesaje' : 'Meta'}</span>
+          {activeMode === 'log' ? 'Guardar Registro' : 'Actualizar Meta'}
         </button>
       </div>
     </div>

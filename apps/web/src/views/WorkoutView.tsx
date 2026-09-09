@@ -69,10 +69,10 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   return (
     <div className="space-y-4 pb-36">
       {/* openGym Workout Header */}
-      <div className="flex items-center justify-between pt-1 sticky top-0 bg-black/90 backdrop-blur-md z-20 py-2 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between sticky top-0 bg-black/75 backdrop-blur-2xl z-20 py-2.5 border-b border-white/[0.08] shadow-lg shadow-black/40">
         <button
           onClick={onCancelWorkout}
-          className="w-9 h-9 rounded-full bg-zinc-900 border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-colors active:scale-95"
+          className="w-9 h-9 rounded-full bg-zinc-900/80 backdrop-blur-md border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-all active:scale-[0.92] cursor-pointer"
           title="Descartar sesión"
         >
           <X className="w-4 h-4" />
@@ -87,7 +87,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
         <button
           onClick={onFinishWorkout}
-          className="px-3 py-1.5 rounded-full bg-emerald-500 text-black font-bold text-xs flex items-center gap-1 hover:bg-emerald-400 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+          className="px-3.5 py-1.5 rounded-full bg-emerald-500 text-black font-bold text-xs flex items-center gap-1 hover:bg-emerald-400 transition-all active:scale-[0.92] shadow-lg shadow-emerald-500/20 cursor-pointer"
           title="Terminar entrenamiento"
         >
           <Check className="w-4 h-4 stroke-[3]" />
@@ -157,7 +157,9 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
               </div>
 
               {/* openGym Table: WEIGHT (KG) | REPS | RIR | CHECK */}
-              <div className="p-3.5 rounded-3xl bg-[#141618] border border-white/[0.06] shadow-xl space-y-2">
+              <div className="p-3.5 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] shadow-xl relative overflow-hidden space-y-2">
+                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+
                 <div className="grid grid-cols-12 gap-1 text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-1 text-center pb-1">
                   <span className="col-span-1">#</span>
                   <span className="col-span-4">PESO (KG)</span>
@@ -362,7 +364,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onAddSet(exercise.id)}
-                  className="w-full py-2.5 rounded-2xl bg-zinc-900/90 border border-white/[0.06] text-xs font-bold text-emerald-400 hover:bg-zinc-800 transition-all active:scale-98 flex items-center justify-center gap-1.5 mt-1"
+                  className="w-full py-2.5 rounded-2xl bg-zinc-900/90 border border-white/[0.08] text-xs font-bold text-emerald-400 hover:bg-zinc-800 transition-all duration-150 active:scale-[0.97] flex items-center justify-center gap-1.5 mt-1 cursor-pointer"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
                   Agregar Serie Efectiva
@@ -378,7 +380,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         <button
           type="button"
           onClick={() => setIsAddModalOpen(true)}
-          className="w-full py-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-sm hover:bg-emerald-500/20 transition-all active:scale-98 flex items-center justify-center gap-2"
+          className="w-full py-3.5 rounded-2xl bg-emerald-500/10 backdrop-blur-xl border border-emerald-500/30 text-emerald-400 font-bold text-sm hover:bg-emerald-500/20 transition-all duration-150 active:scale-[0.98] shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer"
         >
           <Plus className="w-5 h-5 stroke-[2.5]" />
           Agregar Ejercicio a la Sesión
