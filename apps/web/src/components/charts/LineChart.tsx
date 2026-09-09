@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 
 export interface ChartPoint {
   t: number;        // timestamp in ms
@@ -18,20 +18,25 @@ interface LineChartProps {
 
 export const LineChart: React.FC<LineChartProps> = ({
   points,
-  height = 160,
+  height = 140,
   unit = 'kg',
-  color = '#10B981', // Emerald 500
+  color = '#007aff',
   goal = null,
   invertY = false
 }) => {
   const [activePoint, setActivePoint] = useState<ChartPoint | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  if (!points || points.length === 0) {
+  const sorted = useMemo(() => {
+    if (!points || points.length === 0) return [];
+    return [...points].sort((a, b) => a.t - b.t);
+  }, [points]);
+
+  if (!sorted || sorted.length === 0) {
     return (
       <div
         style={{ height }}
-        className="flex items-center justify-center text-xs text-zinc-500 font-mono bg-black/30 rounded-2xl border border-white/[0.04]"
+        className="flex items-center justify-center text-xs text-zinc-600 font-normal bg-black/20 rounded-2xl border border-white/[0.03]"
       >
         Sin registros suficientes para graficar
       </div>
@@ -40,10 +45,9 @@ export const LineChart: React.FC<LineChartProps> = ({
 
   const W = 360;
   const H = height;
-  const padding = { top: 16, bottom: 26, left: 36, right: 16 };
+  const padding = { top: 12, bottom: 24, left: 34, right: 28 };
 
   // Calculate min and max
-  const sorted = [...points].sort((a, b) => a.t - b.t);
   const ys = sorted.map((p) => p.y);
   let minY = Math.min(...ys);
   let maxY = Math.max(...ys);
@@ -59,8 +63,8 @@ export const LineChart: React.FC<LineChartProps> = ({
   }
 
   const yRange = maxY - minY;
-  minY -= yRange * 0.1;
-  maxY += yRange * 0.1;
+  minY -= yRange * 0.12;
+  maxY += yRange * 0.12;
 
   const t0 = sorted[0].t;
   const t1 = sorted[sorted.length - 1].t === t0 ? t0 + 86400000 : sorted[sorted.length - 1].t;
@@ -77,22 +81,44 @@ export const LineChart: React.FC<LineChartProps> = ({
 
   const pathPoints = sorted.map((p) => `${getX(p.t).toFixed(1)},${getY(p.y).toFixed(1)}`).join(' ');
 
-  // Generate 3 horizontal guide lines
-  const gridSteps = [minY, minY + (maxY - minY) * 0.5, maxY];
+  // 3 horizontal guide lines: min, mid, max
+  const midYVal = minY + (maxY - minY) * 0.5;
+  const gridSteps = [maxY - yRange * 0.15, midYVal, minY + yRange * 0.15];
+
+  // Month labels at the bottom: 3 evenly spaced month marks
+  const monthLabels = useMemo(() => {
+    const d0 = new Date(t0);
+    const d1 = new Date(t1);
+    const m0 = d0.toLocaleDateString('es-ES', { month: 'short' });
+    const mMid = new Date((t0 + t1) / 2).toLocaleDateString('es-ES', { month: 'short' });
+    const m1 = d1.toLocaleDateString('es-ES', { month: 'short' });
+
+    // Capitalize first letter
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace('.', '');
+    return [
+      { text: cap(m0), x: padding.left + 30 },
+      { text: cap(mMid), x: W / 2 },
+      { text: cap(m1), x: W - padding.right - 20 }
+    ];
+  }, [t0, t1, W, padding]);
+
+  const latestPoint = sorted[sorted.length - 1];
 
   return (
     <div className="relative w-full select-none" ref={containerRef}>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto overflow-visible">
         <defs>
-          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <linearGradient id="openGymChartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.30" />
+            <stop offset="60%" stopColor={color} stopOpacity="0.08" />
             <stop offset="100%" stopColor={color} stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
-        {/* Gridlines */}
+        {/* Dotted Gridlines with left labels */}
         {gridSteps.map((val, idx) => {
           const y = getY(val);
+          const formatted = (Math.round(val * 2) / 2).toString().replace('.', ',');
           return (
             <g key={idx}>
               <line
@@ -100,9 +126,9 @@ export const LineChart: React.FC<LineChartProps> = ({
                 y1={y}
                 x2={W - padding.right}
                 y2={y}
-                stroke="rgba(255, 255, 255, 0.06)"
+                stroke="rgba(255, 255, 255, 0.08)"
                 strokeWidth="1"
-                strokeDasharray="2 3"
+                strokeDasharray="1 4"
               />
               <text
                 x={padding.left - 6}
@@ -110,15 +136,15 @@ export const LineChart: React.FC<LineChartProps> = ({
                 textAnchor="end"
                 fontSize="9"
                 fill="#71717A"
-                className="font-mono tabular-nums"
+                className="font-normal"
               >
-                {Math.round(val * 10) / 10}
+                {formatted}
               </text>
             </g>
           );
         })}
 
-        {/* Goal line (dotted gold/amber) */}
+        {/* Dashed Yellow Goal Line with label on right */}
         {goal !== null && (
           <g>
             <line
@@ -126,19 +152,19 @@ export const LineChart: React.FC<LineChartProps> = ({
               y1={getY(goal)}
               x2={W - padding.right}
               y2={getY(goal)}
-              stroke="#F59E0B"
+              stroke="#FACC15"
               strokeWidth="1.5"
               strokeDasharray="4 4"
             />
             <text
-              x={W - padding.right}
-              y={getY(goal) - 4}
-              textAnchor="end"
-              fontSize="9"
-              fill="#F59E0B"
-              className="font-mono font-bold"
+              x={W - padding.right + 4}
+              y={getY(goal) + 3}
+              textAnchor="start"
+              fontSize="10"
+              fill="#FACC15"
+              fontWeight="bold"
             >
-              Meta {goal} {unit}
+              {goal.toString().replace('.', ',')}
             </text>
           </g>
         )}
@@ -151,11 +177,11 @@ export const LineChart: React.FC<LineChartProps> = ({
               ${pathPoints}
               ${getX(sorted[sorted.length - 1].t).toFixed(1)},${H - padding.bottom}
             `}
-            fill="url(#chartGrad)"
+            fill="url(#openGymChartGrad)"
           />
         )}
 
-        {/* Line Curve */}
+        {/* Continuous Line Curve */}
         {sorted.length > 1 ? (
           <polyline
             points={pathPoints}
@@ -172,12 +198,26 @@ export const LineChart: React.FC<LineChartProps> = ({
             x2={W - padding.right}
             y2={getY(sorted[0].y)}
             stroke={color}
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeDasharray="3 3"
           />
         )}
 
-        {/* Dots */}
+        {/* Latest Point: Distinctive Blue Dot with White ring (openGym style) */}
+        {latestPoint && (
+          <g>
+            <circle
+              cx={getX(latestPoint.t)}
+              cy={getY(latestPoint.y)}
+              r="4.5"
+              fill={color}
+              stroke="#FFFFFF"
+              strokeWidth="2"
+            />
+          </g>
+        )}
+
+        {/* Interactive hover/touch dots */}
         {sorted.map((p, idx) => {
           const cx = getX(p.t);
           const cy = getY(p.y);
@@ -188,43 +228,52 @@ export const LineChart: React.FC<LineChartProps> = ({
               className="cursor-pointer"
               onClick={() => setActivePoint(isSelected ? null : p)}
             >
+              {isSelected && (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r="6"
+                  fill="#FFFFFF"
+                  stroke={color}
+                  strokeWidth="2"
+                />
+              )}
+              {/* Invisible touch target */}
               <circle
                 cx={cx}
                 cy={cy}
-                r={isSelected ? 6 : 4}
-                fill={isSelected ? '#FFFFFF' : color}
-                stroke="#000000"
-                strokeWidth="2"
-                className="transition-all"
-              />
-              {/* Invisible large touch target */}
-              <circle
-                cx={cx}
-                cy={cy}
-                r="16"
+                r="18"
                 fill="transparent"
               />
             </g>
           );
         })}
+
+        {/* X-axis month labels */}
+        {monthLabels.map((m, i) => (
+          <text
+            key={i}
+            x={m.x}
+            y={H - 4}
+            textAnchor="middle"
+            fontSize="10"
+            fill="#71717A"
+            className="font-normal"
+          >
+            {m.text}
+          </text>
+        ))}
       </svg>
 
-      {/* Tooltip Card */}
+      {/* Tooltip Card when tapped */}
       {activePoint && (
-        <div className="mt-2 p-2 px-3 rounded-xl bg-zinc-900 border border-white/[0.1] text-xs flex items-center justify-between shadow-lg animate-in fade-in duration-150">
-          <div>
-            <span className="text-[10px] text-zinc-400 font-mono block">
-              {activePoint.dateStr || new Date(activePoint.t).toLocaleDateString('es-ES')}
-            </span>
-            {activePoint.label && (
-              <span className="text-zinc-300 font-medium text-[11px]">{activePoint.label}</span>
-            )}
-          </div>
-          <div className="text-right">
-            <span className="font-mono font-bold text-white text-sm">
-              {activePoint.y} {unit}
-            </span>
-          </div>
+        <div className="mt-1 p-2 px-3 rounded-xl bg-zinc-900/90 border border-white/[0.08] text-xs flex items-center justify-between shadow-lg backdrop-blur-md">
+          <span className="text-[10px] text-zinc-400">
+            {activePoint.dateStr || new Date(activePoint.t).toLocaleDateString('es-ES')}
+          </span>
+          <span className="font-bold text-white text-xs">
+            {activePoint.y.toString().replace('.', ',')} {unit}
+          </span>
         </div>
       )}
     </div>

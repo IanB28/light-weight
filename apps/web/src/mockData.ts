@@ -1,77 +1,4 @@
-﻿import { Exercise, Routine, WorkoutSession } from '@light-weight/domain';
-
-export const INITIAL_EXERCISES: Exercise[] = [
-  {
-    id: 'ex-bench',
-    name: 'Press de Banca Plano',
-    category: 'barbell',
-    primaryMuscle: 'chest',
-    secondaryMuscles: ['triceps', 'shoulders']
-  },
-  {
-    id: 'ex-incline-db',
-    name: 'Press Inclinado con Mancuernas',
-    category: 'dumbbell',
-    primaryMuscle: 'chest',
-    secondaryMuscles: ['shoulders', 'triceps']
-  },
-  {
-    id: 'ex-squat',
-    name: 'Sentadilla Trasera con Barra',
-    category: 'barbell',
-    primaryMuscle: 'quadriceps',
-    secondaryMuscles: ['glutes', 'core']
-  },
-  {
-    id: 'ex-rdl',
-    name: 'Peso Muerto Rumano (RDL)',
-    category: 'barbell',
-    primaryMuscle: 'hamstrings',
-    secondaryMuscles: ['glutes', 'back']
-  },
-  {
-    id: 'ex-pullup',
-    name: 'Dominadas Pronas / Lastradas',
-    category: 'bodyweight',
-    primaryMuscle: 'back',
-    secondaryMuscles: ['biceps', 'forearms']
-  },
-  {
-    id: 'ex-ohp',
-    name: 'Press Militar de Pie (OHP)',
-    category: 'barbell',
-    primaryMuscle: 'shoulders',
-    secondaryMuscles: ['triceps', 'core']
-  },
-  {
-    id: 'ex-lat-pulldown',
-    name: 'Jalón al Pecho en Polea',
-    category: 'cable',
-    primaryMuscle: 'back',
-    secondaryMuscles: ['biceps']
-  },
-  {
-    id: 'ex-bicep-curl',
-    name: 'Curl de Bíceps con Barra Z',
-    category: 'barbell',
-    primaryMuscle: 'biceps',
-    secondaryMuscles: ['forearms']
-  },
-  {
-    id: 'ex-tricep-pushdown',
-    name: 'Extensión de Tríceps en Polea',
-    category: 'cable',
-    primaryMuscle: 'triceps',
-    secondaryMuscles: []
-  },
-  {
-    id: 'ex-leg-raise',
-    name: 'Elevaciones de Piernas Colgado',
-    category: 'bodyweight',
-    primaryMuscle: 'core',
-    secondaryMuscles: []
-  }
-];
+import { Routine, WorkoutSession } from '@light-weight/domain';
 
 export const INITIAL_ROUTINES: Routine[] = [
   {
@@ -97,14 +24,19 @@ export const INITIAL_ROUTINES: Routine[] = [
   }
 ];
 
-export const RECENT_SESSIONS: WorkoutSession[] = [
-  {
-    id: 'sess-101',
+const generateHistory = (): WorkoutSession[] => {
+  const sessions: WorkoutSession[] = [];
+  const now = Date.now();
+
+  // 1. Sesión Lunes Sep 7 (2 días atrás)
+  sessions.push({
+    id: 'sess-sep-7',
     userId: 'user-operator',
     routineId: 'rt-upper',
-    startedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    endedAt: new Date(Date.now() - 86400000 * 2 + 4200000).toISOString(),
-    notes: 'Excelente sesión. Se superó el umbral en Banca a 85kg.',
+    routineName: 'Torso: Potencia e Hipertrofia',
+    startedAt: new Date(now - 86400000 * 2).toISOString(),
+    endedAt: new Date(now - 86400000 * 2 + 3720000).toISOString(), // 62 min
+    notes: 'Excelente sesión en banca y jalón.',
     sets: {
       'ex-bench': [
         { setIndex: 1, weightKg: 80, reps: 8, completed: true, isWarmup: false, rpe: 8 },
@@ -113,8 +45,95 @@ export const RECENT_SESSIONS: WorkoutSession[] = [
       ],
       'ex-lat-pulldown': [
         { setIndex: 1, weightKg: 70, reps: 10, completed: true, isWarmup: false, rpe: 8 },
-        { setIndex: 2, weightKg: 75, reps: 9, completed: true, isWarmup: false, rpe: 9 }
+        { setIndex: 2, weightKg: 75, reps: 9, completed: true, isWarmup: false, rpe: 9 },
+        { setIndex: 3, weightKg: 75, reps: 8, completed: true, isWarmup: false, rpe: 9.5 }
+      ],
+      'ex-ohp': [
+        { setIndex: 1, weightKg: 50, reps: 8, completed: true, isWarmup: false, rpe: 8 },
+        { setIndex: 2, weightKg: 52.5, reps: 7, completed: true, isWarmup: false, rpe: 8.5 },
+        { setIndex: 3, weightKg: 52.5, reps: 6, completed: true, isWarmup: false, rpe: 9 }
       ]
     }
+  });
+
+  // 2. Sesión Viernes Sep 4 (5 días atrás)
+  sessions.push({
+    id: 'sess-sep-4',
+    userId: 'user-operator',
+    routineId: 'rt-push',
+    routineName: 'Empuje: Pecho & Hombro',
+    startedAt: new Date(now - 86400000 * 5).toISOString(),
+    endedAt: new Date(now - 86400000 * 5 + 3600000).toISOString(), // 60 min
+    notes: 'Press plano y mancuernas.',
+    sets: {
+      'ex-bench': [
+        { setIndex: 1, weightKg: 77.5, reps: 10, completed: true, isWarmup: false },
+        { setIndex: 2, weightKg: 80, reps: 8, completed: true, isWarmup: false },
+        { setIndex: 3, weightKg: 82.5, reps: 8, completed: true, isWarmup: false }
+      ],
+      'ex-incline-db': [
+        { setIndex: 1, weightKg: 30, reps: 10, completed: true, isWarmup: false },
+        { setIndex: 2, weightKg: 32, reps: 8, completed: true, isWarmup: false }
+      ],
+      'ex-tricep-pushdown': [
+        { setIndex: 1, weightKg: 35, reps: 12, completed: true, isWarmup: false },
+        { setIndex: 2, weightKg: 40, reps: 10, completed: true, isWarmup: false }
+      ]
+    }
+  });
+
+  // 3. Sesión Miércoles Sep 2 (7 días atrás)
+  sessions.push({
+    id: 'sess-sep-2',
+    userId: 'user-operator',
+    routineId: 'rt-lower',
+    routineName: 'Pierna: Fuerza Base',
+    startedAt: new Date(now - 86400000 * 7).toISOString(),
+    endedAt: new Date(now - 86400000 * 7 + 3780000).toISOString(), // 63 min
+    notes: 'Sentadilla pesada y RDL.',
+    sets: {
+      'ex-squat': [
+        { setIndex: 1, weightKg: 100, reps: 8, completed: true, isWarmup: false },
+        { setIndex: 2, weightKg: 105, reps: 8, completed: true, isWarmup: false },
+        { setIndex: 3, weightKg: 110, reps: 6, completed: true, isWarmup: false }
+      ],
+      'ex-rdl': [
+        { setIndex: 1, weightKg: 90, reps: 10, completed: true, isWarmup: false },
+        { setIndex: 2, weightKg: 95, reps: 8, completed: true, isWarmup: false }
+      ]
+    }
+  });
+
+  // Sesiones adicionales en semanas anteriores (hasta 13 semanas de racha y 33 entrenamientos)
+  let count = 3;
+  for (let week = 2; week <= 13; week++) {
+    const sessionsInWeek = (week % 2 === 0 || count < 25) ? 3 : 2;
+    for (let s = 0; s < sessionsInWeek; s++) {
+      if (count >= 33) break;
+      const daysAgo = week * 7 + s * 2;
+      sessions.push({
+        id: `sess-past-w${week}-${s}`,
+        userId: 'user-operator',
+        routineId: s === 0 ? 'rt-upper' : s === 1 ? 'rt-lower' : 'rt-push',
+        routineName: s === 0 ? 'Torso: Potencia' : s === 1 ? 'Pierna Base' : 'Empuje',
+        startedAt: new Date(now - 86400000 * daysAgo).toISOString(),
+        endedAt: new Date(now - 86400000 * daysAgo + 3600000).toISOString(),
+        sets: {
+          'ex-bench': [
+            { setIndex: 1, weightKg: 75, reps: 8, completed: true, isWarmup: false },
+            { setIndex: 2, weightKg: 77.5, reps: 8, completed: true, isWarmup: false }
+          ],
+          'ex-squat': [
+            { setIndex: 1, weightKg: 95, reps: 8, completed: true, isWarmup: false },
+            { setIndex: 2, weightKg: 100, reps: 6, completed: true, isWarmup: false }
+          ]
+        }
+      });
+      count++;
+    }
   }
-];
+
+  return sessions;
+};
+
+export const RECENT_SESSIONS: WorkoutSession[] = generateHistory();

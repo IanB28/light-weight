@@ -23,7 +23,10 @@ import {
   getPreviousPerformance,
   getExerciseProgressSeries,
   getNeglectedMuscles,
-  calculateMuscleFatigue
+  calculateMuscleFatigue,
+  calculateWeeklyStreak,
+  weekKey,
+  getWorkoutsThisWeek
 } from './history.js';
 import { evaluateRelativeStrength } from './strengthStandards.js';
 import type { LoggedSet, WorkoutSession } from './types.js';
@@ -209,5 +212,31 @@ test('evaluateRelativeStrength StrengthLevel gamification and gender standards',
   assert.equal(eliteEval.tier, 'elite');
   assert.equal(eliteEval.nextTier, null);
   assert.equal(eliteEval.emoji, '💎');
+});
+
+test('calculateWeeklyStreak and weekKey calculation', () => {
+  const now = new Date();
+  const week1 = new Date(now.getTime() - 86400000 * 2).toISOString(); // this week
+  const week2 = new Date(now.getTime() - 86400000 * 9).toISOString(); // last week
+  const week3 = new Date(now.getTime() - 86400000 * 16).toISOString(); // 2 weeks ago
+
+  const mockHistory: WorkoutSession[] = [
+    { id: '1', userId: 'u', routineName: 'R1', startedAt: week1, sets: {} },
+    { id: '2', userId: 'u', routineName: 'R2', startedAt: week2, sets: {} },
+    { id: '3', userId: 'u', routineName: 'R3', startedAt: week3, sets: {} }
+  ];
+
+  const streak = calculateWeeklyStreak(mockHistory);
+  assert.equal(streak, 3);
+
+  // Empty history returns 0
+  assert.equal(calculateWeeklyStreak([]), 0);
+
+  // Week key format check
+  assert.match(weekKey(week1), /^\d{4}-\d+$/);
+
+  // Workouts this week
+  const thisWeekSessions = getWorkoutsThisWeek(mockHistory);
+  assert.equal(thisWeekSessions.length, 1);
 });
 

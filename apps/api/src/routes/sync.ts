@@ -7,17 +7,36 @@ import {
   bodyweightLogs,
   userProfiles,
   exercises,
-  routines
+  routines,
+  users
 } from '../db/schema.js';
 import { estimateOneRm } from '@light-weight/domain';
 import { eq, desc } from 'drizzle-orm';
 
 export const syncRouter: Router = Router();
 
+function toValidUuid(rawId?: string | null): string {
+  if (!rawId) return '00000000-0000-4000-8000-000000000000';
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(rawId)) return rawId;
+  let hash = 0;
+  for (let i = 0; i < rawId.length; i++) {
+    hash = ((hash << 5) - hash) + rawId.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(12, '0');
+  return `00000000-0000-4000-8000-${hex.slice(0, 12)}`;
+}
+
 // POST /api/sync - Sincronización en lote de entrenamientos (Offline-First)
 syncRouter.post('/', async (req, res) => {
   try {
-    const { userId = '00000000-0000-0000-0000-000000000001', sessions = [], bodyweightLogs: bLogs = [] } = req.body;
+    const {
+      userId = '00000000-0000-0000-0000-000000000001',
+      sessions = [],
+      bodyweightLogs: bLogs = [],
+      routines: incomingRoutines = []
+    } = req.body;
 
     const syncedSessionIds: string[] = [];
 
@@ -39,9 +58,35 @@ syncRouter.post('/', async (req, res) => {
         .where(eq(userProfiles.userId, userId));
     }
 
-    // 2. Procesar y persistir sesiones de entrenamiento en lote
+    // 2. Sincronizar rutinas si se incluyen
+    for (const r of incomingRoutines) {
+      if (!r.name) continue;
+      const rUuid = toValidUuid(r.id);
+      await db
+        .insert(routines)
+        .values({
+          id: rUuid,
+          userId,
+          name: r.name,
+          description: r.description || null,
+          exerciseIds: r.exerciseIds || [],
+        })
+        .onConflictDoUpdate({
+          target: routines.id,
+          set: {
+            name: r.name,
+            description: r.description || null,
+            exerciseIds: r.exerciseIds || [],
+            updatedAt: new Date(),
+          },
+        });
+    }
+
+    // 3. Procesar y persistir sesiones de entrenamiento en lote
     for (const session of sessions) {
       const { id, routineId, routineName, startedAt, endedAt, notes, sets = {} } = session;
+      const sessionUuid = toValidUuid(id);
+      const routineUuid = routineId ? toValidUuid(routineId) : null;
 
       // Calcular volumen total
       let totalVolume = 0;
@@ -57,9 +102,9 @@ syncRouter.post('/', async (req, res) => {
       await db
         .insert(workoutSessions)
         .values({
-          id,
+          id: sessionUuid,
           userId,
-          routineId: routineId || null,
+          routineId: routineUuid,
           routineName: routineName || null,
           startedAt: new Date(startedAt),
           endedAt: endedAt ? new Date(endedAt) : null,
@@ -77,15 +122,30 @@ syncRouter.post('/', async (req, res) => {
           },
         });
 
+      // Limpiar series previas para garantizar idempotencia en re-sincronizaciones
+      await db.delete(loggedSets).where(eq(loggedSets.sessionId, sessionUuid));
+
       // Insertar series asociadas
       for (const [exerciseId, exerciseSets] of Object.entries(sets) as [string, any[]][]) {
+        // Garantizar que el ejercicio exista en Postgres para no violar FK
+        await db
+          .insert(exercises)
+          .values({
+            id: exerciseId,
+            name: exerciseId,
+            category: 'other',
+            primaryMuscle: 'core',
+            isCustom: true,
+          })
+          .onConflictDoNothing();
+
         for (const s of exerciseSets) {
           const est1Rm = s.completed && s.weightKg > 0 && s.reps > 0
             ? estimateOneRm(Number(s.weightKg), Number(s.reps)).average
             : null;
 
           await db.insert(loggedSets).values({
-            sessionId: id,
+            sessionId: sessionUuid,
             exerciseId,
             setIndex: s.setIndex,
             weightKg: String(s.weightKg),
@@ -114,7 +174,7 @@ syncRouter.post('/', async (req, res) => {
                     bestWeightKg: String(s.weightKg),
                     bestReps: s.reps,
                     achievedAt: new Date(startedAt),
-                    sessionId: id,
+                    sessionId: sessionUuid,
                   })
                   .where(eq(personalRecords.id, existingPr.id));
               } else {
@@ -125,7 +185,7 @@ syncRouter.post('/', async (req, res) => {
                   bestWeightKg: String(s.weightKg),
                   bestReps: s.reps,
                   achievedAt: new Date(startedAt),
-                  sessionId: id,
+                  sessionId: sessionUuid,
                 });
               }
             }
@@ -133,7 +193,7 @@ syncRouter.post('/', async (req, res) => {
         }
       }
 
-      syncedSessionIds.push(id);
+      syncedSessionIds.push(sessionUuid);
     }
 
     // Retornar confirmación y récords actualizados
@@ -155,10 +215,34 @@ syncRouter.post('/', async (req, res) => {
   }
 });
 
+// GET /api/sync/user?userId=... - Obtener usuario de la base de datos
+syncRouter.get('/user', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string) || '00000000-0000-0000-0000-000000000001';
+    const userRecord = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .then((res) => res[0] || null);
+
+    res.json({ user: userRecord });
+  } catch (error: any) {
+    console.error('[Sync User Error]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/sync/pull?userId=... - Hidratación inicial del cliente
 syncRouter.get('/pull', async (req, res) => {
   try {
     const userId = (req.query.userId as string) || '00000000-0000-0000-0000-000000000001';
+
+    // 0. Usuario de la base de datos
+    const userRecord = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .then((res) => res[0] || null);
 
     // 1. Perfil del usuario
     const profile = await db
@@ -222,6 +306,7 @@ syncRouter.get('/pull', async (req, res) => {
       .where(eq(personalRecords.userId, userId));
 
     res.json({
+      user: userRecord,
       profile,
       routines: userRoutines,
       history: historyWithSets,

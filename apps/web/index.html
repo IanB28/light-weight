@@ -1,12 +1,23 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>light-weight | Private Gym Tracker</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>LightWeight | Gym Tracker</title>
+    
+    <!-- PWA Primary Tags -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Gym Tracker Privado, Fisiológico y Offline-First" />
+    
+    <!-- Apple iOS PWA Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LightWeight" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
   </head>
-  <body class="bg-zinc-950 text-zinc-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-white">
+  <body class="bg-black text-zinc-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-black">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

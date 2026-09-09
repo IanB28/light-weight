@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header.js';
 import { BottomNav, TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
+import { BackupModal } from './components/BackupModal.js';
 import { HomeView } from './views/HomeView.js';
 import { WorkoutView, ActiveExerciseSession } from './views/WorkoutView.js';
 import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
-import { INITIAL_EXERCISES } from './mockData.js';
+import { CATALOG_EXERCISES } from './lib/exercises.js';
 import { Routine, Exercise, WorkoutSession, MuscleGroup, getPreviousPerformance } from '@light-weight/domain';
 import {
   getStoredHistory,
@@ -16,15 +16,33 @@ import {
   saveActiveWorkout,
   clearActiveWorkout,
   getStoredRoutines,
-  calculateAllPersonalRecords
+  saveStoredRoutines,
+  calculateAllPersonalRecords,
+  getStoredWeeklySchedule,
+  saveStoredWeeklySchedule,
+  getStoredBodyweight,
+  saveBodyweightEntry,
+  getStoredTargetWeight,
+  saveStoredTargetWeight,
+  WeeklySchedule,
+  BodyweightEntry,
+  getStoredUserInfo,
+  UserInfo
 } from './lib/storage.js';
 import { requestWakeLock, releaseWakeLock } from './lib/wakelock.js';
+import { syncWithCloud, pullFromCloud, fetchUserFromCloud } from './lib/sync.js';
+import { initTheme } from './lib/theme.js';
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
-  const [exercises, setExercises] = useState<Exercise[]>(INITIAL_EXERCISES);
+  const [exercises, setExercises] = useState<Exercise[]>(CATALOG_EXERCISES);
   const [routines, setRoutines] = useState<Routine[]>(getStoredRoutines());
   const [history, setHistory] = useState<WorkoutSession[]>(getStoredHistory());
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(getStoredWeeklySchedule());
+  const [bodyweightEntries, setBodyweightEntries] = useState<BodyweightEntry[]>(getStoredBodyweight());
+  const [targetWeight, setTargetWeight] = useState<number | null>(getStoredTargetWeight());
+  const [userInfo, setUserInfo] = useState<UserInfo>(getStoredUserInfo());
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
   // Workout Session State
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
@@ -37,8 +55,26 @@ export function App() {
   const [restSecondsLeft, setRestSecondsLeft] = useState<number>(0);
   const [restTotalSeconds, setRestTotalSeconds] = useState<number>(90);
 
+  // Background hydration from Neon PostgreSQL on initial load
+  useEffect(() => {
+    pullFromCloud().then((success) => {
+      if (success) {
+        setHistory(getStoredHistory());
+        setRoutines(getStoredRoutines());
+        setUserInfo(getStoredUserInfo());
+      }
+    });
+
+    fetchUserFromCloud().then((u) => {
+      if (u) {
+        setUserInfo(u);
+      }
+    });
+  }, []);
+
   // Restore Active Session from localStorage on mount if exists
   useEffect(() => {
+    initTheme();
     const saved = getStoredActiveWorkout();
     if (saved && saved.isWorkoutActive) {
       setIsWorkoutActive(true);
@@ -132,8 +168,12 @@ export function App() {
     };
   };
 
-  // Handler: Iniciar Entrenamiento (Libre o desde Rutina)
-  const handleStartWorkout = (routineId?: string) => {
+  // Handler: Iniciar Entrenamiento (Libre, por Enfoque o desde Rutina)
+  const handleStartWorkout = (
+    routineId?: string,
+    sessionName?: string,
+    prefilterMuscles?: MuscleGroup[]
+  ) => {
     requestWakeLock();
     setWorkoutStartTime(new Date().toISOString());
     setWorkoutSeconds(0);
@@ -151,10 +191,36 @@ export function App() {
       }
     }
 
-    // Libre / Ad-hoc: Arranca con los 2 primeros ejercicios sugeridos o vacío para añadir al gusto
-    setActiveRoutineName('Entrenamiento Libre');
-    setExerciseSessions([createExerciseSession(exercises[0])]);
+    // Libre o con Enfoque (Upper, Lower, Push, Pull, Quads, Glutes)
+    const title = sessionName || 'Entrenamiento Libre';
+    setActiveRoutineName(title);
+
+    if (prefilterMuscles && prefilterMuscles.length > 0) {
+      const matching = exercises.filter((ex) => prefilterMuscles.includes(ex.primaryMuscle));
+      const firstEx = matching.length > 0 ? matching[0] : exercises[0];
+      setExerciseSessions([createExerciseSession(firstEx)]);
+    } else {
+      setExerciseSessions([createExerciseSession(exercises[0])]);
+    }
+
     setCurrentTab('workout');
+  };
+
+  const handleUpdateWeeklySchedule = (schedule: WeeklySchedule) => {
+    setWeeklySchedule(schedule);
+    saveStoredWeeklySchedule(schedule);
+  };
+
+  const handleSaveBodyweight = (weightKg: number, dateStr?: string) => {
+    const updated = saveBodyweightEntry(weightKg, dateStr);
+    setBodyweightEntries(updated);
+    syncWithCloud();
+  };
+
+  const handleSaveTargetWeight = (targetKg: number) => {
+    setTargetWeight(targetKg);
+    saveStoredTargetWeight(targetKg);
+    syncWithCloud();
   };
 
   // Handler: Agregar Ejercicio a la sesión activa
@@ -282,9 +348,14 @@ export function App() {
       completedSetsRecord[exSession.exercise.id] = exSession.sets;
     }
 
+    const sessionUuid =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
+
     const newSession: WorkoutSession = {
-      id: `sess-${Date.now()}`,
-      userId: 'user-operator',
+      id: sessionUuid,
+      userId: '00000000-0000-0000-0000-000000000001',
       routineName: activeRoutineName,
       startedAt: workoutStartTime || new Date(Date.now() - workoutSeconds * 1000).toISOString(),
       endedAt: new Date().toISOString(),
@@ -299,6 +370,9 @@ export function App() {
     setIsWorkoutActive(false);
     setRestSecondsLeft(0);
     setCurrentTab('stats');
+
+    // Auto-sincronización con PostgreSQL en segundo plano
+    syncWithCloud();
   };
 
   // Handler: Cancel Workout
@@ -312,24 +386,44 @@ export function App() {
     }
   };
 
+  const handleDataRestored = () => {
+    setHistory(getStoredHistory());
+    setRoutines(getStoredRoutines());
+    setWeeklySchedule(getStoredWeeklySchedule());
+    setBodyweightEntries(getStoredBodyweight());
+    setTargetWeight(getStoredTargetWeight());
+    setUserInfo(getStoredUserInfo());
+  };
+
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
-      {/* Header Fijo */}
-      <Header
-        isWorkoutActive={isWorkoutActive}
-        activeWorkoutDuration={formatDuration(workoutSeconds)}
-        onNavigateToWorkout={() => setCurrentTab('workout')}
-      />
+    <div className="min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans relative overflow-x-hidden selection:bg-accent selection:text-accent-fg">
+      {/* Background Atmospheric Glow Orbs (Midnight Blue & Oceanic depth) */}
+      <div className="fixed top-0 right-0 w-[30rem] h-[30rem] bg-blue-600/[0.12] rounded-full blur-[150px] pointer-events-none -z-10" />
+      <div className="fixed bottom-12 -left-20 w-[34rem] h-[34rem] bg-indigo-500/[0.10] rounded-full blur-[160px] pointer-events-none -z-10" />
+      <div className="fixed top-1/3 left-1/4 w-[28rem] h-[28rem] bg-cyan-500/[0.06] rounded-full blur-[160px] pointer-events-none -z-10" />
+      <div className="fixed top-3/4 right-10 w-[24rem] h-[24rem] bg-accent/[0.04] rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-8">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-3 pb-8">
         {currentTab === 'home' && (
           <HomeView
-            todayRoutine={routines[0]}
+            userName={userInfo.name}
             history={history}
+            routines={routines}
+            weeklySchedule={weeklySchedule}
+            onUpdateWeeklySchedule={handleUpdateWeeklySchedule}
+            bodyweightEntries={bodyweightEntries}
+            targetWeight={targetWeight}
+            onSaveBodyweight={handleSaveBodyweight}
+            onSaveTargetWeight={handleSaveTargetWeight}
             onStartWorkout={handleStartWorkout}
             onNavigateToStats={() => setCurrentTab('stats')}
             onNavigateToPlan={() => setCurrentTab('plan')}
+            isWorkoutActive={isWorkoutActive}
+            activeWorkoutDuration={formatDuration(workoutSeconds)}
+            onNavigateToWorkout={() => setCurrentTab('workout')}
+            onOpenSettings={() => setIsBackupModalOpen(true)}
+            onDataRestored={handleDataRestored}
           />
         )}
 
@@ -352,13 +446,41 @@ export function App() {
           />
         )}
 
-        {currentTab === 'stats' && <StatsView history={history} exercises={exercises} />}
+        {currentTab === 'stats' && (
+          <StatsView
+            history={history}
+            exercises={exercises}
+            isWorkoutActive={isWorkoutActive}
+            activeWorkoutDuration={formatDuration(workoutSeconds)}
+            onNavigateToWorkout={() => setCurrentTab('workout')}
+            onOpenSettings={() => setIsBackupModalOpen(true)}
+          />
+        )}
 
         {currentTab === 'plan' && (
           <PlanView
             routines={routines}
             exercises={exercises}
+            weeklySchedule={weeklySchedule}
+            onUpdateWeeklySchedule={handleUpdateWeeklySchedule}
             onSelectAndStartRoutine={handleStartWorkout}
+            onSaveRoutine={(newRoutine) => {
+              const updated = [...routines, newRoutine];
+              setRoutines(updated);
+              saveStoredRoutines(updated);
+              syncWithCloud();
+            }}
+            onDeleteRoutine={(routineId) => {
+              const updated = routines.filter((r) => r.id !== routineId);
+              setRoutines(updated);
+              saveStoredRoutines(updated);
+              syncWithCloud();
+            }}
+            onDataRestored={handleDataRestored}
+            isWorkoutActive={isWorkoutActive}
+            activeWorkoutDuration={formatDuration(workoutSeconds)}
+            onNavigateToWorkout={() => setCurrentTab('workout')}
+            onOpenSettings={() => setIsBackupModalOpen(true)}
           />
         )}
 
@@ -366,6 +488,9 @@ export function App() {
           <LibraryView
             exercises={exercises}
             isWorkoutActive={isWorkoutActive}
+            activeWorkoutDuration={formatDuration(workoutSeconds)}
+            onNavigateToWorkout={() => setCurrentTab('workout')}
+            onOpenSettings={() => setIsBackupModalOpen(true)}
             onAddExerciseToActiveWorkout={handleAddExerciseToWorkout}
             onStartWorkoutWithExercise={(ex) => {
               handleStartWorkout();
@@ -388,6 +513,13 @@ export function App() {
         currentTab={currentTab}
         onSelectTab={(tab) => setCurrentTab(tab)}
         isWorkoutActive={isWorkoutActive}
+      />
+
+      {/* Modal de Configuración y Respaldo / Temas */}
+      <BackupModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        onDataRestored={handleDataRestored}
       />
     </div>
   );

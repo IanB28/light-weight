@@ -1,4 +1,5 @@
 import React from 'react';
+import { Sparkles } from 'lucide-react';
 import {
   MuscleGroup,
   StrengthTier,
@@ -104,10 +105,10 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         return { fill: '#141618', stroke: 'rgba(255,255,255,0.05)' };
       }
       const ratio = item.sets / maxSets;
-      if (ratio < 0.25) return { fill: '#064E3B', stroke: '#065F46' };
-      if (ratio < 0.55) return { fill: '#047857', stroke: '#059669' };
-      if (ratio < 0.8) return { fill: '#059669', stroke: '#10B981' };
-      return { fill: '#10B981', stroke: '#34D399' };
+      if (ratio < 0.25) return { fill: 'color-mix(in srgb, var(--accent-color) 25%, #141618)', stroke: 'var(--accent-color)' };
+      if (ratio < 0.55) return { fill: 'color-mix(in srgb, var(--accent-color) 50%, #141618)', stroke: 'var(--accent-color)' };
+      if (ratio < 0.8) return { fill: 'color-mix(in srgb, var(--accent-color) 75%, #141618)', stroke: 'var(--accent-color)' };
+      return { fill: 'var(--accent-color)', stroke: '#ffffff' };
     }
 
     if (mode === 'fatigue') {
@@ -224,12 +225,12 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           <span>Menor volumen</span>
           <div className="flex items-center gap-1">
             <span className="w-3.5 h-3.5 rounded bg-[#141618] border border-white/[0.06]" />
-            <span className="w-3.5 h-3.5 rounded bg-[#064E3B]" />
-            <span className="w-3.5 h-3.5 rounded bg-[#047857]" />
-            <span className="w-3.5 h-3.5 rounded bg-[#059669]" />
-            <span className="w-3.5 h-3.5 rounded bg-[#10B981] shadow-sm shadow-emerald-500/50" />
+            <span className="w-3.5 h-3.5 rounded bg-accent/20" />
+            <span className="w-3.5 h-3.5 rounded bg-accent/40" />
+            <span className="w-3.5 h-3.5 rounded bg-accent/70" />
+            <span className="w-3.5 h-3.5 rounded bg-accent shadow-sm shadow-accent/50" />
           </div>
-          <span className="text-emerald-400 font-bold">Mayor volumen</span>
+          <span className="text-accent font-bold">Mayor volumen</span>
         </div>
       )}
 
@@ -345,7 +346,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                     ? 'text-rose-400'
                     : selectedData.recoveryStatus === 'recovering'
                     ? 'text-amber-400'
-                    : 'text-emerald-400'
+                    : 'text-accent'
                 }`}
               >
                 {selectedData.recoveryStatus === 'fatigued'
@@ -393,7 +394,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               {/* Progress bar */}
               <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-sky-500 via-emerald-500 to-purple-500 h-full rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-sky-500 via-accent to-purple-500 h-full rounded-full transition-all duration-300"
                   style={{ width: `${selectedData.strengthEvaluation.progressPctToNextTier}%` }}
                 />
               </div>
@@ -406,8 +407,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           )}
 
           {selectedData.strengthEvaluation && selectedData.strengthEvaluation.tier === 'elite' && (
-            <div className="p-2.5 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-center font-mono text-xs text-purple-300">
-              💎 ¡Rango Élite desbloqueado! Te encuentras en el 1% superior de fuerza para este grupo muscular.
+            <div className="p-2.5 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-center font-mono text-xs text-purple-300 flex items-center justify-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-purple-300 shrink-0" />
+              <span>¡Rango Élite desbloqueado! Te encuentras en el 1% superior de fuerza para este grupo muscular.</span>
             </div>
           )}
         </div>

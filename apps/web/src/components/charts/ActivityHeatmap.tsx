@@ -70,10 +70,10 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
 
   const getLevelClass = (data?: { volumeKg: number; sets: number }) => {
     if (!data) return 'bg-zinc-900/90 border border-white/[0.04]';
-    if (data.sets >= 15 || data.volumeKg >= 8000) return 'bg-emerald-400 border border-emerald-300 shadow-sm shadow-emerald-400/40';
-    if (data.sets >= 10 || data.volumeKg >= 5000) return 'bg-emerald-500 border border-emerald-400';
-    if (data.sets >= 5 || data.volumeKg >= 2500) return 'bg-emerald-600/90 border border-emerald-500/60';
-    return 'bg-emerald-800/80 border border-emerald-700/50';
+    if (data.sets >= 15 || data.volumeKg >= 8000) return 'bg-accent border border-accent/80 shadow-sm shadow-accent/40';
+    if (data.sets >= 10 || data.volumeKg >= 5000) return 'bg-accent/80 border border-accent/60';
+    if (data.sets >= 5 || data.volumeKg >= 2500) return 'bg-accent/50 border border-accent/40';
+    return 'bg-accent/25 border border-accent/20';
   };
 
   return (
@@ -135,10 +135,10 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
         <span>Menos actividad</span>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-[2px] bg-zinc-900 border border-white/[0.04]" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-800/80" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-600/90" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-500" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-emerald-400" />
+          <span className="w-2.5 h-2.5 rounded-[2px] bg-accent/25" />
+          <span className="w-2.5 h-2.5 rounded-[2px] bg-accent/50" />
+          <span className="w-2.5 h-2.5 rounded-[2px] bg-accent/80" />
+          <span className="w-2.5 h-2.5 rounded-[2px] bg-accent" />
         </div>
         <span>Más actividad</span>
       </div>

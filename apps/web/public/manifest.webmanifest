@@ -1,0 +1,20 @@
+{
+  "name": "light-weight",
+  "short_name": "light-weight",
+  "description": "Gym Tracker Privado, Fisiológico y Offline-First",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "categories": ["fitness", "health", "sports"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

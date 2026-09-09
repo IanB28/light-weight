@@ -1,7 +1,16 @@
 @import "tailwindcss";
 
+@theme {
+  --color-accent: var(--accent-color, #EAFF55);
+  --color-accent-fg: var(--accent-fg, #0A0A0A);
+  --color-accent-glow: var(--accent-glow, rgba(234, 255, 85, 0.45));
+}
+
 :root {
   color-scheme: dark;
+  --accent-color: #EAFF55;
+  --accent-fg: #0A0A0A;
+  --accent-glow: rgba(234, 255, 85, 0.45);
 
   /* Apple Fluid Motion Spring & Easing Curves */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -18,8 +27,9 @@
 }
 
 /* Base ergonomics and typography tuning */
-html {
-  background-color: #000000;
+html, html[data-theme="midnight"] {
+  background: radial-gradient(ellipse at 50% -10%, #172136 0%, #0c1220 55%, #060911 100%) fixed;
+  background-color: #0c1220;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -27,8 +37,13 @@ html {
   user-select: none;
 }
 
+html[data-theme="carbon"] {
+  background: radial-gradient(ellipse at 50% 0%, #1c1c22 0%, #0e0e11 55%, #070709 100%) fixed;
+  background-color: #070709;
+}
+
 body {
-  background-color: #000000;
+  background: transparent;
   color: #F4F4F5;
   overflow-x: hidden;
 }
@@ -58,6 +73,58 @@ button, [role="button"] {
 
 .glass-card-highlight {
   border-top: 1px solid var(--glass-border-highlight);
+}
+
+/* Dark Slate Glass Cards: Directly inspired by the reference design */
+.dark-glass-card {
+  border-radius: 28px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+html[data-theme="midnight"] .dark-glass-card,
+html:not([data-theme]) .dark-glass-card {
+  background: linear-gradient(145deg, rgba(24, 30, 42, 0.85) 0%, rgba(16, 21, 30, 0.90) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="carbon"] .dark-glass-card {
+  background: linear-gradient(135deg, rgba(26, 26, 30, 0.78) 0%, rgba(40, 40, 46, 0.58) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.70), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.glass-subcard {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+html[data-theme="carbon"] .glass-subcard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Tailwind utility bridges for dynamic accent */
+.accent-highlight {
+  background-color: var(--accent-color, #EAFF55);
+  color: var(--accent-fg, #0A0A0A);
+}
+
+.accent-highlight-glow {
+  box-shadow: 0 0 24px var(--accent-glow, rgba(234, 255, 85, 0.45));
+}
+
+.accent-lime-text, .accent-text {
+  color: var(--accent-color, #EAFF55);
+}
+
+.accent-lime-border, .accent-border {
+  border-color: var(--accent-color, #EAFF55);
 }
 
 /* Subtle scrollbar for sleek dark look */

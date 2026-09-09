@@ -26,6 +26,10 @@ export interface Exercise {
   primaryMuscle: MuscleGroup;
   secondaryMuscles?: MuscleGroup[];
   isCustom?: boolean;
+  img?: string;
+  gif?: string;
+  instructions?: string[];
+  targetMuscle?: string;
 }
 
 export interface LoggedSet {

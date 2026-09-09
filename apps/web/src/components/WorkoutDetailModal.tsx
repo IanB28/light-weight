@@ -1,17 +1,18 @@
 import React from 'react';
 import { X, Calendar, Clock, Flame, Dumbbell } from 'lucide-react';
 import { WorkoutSession, calculateSessionTotalVolume, Exercise } from '@light-weight/domain';
+import { EXERCISES_BY_ID } from '../lib/exercises.js';
 
 interface WorkoutDetailModalProps {
   session: WorkoutSession | null;
   onClose: () => void;
-  exercisesById: Record<string, Exercise>;
+  exercisesById?: Record<string, Exercise>;
 }
 
 export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   session,
   onClose,
-  exercisesById
+  exercisesById = EXERCISES_BY_ID
 }) => {
   if (!session) return null;
 
@@ -39,7 +40,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-[#121416]/92 backdrop-blur-2xl border border-white/[0.12] rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl shadow-black/90 animate-in slide-in-from-bottom-6 duration-200">
+      <div className="w-full max-w-md dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] max-h-[85vh] flex flex-col overflow-hidden shadow-2xl shadow-black/90 animate-in slide-in-from-bottom-6 duration-200">
         {/* iOS Mobile Sheet Grab Handle */}
         <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto mt-2.5 mb-0.5 sm:hidden" />
 
@@ -55,7 +56,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
+            className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
           >
             <X className="w-4 h-4 stroke-[2.2]" />
           </button>
@@ -63,19 +64,19 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
         {/* Summary Metric Chips */}
         <div className="grid grid-cols-3 gap-2 p-4 bg-white/[0.02] border-b border-white/[0.04] text-center font-mono">
-          <div className="p-2 rounded-2xl bg-black/40 border border-white/[0.04]">
+          <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
             <span className="text-[10px] text-zinc-500 block uppercase">Tonelaje</span>
-            <span className="text-sm font-extrabold text-emerald-400">
+            <span className="text-sm font-extrabold text-accent">
               {totalVolume.toLocaleString()} kg
             </span>
           </div>
 
-          <div className="p-2 rounded-2xl bg-black/40 border border-white/[0.04]">
+          <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
             <span className="text-[10px] text-zinc-500 block uppercase">Series</span>
             <span className="text-sm font-extrabold text-white">{totalSets}</span>
           </div>
 
-          <div className="p-2 rounded-2xl bg-black/40 border border-white/[0.04]">
+          <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
             <span className="text-[10px] text-zinc-500 block uppercase">Duración</span>
             <span className="text-sm font-extrabold text-white">{durationMin} min</span>
           </div>
@@ -95,7 +96,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
             return (
               <div
                 key={exId}
-                className="p-3.5 rounded-2xl bg-black/40 border border-white/[0.04] space-y-2.5"
+                className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] space-y-2.5"
               >
                 <div className="flex items-center justify-between">
                   <div>

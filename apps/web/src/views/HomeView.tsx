@@ -1,147 +1,432 @@
-import React from 'react';
-import { Settings, Play, Flame, Calendar, Dumbbell, Plus } from 'lucide-react';
-import { Routine, WorkoutSession } from '@light-weight/domain';
+import React, { useState, useMemo } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Dumbbell,
+  Calendar,
+  Zap,
+  Flame
+} from 'lucide-react';
+import { ViewHeader } from '../components/ViewHeader.js';
+import {
+  Routine,
+  WorkoutSession,
+  MuscleGroup,
+  calculateWeeklyStreak,
+  getWorkoutsThisWeek
+} from '@light-weight/domain';
+import {
+  BodyweightEntry,
+  WeeklySchedule,
+  DAY_NUM_TO_WEEKDAY,
+  WEEKDAY_NAMES_ES,
+  getStoredUserInfo
+} from '../lib/storage.js';
+import { WeightTrackerCard } from '../components/WeightTrackerCard.js';
+import { BodyweightModal } from '../components/BodyweightModal.js';
+import { WorkoutFocusModal, WorkoutFocus } from '../components/WorkoutFocusModal.js';
+import { DayDetailModal } from '../components/DayDetailModal.js';
+import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
+import { BackupModal } from '../components/BackupModal.js';
+import { MonthCalendarModal } from '../components/MonthCalendarModal.js';
 
 interface HomeViewProps {
-  todayRoutine?: Routine;
+  userName?: string;
   history?: WorkoutSession[];
-  onStartWorkout: (routineId?: string) => void;
+  routines?: Routine[];
+  weeklySchedule: WeeklySchedule;
+  onUpdateWeeklySchedule: (schedule: WeeklySchedule) => void;
+  bodyweightEntries: BodyweightEntry[];
+  targetWeight: number | null;
+  onSaveBodyweight: (weightKg: number, dateStr?: string) => void;
+  onSaveTargetWeight: (targetKg: number) => void;
+  onStartWorkout: (routineId?: string, sessionName?: string, prefilterMuscles?: MuscleGroup[]) => void;
   onNavigateToStats: () => void;
   onNavigateToPlan: () => void;
+  onDataRestored?: () => void;
+  isWorkoutActive?: boolean;
+  activeWorkoutDuration?: string;
+  onNavigateToWorkout?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
-  todayRoutine,
+  userName,
   history = [],
+  routines = [],
+  weeklySchedule,
+  onUpdateWeeklySchedule,
+  bodyweightEntries,
+  targetWeight,
+  onSaveBodyweight,
+  onSaveTargetWeight,
   onStartWorkout,
   onNavigateToStats,
-  onNavigateToPlan
+  onNavigateToPlan,
+  onDataRestored,
+  isWorkoutActive = false,
+  activeWorkoutDuration = '00:00',
+  onNavigateToWorkout,
+  onOpenSettings
 }) => {
-  const todayStr = new Date().toLocaleDateString('es-ES', {
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+
+  const effectiveUserName = userName || getStoredUserInfo().name || 'Operador Demo';
+
+  // Modals state
+  const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
+  const [isBwModalOpen, setIsBwModalOpen] = useState(false);
+  const [bwModalInitialMode, setBwModalInitialMode] = useState<'log' | 'goal'>('log');
+  const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
+  const [inspectedSession, setInspectedSession] = useState<WorkoutSession | null>(null);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
+
+  const today = new Date();
+  // Formato openGym: "miércoles, 9 de septiembre" (lowercase)
+  const todayStr = today.toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long'
-  });
+  }).toLowerCase();
 
-  const lastSession = history[0];
+  // Cálculo de racha de semanas consecutivas (algoritmo openGym)
+  const streakCount = useMemo(() => {
+    return calculateWeeklyStreak(history);
+  }, [history]);
+
+  // Sesiones de esta semana y meta semanal
+  const thisWeekSessions = useMemo(() => {
+    return getWorkoutsThisWeek(history);
+  }, [history]);
+
+  const plannedPerWeek = useMemo(() => {
+    return Object.values(weeklySchedule).filter(Boolean).length || 3;
+  }, [weeklySchedule]);
+
+  // Determinar qué rutina toca HOY
+  const todayWeekDay = DAY_NUM_TO_WEEKDAY[today.getDay()];
+  const todayScheduledRoutineId = weeklySchedule[todayWeekDay];
+  const todayScheduledRoutine = useMemo(() => {
+    if (!todayScheduledRoutineId) return null;
+    return routines.find((r) => r.id === todayScheduledRoutineId) || null;
+  }, [todayScheduledRoutineId, routines]);
+
+  // Generar los 7 días de la semana según el weekOffset (Lunes a Domingo)
+  const weekDaysData = useMemo(() => {
+    const monday = new Date(today);
+    const currentDay = (today.getDay() + 6) % 7; // 0 = Lunes, ..., 6 = Domingo
+    monday.setDate(today.getDate() - currentDay + weekOffset * 7);
+
+    const sessionsByDate: Record<string, WorkoutSession> = {};
+    history.forEach((s) => {
+      const dateKey = s.startedAt.slice(0, 10);
+      sessionsByDate[dateKey] = s;
+    });
+
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const iso = d.toISOString().slice(0, 10);
+      const dayOfWeekKey = DAY_NUM_TO_WEEKDAY[d.getDay()];
+      const routineId = weeklySchedule[dayOfWeekKey];
+      const routine = routineId ? routines.find((r) => r.id === routineId) : null;
+      const completed = sessionsByDate[iso];
+      const isCurrentDay = d.toDateString() === today.toDateString();
+
+      days.push({
+        date: d,
+        iso,
+        dayOfWeekKey,
+        dayShort: WEEKDAY_NAMES_ES[dayOfWeekKey].short.slice(0, 2).toUpperCase(),
+        dayNum: d.getDate(),
+        isToday: isCurrentDay,
+        completed: Boolean(completed),
+        routine
+      });
+    }
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const startDay = monday.getDate();
+    const endDay = sunday.getDate();
+    const startMonth = monday.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+    const endMonth = sunday.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+    const dateRangeStr = startMonth === endMonth ? `${startDay} – ${endDay} ${endMonth}` : `${startDay} ${startMonth} – ${endDay} ${endMonth}`;
+    const label = weekOffset === 0 ? 'Esta semana' : dateRangeStr;
+    return { label, days };
+  }, [today, weekOffset, history, weeklySchedule, routines]);
+
+  // Modales de peso
+  const handleOpenLogWeight = () => {
+    setBwModalInitialMode('log');
+    setIsBwModalOpen(true);
+  };
+
+  const handleOpenGoalWeight = () => {
+    setBwModalInitialMode('goal');
+    setIsBwModalOpen(true);
+  };
+
+  // Manejador al elegir enfoque en el modal "¿Qué harás hoy?"
+  const handleSelectFocus = (_focus: WorkoutFocus, focusName: string, prefilterMuscles: MuscleGroup[]) => {
+    const sessionTitle = `Entrenamiento: ${focusName}`;
+    onStartWorkout(undefined, sessionTitle, prefilterMuscles);
+  };
+
+  // Rutina asignada al día seleccionado en DayDetailModal
+  const selectedDayInfo = useMemo(() => {
+    if (!selectedDayDate) return null;
+    const iso = selectedDayDate.toISOString().slice(0, 10);
+    const dayOfWeekKey = DAY_NUM_TO_WEEKDAY[selectedDayDate.getDay()];
+    const routineId = weeklySchedule[dayOfWeekKey];
+    const scheduledRoutine = routineId ? routines.find((r) => r.id === routineId) : undefined;
+    const completedSession = history.find((s) => s.startedAt.slice(0, 10) === iso);
+
+    return {
+      date: selectedDayDate,
+      dayOfWeekKey,
+      scheduledRoutine,
+      completedSession
+    };
+  }, [selectedDayDate, weeklySchedule, routines, history]);
+
+  const handleAssignRoutineToDay = (routineId: string | null) => {
+    if (!selectedDayInfo) return;
+    const updated = {
+      ...weeklySchedule,
+      [selectedDayInfo.dayOfWeekKey]: routineId
+    };
+    onUpdateWeeklySchedule(updated);
+  };
 
   return (
-    <div className="space-y-4 pb-28">
-      {/* Top Header */}
-      <div className="flex items-center justify-between pt-1">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-1.5">
-            light-weight
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              F&F
-            </span>
-          </h1>
-          <p className="text-xs text-zinc-400 capitalize font-medium mt-0.5">{todayStr}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 border border-white/[0.06] px-2.5 py-1 rounded-full">
-            {history.length} entrenamientos
+    <div className="space-y-3.5 pb-28 max-w-md mx-auto select-none">
+      {/* 1. Header Homogéneo */}
+      <ViewHeader
+        title="LightWeight"
+        subtitle={
+          <span>
+            {todayStr} · Hola, <strong className="text-white font-bold">{effectiveUserName}</strong>
           </span>
+        }
+        isWorkoutActive={isWorkoutActive}
+        activeWorkoutDuration={activeWorkoutDuration}
+        onNavigateToWorkout={onNavigateToWorkout}
+        onOpenSettings={onOpenSettings || (() => setIsBackupModalOpen(true))}
+      />
+
+      {/* 2. Tarjeta 1: Calendario Semanal + Rutina de Hoy (Dark Glassmorphism) */}
+      <div className="p-5 dark-glass-card rounded-[28px] space-y-3.5 transition-all hover:border-white/15">
+        {/* Navegación de semana con rango de fechas real */}
+        <div className="flex items-center justify-between px-1">
+          <button
+            type="button"
+            onClick={() => setWeekOffset((prev) => prev - 1)}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-white active:scale-90 transition-all cursor-pointer"
+            title="Semana anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <span className="text-xs font-semibold text-zinc-300 tracking-wide">
+            {weekDaysData.label}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setWeekOffset((prev) => prev + 1)}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-white active:scale-90 transition-all cursor-pointer"
+            title="Semana siguiente"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Fila interactiva de los 7 Días */}
+        <div className="grid grid-cols-7 gap-1 pt-0.5 text-center">
+          {weekDaysData.days.map((item, idx) => (
+            <div
+              key={idx}
+              onClick={() => setSelectedDayDate(item.date)}
+              className="flex flex-col items-center cursor-pointer group active:scale-90 transition-all py-1"
+            >
+              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-tight mb-1">
+                {item.dayShort}
+              </span>
+
+              {item.isToday ? (
+                <div className="w-8 h-8 rounded-full bg-accent text-accent-fg font-extrabold text-sm flex items-center justify-center shadow-[0_0_12px_var(--accent-glow)]">
+                  {item.dayNum}
+                </div>
+              ) : (
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-zinc-200 group-hover:text-white">
+                  {item.dayNum}
+                </div>
+              )}
+
+              {/* Punto indicador de estado de entreno */}
+              <div className="h-2 flex items-center justify-center mt-0.5">
+                {item.completed ? (
+                  <div className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_6px_var(--accent-glow)]" />
+                ) : item.routine ? (
+                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Sub-tarjeta interior: HOY + Rutina Asignada + Botón Empezar (Vidrio sobre Vidrio) */}
+        <div className="glass-subcard p-3.5 flex items-center justify-between mt-1 rounded-2xl">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shadow-sm shrink-0">
+              <Dumbbell className="w-5 h-5 stroke-[2.2]" />
+            </div>
+
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider block">
+                HOY
+              </span>
+              <span className="text-white font-bold text-base block truncate">
+                {todayScheduledRoutine ? todayScheduledRoutine.name : 'Día de Descanso'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (todayScheduledRoutine) {
+                onStartWorkout(todayScheduledRoutine.id);
+              } else {
+                setIsFocusModalOpen(true);
+              }
+            }}
+            className="bg-accent text-accent-fg hover:brightness-110 font-bold text-xs px-4 py-2 rounded-xl active:scale-95 transition-all cursor-pointer shrink-0 shadow-sm"
+          >
+            Empezar
+          </button>
         </div>
       </div>
 
-      {/* Botón Principal de Acción Rápida: Iniciar Sesión Libre */}
-      <div className="p-5 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-emerald-500/30 shadow-2xl shadow-emerald-500/10 relative overflow-hidden space-y-3">
-        {/* Hairline reflection */}
-        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
-
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 font-mono">
-            SESIÓN INMEDIATA
-          </span>
-          <span className="text-xs text-zinc-400 font-medium">Cero fricción</span>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-bold text-white tracking-tight">
-            ¿Listo para entrenar hoy?
-          </h2>
-          <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
-            Comienza sin rutinas fijas: añade cualquier ejercicio sobre la marcha y registra tus cargas.
-          </p>
+      {/* 3. Tarjeta 2: Sesión Inmediata ("¿Qué harás hoy?") */}
+      <div
+        onClick={() => setIsFocusModalOpen(true)}
+        className="p-5 dark-glass-card rounded-[28px] flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all hover:border-white/20"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
+            <Zap className="w-5 h-5 fill-accent/20 text-accent" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-white font-bold text-sm block tracking-tight">
+              Sesión Inmediata
+            </span>
+            <span className="text-zinc-400 text-xs block mt-0.5 truncate">
+              ¿Qué harás hoy? · Push, Pull, Pierna, Glúteos...
+            </span>
+          </div>
         </div>
 
         <button
-          onClick={() => onStartWorkout()}
-          className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.97] text-black font-extrabold text-sm rounded-2xl transition-all duration-150 shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsFocusModalOpen(true);
+          }}
+          className="bg-accent text-accent-fg hover:brightness-110 font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
         >
-          <Play className="w-4 h-4 fill-black stroke-black" />
-          Iniciar Entrenamiento Libre
+          Comenzar
         </button>
       </div>
 
-      {/* Tarjeta de Rutina Guardada (si existe) */}
-      {todayRoutine && (
-        <div className="p-4 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] flex items-center justify-between shadow-xl relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-800/80 border border-white/[0.08] flex items-center justify-center text-zinc-300">
-              <Dumbbell className="w-5 h-5 stroke-[2]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500">
-                  RUTINA GUARDADA
-                </span>
-              </div>
-              <p className="text-sm font-bold text-white leading-tight mt-0.5">
-                {todayRoutine.name}
-              </p>
-            </div>
-          </div>
+      {/* 4. Tarjeta 3: Peso Corporal (Dark Glassmorphism) */}
+      <WeightTrackerCard
+        entries={bodyweightEntries}
+        targetWeight={targetWeight}
+        onOpenLogModal={handleOpenLogWeight}
+        onOpenGoalModal={handleOpenGoalWeight}
+      />
 
-          <button
-            onClick={() => onStartWorkout(todayRoutine.id)}
-            className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-[0.94] text-white font-bold text-xs tracking-tight transition-all duration-150 border border-white/[0.08] cursor-pointer"
-          >
-            Cargar
-          </button>
+      {/* 5. Tarjeta 4: Racha de Semanas (Dark Glassmorphism) */}
+      <div
+        onClick={() => setIsMonthCalendarOpen(true)}
+        className="p-5 dark-glass-card rounded-[28px] flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-white/20"
+      >
+        <div>
+          <div className="flex items-center gap-2">
+            <Flame className="w-5 h-5 text-accent" />
+            <h3 className="text-base font-bold text-white tracking-tight">
+              racha de {streakCount} {streakCount === 1 ? 'semana' : 'semanas'}
+            </h3>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            {thisWeekSessions.length} / {plannedPerWeek} esta semana · {history.length} entrenamientos en total
+          </p>
         </div>
+
+        <div className="w-9 h-9 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-zinc-400 shrink-0">
+          <Calendar className="w-4 h-4 text-zinc-300" />
+        </div>
+      </div>
+
+      {/* Modal: Categorización de Sesión Inmediata ("¿Qué harás hoy?") */}
+      <WorkoutFocusModal
+        isOpen={isFocusModalOpen}
+        onClose={() => setIsFocusModalOpen(false)}
+        onSelectFocus={handleSelectFocus}
+      />
+
+      {/* Modal: Registrar Peso o Cambiar Meta */}
+      <BodyweightModal
+        isOpen={isBwModalOpen}
+        onClose={() => setIsBwModalOpen(false)}
+        currentGoal={targetWeight}
+        initialMode={bwModalInitialMode}
+        onSaveWeight={onSaveBodyweight}
+        onSaveGoal={onSaveTargetWeight}
+      />
+
+      {/* Modal: Calendario Mensual estilo openGym al pulsar la Racha */}
+      <MonthCalendarModal
+        isOpen={isMonthCalendarOpen}
+        onClose={() => setIsMonthCalendarOpen(false)}
+        history={history}
+        weeklySchedule={weeklySchedule}
+        routines={routines}
+        onSelectDay={(date) => setSelectedDayDate(date)}
+      />
+
+      {/* Modal: Detalle del Día al pulsar en el Calendario */}
+      {selectedDayInfo && (
+        <DayDetailModal
+          isOpen={Boolean(selectedDayDate)}
+          onClose={() => setSelectedDayDate(null)}
+          date={selectedDayInfo.date}
+          completedSession={selectedDayInfo.completedSession}
+          scheduledRoutine={selectedDayInfo.scheduledRoutine}
+          availableRoutines={routines}
+          onStartRoutine={(routineId) => onStartWorkout(routineId)}
+          onStartFreeWorkout={() => setIsFocusModalOpen(true)}
+          onAssignRoutine={handleAssignRoutineToDay}
+          onViewSessionDetail={(session) => setInspectedSession(session)}
+        />
       )}
 
-      {/* Resumen de Último Entrenamiento */}
-      {lastSession && (
-        <div className="p-5 rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] shadow-xl space-y-3 relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-zinc-400 flex items-center gap-1.5">
-              <Flame className="w-4 h-4 text-amber-500" />
-              Última sesión registrada
-            </span>
-            <span className="text-[10px] text-zinc-500 font-mono">
-              {new Date(lastSession.startedAt).toLocaleDateString('es-ES')}
-            </span>
-          </div>
+      {/* Modal: Detalle Completo de Sesión (para inspeccionar sets) */}
+      <WorkoutDetailModal
+        session={inspectedSession}
+        onClose={() => setInspectedSession(null)}
+      />
 
-          <div className="space-y-1.5">
-            <div className="text-sm font-bold text-white">
-              {lastSession.routineName || 'Entrenamiento Libre'}
-            </div>
-            <div className="flex flex-wrap gap-1.5 pt-0.5">
-              {Object.keys(lastSession.sets).map((exId) => (
-                <span
-                  key={exId}
-                  className="px-2 py-0.5 rounded-md text-[10px] bg-zinc-800/80 text-zinc-300 border border-white/[0.06] font-mono"
-                >
-                  {exId.replace('ex-', '')}: {lastSession.sets[exId].filter((s) => s.completed).length} sets
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={onNavigateToStats}
-            className="text-xs text-emerald-400 font-semibold hover:underline block pt-1 active:scale-[0.98] transition-transform w-fit"
-          >
-            Ver analíticas y récords →
-          </button>
-        </div>
-      )}
+      {/* Modal: Ajustes y Respaldo de Datos */}
+      <BackupModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        onDataRestored={onDataRestored}
+      />
     </div>
   );
 };

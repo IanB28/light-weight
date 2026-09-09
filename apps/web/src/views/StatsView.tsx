@@ -11,7 +11,9 @@ import {
   AlertTriangle,
   TrendingUp,
   Shield,
-  Zap
+  Zap,
+  User,
+  Sparkles
 } from 'lucide-react';
 import {
   estimateOneRm,
@@ -39,6 +41,7 @@ import { LineChart, ChartPoint } from '../components/charts/LineChart.js';
 import { ActivityHeatmap } from '../components/charts/ActivityHeatmap.js';
 import { BodyweightModal } from '../components/BodyweightModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
+import { ViewHeader } from '../components/ViewHeader.js';
 import {
   AnatomicalBodyMap,
   AnalysisMode,
@@ -49,6 +52,10 @@ import {
 interface StatsViewProps {
   history?: WorkoutSession[];
   exercises?: Exercise[];
+  isWorkoutActive?: boolean;
+  activeWorkoutDuration?: string;
+  onNavigateToWorkout?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
@@ -65,7 +72,14 @@ const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
   'core'
 ];
 
-export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = [] }) => {
+export const StatsView: React.FC<StatsViewProps> = ({
+  history = [],
+  exercises = [],
+  isWorkoutActive = false,
+  activeWorkoutDuration = '00:00',
+  onNavigateToWorkout,
+  onOpenSettings
+}) => {
   // Collapsible Accordion Sections State
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     muscles: true,
@@ -285,19 +299,21 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
 
   return (
     <div className="space-y-4 pb-28">
-      {/* Top Header */}
-      <div className="flex items-center justify-between pt-1">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Estadísticas</h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Analítica de rendimiento, fatiga fisiológica y fuerza relativa
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-mono font-bold">
-          <Flame className="w-3.5 h-3.5" />
-          <span>{totalVolumeTonnage.toLocaleString()} kg</span>
-        </div>
-      </div>
+      {/* 1. Header Homogéneo */}
+      <ViewHeader
+        title="Estadísticas"
+        subtitle="Analítica de rendimiento, fatiga fisiológica y fuerza relativa"
+        isWorkoutActive={isWorkoutActive}
+        activeWorkoutDuration={activeWorkoutDuration}
+        onNavigateToWorkout={onNavigateToWorkout}
+        onOpenSettings={onOpenSettings}
+        rightExtra={
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-mono font-bold shadow-sm">
+            <Flame className="w-3.5 h-3.5 text-accent" />
+            <span>{totalVolumeTonnage.toLocaleString()} kg</span>
+          </div>
+        }
+      />
 
       {/* ========================================================================= */}
       {/* SECCIONES DESPLEGABLES (ACCORDION TABS)                                    */}
@@ -306,15 +322,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 1. SECCIÓN: MÚSCULOS, FATIGA & FORTALEZA                                  */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
+      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
         <button
           type="button"
           onClick={() => toggleSection('muscles')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Activity className="w-5 h-5" />
             </div>
             <div>
@@ -333,13 +348,13 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 {muscleAnalysis.neglected.length} descuidados
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/25">
                 11 activos
               </span>
             )}
             <ChevronDown
               className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.muscles ? 'rotate-180 text-emerald-400' : ''
+                openSections.muscles ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
@@ -352,28 +367,28 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
                 ESTÁNDARES DE FUERZA
               </span>
-              <div className="flex items-center gap-1 bg-zinc-900 border border-white/[0.08] p-0.5 rounded-xl text-xs font-mono">
+              <div className="flex items-center gap-1 bg-zinc-900/90 border border-white/[0.08] p-0.5 rounded-xl text-xs font-mono">
                 <button
                   type="button"
                   onClick={() => handleGenderChange('male')}
                   className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     currentGender === 'male'
-                      ? 'bg-zinc-800 text-white shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-300'
+                      ? 'bg-accent text-accent-fg shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  ♂ Hombre
+                  Hombre
                 </button>
                 <button
                   type="button"
                   onClick={() => handleGenderChange('female')}
                   className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     currentGender === 'female'
-                      ? 'bg-zinc-800 text-white shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-300'
+                      ? 'bg-accent text-accent-fg shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  ♀ Mujer
+                  Mujer
                 </button>
                 <span className="text-zinc-700 px-1">|</span>
                 <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg} kg</span>
@@ -381,7 +396,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
             </div>
 
             {/* Segmented Switcher: [ Equilibrio | Fatiga | Fortaleza ] */}
-            <div className="p-1 rounded-2xl bg-zinc-900/90 border border-white/[0.06] grid grid-cols-3 gap-1 text-xs">
+            <div className="p-1 rounded-2xl glass-subcard border border-white/[0.06] grid grid-cols-3 gap-1 text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -390,7 +405,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 }}
                 className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   muscleAnalysisMode === 'balance'
-                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                    ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -531,12 +546,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                             className={`w-2.5 h-2.5 rounded-full ${
                               muscleAnalysisMode === 'fatigue'
                                 ? item.recoveryStatus === 'fatigued'
-                                  ? 'bg-rose-500'
-                                  : item.recoveryStatus === 'recovering'
-                                  ? 'bg-amber-500'
-                                  : 'bg-emerald-500'
+                                ? 'bg-rose-500'
+                                : item.recoveryStatus === 'recovering'
+                                ? 'bg-amber-500'
+                                : 'bg-accent'
                                 : item.sets > 0
-                                ? 'bg-emerald-500'
+                                ? 'bg-accent'
                                 : 'bg-zinc-700'
                             }`}
                           />
@@ -560,7 +575,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                       <div className="text-right font-mono">
                         {muscleAnalysisMode === 'balance' && (
                           <span className="text-zinc-400">
-                            <strong className="text-emerald-400">{item.sets}</strong> series •{' '}
+                            <strong className="text-accent">{item.sets}</strong> series •{' '}
                             {item.volumeKg.toLocaleString()} kg
                           </span>
                         )}
@@ -573,7 +588,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                                   ? 'text-rose-400'
                                   : item.recoveryStatus === 'recovering'
                                   ? 'text-amber-400'
-                                  : 'text-emerald-400'
+                                  : 'text-accent'
                               }`}
                             >
                               {item.recoveryStatus === 'fatigued'
@@ -603,8 +618,9 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                                 +{item.strengthEvaluation.kgToNextTier} kg p/ {item.strengthEvaluation.nextTierLabelEs}
                               </span>
                             ) : item.strengthEvaluation?.tier === 'elite' ? (
-                              <span className="text-purple-400 font-bold text-[10px] block">
-                                Rango Máximo 💎
+                              <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
+                                <span>Rango Máximo</span>
+                                <Sparkles className="w-3.5 h-3.5 text-accent inline" />
                               </span>
                             ) : null}
                           </div>
@@ -622,15 +638,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 2. SECCIÓN: PROGRESO POR EJERCICIO                                        */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
+      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
         <button
           type="button"
           onClick={() => toggleSection('exercise')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <TrendingUp className="w-5 h-5" />
             </div>
             <div>
@@ -645,13 +660,13 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
 
           <div className="flex items-center gap-2">
             {bestAllTimeEstimate > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/25">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/25">
                 PR: {bestAllTimeEstimate} kg
               </span>
             )}
             <ChevronDown
               className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.exercise ? 'rotate-180 text-sky-400' : ''
+                openSections.exercise ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
@@ -667,7 +682,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
               <select
                 value={currentExerciseId}
                 onChange={(e) => setSelectedExId(e.target.value)}
-                className="w-full py-2.5 px-3 rounded-2xl bg-zinc-900 border border-white/[0.08] text-white font-bold text-sm focus:outline-none focus:border-sky-500 cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-2xl bg-zinc-900 border border-white/[0.08] text-white font-bold text-sm focus:outline-none focus:border-accent cursor-pointer"
               >
                 {exercisesWithHistory.map((ex) => (
                   <option key={ex.id} value={ex.id}>
@@ -678,14 +693,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
             </div>
 
             {/* Metric Switcher: [ Top Set | 1RM Est. | RIR ] */}
-            <div className="p-1 rounded-2xl bg-zinc-900/80 border border-white/[0.04] grid grid-cols-3 gap-1 text-xs">
+            <div className="p-1 rounded-2xl glass-subcard border border-white/[0.04] grid grid-cols-3 gap-1 text-xs">
               <button
                 type="button"
                 onClick={() => setExMetric('top')}
                 className={`py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                   exMetric === 'top'
-                    ? 'bg-zinc-800 text-white shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    ? 'bg-accent text-accent-fg shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 Top Set (kg)
@@ -695,8 +710,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 onClick={() => setExMetric('e1rm')}
                 className={`py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                   exMetric === 'e1rm'
-                    ? 'bg-zinc-800 text-white shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    ? 'bg-accent text-accent-fg shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 1RM Est.
@@ -706,8 +721,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 onClick={() => setExMetric('rir')}
                 className={`py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                   exMetric === 'rir'
-                    ? 'bg-zinc-800 text-white shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    ? 'bg-accent text-accent-fg shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 Esfuerzo RIR
@@ -720,7 +735,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 points={exerciseChartPoints}
                 height={150}
                 unit={exMetric === 'rir' ? 'RIR' : 'kg'}
-                color={exMetric === 'rir' ? '#F59E0B' : '#38BDF8'}
+                color={exMetric === 'rir' ? '#F59E0B' : 'var(--accent-color)'}
                 invertY={exMetric === 'rir'}
               />
             </div>
@@ -777,15 +792,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 3. SECCIÓN: CONSISTENCIA & CALENDARIO                                     */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
+      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
         <button
           type="button"
           onClick={() => toggleSection('consistency')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
@@ -804,7 +818,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
             </span>
             <ChevronDown
               className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.consistency ? 'rotate-180 text-emerald-400' : ''
+                openSections.consistency ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
@@ -818,23 +832,25 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
                   ACTIVIDAD EN LAS ÚLTIMAS 32 SEMANAS
                 </span>
+                <span className="text-[10px] text-zinc-400 font-mono">
+                  {history.length} sesiones registradas
+                </span>
               </div>
               <ActivityHeatmap
                 history={history}
-                onSelectDate={(_dateStr, session) => {
+                onSelectDate={(_d, session) => {
                   if (session) setInspectingSession(session);
                 }}
               />
             </div>
 
-            {/* Listado de Entrenamientos Completados */}
+            {/* Listado Reciente de Entrenamientos */}
             <div className="space-y-2 pt-1">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                Entrenamientos Completados ({history.length})
-              </h3>
-
-              <div className="space-y-1.5">
-                {history.map((session) => {
+              <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase block">
+                ÚLTIMOS ENTRENAMIENTOS
+              </span>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                {history.slice(0, 10).map((session) => {
                   const vol = calculateSessionTotalVolume(session);
                   const totalSets = Object.values(session.sets).reduce(
                     (acc, sList) => acc + sList.filter((s) => s.completed).length,
@@ -845,13 +861,13 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                     <div
                       key={session.id}
                       onClick={() => setInspectingSession(session)}
-                      className="p-3 rounded-2xl bg-black/40 hover:bg-zinc-800/60 border border-white/[0.04] flex items-center justify-between cursor-pointer transition-all active:scale-98"
+                      className="p-3 rounded-2xl glass-subcard hover:border-white/20 transition-all flex items-center justify-between cursor-pointer active:scale-[0.98]"
                     >
                       <div>
-                        <h4 className="text-sm font-bold text-white">
-                          {session.routineName || 'Entrenamiento Libre'}
-                        </h4>
-                        <p className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                        <span className="text-xs font-bold text-white block">
+                          {session.routineName}
+                        </span>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
                           {new Date(session.startedAt).toLocaleDateString('es-ES', {
                             weekday: 'short',
                             day: 'numeric',
@@ -862,7 +878,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-emerald-400">
+                        <span className="text-xs font-mono font-bold text-accent">
                           {vol.toLocaleString()} kg
                         </span>
                         <ChevronRight className="w-4 h-4 text-zinc-500" />
@@ -879,15 +895,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 4. SECCIÓN: PESO CORPORAL & META                                          */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
+      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
         <button
           type="button"
           onClick={() => toggleSection('bodyweight')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Scale className="w-5 h-5" />
             </div>
             <div>
@@ -906,7 +921,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
             </span>
             <ChevronDown
               className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.bodyweight ? 'rotate-180 text-amber-400' : ''
+                openSections.bodyweight ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
@@ -920,7 +935,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
               </span>
               <button
                 onClick={() => setIsBwModalOpen(true)}
-                className="px-3 py-1 rounded-full bg-emerald-500 text-black font-bold text-xs flex items-center gap-1 active:scale-95 transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+                className="px-3.5 py-1.5 rounded-full bg-accent text-accent-fg font-bold text-xs flex items-center gap-1 active:scale-95 transition-all shadow-sm cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                 Registrar peso
@@ -928,7 +943,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
             </div>
 
             {/* Metric Banner */}
-            <div className="grid grid-cols-3 gap-2 p-3 bg-black/40 border border-white/[0.04] rounded-2xl text-center">
+            <div className="grid grid-cols-3 gap-2 p-3 glass-subcard rounded-2xl text-center">
               <div>
                 <span className="text-[10px] text-zinc-500 font-mono block">Último Peso</span>
                 <span className="text-base font-extrabold text-white font-mono">
@@ -937,7 +952,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
               </div>
               <div className="border-x border-white/[0.06]">
                 <span className="text-[10px] text-zinc-500 font-mono block">Meta</span>
-                <span className="text-base font-extrabold text-amber-400 font-mono">
+                <span className="text-base font-extrabold text-accent font-mono">
                   {targetWeight ? `${targetWeight} kg` : '—'}
                 </span>
               </div>
@@ -945,7 +960,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 <span className="text-[10px] text-zinc-500 font-mono block">Delta 30d</span>
                 <span
                   className={`text-base font-extrabold font-mono ${
-                    bw30DayDelta && bw30DayDelta < 0 ? 'text-emerald-400' : 'text-zinc-300'
+                    bw30DayDelta && bw30DayDelta < 0 ? 'text-accent' : 'text-zinc-300'
                   }`}
                 >
                   {bw30DayDelta !== null ? `${bw30DayDelta > 0 ? '+' : ''}${bw30DayDelta} kg` : '—'}
@@ -959,7 +974,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
                 points={bwChartPoints}
                 height={160}
                 unit="kg"
-                color="#F59E0B"
+                color="var(--accent-color)"
                 goal={targetWeight}
               />
             </div>
@@ -970,15 +985,14 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
       {/* ------------------------------------------------------------------------- */}
       {/* 5. SECCIÓN: CALCULADORA 1RM                                               */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="rounded-3xl bg-[#121416]/75 backdrop-blur-2xl border border-white/[0.08] hover:border-white/[0.14] overflow-hidden transition-all shadow-2xl shadow-black/60 relative">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none" />
+      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
         <button
           type="button"
           onClick={() => toggleSection('calculator')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Calculator className="w-5 h-5" />
             </div>
             <div>
@@ -997,7 +1011,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ history = [], exercises = 
             </span>
             <ChevronDown
               className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.calculator ? 'rotate-180 text-purple-400' : ''
+                openSections.calculator ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>

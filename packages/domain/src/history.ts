@@ -330,3 +330,43 @@ export function calculateMuscleFatigue(
 
   return result;
 }
+
+/**
+ * Returns ISO week key (e.g. '2026-11') for a given ISO date string.
+ */
+export function weekKey(d: string | Date): string {
+  const dt = typeof d === 'string' ? new Date(d.slice(0, 10) + 'T12:00:00') : new Date(d);
+  const day = (dt.getDay() + 6) % 7;
+  dt.setDate(dt.getDate() - day + 3);
+  const jan4 = new Date(dt.getFullYear(), 0, 4);
+  const week = 1 + Math.round(((dt.getTime() - jan4.getTime()) / 86400000 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
+  return `${dt.getFullYear()}-${week}`;
+}
+
+/**
+ * Calculates consecutive weeks with at least one recorded workout (openGym algorithm).
+ */
+export function calculateWeeklyStreak(history: WorkoutSession[]): number {
+  if (!history || history.length === 0) return 0;
+  const weeks = new Set(history.map((w) => weekKey(w.startedAt)));
+  let streak = 0;
+  const cur = new Date();
+  for (let i = 0; i < 520; i++) {
+    const wk = weekKey(cur);
+    if (weeks.has(wk)) {
+      streak++;
+    } else if (i > 0) {
+      break;
+    }
+    cur.setDate(cur.getDate() - 7);
+  }
+  return streak;
+}
+
+/**
+ * Filters sessions that happened in the current calendar week.
+ */
+export function getWorkoutsThisWeek(history: WorkoutSession[]): WorkoutSession[] {
+  const currentWeek = weekKey(new Date());
+  return history.filter((w) => weekKey(w.startedAt) === currentWeek);
+}
