@@ -163,7 +163,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
             type="button"
             onClick={() => setMonthOffset((prev) => prev - 1)}
             aria-label="Mes anterior"
-            className="glass-subcard w-9 h-9 rounded-full text-zinc-300 flex items-center justify-center hover:border-white/20 active:scale-90 transition-all cursor-pointer"
+            className="glass-subcard flex size-11 items-center justify-center rounded-full text-zinc-300 transition-all hover:border-white/20 active:scale-[0.96]"
             title="Mes anterior"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -182,7 +182,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
             type="button"
             onClick={() => setMonthOffset((prev) => prev + 1)}
             aria-label="Mes siguiente"
-            className="glass-subcard w-9 h-9 rounded-full text-zinc-300 flex items-center justify-center hover:border-white/20 active:scale-90 transition-all cursor-pointer"
+            className="glass-subcard flex size-11 items-center justify-center rounded-full text-zinc-300 transition-all hover:border-white/20 active:scale-[0.96]"
             title="Mes siguiente"
           >
             <ChevronRight className="w-4 h-4" />

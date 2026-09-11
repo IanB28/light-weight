@@ -147,7 +147,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Cerrar ajustes"
-            className="w-8 h-8 rounded-full bg-zinc-800/80 border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-colors active:scale-90 cursor-pointer"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-input text-text-muted transition-colors hover:text-text-primary active:scale-[0.96]"
           >
             <X className="w-4 h-4" />
           </button>

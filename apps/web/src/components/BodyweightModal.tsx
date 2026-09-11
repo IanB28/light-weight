@@ -81,7 +81,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Cerrar registro de peso"
-            className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
           >
             <X className="w-4 h-4 stroke-[2.2]" />
           </button>
@@ -126,7 +126,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
               type="button"
               onClick={() => handleStep(-0.5)}
               aria-label="Reducir 0.5 kilogramos"
-              className="w-10 h-10 rounded-2xl glass-subcard hover:border-white/20 active:scale-[0.92] text-white font-mono font-bold text-sm flex items-center justify-center transition-all cursor-pointer"
+              className="flex size-11 items-center justify-center rounded-ui-lg glass-subcard font-mono text-sm font-bold text-white transition-all hover:border-white/20 active:scale-[0.96]"
             >
               -0.5
             </button>
@@ -154,7 +154,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
               type="button"
               onClick={() => handleStep(0.5)}
               aria-label="Aumentar 0.5 kilogramos"
-              className="w-10 h-10 rounded-2xl glass-subcard hover:border-white/20 active:scale-[0.92] text-white font-mono font-bold text-sm flex items-center justify-center transition-all cursor-pointer"
+              className="flex size-11 items-center justify-center rounded-ui-lg glass-subcard font-mono text-sm font-bold text-white transition-all hover:border-white/20 active:scale-[0.96]"
             >
               +0.5
             </button>

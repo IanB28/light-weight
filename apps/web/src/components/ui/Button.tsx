@@ -18,7 +18,7 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: 'min-h-9 px-3 text-xs rounded-ui-md',
+  sm: 'min-h-10 px-3 text-xs rounded-ui-md',
   md: 'min-h-11 px-4 text-sm rounded-ui-lg',
   lg: 'min-h-12 px-5 text-sm rounded-ui-lg'
 };
@@ -61,7 +61,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
     <Button
       ref={ref}
       size="sm"
-      className={cn(size === 'md' ? 'size-11 min-h-11 p-0' : 'size-9 min-h-9 p-0', 'shrink-0 rounded-full', className)}
+      className={cn(size === 'md' ? 'size-11 min-h-11 p-0' : 'size-10 min-h-10 p-0', 'shrink-0 rounded-full', className)}
       {...props}
     >
       {children}

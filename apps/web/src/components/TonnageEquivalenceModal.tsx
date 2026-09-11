@@ -43,7 +43,7 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
             type="button"
             onClick={onClose}
             aria-label="Cerrar equivalencias de tonelaje"
-            className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 active:scale-90 flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
           >
             <X className="w-4 h-4" />
           </button>

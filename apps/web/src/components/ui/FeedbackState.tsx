@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, CloudOff, LoaderCircle } from 'lucide-react';
+import { AlertCircle, LoaderCircle } from 'lucide-react';
 import { cn } from '@light-weight/ui';
 import { Button } from './Button.js';
 
@@ -32,8 +32,4 @@ export function LoadingState({ title = 'Cargando…', description, compact, clas
 
 export function ErrorState({ title = 'Algo salió mal', description, actionLabel = 'Reintentar', onAction, compact, className }: Partial<FeedbackStateProps>) {
   return <EmptyState title={title} description={description} actionLabel={onAction ? actionLabel : undefined} onAction={onAction} compact={compact} className={className} icon={<AlertCircle className="size-5 text-danger" />} />;
-}
-
-export function OfflineState({ compact = true, className }: Pick<FeedbackStateProps, 'compact' | 'className'>) {
-  return <EmptyState title="Estás sin conexión" description="Tus cambios se guardarán localmente." compact={compact} className={className} icon={<CloudOff className="size-5" />} />;
 }

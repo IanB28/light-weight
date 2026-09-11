@@ -46,7 +46,7 @@ export const ExerciseMediaModal: React.FC<ExerciseMediaModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Cerrar guía del ejercicio"
-            className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 flex items-center justify-center text-zinc-400 hover:text-white transition-colors active:scale-90"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-colors hover:border-white/20 hover:text-white active:scale-[0.96]"
           >
             <X className="w-4 h-4" />
           </button>

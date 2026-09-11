@@ -115,7 +115,7 @@ export const WorkoutFocusModal: React.FC<WorkoutFocusModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Cerrar selector de entrenamiento"
-            className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer shrink-0"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
           >
             <X className="w-4 h-4 stroke-[2.2]" />
           </button>

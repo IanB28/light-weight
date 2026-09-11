@@ -5,6 +5,7 @@ import { CreateRoutineModal } from '../components/CreateRoutineModal.js';
 import { ViewHeader } from '../components/ViewHeader.js';
 import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
 import { RoutineDetailSheet } from '../features/routines/RoutineDetailSheet.js';
+import { RoutinePicker } from '../components/RoutinePicker.js';
 import { WeeklySchedule, WeekDay, WEEKDAY_NAMES_ES } from '../lib/storage.js';
 
 interface PlanViewProps {
@@ -33,8 +34,8 @@ export const PlanView: React.FC<PlanViewProps> = ({
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const assignedCount = Object.values(weeklySchedule).filter(Boolean).length;
 
-  const assignRoutine = (day: WeekDay, routineId: string) => {
-    onUpdateWeeklySchedule?.({ ...weeklySchedule, [day]: routineId || null });
+  const assignRoutine = (day: WeekDay, routineId: string | null) => {
+    onUpdateWeeklySchedule?.({ ...weeklySchedule, [day]: routineId });
   };
 
   return (
@@ -48,7 +49,12 @@ export const PlanView: React.FC<PlanViewProps> = ({
           {DAYS_LIST.map((day) => (
             <div key={day} className="grid min-h-14 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
               <span className="text-xs font-bold text-text-secondary">{WEEKDAY_NAMES_ES[day].short}</span>
-              <label className="min-w-0"><span className="sr-only">Rutina para {WEEKDAY_NAMES_ES[day].full}</span><select value={weeklySchedule[day] || ''} onChange={(event) => assignRoutine(day, event.target.value)} disabled={!routines.length} className="h-10 w-full min-w-0 rounded-ui-md border border-border-subtle bg-surface-input px-3 text-xs font-semibold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-50"><option value="">Descanso</option>{routines.map((routine) => <option key={routine.id} value={routine.id}>{routine.name}</option>)}</select></label>
+              <RoutinePicker
+                dayLabel={WEEKDAY_NAMES_ES[day].full}
+                value={weeklySchedule[day]}
+                routines={routines}
+                onChange={(routineId) => assignRoutine(day, routineId)}
+              />
             </div>
           ))}
         </AppCard>

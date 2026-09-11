@@ -8,7 +8,7 @@ import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
 import { loadExerciseCatalog } from './lib/exercises.js';
-import { Routine, Exercise, WorkoutSession, MuscleGroup, getPreviousPerformance } from '@light-weight/domain';
+import { Routine, Exercise, WorkoutSession, MuscleGroup, LoggedSet, getPreviousPerformance } from '@light-weight/domain';
 import {
   getStoredHistory,
   saveCompletedWorkout,
@@ -30,7 +30,7 @@ import {
   UserInfo
 } from './lib/storage.js';
 import { requestWakeLock, releaseWakeLock } from './lib/wakelock.js';
-import { syncWithCloud } from './lib/sync.js';
+import { fetchUserFromCloud, pullFromCloud, syncWithCloud } from './lib/sync.js';
 import { initTheme } from './lib/theme.js';
 
 export function App() {
@@ -55,6 +55,26 @@ export function App() {
   // Rest Timer State
   const [restSecondsLeft, setRestSecondsLeft] = useState<number>(0);
   const [restTotalSeconds, setRestTotalSeconds] = useState<number>(90);
+
+  // Hydrate in the background without delaying or replacing the local-first render.
+  useEffect(() => {
+    let active = true;
+
+    void pullFromCloud().then((success) => {
+      if (!active || !success) return;
+      setHistory(getStoredHistory());
+      setRoutines(getStoredRoutines());
+      setUserInfo(getStoredUserInfo());
+    });
+
+    void fetchUserFromCloud().then((remoteUser) => {
+      if (active && remoteUser) setUserInfo(remoteUser);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // The catalog is split out of the initial bundle and loaded once on demand.
   useEffect(() => {
@@ -104,7 +124,7 @@ export function App() {
 
   // Workout Timer Interval
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isWorkoutActive) {
       interval = setInterval(() => {
         setWorkoutSeconds((prev) => prev + 1);
@@ -115,7 +135,7 @@ export function App() {
 
   // Rest Timer Countdown Interval
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (restSecondsLeft > 0) {
       interval = setInterval(() => {
         setRestSecondsLeft((prev) => {
@@ -271,6 +291,7 @@ export function App() {
           ...item,
           sets: item.sets.map((s) => {
             if (s.setIndex !== setIndex) return s;
+            if (!s.completed && (!Number.isFinite(s.weightKg) || s.weightKg < 0 || !Number.isFinite(s.reps) || s.reps <= 0)) return s;
             return { ...s, completed: !s.completed };
           })
         };
@@ -285,6 +306,13 @@ export function App() {
     field: 'weightKg' | 'reps' | 'rir',
     value: number
   ) => {
+    const finiteValue = Number.isFinite(value) ? value : 0;
+    const normalizedValue = field === 'weightKg'
+      ? Math.max(0, finiteValue)
+      : field === 'reps'
+        ? Math.max(0, Math.round(finiteValue))
+        : Math.min(5, Math.max(0, Math.round(finiteValue)));
+
     setExerciseSessions((prev) =>
       prev.map((item) => {
         if (item.exercise.id !== exerciseId) return item;
@@ -292,7 +320,7 @@ export function App() {
           ...item,
           sets: item.sets.map((s) => {
             if (s.setIndex !== setIndex) return s;
-            return { ...s, [field]: value };
+            return { ...s, [field]: normalizedValue };
           })
         };
       })
@@ -354,9 +382,12 @@ export function App() {
 
   // Handler: Finish and Save Workout
   const handleFinishWorkout = () => {
-    const completedSetsRecord: Record<string, any[]> = {};
+    const completedSetsRecord: Record<string, LoggedSet[]> = {};
     for (const exSession of exerciseSessions) {
-      completedSetsRecord[exSession.exercise.id] = exSession.sets;
+      completedSetsRecord[exSession.exercise.id] = exSession.sets.map((set) => ({
+        ...set,
+        completed: set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0
+      }));
     }
 
     const sessionUuid =
@@ -379,6 +410,10 @@ export function App() {
     releaseWakeLock();
     clearActiveWorkout();
     setIsWorkoutActive(false);
+    setExerciseSessions([]);
+    setWorkoutSeconds(0);
+    setWorkoutStartTime('');
+    setActiveRoutineName('Entrenamiento Libre');
     setRestSecondsLeft(0);
     setCurrentTab('stats');
 
@@ -392,6 +427,9 @@ export function App() {
     clearActiveWorkout();
     setIsWorkoutActive(false);
     setExerciseSessions([]);
+    setWorkoutSeconds(0);
+    setWorkoutStartTime('');
+    setActiveRoutineName('Entrenamiento Libre');
     setRestSecondsLeft(0);
     setCurrentTab('home');
   };
@@ -406,7 +444,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans relative overflow-x-hidden selection:bg-accent selection:text-accent-fg">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-transparent font-sans text-text-primary selection:bg-accent selection:text-accent-fg">
       {/* Atmospheric Background Ambient Lights (Apple/visionOS Depth) */}
       <div
         className="fixed -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[26rem] rounded-full blur-[160px] pointer-events-none -z-10 transition-colors duration-700"

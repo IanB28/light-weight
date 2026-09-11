@@ -21,9 +21,3 @@ export function AppCard({ elevated, interactive, compact, className, ...props }:
     />
   );
 }
-
-export const GlassCard = AppCard;
-
-export function PageContainer({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('mx-auto w-full max-w-md space-y-section px-page pb-page-safe pt-3', className)} {...props} />;
-}

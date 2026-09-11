@@ -53,6 +53,7 @@ import {
   SPANISH_MUSCLE_NAMES
 } from '../components/charts/AnatomicalBodyMap.js';
 import { EmptyState } from '../components/ui/index.js';
+import { ExercisePicker } from '../components/ExercisePicker.js';
 
 interface StatsViewProps {
   history?: WorkoutSession[];
@@ -85,6 +86,15 @@ export const StatsView: React.FC<StatsViewProps> = ({
   onNavigateToWorkout,
   onOpenSettings
 }) => {
+  const accordionId = React.useId();
+  const sectionPanelIds = {
+    muscles: `${accordionId}-muscles`,
+    exercise: `${accordionId}-exercise`,
+    consistency: `${accordionId}-consistency`,
+    bodyweight: `${accordionId}-bodyweight`,
+    calculator: `${accordionId}-calculator`
+  } as const;
+
   // Collapsible Accordion Sections State
   const [openSection, setOpenSection] = useState<string | null>('muscles');
 
@@ -284,25 +294,25 @@ export const StatsView: React.FC<StatsViewProps> = ({
     return exercisesWithHistory[0]?.id || exercises[0]?.id || 'barbell-bench-press';
   });
 
+  const currentCalcExerciseId = calcExerciseOptions.some((exercise) => exercise.id === calcExerciseId)
+    ? calcExerciseId
+    : calcExerciseOptions[0]?.id || calcExerciseId;
+
   const selectedCalcExercise = useMemo(() => {
-    return (
-      exercises.find((e) => e.id === calcExerciseId) ||
-      exercisesWithHistory.find((e) => e.id === calcExerciseId) ||
-      exercises[0]
-    );
-  }, [exercises, exercisesWithHistory, calcExerciseId]);
+    return calcExerciseOptions.find((exercise) => exercise.id === currentCalcExerciseId);
+  }, [calcExerciseOptions, currentCalcExerciseId]);
 
   // Mejor marca registrada por el usuario en este ejercicio
   const lastTopSet = useMemo(() => {
     const sessions = [...history].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
     for (const session of sessions) {
-      const completed = (session.sets[calcExerciseId] || []).filter((set) => set.completed && !set.isWarmup && set.weightKg > 0 && set.reps > 0);
+      const completed = (session.sets[currentCalcExerciseId] || []).filter((set) => set.completed && !set.isWarmup && set.weightKg > 0 && set.reps > 0);
       if (!completed.length) continue;
       const top = completed.reduce((best, set) => estimateOneRm(set.weightKg, set.reps).average > estimateOneRm(best.weightKg, best.reps).average ? set : best);
       return { weightKg: top.weightKg, reps: top.reps, estimatedOneRm: estimateOneRm(top.weightKg, top.reps).average };
     }
     return null;
-  }, [history, calcExerciseId]);
+  }, [history, currentCalcExerciseId]);
 
   const [calcWeight, setCalcWeight] = useState(100);
   const [calcReps, setCalcReps] = useState(6);
@@ -374,21 +384,23 @@ export const StatsView: React.FC<StatsViewProps> = ({
       {/* ------------------------------------------------------------------------- */}
       {/* 1. SECCIÓN: MÚSCULOS, FATIGA & FORTALEZA                                  */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
+      <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
         <button
           type="button"
           onClick={() => toggleSection('muscles')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
+          aria-expanded={openSection === 'muscles'}
+          aria-controls={sectionPanelIds.muscles}
+          className="flex min-h-16 w-full items-center justify-between p-4 text-left transition-[transform,background-color] duration-100 ease-out hover:bg-surface-active active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
               <Activity className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
+              <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Músculos, Fatiga & Fortaleza
               </h2>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
                 Distribución anatómica de carga, fatiga acumulada y nivel relativo de fuerza.
               </p>
             </div>
@@ -413,7 +425,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
               />
             )}
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+              aria-hidden="true"
+              className={`size-5 shrink-0 text-text-muted transition-transform duration-200 ${
                 openSection === 'muscles' ? 'rotate-180 text-accent' : ''
               }`}
             />
@@ -421,7 +434,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         </button>
 
         {openSection === 'muscles' && history.length === 0 && (
-          <div className="border-t border-border-subtle p-4">
+          <div id={sectionPanelIds.muscles} className="border-t border-border-subtle p-4">
             <EmptyState
               icon={<Activity className="size-5" />}
               title="No hay suficiente historial para mostrar esta estadística."
@@ -431,7 +444,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         )}
 
         {openSection === 'muscles' && history.length > 0 && (
-          <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
+          <div id={sectionPanelIds.muscles} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {/* Barra de Perfil Biométrico: Género y Peso Corporal */}
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
@@ -779,21 +792,23 @@ export const StatsView: React.FC<StatsViewProps> = ({
       {/* ------------------------------------------------------------------------- */}
       {/* 2. SECCIÓN: PROGRESO POR EJERCICIO                                        */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
+      <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
         <button
           type="button"
           onClick={() => toggleSection('exercise')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
+          aria-expanded={openSection === 'exercise'}
+          aria-controls={sectionPanelIds.exercise}
+          className="flex min-h-16 w-full items-center justify-between p-4 text-left transition-[transform,background-color] duration-100 ease-out hover:bg-surface-active active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
               <TrendingUp className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
+              <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Progreso por Ejercicio
               </h2>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
                 Curvas de sobrecarga progresiva, 1RM estimado y esfuerzo RIR por movimiento.
               </p>
             </div>
@@ -806,7 +821,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </span>
             )}
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+              aria-hidden="true"
+              className={`size-5 shrink-0 text-text-muted transition-transform duration-200 ${
                 openSection === 'exercise' ? 'rotate-180 text-accent' : ''
               }`}
             />
@@ -814,27 +830,16 @@ export const StatsView: React.FC<StatsViewProps> = ({
         </button>
 
         {openSection === 'exercise' && (
-          <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
+          <div id={sectionPanelIds.exercise} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {exercisesWithHistory.length === 0 ? (
               <EmptyState title="No hay suficiente historial para mostrar esta estadística." description="Completa algunas series y vuelve aquí para ver tu progreso por ejercicio." icon={<TrendingUp className="size-5" />} />
             ) : (<>
-            {/* Dropdown Selector de Ejercicio */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono font-bold text-zinc-500 uppercase block">
-                SELECCIONA EL EJERCICIO
-              </label>
-              <select
-                value={currentExerciseId}
-                onChange={(e) => setSelectedExId(e.target.value)}
-                className="w-full py-2.5 px-3 rounded-2xl bg-zinc-900 border border-white/[0.08] text-white font-bold text-sm focus:outline-none focus:border-accent cursor-pointer"
-              >
-                {exercisesWithHistory.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {ex.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ExercisePicker
+              label="Selecciona el ejercicio"
+              value={currentExerciseId}
+              exercises={exercisesWithHistory}
+              onChange={setSelectedExId}
+            />
 
             {/* Metric Switcher: [ Top Set | 1RM Est. | RIR ] */}
             <div className="p-1 rounded-2xl glass-subcard border border-white/[0.04] grid grid-cols-3 gap-1 text-xs">
@@ -937,21 +942,23 @@ export const StatsView: React.FC<StatsViewProps> = ({
       {/* ------------------------------------------------------------------------- */}
       {/* 3. SECCIÓN: CONSISTENCIA & CALENDARIO                                     */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
+      <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
         <button
           type="button"
           onClick={() => toggleSection('consistency')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
+          aria-expanded={openSection === 'consistency'}
+          aria-controls={sectionPanelIds.consistency}
+          className="flex min-h-16 w-full items-center justify-between p-4 text-left transition-[transform,background-color] duration-100 ease-out hover:bg-surface-active active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
               <Calendar className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
+              <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Consistencia & Calendario
               </h2>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
                 Mapa anual de entrenamientos, regularidad y registro cronológico de sesiones.
               </p>
             </div>
@@ -962,7 +969,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
               {history.length} ses.
             </span>
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+              aria-hidden="true"
+              className={`size-5 shrink-0 text-text-muted transition-transform duration-200 ${
                 openSection === 'consistency' ? 'rotate-180 text-accent' : ''
               }`}
             />
@@ -970,7 +978,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         </button>
 
         {openSection === 'consistency' && (
-          <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
+          <div id={sectionPanelIds.consistency} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {/* Mapa de Calor */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -1040,21 +1048,23 @@ export const StatsView: React.FC<StatsViewProps> = ({
       {/* ------------------------------------------------------------------------- */}
       {/* 4. SECCIÓN: PESO CORPORAL & META                                          */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
+      <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
         <button
           type="button"
           onClick={() => toggleSection('bodyweight')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
+          aria-expanded={openSection === 'bodyweight'}
+          aria-controls={sectionPanelIds.bodyweight}
+          className="flex min-h-16 w-full items-center justify-between p-4 text-left transition-[transform,background-color] duration-100 ease-out hover:bg-surface-active active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
               <Scale className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
+              <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Peso Corporal & Meta
               </h2>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
                 Evolución de peso corporal, ritmo de cambio semanal y distancia a tu objetivo.
               </p>
             </div>
@@ -1065,7 +1075,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
               {bodyweightEntries[bodyweightEntries.length - 1]?.weightKg || '—'} kg
             </span>
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+              aria-hidden="true"
+              className={`size-5 shrink-0 text-text-muted transition-transform duration-200 ${
                 openSection === 'bodyweight' ? 'rotate-180 text-accent' : ''
               }`}
             />
@@ -1073,7 +1084,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         </button>
 
         {openSection === 'bodyweight' && (
-          <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
+          <div id={sectionPanelIds.bodyweight} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
                 RESUMEN DE PESO
@@ -1134,21 +1145,23 @@ export const StatsView: React.FC<StatsViewProps> = ({
       {/* ------------------------------------------------------------------------- */}
       {/* 5. SECCIÓN: CALCULADORA 1RM PERSONALIZADA                                 */}
       {/* ------------------------------------------------------------------------- */}
-      <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
+      <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
         <button
           type="button"
           onClick={() => toggleSection('calculator')}
-          className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
+          aria-expanded={openSection === 'calculator'}
+          aria-controls={sectionPanelIds.calculator}
+          className="flex min-h-16 w-full items-center justify-between p-4 text-left transition-[transform,background-color] duration-100 ease-out hover:bg-surface-active active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
               <Calculator className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
+              <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Calculadora 1RM Personalizada
               </h2>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
                 Estimador de fuerza máxima vinculado a tu historial y estándares de peso corporal.
               </p>
             </div>
@@ -1159,7 +1172,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
               {estimate.average} kg
             </span>
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+              aria-hidden="true"
+              className={`size-5 shrink-0 text-text-muted transition-transform duration-200 ${
                 openSection === 'calculator' ? 'rotate-180 text-accent' : ''
               }`}
             />
@@ -1167,24 +1181,14 @@ export const StatsView: React.FC<StatsViewProps> = ({
         </button>
 
         {openSection === 'calculator' && (
-          <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
+          <div id={sectionPanelIds.calculator} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {/* 1. Selector de Ejercicio */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono font-bold text-zinc-500 uppercase block">
-                EJERCICIO PARA CÁLCULO DE 1RM
-              </label>
-              <select
-                value={calcExerciseId}
-                onChange={(e) => setCalcExerciseId(e.target.value)}
-                className="w-full py-2.5 px-3 rounded-2xl bg-zinc-900 border border-white/[0.08] text-white font-bold text-sm focus:outline-none focus:border-accent cursor-pointer"
-              >
-                {calcExerciseOptions.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    {ex.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ExercisePicker
+              label="Ejercicio para cálculo de 1RM"
+              value={currentCalcExerciseId}
+              exercises={calcExerciseOptions}
+              onChange={setCalcExerciseId}
+            />
 
             {/* 2. Banner de Récord Personal Histórico del Usuario (PR) */}
             {lastTopSet ? (

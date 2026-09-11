@@ -29,6 +29,7 @@ import { DayDetailModal } from '../components/DayDetailModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
 import { BackupModal } from '../components/BackupModal.js';
 import { MonthCalendarModal } from '../components/MonthCalendarModal.js';
+import { AppCard, Button, IconButton } from '../components/ui/index.js';
 
 interface HomeViewProps {
   userName?: string;
@@ -208,7 +209,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         title="LightWeight"
         subtitle={todayStr}
         greeting={
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+          <h2 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
             Hola, <span className="text-accent font-extrabold">{effectiveUserName}</span>
           </h2>
         }
@@ -219,41 +220,44 @@ export const HomeView: React.FC<HomeViewProps> = ({
       />
 
       {/* 2. Tarjeta 1: Calendario Semanal + Rutina de Hoy (Dark Glassmorphism) */}
-      <div className="p-5 dark-glass-card rounded-[28px] space-y-3.5 transition-all hover:border-white/15">
+      <AppCard className="space-y-3.5">
         {/* Navegación de semana con rango de fechas real */}
         <div className="flex items-center justify-between px-1">
-          <button
-            type="button"
+          <IconButton
+            variant="ghost"
             onClick={() => setWeekOffset((prev) => prev - 1)}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-white active:scale-90 transition-all cursor-pointer"
+            aria-label="Ver semana anterior"
             title="Semana anterior"
           >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+            <ChevronLeft className="size-4" />
+          </IconButton>
 
-          <span className="text-xs font-semibold text-zinc-300 tracking-wide">
+          <span className="text-xs font-semibold tracking-wide text-text-secondary">
             {weekDaysData.label}
           </span>
 
-          <button
-            type="button"
+          <IconButton
+            variant="ghost"
             onClick={() => setWeekOffset((prev) => prev + 1)}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-white active:scale-90 transition-all cursor-pointer"
+            aria-label="Ver semana siguiente"
             title="Semana siguiente"
           >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+            <ChevronRight className="size-4" />
+          </IconButton>
         </div>
 
         {/* Fila interactiva de los 7 Días */}
         <div className="grid grid-cols-7 gap-1 pt-0.5 text-center">
           {weekDaysData.days.map((item, idx) => (
-            <div
+            <button
+              type="button"
               key={idx}
               onClick={() => setSelectedDayDate(item.date)}
-              className="flex flex-col items-center cursor-pointer group active:scale-90 transition-all py-1"
+              aria-label={`${item.dayShort} ${item.dayNum}${item.completed ? ', entrenamiento completado' : item.routine ? `, rutina ${item.routine.name}` : ', descanso'}`}
+              aria-current={item.isToday ? 'date' : undefined}
+              className="group flex min-h-11 flex-col items-center rounded-ui-md py-1 transition-transform active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-tight mb-1">
+              <span className="mb-1 text-[11px] font-semibold uppercase tracking-tight text-text-muted">
                 {item.dayShort}
               </span>
 
@@ -262,7 +266,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   {item.dayNum}
                 </div>
               ) : (
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-zinc-200 group-hover:text-white">
+                <div className="flex size-8 items-center justify-center rounded-full text-sm font-semibold text-text-secondary group-hover:text-text-primary">
                   {item.dayNum}
                 </div>
               )}
@@ -272,32 +276,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 {item.completed ? (
                   <div className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_6px_var(--accent-glow)]" />
                 ) : item.routine ? (
-                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                  <div className="size-1.5 rounded-full bg-text-muted" />
                 ) : null}
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
         {/* Sub-tarjeta interior: HOY + Rutina Asignada + Botón Empezar (Vidrio sobre Vidrio) */}
         <div className="glass-subcard p-3.5 flex items-center justify-between mt-1 rounded-2xl">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shadow-sm shrink-0">
-              <Dumbbell className="w-5 h-5 stroke-[2.2]" />
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-active text-accent shadow-sm">
+              <Dumbbell className="size-5 stroke-[2.2]" />
             </div>
 
             <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider block">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-text-muted">
                 HOY
               </span>
-              <span className="text-white font-bold text-base block truncate">
+              <span className="block truncate text-base font-bold text-text-primary">
                 {todayScheduledRoutine ? todayScheduledRoutine.name : 'Día de Descanso'}
               </span>
             </div>
           </div>
 
-          <button
-            type="button"
+          <Button
             onClick={() => {
               if (todayScheduledRoutine) {
                 onStartWorkout(todayScheduledRoutine.id);
@@ -305,43 +308,36 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 setIsFocusModalOpen(true);
               }
             }}
-            className="glass-btn-solid font-bold text-xs px-4 py-2 rounded-xl cursor-pointer shrink-0"
+            className="shrink-0 px-3 text-xs"
           >
             {todayScheduledRoutine ? 'Empezar' : 'Entrenar de todos modos'}
-          </button>
+          </Button>
         </div>
-      </div>
+      </AppCard>
 
       {/* 3. Tarjeta 2: Sesión Inmediata ("¿Qué harás hoy?") */}
-      <div
-        onClick={() => setIsFocusModalOpen(true)}
-        className="p-5 dark-glass-card rounded-[28px] flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all hover:border-white/20"
-      >
+      <AppCard className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
-            <Zap className="w-5 h-5 fill-accent/20 text-accent" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-active text-accent">
+            <Zap className="size-5 fill-accent/20 text-accent" />
           </div>
           <div className="min-w-0">
-            <span className="text-white font-bold text-sm block tracking-tight">
+            <span className="block text-sm font-bold tracking-tight text-text-primary">
               Sesión Inmediata
             </span>
-            <span className="text-zinc-400 text-xs block mt-0.5 truncate">
+            <span className="mt-0.5 block truncate text-xs text-text-muted">
               ¿Qué harás hoy? · Push, Pull, Pierna, Glúteos...
             </span>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsFocusModalOpen(true);
-          }}
-          className="glass-btn-solid font-bold text-xs px-3.5 py-2 rounded-xl shrink-0 cursor-pointer"
+        <Button
+          onClick={() => setIsFocusModalOpen(true)}
+          className="shrink-0 px-3 text-xs"
         >
           Comenzar
-        </button>
-      </div>
+        </Button>
+      </AppCard>
 
       {/* 4. Tarjeta 3: Peso Corporal (Dark Glassmorphism) */}
       <WeightTrackerCard
@@ -352,26 +348,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
       />
 
       {/* 5. Tarjeta 4: Racha de Semanas (Dark Glassmorphism) */}
-      <div
+      <button
+        type="button"
         onClick={() => setIsMonthCalendarOpen(true)}
-        className="p-5 dark-glass-card rounded-[28px] flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-white/20"
+        aria-label={`Abrir calendario de consistencia, racha de ${streakCount} ${streakCount === 1 ? 'semana' : 'semanas'}`}
+        className="glass-surface flex min-h-11 w-full items-center justify-between rounded-ui-xl border border-border-subtle p-card text-left shadow-card transition-[transform,border-color] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <div>
           <div className="flex items-center gap-2">
-            <Flame className="w-5 h-5 text-accent" />
-            <h3 className="text-base font-bold text-white tracking-tight">
+            <Flame className="size-5 text-accent" />
+            <h3 className="text-base font-bold tracking-tight text-text-primary">
               racha de {streakCount} {streakCount === 1 ? 'semana' : 'semanas'}
             </h3>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="mt-1 text-xs text-text-muted">
             {thisWeekSessions.length} / {plannedPerWeek} esta semana · {history.length} entrenamientos en total
           </p>
         </div>
 
-        <div className="w-9 h-9 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-zinc-400 shrink-0">
-          <Calendar className="w-4 h-4 text-zinc-300" />
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-active text-text-muted">
+          <Calendar className="size-4 text-text-secondary" />
         </div>
-      </div>
+      </button>
 
       {/* Modal: Categorización de Sesión Inmediata ("¿Qué harás hoy?") */}
       <WorkoutFocusModal

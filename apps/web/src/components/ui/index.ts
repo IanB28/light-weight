@@ -5,4 +5,3 @@ export * from './SelectionControls.js';
 export * from './FormControls.js';
 export * from './Disclosure.js';
 export * from './SectionHeader.js';
-export * from './StatValue.js';
