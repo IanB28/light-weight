@@ -153,7 +153,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
       {/* Tap backdrop to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="relative w-full max-w-md dark-glass-card rounded-t-[28px] sm:rounded-[28px] border border-white/[0.08] p-5 pb-8 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200 select-none max-h-[92vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-labelledby="month-calendar-title" className="relative w-full max-w-md dark-glass-card rounded-t-[28px] sm:rounded-[28px] border border-white/[0.08] p-5 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200 select-none max-h-[92dvh] overflow-y-auto">
         {/* Handle bar */}
         <div className="w-10 h-1 bg-zinc-600/80 rounded-full mx-auto -mt-1 mb-2" />
 
@@ -162,6 +162,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
           <button
             type="button"
             onClick={() => setMonthOffset((prev) => prev - 1)}
+            aria-label="Mes anterior"
             className="glass-subcard w-9 h-9 rounded-full text-zinc-300 flex items-center justify-center hover:border-white/20 active:scale-90 transition-all cursor-pointer"
             title="Mes anterior"
           >
@@ -169,7 +170,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
           </button>
 
           <div className="text-center">
-            <h2 className="text-lg font-extrabold text-white tracking-tight font-sans">
+            <h2 id="month-calendar-title" className="text-lg font-extrabold text-white tracking-tight font-sans">
               {monthTitle}
             </h2>
             <p className="text-xs text-zinc-400 font-normal mt-0.5">
@@ -180,6 +181,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
           <button
             type="button"
             onClick={() => setMonthOffset((prev) => prev + 1)}
+            aria-label="Mes siguiente"
             className="glass-subcard w-9 h-9 rounded-full text-zinc-300 flex items-center justify-center hover:border-white/20 active:scale-90 transition-all cursor-pointer"
             title="Mes siguiente"
           >

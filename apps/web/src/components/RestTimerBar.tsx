@@ -22,7 +22,7 @@ export const RestTimerBar: React.FC<RestTimerBarProps> = ({
   const percentage = Math.max(0, Math.min(100, (secondsLeft / totalSeconds) * 100));
 
   return (
-    <div className="fixed bottom-22 left-4 right-4 max-w-md mx-auto z-40 animate-in slide-in-from-bottom-5 duration-200">
+    <div className="bottom-above-nav fixed left-3 right-3 z-40 mx-auto max-w-md motion-safe:animate-in motion-safe:slide-in-from-bottom-5 motion-safe:duration-200">
       <div className="relative overflow-hidden rounded-3xl bg-black/65 border border-sky-400/25 p-3.5 shadow-2xl shadow-sky-500/15 backdrop-blur-2xl ring-1 ring-white/10 transition-all">
         {/* Progress Background Bar with smooth linear fade */}
         <div
@@ -33,7 +33,7 @@ export const RestTimerBar: React.FC<RestTimerBarProps> = ({
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-sm shadow-sky-500/20">
-              <Timer className="w-5 h-5 animate-spin [animation-duration:8s]" />
+              <Timer className="w-5 h-5 motion-safe:animate-spin [animation-duration:8s]" />
             </div>
             <div>
               <p className="text-[10px] uppercase font-mono font-bold tracking-wider text-sky-400">
@@ -48,6 +48,7 @@ export const RestTimerBar: React.FC<RestTimerBarProps> = ({
           <div className="flex items-center gap-1.5 font-mono">
             <button
               onClick={() => onAddSeconds(-15)}
+              aria-label="Restar 15 segundos al descanso"
               className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.93] text-zinc-300 text-xs font-bold flex items-center gap-0.5 border border-white/[0.08] transition-all cursor-pointer"
               title="Restar 15 segundos"
             >
@@ -56,6 +57,7 @@ export const RestTimerBar: React.FC<RestTimerBarProps> = ({
             </button>
             <button
               onClick={() => onAddSeconds(30)}
+              aria-label="Sumar 30 segundos al descanso"
               className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.93] text-zinc-300 text-xs font-bold flex items-center gap-0.5 border border-white/[0.08] transition-all cursor-pointer"
               title="Sumar 30 segundos"
             >
@@ -64,6 +66,7 @@ export const RestTimerBar: React.FC<RestTimerBarProps> = ({
             </button>
             <button
               onClick={onDismiss}
+              aria-label="Saltar descanso"
               className="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-rose-500/20 active:scale-[0.93] text-zinc-400 hover:text-rose-400 flex items-center justify-center border border-white/[0.08] transition-all cursor-pointer ml-0.5"
               title="Saltar descanso"
             >

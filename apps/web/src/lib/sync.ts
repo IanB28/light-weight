@@ -80,7 +80,8 @@ export async function pullFromCloud(userId = '00000000-0000-0000-0000-0000000000
         description: r.description || undefined,
         exerciseIds: r.exerciseIds || [],
       }));
-      const merged = [...currentRoutines, ...incoming.filter((r: any) => !existingIds.has(r.id))];
+      const uniqueIncoming = Array.from(new Map<string, any>(incoming.map((routine: any) => [routine.id, routine])).values());
+      const merged = [...currentRoutines, ...uniqueIncoming.filter((r: any) => !existingIds.has(r.id))];
       saveStoredRoutines(merged);
     }
 
@@ -98,7 +99,8 @@ export async function pullFromCloud(userId = '00000000-0000-0000-0000-0000000000
         notes: s.notes,
         sets: s.sets || {},
       }));
-      const mergedHistory = [...incomingSessions.filter((s: any) => !existingIds.has(s.id)), ...currentHistory];
+      const uniqueIncoming = Array.from(new Map<string, any>(incomingSessions.map((session: any) => [session.id, session])).values());
+      const mergedHistory = [...uniqueIncoming.filter((s: any) => !existingIds.has(s.id)), ...currentHistory];
       saveStoredHistory(mergedHistory);
     }
 

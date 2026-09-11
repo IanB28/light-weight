@@ -26,7 +26,7 @@ export const ExerciseMediaModal: React.FC<ExerciseMediaModalProps> = ({
       {/* Backdrop tap to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col z-10 animate-slide-up">
+      <div role="dialog" aria-modal="true" aria-labelledby="exercise-media-title" className="relative w-full max-w-lg dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col z-10 animate-slide-up">
         {/* iOS Grab Handle */}
         <div className="w-full pt-3 pb-1 flex justify-center sm:hidden">
           <div className="w-10 h-1.5 rounded-full bg-white/20" />
@@ -38,12 +38,14 @@ export const ExerciseMediaModal: React.FC<ExerciseMediaModalProps> = ({
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-accent font-mono">
               GUÍA DE TÉCNICA
             </span>
-            <h3 className="text-lg font-bold text-white tracking-tight leading-tight mt-0.5">
+            <h3 id="exercise-media-title" className="text-lg font-bold text-white tracking-tight leading-tight mt-0.5">
               {exercise.name}
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Cerrar guía del ejercicio"
             className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 flex items-center justify-center text-zinc-400 hover:text-white transition-colors active:scale-90"
           >
             <X className="w-4 h-4" />

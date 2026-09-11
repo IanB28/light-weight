@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Cloud, CloudOff, RefreshCw, Settings } from 'lucide-react';
 import { syncWithCloud, subscribeToSyncStatus, SyncStatus } from '../lib/sync.js';
+import { Badge, IconButton } from './ui/index.js';
 
 export interface ViewHeaderProps {
   title: string;
-  subtitle: React.ReactNode;
+  subtitle?: string;
+  greeting?: React.ReactNode;
   isWorkoutActive?: boolean;
   activeWorkoutDuration?: string;
   onNavigateToWorkout?: () => void;
@@ -15,93 +17,70 @@ export interface ViewHeaderProps {
 export const ViewHeader: React.FC<ViewHeaderProps> = ({
   title,
   subtitle,
-  isWorkoutActive = false,
-  activeWorkoutDuration = '00:00',
+  greeting,
+  isWorkoutActive,
+  activeWorkoutDuration,
   onNavigateToWorkout,
   onOpenSettings,
   rightExtra
 }) => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'idle' });
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+  useEffect(() => subscribeToSyncStatus(setSyncStatus), []);
 
   useEffect(() => {
-    return subscribeToSyncStatus(setSyncStatus);
+    const updateConnection = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateConnection);
+    window.addEventListener('offline', updateConnection);
+    return () => {
+      window.removeEventListener('online', updateConnection);
+      window.removeEventListener('offline', updateConnection);
+    };
   }, []);
 
+  const isOffline = !isOnline || syncStatus.state === 'offline';
+
+  const syncLabel = isOffline
+    ? 'Sin conexión. Tus cambios se guardarán localmente.'
+    : syncStatus.state === 'syncing'
+    ? 'Sincronizando datos'
+    : syncStatus.state === 'error'
+        ? 'No pudimos sincronizar tus datos'
+        : syncStatus.state === 'synced'
+          ? 'Datos sincronizados'
+          : 'Sincronizar datos';
+
   return (
-    <div className="flex items-start justify-between pt-1 pb-1 px-0.5">
-      <div className="min-w-0 pr-2">
-        <h1 className="text-3xl font-extrabold tracking-tight text-white font-sans truncate">
+    <header className="relative px-1 pb-1 pt-2">
+      <div className="min-w-0 pr-[5.5rem]">
+        <h1 className="break-words text-[clamp(1.75rem,9vw,2.15rem)] font-extrabold leading-none tracking-tight text-text-primary">
           {title}
         </h1>
-        <div className="text-xs text-zinc-400 font-medium mt-0.5 truncate">
-          {subtitle}
-        </div>
+        {subtitle && <p className="mt-2 max-w-xs text-xs font-medium leading-relaxed text-text-muted">{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-2 pt-1 shrink-0">
-        {rightExtra}
+      <div className="absolute right-0 top-1 flex items-center gap-2">
+        <IconButton variant="secondary" size="sm" aria-label={syncLabel} title={syncLabel} onClick={() => syncWithCloud()}>
+          {syncStatus.state === 'syncing' ? <RefreshCw className="size-4 animate-spin" /> : isOffline || syncStatus.state === 'error' ? <CloudOff className="size-4" /> : <Cloud className="size-4 text-accent" />}
+        </IconButton>
+        {onOpenSettings && <IconButton variant="secondary" size="sm" aria-label="Abrir ajustes" title="Ajustes y personalización" onClick={onOpenSettings}><Settings className="size-4" /></IconButton>}
+      </div>
 
-        {isWorkoutActive && onNavigateToWorkout && (
-          <button
-            type="button"
-            onClick={onNavigateToWorkout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-semibold active:scale-95 transition-all cursor-pointer shadow-sm"
-          >
-            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            <span className="font-mono">{activeWorkoutDuration}</span>
-          </button>
-        )}
-
-        {/* Indicador de Sincronización en la Nube (Neon PostgreSQL) */}
-        <button
-          type="button"
-          onClick={() => syncWithCloud()}
-          title={
-            syncStatus.state === 'syncing'
-              ? 'Sincronizando con PostgreSQL...'
-              : syncStatus.state === 'synced'
-              ? `Sincronizado con Neon DB (${syncStatus.syncedSessionsCount ?? 0} sesiones)`
-              : syncStatus.state === 'offline'
-              ? 'Modo Offline (guardando en local)'
-              : 'Toca para sincronizar con la nube'
-          }
-          className="glass-subcard flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs hover:border-white/20 active:scale-95 transition-all cursor-pointer"
-        >
-          {syncStatus.state === 'syncing' ? (
-            <>
-              <RefreshCw className="w-3.5 h-3.5 text-sky-400 animate-spin" />
-              <span className="font-mono text-[10px] text-sky-400">Sincronizando</span>
-            </>
-          ) : syncStatus.state === 'synced' ? (
-            <>
-              <Cloud className="w-3.5 h-3.5 text-accent" />
-              <span className="font-mono text-[10px] text-accent font-medium">Neon OK</span>
-            </>
-          ) : syncStatus.state === 'offline' ? (
-            <>
-              <CloudOff className="w-3.5 h-3.5 text-zinc-500" />
-              <span className="font-mono text-[10px] text-zinc-500">Offline</span>
-            </>
-          ) : (
-            <>
-              <Cloud className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="font-mono text-[10px] text-zinc-400">Nube</span>
-            </>
+      {(rightExtra || (isWorkoutActive && onNavigateToWorkout) || isOffline || syncStatus.state === 'error') && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {rightExtra}
+          {isWorkoutActive && onNavigateToWorkout && (
+            <button type="button" onClick={onNavigateToWorkout} className="focus-visible:ring-accent inline-flex min-h-9 items-center gap-2 rounded-full border border-accent/30 bg-accent/15 px-3 text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2">
+              <span className="size-2 rounded-full bg-accent motion-safe:animate-pulse" aria-hidden="true" />
+              <span>Sesión activa</span>
+              <span className="font-mono">{activeWorkoutDuration}</span>
+            </button>
           )}
-        </button>
-
-        {/* Botón de Ajustes y Personalización */}
-        {onOpenSettings && (
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="glass-subcard w-9 h-9 rounded-full flex items-center justify-center hover:border-white/20 active:scale-95 transition-all cursor-pointer"
-            title="Ajustes y Personalización"
-          >
-            <Settings className="w-4 h-4 text-zinc-300" />
-          </button>
-        )}
-      </div>
-    </div>
+          {isOffline && <Badge className="border-amber-500/25 text-amber-400">Sin conexión · guardado local</Badge>}
+          {syncStatus.state === 'error' && <Badge className="border-danger/30 text-danger">Error de sincronización</Badge>}
+        </div>
+      )}
+      {greeting && <div className="pt-4">{greeting}</div>}
+    </header>
   );
 };

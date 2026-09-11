@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
-import { ChevronRight, Plus, Dumbbell, Trash2 } from 'lucide-react';
-import { Routine, Exercise } from '@light-weight/domain';
+import { ChevronRight, Dumbbell, Plus } from 'lucide-react';
+import { Exercise, Routine } from '@light-weight/domain';
 import { CreateRoutineModal } from '../components/CreateRoutineModal.js';
-import { BackupModal } from '../components/BackupModal.js';
 import { ViewHeader } from '../components/ViewHeader.js';
-import {
-  WeeklySchedule,
-  WeekDay,
-  WEEKDAY_NAMES_ES
-} from '../lib/storage.js';
+import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
+import { RoutineDetailSheet } from '../features/routines/RoutineDetailSheet.js';
+import { WeeklySchedule, WeekDay, WEEKDAY_NAMES_ES } from '../lib/storage.js';
 
 interface PlanViewProps {
   routines: Routine[];
@@ -25,156 +22,55 @@ interface PlanViewProps {
   onOpenSettings?: () => void;
 }
 
-const DAYS_LIST: WeekDay[] = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday'
-];
+const DAYS_LIST: WeekDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export const PlanView: React.FC<PlanViewProps> = ({
-  routines,
-  exercises,
-  weeklySchedule,
-  onUpdateWeeklySchedule,
-  onSelectAndStartRoutine,
-  onSaveRoutine,
-  onDeleteRoutine,
-  onDataRestored,
-  isWorkoutActive = false,
-  activeWorkoutDuration = '00:00',
-  onNavigateToWorkout,
-  onOpenSettings
+  routines, exercises, weeklySchedule, onUpdateWeeklySchedule, onSelectAndStartRoutine,
+  onSaveRoutine, onDeleteRoutine, isWorkoutActive = false, activeWorkoutDuration = '00:00',
+  onNavigateToWorkout, onOpenSettings
 }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
+  const assignedCount = Object.values(weeklySchedule).filter(Boolean).length;
+
+  const assignRoutine = (day: WeekDay, routineId: string) => {
+    onUpdateWeeklySchedule?.({ ...weeklySchedule, [day]: routineId || null });
+  };
 
   return (
-    <div className="space-y-4 pb-28">
-      {/* 1. Header Homogéneo */}
-      <ViewHeader
-        title="Planificación"
-        subtitle="Calendario semanal y rutinas personalizadas"
-        isWorkoutActive={isWorkoutActive}
-        activeWorkoutDuration={activeWorkoutDuration}
-        onNavigateToWorkout={onNavigateToWorkout}
-        onOpenSettings={onOpenSettings || (() => setIsBackupModalOpen(true))}
-      />
+    <div className="space-y-5 pb-28">
+      <ViewHeader title="Planificación" subtitle="Organiza tu semana y reutiliza tus rutinas." isWorkoutActive={isWorkoutActive} activeWorkoutDuration={activeWorkoutDuration} onNavigateToWorkout={onNavigateToWorkout} onOpenSettings={onOpenSettings} />
 
-      {/* Section: Week schedule */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Distribución Semanal</span>
-          <span className="text-[11px] text-zinc-400 font-mono">7 Días</span>
-        </div>
-
-        <div className="p-2 dark-glass-card rounded-[28px] border border-white/[0.08] divide-y divide-white/[0.04] overflow-hidden shadow-xl">
-          {DAYS_LIST.map((dayKey) => {
-            const routineId = weeklySchedule[dayKey];
-            const assignedRoutine = routineId ? routines.find((r) => r.id === routineId) : null;
-            const dayName = WEEKDAY_NAMES_ES[dayKey].full;
-
-            return (
-              <div
-                key={dayKey}
-                className="flex items-center justify-between p-3 hover:bg-white/[0.02] transition-colors rounded-xl"
-              >
-                <span className="text-xs font-semibold text-zinc-200">{dayName}</span>
-
-                {assignedRoutine ? (
-                  <button
-                    onClick={() => onSelectAndStartRoutine(assignedRoutine.id)}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-bold hover:bg-accent/25 active:scale-[0.94] transition-all cursor-pointer shadow-sm"
-                  >
-                    <Dumbbell className="w-3 h-3 stroke-[2.5]" />
-                    <span>{assignedRoutine.name}</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full glass-subcard text-zinc-400 text-xs font-medium">
-                    <span>Descanso</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Section: Routines */}
-      <div className="space-y-2.5 pt-1">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Tus Rutinas ({routines.length})</span>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-accent text-accent-fg text-xs font-bold hover:brightness-110 active:scale-[0.94] transition-all cursor-pointer shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            Nueva Rutina
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {routines.map((routine) => (
-            <div
-              key={routine.id}
-              onClick={() => onSelectAndStartRoutine(routine.id)}
-              className="p-4 dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/20 transition-all flex items-center justify-between cursor-pointer active:scale-[0.98] group shadow-xl"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
-                  <Dumbbell className="w-5 h-5 stroke-[2.5]" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-accent transition-colors">
-                    {routine.name}
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5 font-mono">
-                    {routine.exerciseIds.length} ejercicios programados
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                {onDeleteRoutine && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`¿Deseas eliminar la rutina "${routine.name}"?`)) {
-                        onDeleteRoutine(routine.id);
-                      }
-                    }}
-                    className="w-8 h-8 rounded-full bg-transparent hover:bg-red-500/10 text-zinc-500 hover:text-red-400 flex items-center justify-center transition-colors active:scale-90"
-                    title="Eliminar rutina"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <ChevronRight className="w-5 h-5 text-zinc-500 group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
-              </div>
+      <section className="space-y-2.5">
+        <SectionHeader title="Esta semana" meta={`${assignedCount} ${assignedCount === 1 ? 'día asignado' : 'días asignados'}`} />
+        <AppCard compact className="divide-y divide-border-subtle overflow-hidden p-2">
+          {assignedCount === 0 && <EmptyState compact title="Aún no has asignado entrenamientos a esta semana." description={routines.length ? 'Elige una rutina para cada día que quieras entrenar.' : 'Crea tu primera rutina y después asígnala a un día.'} />}
+          {DAYS_LIST.map((day) => (
+            <div key={day} className="grid min-h-14 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
+              <span className="text-xs font-bold text-text-secondary">{WEEKDAY_NAMES_ES[day].short}</span>
+              <label className="min-w-0"><span className="sr-only">Rutina para {WEEKDAY_NAMES_ES[day].full}</span><select value={weeklySchedule[day] || ''} onChange={(event) => assignRoutine(day, event.target.value)} disabled={!routines.length} className="h-10 w-full min-w-0 rounded-ui-md border border-border-subtle bg-surface-input px-3 text-xs font-semibold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-50"><option value="">Descanso</option>{routines.map((routine) => <option key={routine.id} value={routine.id}>{routine.name}</option>)}</select></label>
             </div>
           ))}
-        </div>
-      </div>
+        </AppCard>
+      </section>
 
-      {/* Modal: Crear Nueva Rutina */}
-      <CreateRoutineModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        availableExercises={exercises}
-        onSaveRoutine={onSaveRoutine}
-      />
+      <section className="space-y-2.5">
+        <SectionHeader title="Mis rutinas" meta={`${routines.length} guardadas`} action={<Button size="sm" onClick={() => setIsCreateModalOpen(true)}><Plus className="size-4" />Nueva rutina</Button>} />
+        {routines.length === 0 ? (
+          <AppCard><EmptyState icon={<Dumbbell className="size-5" />} title="No tienes rutinas todavía." description="Configura tu primera rutina para organizar tu semana." actionLabel="Crear primera rutina" onAction={() => setIsCreateModalOpen(true)} /></AppCard>
+        ) : (
+          <div className="space-y-2">
+            {routines.map((routine) => (
+              <button key={routine.id} type="button" onClick={() => setSelectedRoutine(routine)} className="glass-surface flex min-h-[72px] w-full items-center justify-between gap-3 rounded-ui-xl border border-border-subtle p-4 text-left transition-all hover:border-border-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-[0.99]">
+                <div className="flex min-w-0 items-center gap-3"><div className="flex size-11 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent"><Dumbbell className="size-5" /></div><div className="min-w-0"><h3 className="truncate text-sm font-bold text-text-primary">{routine.name}</h3><p className="mt-0.5 text-xs text-text-muted">{routine.exerciseIds.length} {routine.exerciseIds.length === 1 ? 'ejercicio' : 'ejercicios'}</p></div></div><ChevronRight className="size-5 shrink-0 text-text-muted" />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
 
-      {/* Modal: Exportar / Importar Copia de Seguridad */}
-      <BackupModal
-        isOpen={isBackupModalOpen}
-        onClose={() => setIsBackupModalOpen(false)}
-        onDataRestored={onDataRestored}
-      />
+      <CreateRoutineModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} availableExercises={exercises} onSaveRoutine={onSaveRoutine} />
+      <RoutineDetailSheet routine={selectedRoutine} exercises={exercises} onClose={() => setSelectedRoutine(null)} onStart={onSelectAndStartRoutine} onDelete={onDeleteRoutine} />
     </div>
   );
 };

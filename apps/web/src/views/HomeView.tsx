@@ -71,7 +71,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const [weekOffset, setWeekOffset] = useState<number>(0);
 
-  const effectiveUserName = userName || getStoredUserInfo().name || 'Operador Demo';
+  const effectiveUserName = userName || getStoredUserInfo().name || 'Atleta';
 
   // Modals state
   const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
@@ -83,12 +83,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
 
   const today = new Date();
-  // Formato openGym: "miércoles, 9 de septiembre" (lowercase)
-  const todayStr = today.toLocaleDateString('es-ES', {
+  const rawDateStr = today.toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long'
-  }).toLowerCase();
+  });
+  const todayStr = rawDateStr.charAt(0).toUpperCase() + rawDateStr.slice(1);
 
   // Cálculo de racha de semanas consecutivas (algoritmo openGym)
   const streakCount = useMemo(() => {
@@ -101,7 +101,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   }, [history]);
 
   const plannedPerWeek = useMemo(() => {
-    return Object.values(weeklySchedule).filter(Boolean).length || 3;
+    return Object.values(weeklySchedule).filter(Boolean).length;
   }, [weeklySchedule]);
 
   // Determinar qué rutina toca HOY
@@ -202,14 +202,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
   };
 
   return (
-    <div className="space-y-3.5 pb-28 max-w-md mx-auto select-none">
-      {/* 1. Header Homogéneo */}
+    <div className="space-y-4 pb-28 max-w-md mx-auto select-none">
+      {/* 1. Header Homogéneo con Título, Fecha y Saludo Dedicado */}
       <ViewHeader
         title="LightWeight"
-        subtitle={
-          <span>
-            {todayStr} · Hola, <strong className="text-white font-bold">{effectiveUserName}</strong>
-          </span>
+        subtitle={todayStr}
+        greeting={
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            Hola, <span className="text-accent font-extrabold">{effectiveUserName}</span>
+          </h2>
         }
         isWorkoutActive={isWorkoutActive}
         activeWorkoutDuration={activeWorkoutDuration}
@@ -304,9 +305,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 setIsFocusModalOpen(true);
               }
             }}
-            className="bg-accent text-accent-fg hover:brightness-110 font-bold text-xs px-4 py-2 rounded-xl active:scale-95 transition-all cursor-pointer shrink-0 shadow-sm"
+            className="glass-btn-solid font-bold text-xs px-4 py-2 rounded-xl cursor-pointer shrink-0"
           >
-            Empezar
+            {todayScheduledRoutine ? 'Empezar' : 'Entrenar de todos modos'}
           </button>
         </div>
       </div>
@@ -336,7 +337,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             e.stopPropagation();
             setIsFocusModalOpen(true);
           }}
-          className="bg-accent text-accent-fg hover:brightness-110 font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
+          className="glass-btn-solid font-bold text-xs px-3.5 py-2 rounded-xl shrink-0 cursor-pointer"
         >
           Comenzar
         </button>

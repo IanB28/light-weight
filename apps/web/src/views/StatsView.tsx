@@ -8,12 +8,15 @@ import {
   ChevronRight,
   ChevronDown,
   Plus,
+  Minus,
   AlertTriangle,
   TrendingUp,
   Shield,
   Zap,
   User,
-  Sparkles
+  Sparkles,
+  Dumbbell,
+  Target
 } from 'lucide-react';
 import {
   estimateOneRm,
@@ -41,6 +44,7 @@ import { LineChart, ChartPoint } from '../components/charts/LineChart.js';
 import { ActivityHeatmap } from '../components/charts/ActivityHeatmap.js';
 import { BodyweightModal } from '../components/BodyweightModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
+import { TonnageEquivalenceModal } from '../components/TonnageEquivalenceModal.js';
 import { ViewHeader } from '../components/ViewHeader.js';
 import {
   AnatomicalBodyMap,
@@ -48,6 +52,7 @@ import {
   MuscleAnalytics,
   SPANISH_MUSCLE_NAMES
 } from '../components/charts/AnatomicalBodyMap.js';
+import { EmptyState } from '../components/ui/index.js';
 
 interface StatsViewProps {
   history?: WorkoutSession[];
@@ -81,19 +86,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
   onOpenSettings
 }) => {
   // Collapsible Accordion Sections State
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    muscles: true,
-    exercise: true,
-    consistency: false,
-    bodyweight: false,
-    calculator: false
-  });
+  const [openSection, setOpenSection] = useState<string | null>('muscles');
 
   const toggleSection = (sectionId: string) => {
-    setOpenSections((prev) => ({
-      ...prev,
-      [sectionId]: !prev[sectionId]
-    }));
+    setOpenSection((current) => current === sectionId ? null : sectionId);
   };
 
   // User Profile (Gender & Preferences)
@@ -113,7 +109,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const currentBodyweightKg = useMemo(() => {
     return bodyweightEntries.length > 0
       ? bodyweightEntries[bodyweightEntries.length - 1].weightKg
-      : 75.0;
+      : null;
   }, [bodyweightEntries]);
 
   // =========================================================================
@@ -176,12 +172,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
       // Strength & StrengthLevel evaluation
       const strInfo = strengthMap.get(muscle) || { top1Rm: 0, exName: '' };
-      const strengthEvaluation = evaluateRelativeStrength(
-        muscle,
-        strInfo.top1Rm,
-        currentBodyweightKg,
-        currentGender
-      );
+      const strengthEvaluation = currentBodyweightKg && strInfo.top1Rm > 0
+        ? evaluateRelativeStrength(muscle, strInfo.top1Rm, currentBodyweightKg, currentGender)
+        : undefined;
 
       result[muscle] = {
         muscle,
@@ -218,7 +211,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
     const list = Array.from(ids)
       .map((id) => exercisesById[id] || { id, name: id, category: 'other', primaryMuscle: 'chest' as MuscleGroup })
       .sort((a, b) => a.name.localeCompare(b.name));
-    return list.length > 0 ? list : exercises.slice(0, 5);
+    return list;
   }, [history, exercisesById, exercises]);
 
   const currentExerciseId = exercisesWithHistory.some((e) => e.id === selectedExId)
@@ -273,13 +266,67 @@ export const StatsView: React.FC<StatsViewProps> = ({
   }, [bodyweightEntries]);
 
   // =========================================================================
-  // 4. CALCULADORA 1RM
   // =========================================================================
+  // 4. CALCULADORA 1RM PERSONALIZADA CON HISTORIAL Y BIOMETRÍA
+  // =========================================================================
+  const calcExerciseOptions = useMemo(() => {
+    const map = new Map<string, Exercise>();
+    // Primero los ejercicios que tienen historial
+    exercisesWithHistory.forEach((ex) => map.set(ex.id, ex));
+    // Luego el resto de ejercicios del catálogo
+    exercises.forEach((ex) => {
+      if (!map.has(ex.id)) map.set(ex.id, ex);
+    });
+    return Array.from(map.values());
+  }, [exercisesWithHistory, exercises]);
+
+  const [calcExerciseId, setCalcExerciseId] = useState<string>(() => {
+    return exercisesWithHistory[0]?.id || exercises[0]?.id || 'barbell-bench-press';
+  });
+
+  const selectedCalcExercise = useMemo(() => {
+    return (
+      exercises.find((e) => e.id === calcExerciseId) ||
+      exercisesWithHistory.find((e) => e.id === calcExerciseId) ||
+      exercises[0]
+    );
+  }, [exercises, exercisesWithHistory, calcExerciseId]);
+
+  // Mejor marca registrada por el usuario en este ejercicio
+  const lastTopSet = useMemo(() => {
+    const sessions = [...history].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+    for (const session of sessions) {
+      const completed = (session.sets[calcExerciseId] || []).filter((set) => set.completed && !set.isWarmup && set.weightKg > 0 && set.reps > 0);
+      if (!completed.length) continue;
+      const top = completed.reduce((best, set) => estimateOneRm(set.weightKg, set.reps).average > estimateOneRm(best.weightKg, best.reps).average ? set : best);
+      return { weightKg: top.weightKg, reps: top.reps, estimatedOneRm: estimateOneRm(top.weightKg, top.reps).average };
+    }
+    return null;
+  }, [history, calcExerciseId]);
+
   const [calcWeight, setCalcWeight] = useState(100);
   const [calcReps, setCalcReps] = useState(6);
+
+  // Al cambiar el ejercicio, precargar el PR histórico si existe
   const estimate = estimateOneRm(calcWeight, calcReps);
 
-  // Total tonnage
+  // Nivel de fuerza y ratio según el peso corporal del usuario
+  const userStrengthEval = useMemo(() => {
+    if (!selectedCalcExercise || !currentBodyweightKg) return null;
+    return evaluateRelativeStrength(
+      selectedCalcExercise.primaryMuscle,
+      estimate.average,
+      currentBodyweightKg || 0,
+      currentGender
+    );
+  }, [selectedCalcExercise, estimate.average, currentBodyweightKg, currentGender]);
+
+  // Estados de listas desplegables internas
+  const [isNeglectedListOpen, setIsNeglectedListOpen] = useState(false);
+  const [isEffectiveSetsOpen, setIsEffectiveSetsOpen] = useState(false);
+
+  // Total tonnage y modal de equivalencias cotidianas
+  const [isTonnageModalOpen, setIsTonnageModalOpen] = useState(false);
   const totalVolumeTonnage = useMemo(() => {
     return history.reduce((sum, s) => sum + calculateSessionTotalVolume(s), 0);
   }, [history]);
@@ -299,7 +346,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   return (
     <div className="space-y-4 pb-28">
-      {/* 1. Header Homogéneo */}
+      {/* 1. Header Homogéneo con Tonelaje Interactivo */}
       <ViewHeader
         title="Estadísticas"
         subtitle="Analítica de rendimiento, fatiga fisiológica y fuerza relativa"
@@ -307,12 +354,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
         activeWorkoutDuration={activeWorkoutDuration}
         onNavigateToWorkout={onNavigateToWorkout}
         onOpenSettings={onOpenSettings}
-        rightExtra={
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-mono font-bold shadow-sm">
-            <Flame className="w-3.5 h-3.5 text-accent" />
+        rightExtra={totalVolumeTonnage > 0 ? (
+          <button
+            type="button"
+            onClick={() => setIsTonnageModalOpen(true)}
+            title="Toca para ver equivalencias cotidianas de tonelaje (coches, aviones, etc.)"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-mono font-bold shadow-sm shrink-0 hover:bg-accent hover:text-accent-fg active:scale-95 transition-all cursor-pointer"
+          >
+            <Flame className="w-3.5 h-3.5 shrink-0" />
             <span>{totalVolumeTonnage.toLocaleString()} kg</span>
-          </div>
-        }
+          </button>
+        ) : undefined}
       />
 
       {/* ========================================================================= */}
@@ -328,39 +380,57 @@ export const StatsView: React.FC<StatsViewProps> = ({
           onClick={() => toggleSection('muscles')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Activity className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
                 Músculos, Fatiga & Fortaleza
               </h2>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Distribución anatómica, recuperación ponderada y nivel StrengthLevel
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Distribución anatómica de carga, fatiga acumulada y nivel relativo de fuerza.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {muscleAnalysis.neglected.length > 0 ? (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                {muscleAnalysis.neglected.length} descuidados
+          <div className="flex items-center gap-2 shrink-0">
+            {history.length === 0 ? (
+              <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-1 text-[10px] font-bold text-text-muted">
+                Sin datos
+              </span>
+            ) : muscleAnalysis.neglected.length > 0 ? (
+              <span
+                className="w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)] shrink-0"
+                title={`${muscleAnalysis.neglected.length} músculos rezagados`}
+              >
+                !
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/25">
-                11 activos
-              </span>
+              <span
+                className="w-2.5 h-2.5 rounded-full bg-accent shadow-[0_0_6px_var(--accent-glow)] shrink-0"
+                title="Todos los grupos musculares activos"
+              />
             )}
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.muscles ? 'rotate-180 text-accent' : ''
+              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                openSection === 'muscles' ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
         </button>
 
-        {openSections.muscles && (
+        {openSection === 'muscles' && history.length === 0 && (
+          <div className="border-t border-border-subtle p-4">
+            <EmptyState
+              icon={<Activity className="size-5" />}
+              title="No hay suficiente historial para mostrar esta estadística."
+              description="Completa tu primer entrenamiento para activar el mapa muscular."
+            />
+          </div>
+        )}
+
+        {openSection === 'muscles' && history.length > 0 && (
           <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
             {/* Barra de Perfil Biométrico: Género y Peso Corporal */}
             <div className="flex items-center justify-between px-1">
@@ -391,7 +461,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   Mujer
                 </button>
                 <span className="text-zinc-700 px-1">|</span>
-                <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg} kg</span>
+                <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg ? `${currentBodyweightKg} kg` : 'Sin peso'}</span>
               </div>
             </div>
 
@@ -446,27 +516,28 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </button>
             </div>
 
-            {/* Selector de Ventana de Tiempo (Sólo relevante para Balance) */}
+            {/* Selector de Ventana de Tiempo (Segmented Control compacto) */}
             {muscleAnalysisMode === 'balance' && (
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
-                  VENTANA TEMPORAL
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase shrink-0">
+                  VENTANA
                 </span>
-                <div className="flex gap-1 text-xs">
+                <div className="grid grid-cols-4 gap-1 text-xs bg-zinc-900/60 p-1 rounded-xl border border-white/[0.04]">
                   {[
-                    { days: 7, label: '7 Días' },
-                    { days: 30, label: '30 Días' },
-                    { days: 90, label: '90 Días' },
-                    { days: 0, label: 'Histórico' }
+                    { days: 7, label: '7d', title: 'Últimos 7 días' },
+                    { days: 30, label: '30d', title: 'Últimos 30 días' },
+                    { days: 90, label: '90d', title: 'Últimos 90 días' },
+                    { days: 0, label: 'Todo', title: 'Histórico completo' }
                   ].map((opt) => (
                     <button
                       key={opt.days}
                       onClick={() => setMuscleWindow(opt.days)}
-                      className={`px-2.5 py-1 rounded-xl font-bold font-mono text-[11px] transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg font-bold font-mono text-[11px] text-center transition-all cursor-pointer ${
                         muscleWindow === opt.days
-                          ? 'bg-zinc-800 text-white border border-white/[0.1]'
+                          ? 'bg-zinc-800 text-white border border-white/[0.1] shadow-sm'
                           : 'text-zinc-500 hover:text-zinc-300'
                       }`}
+                      title={opt.title}
                     >
                       {opt.label}
                     </button>
@@ -484,152 +555,222 @@ export const StatsView: React.FC<StatsViewProps> = ({
               onSelectMuscle={setSelectedMuscle}
             />
 
-            {/* Subsección A: Músculos Descuidados (en modo Equilibrio) */}
+            {/* Subsección A: Músculos Rezagados como Lista Desplegable */}
             {muscleAnalysisMode === 'balance' && muscleAnalysis.neglected.length > 0 && (
-              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-2">
-                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Músculos no entrenados en este período</span>
-                </div>
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  No tienes series registradas para estos grupos en los últimos{' '}
-                  {muscleWindow === 0 ? 'meses' : `${muscleWindow} días`}:
-                </p>
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {muscleAnalysis.neglected.map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setSelectedMuscle(m)}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 capitalize hover:bg-amber-500/30 transition-all cursor-pointer"
-                    >
-                      {SPANISH_MUSCLE_NAMES[m] || m}
-                    </button>
-                  ))}
-                </div>
+              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 overflow-hidden shadow-sm transition-all">
+                <button
+                  type="button"
+                  onClick={() => setIsNeglectedListOpen((prev) => !prev)}
+                  className="w-full p-3 flex items-center justify-between cursor-pointer hover:bg-amber-500/15 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    <span className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-extrabold text-xs flex items-center justify-center shrink-0">
+                      !
+                    </span>
+                    <div className="text-left min-w-0">
+                      <span className="text-xs font-bold text-amber-300 block">
+                        Músculos Rezagados ({muscleAnalysis.neglected.length})
+                      </span>
+                      <span className="text-[10px] text-amber-400/80">
+                        {isNeglectedListOpen ? 'Toca para contraer lista' : 'Toca para ver lista desplegable y sugerencias'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <ChevronDown
+                    className={`w-4 h-4 text-amber-400 transition-transform duration-200 shrink-0 ${
+                      isNeglectedListOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {isNeglectedListOpen && (
+                  <div className="p-3 pt-1 space-y-2 border-t border-amber-500/20 animate-in fade-in duration-150">
+                    <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                      Grupos musculares sin series en el período seleccionado. Toca cualquiera para enfocarlo en el mapa anatómico:
+                    </p>
+
+                    <div className="space-y-1.5 pt-0.5">
+                      {muscleAnalysis.neglected.map((m) => {
+                        const muscleName = SPANISH_MUSCLE_NAMES[m] || m;
+                        const sampleEx = exercises.find((ex) => ex.primaryMuscle === m);
+
+                        return (
+                          <div
+                            key={m}
+                            onClick={() => setSelectedMuscle(m)}
+                            className="p-2.5 rounded-xl bg-black/40 border border-amber-500/20 flex items-center justify-between hover:bg-amber-500/20 transition-all cursor-pointer group"
+                          >
+                            <div className="min-w-0 flex-1 pr-2">
+                              <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                                {muscleName}
+                              </span>
+                              {sampleEx && (
+                                <span className="text-[10px] text-zinc-400 block truncate mt-0.5">
+                                  Sugerido: <strong className="text-zinc-300">{sampleEx.name}</strong>
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-[10px] font-semibold text-amber-400 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 shrink-0">
+                              Ver en mapa
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Subsección B: Lista de Ranking según el modo */}
-            <div className="space-y-2 pt-1">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                {muscleAnalysisMode === 'balance'
-                  ? 'Series Efectivas por Grupo'
-                  : muscleAnalysisMode === 'fatigue'
-                  ? 'Carga de Fatiga Fisiológica y Recuperación'
-                  : 'Insignias de Fuerza Relativa (StrengthLevel)'}
-              </h3>
+            {/* Subsección B: Lista Desplegable de Series Efectivas por Grupo */}
+            <div className="rounded-2xl glass-subcard border border-white/[0.06] overflow-hidden transition-all">
+              <button
+                type="button"
+                onClick={() => setIsEffectiveSetsOpen((prev) => !prev)}
+                className="w-full p-3 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.03] transition-colors"
+              >
+                <div className="min-w-0 pr-2">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                    {muscleAnalysisMode === 'balance'
+                      ? 'Series Efectivas por Grupo'
+                      : muscleAnalysisMode === 'fatigue'
+                      ? 'Carga de Fatiga Fisiológica y Recuperación'
+                      : 'Insignias de Fuerza Relativa (StrengthLevel)'}
+                  </h3>
+                  <span className="text-[10px] text-zinc-400 block mt-0.5">
+                    {isEffectiveSetsOpen ? 'Toca para contraer' : 'Toca para desplegar ranking detallado'}
+                  </span>
+                </div>
 
-              <div className="space-y-1.5">
-                {ALL_MUSCLE_GROUPS.map((m) => {
-                  const item = fullMuscleAnalytics[m];
-                  const isSelected = selectedMuscle === m;
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-mono font-bold text-zinc-400 bg-white/[0.06] px-2.5 py-0.5 rounded-full">
+                    {muscleAnalysisMode === 'balance'
+                      ? `${Object.values(fullMuscleAnalytics).reduce((a, b) => a + b.sets, 0)} series`
+                      : `${ALL_MUSCLE_GROUPS.length} grupos`}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                      isEffectiveSetsOpen ? 'rotate-180 text-accent' : ''
+                    }`}
+                  />
+                </div>
+              </button>
 
-                  return (
-                    <div
-                      key={m}
-                      onClick={() => setSelectedMuscle(isSelected ? null : m)}
-                      className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
-                        isSelected
-                          ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
-                          : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
-                          <span className="text-base" title={item.strengthEvaluation.tierLabelEs}>
-                            {item.strengthEvaluation.emoji}
-                          </span>
-                        )}
+              {isEffectiveSetsOpen && (
+                <div className="p-3 pt-0 space-y-1.5 border-t border-white/[0.04] animate-in fade-in duration-150">
+                  {ALL_MUSCLE_GROUPS.map((m) => {
+                    const item = fullMuscleAnalytics[m];
+                    const isSelected = selectedMuscle === m;
 
-                        {muscleAnalysisMode !== 'strength' && (
-                          <span
-                            className={`w-2.5 h-2.5 rounded-full ${
-                              muscleAnalysisMode === 'fatigue'
-                                ? item.recoveryStatus === 'fatigued'
-                                ? 'bg-rose-500'
-                                : item.recoveryStatus === 'recovering'
-                                ? 'bg-amber-500'
-                                : 'bg-accent'
-                                : item.sets > 0
-                                ? 'bg-accent'
-                                : 'bg-zinc-700'
-                            }`}
-                          />
-                        )}
-
-                        <div>
-                          <span className="font-bold text-white capitalize block">
-                            {item.nameEs}
-                          </span>
+                    return (
+                      <div
+                        key={m}
+                        onClick={() => setSelectedMuscle(isSelected ? null : m)}
+                        className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
+                            : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                           {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
-                            <span
-                              className="text-[10px] font-mono font-bold"
-                              style={{ color: item.strengthEvaluation.color }}
-                            >
-                              {item.strengthEvaluation.tierLabelEs} • {item.strengthEvaluation.currentRatio}× BW
+                            <span className="text-base shrink-0" title={item.strengthEvaluation.tierLabelEs}>
+                              {item.strengthEvaluation.emoji}
                             </span>
+                          )}
+
+                          {muscleAnalysisMode !== 'strength' && (
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                muscleAnalysisMode === 'fatigue'
+                                  ? item.recoveryStatus === 'fatigued'
+                                  ? 'bg-rose-500'
+                                  : item.recoveryStatus === 'recovering'
+                                  ? 'bg-amber-500'
+                                  : 'bg-accent'
+                                  : item.sets > 0
+                                  ? 'bg-accent'
+                                  : 'bg-zinc-700'
+                              }`}
+                            />
+                          )}
+
+                          <div className="min-w-0">
+                            <span className="font-bold text-white capitalize block truncate">
+                              {item.nameEs}
+                            </span>
+                            {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
+                              <span
+                                className="text-[10px] font-mono font-bold block truncate"
+                                style={{ color: item.strengthEvaluation.color }}
+                              >
+                                {item.strengthEvaluation.tierLabelEs} • {item.strengthEvaluation.currentRatio}× BW
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right font-mono shrink-0">
+                          {muscleAnalysisMode === 'balance' && (
+                            <span className="text-zinc-400">
+                              <strong className="text-accent">{item.sets}</strong> series •{' '}
+                              {item.volumeKg.toLocaleString()} kg
+                            </span>
+                          )}
+
+                          {muscleAnalysisMode === 'fatigue' && (
+                            <div>
+                              <span
+                                className={`font-bold block ${
+                                  item.recoveryStatus === 'fatigued'
+                                    ? 'text-rose-400'
+                                    : item.recoveryStatus === 'recovering'
+                                    ? 'text-amber-400'
+                                    : 'text-accent'
+                                }`}
+                              >
+                                {item.recoveryStatus === 'fatigued'
+                                  ? 'Fatiga Alta'
+                                  : item.recoveryStatus === 'recovering'
+                                  ? 'Adaptando'
+                                  : 'Listo'}{' '}
+                                <span className="text-zinc-500 font-normal text-[10px]">
+                                  ({item.fatigueScore} pts)
+                                </span>
+                              </span>
+                              <span className="text-zinc-500 font-normal text-[10px] block">
+                                {item.lastTrainedHoursAgo !== null
+                                  ? `Hace ${item.lastTrainedHoursAgo}h (${item.recentHardSetsCount} duras)`
+                                  : 'Descansado'}
+                              </span>
+                            </div>
+                          )}
+
+                          {muscleAnalysisMode === 'strength' && (
+                            <div>
+                              <span className="text-white font-bold block">
+                                {item.topEst1RmKg > 0 ? `${item.topEst1RmKg} kg` : 'Sin datos'}
+                              </span>
+                              {item.strengthEvaluation?.nextTier && item.strengthEvaluation.kgToNextTier !== null ? (
+                                <span className="text-purple-400 text-[10px] block truncate">
+                                  +{item.strengthEvaluation.kgToNextTier} kg → {item.strengthEvaluation.nextTierLabelEs}
+                                </span>
+                              ) : item.strengthEvaluation?.tier === 'elite' ? (
+                                <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
+                                  <span>Rango Máximo</span>
+                                  <Sparkles className="w-3.5 h-3.5 text-accent inline" />
+                                </span>
+                              ) : null}
+                            </div>
                           )}
                         </div>
                       </div>
-
-                      <div className="text-right font-mono">
-                        {muscleAnalysisMode === 'balance' && (
-                          <span className="text-zinc-400">
-                            <strong className="text-accent">{item.sets}</strong> series •{' '}
-                            {item.volumeKg.toLocaleString()} kg
-                          </span>
-                        )}
-
-                        {muscleAnalysisMode === 'fatigue' && (
-                          <div>
-                            <span
-                              className={`font-bold block ${
-                                item.recoveryStatus === 'fatigued'
-                                  ? 'text-rose-400'
-                                  : item.recoveryStatus === 'recovering'
-                                  ? 'text-amber-400'
-                                  : 'text-accent'
-                              }`}
-                            >
-                              {item.recoveryStatus === 'fatigued'
-                                ? 'Fatiga Alta'
-                                : item.recoveryStatus === 'recovering'
-                                ? 'Adaptando'
-                                : 'Listo'}{' '}
-                              <span className="text-zinc-500 font-normal text-[10px]">
-                                ({item.fatigueScore} pts)
-                              </span>
-                            </span>
-                            <span className="text-zinc-500 font-normal text-[10px] block">
-                              {item.lastTrainedHoursAgo !== null
-                                ? `Hace ${item.lastTrainedHoursAgo}h (${item.recentHardSetsCount} duras)`
-                                : 'Descansado'}
-                            </span>
-                          </div>
-                        )}
-
-                        {muscleAnalysisMode === 'strength' && (
-                          <div>
-                            <span className="text-white font-bold block">
-                              {item.topEst1RmKg > 0 ? `${item.topEst1RmKg} kg` : 'Sin datos'}
-                            </span>
-                            {item.strengthEvaluation?.nextTier && item.strengthEvaluation.kgToNextTier !== null ? (
-                              <span className="text-purple-400 text-[10px] block">
-                                +{item.strengthEvaluation.kgToNextTier} kg p/ {item.strengthEvaluation.nextTierLabelEs}
-                              </span>
-                            ) : item.strengthEvaluation?.tier === 'elite' ? (
-                              <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
-                                <span>Rango Máximo</span>
-                                <Sparkles className="w-3.5 h-3.5 text-accent inline" />
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -644,36 +785,39 @@ export const StatsView: React.FC<StatsViewProps> = ({
           onClick={() => toggleSection('exercise')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
                 Progreso por Ejercicio
               </h2>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Curvas de sobrecarga progresiva, 1RM estimado y RIR
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Curvas de sobrecarga progresiva, 1RM estimado y esfuerzo RIR por movimiento.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {bestAllTimeEstimate > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/25">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/25 shrink-0">
                 PR: {bestAllTimeEstimate} kg
               </span>
             )}
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.exercise ? 'rotate-180 text-accent' : ''
+              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                openSection === 'exercise' ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
         </button>
 
-        {openSections.exercise && (
+        {openSection === 'exercise' && (
           <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
+            {exercisesWithHistory.length === 0 ? (
+              <EmptyState title="No hay suficiente historial para mostrar esta estadística." description="Completa algunas series y vuelve aquí para ver tu progreso por ejercicio." icon={<TrendingUp className="size-5" />} />
+            ) : (<>
             {/* Dropdown Selector de Ejercicio */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono font-bold text-zinc-500 uppercase block">
@@ -785,6 +929,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 </div>
               )}
             </div>
+            </>)}
           </div>
         )}
       </div>
@@ -798,33 +943,33 @@ export const StatsView: React.FC<StatsViewProps> = ({
           onClick={() => toggleSection('consistency')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
                 Consistencia & Calendario
               </h2>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Mapa anual de entrenamientos y registro histórico
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Mapa anual de entrenamientos, regularidad y registro cronológico de sesiones.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
-              {history.length} sesiones
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
+              {history.length} ses.
             </span>
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.consistency ? 'rotate-180 text-accent' : ''
+              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                openSection === 'consistency' ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
         </button>
 
-        {openSections.consistency && (
+        {openSection === 'consistency' && (
           <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
             {/* Mapa de Calor */}
             <div className="space-y-2">
@@ -901,33 +1046,33 @@ export const StatsView: React.FC<StatsViewProps> = ({
           onClick={() => toggleSection('bodyweight')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Scale className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
                 Peso Corporal & Meta
               </h2>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Evolución de peso corporal y distancia a tu objetivo
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Evolución de peso corporal, ritmo de cambio semanal y distancia a tu objetivo.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
               {bodyweightEntries[bodyweightEntries.length - 1]?.weightKg || '—'} kg
             </span>
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.bodyweight ? 'rotate-180 text-accent' : ''
+              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                openSection === 'bodyweight' ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
         </button>
 
-        {openSections.bodyweight && (
+        {openSection === 'bodyweight' && (
           <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
@@ -942,6 +1087,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </button>
             </div>
 
+            {bodyweightEntries.length === 0 ? (
+              <EmptyState title="Aún no tienes registros de peso." description="Registra tu peso para ver tendencias y distancia a tu meta." icon={<Scale className="size-5" />} actionLabel="Registrar peso" onAction={() => setIsBwModalOpen(true)} />
+            ) : (<>
             {/* Metric Banner */}
             <div className="grid grid-cols-3 gap-2 p-3 glass-subcard rounded-2xl text-center">
               <div>
@@ -978,12 +1126,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 goal={targetWeight}
               />
             </div>
+            </>)}
           </div>
         )}
       </div>
 
       {/* ------------------------------------------------------------------------- */}
-      {/* 5. SECCIÓN: CALCULADORA 1RM                                               */}
+      {/* 5. SECCIÓN: CALCULADORA 1RM PERSONALIZADA                                 */}
       {/* ------------------------------------------------------------------------- */}
       <div className="dark-glass-card rounded-[28px] border border-white/[0.08] hover:border-white/15 overflow-hidden transition-all shadow-xl relative">
         <button
@@ -991,52 +1140,195 @@ export const StatsView: React.FC<StatsViewProps> = ({
           onClick={() => toggleSection('calculator')}
           className="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] active:scale-[0.99] transition-all duration-100 ease-out"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 rounded-2xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-accent shrink-0">
               <Calculator className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-extrabold text-white tracking-tight leading-snug">
-                Calculadora 1RM
+                Calculadora 1RM Personalizada
               </h2>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Estimador de fuerza máxima teórica (Epley, Brzycki y Lombardi)
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Estimador de fuerza máxima vinculado a tu historial y estándares de peso corporal.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-accent/15 text-accent border border-accent/25 shrink-0">
               {estimate.average} kg
             </span>
             <ChevronDown
-              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 ${
-                openSections.calculator ? 'rotate-180 text-accent' : ''
+              className={`w-5 h-5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                openSection === 'calculator' ? 'rotate-180 text-accent' : ''
               }`}
             />
           </div>
         </button>
 
-        {openSections.calculator && (
+        {openSection === 'calculator' && (
           <div className="p-4 pt-1 space-y-4 border-t border-white/[0.04] animate-in fade-in duration-200">
+            {/* 1. Selector de Ejercicio */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono font-bold text-zinc-500 uppercase block">
+                EJERCICIO PARA CÁLCULO DE 1RM
+              </label>
+              <select
+                value={calcExerciseId}
+                onChange={(e) => setCalcExerciseId(e.target.value)}
+                className="w-full py-2.5 px-3 rounded-2xl bg-zinc-900 border border-white/[0.08] text-white font-bold text-sm focus:outline-none focus:border-accent cursor-pointer"
+              >
+                {calcExerciseOptions.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. Banner de Récord Personal Histórico del Usuario (PR) */}
+            {lastTopSet ? (
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-mono font-bold text-amber-400 block">
+                      ÚLTIMO TOP SET
+                    </span>
+                    <span className="text-xs text-white font-bold block truncate">
+                      {lastTopSet.weightKg} kg × {lastTopSet.reps} reps{' '}
+                      <span className="text-amber-300 font-normal">
+                        (1RM ~{lastTopSet.estimatedOneRm} kg)
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCalcWeight(lastTopSet.weightKg);
+                    setCalcReps(lastTopSet.reps);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-amber-500 text-black font-extrabold text-xs hover:bg-amber-400 active:scale-95 transition-all cursor-pointer shrink-0 shadow-sm"
+                >
+                  Usar estos valores
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-[11px] text-zinc-400">
+                Aún no tienes series completadas en este ejercicio. Introduce los valores manualmente abajo para calcular tu 1RM.
+              </div>
+            )}
+
+            {/* 3. Tarjeta de Estándar Biométrico y Nivel de Fuerza (StrengthLevel) */}
+            {userStrengthEval && (
+              <div className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-3xl shrink-0" title={userStrengthEval.tierLabelEs}>
+                    {userStrengthEval.emoji}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-white">
+                        {userStrengthEval.tierLabelEs}
+                      </span>
+                      <span
+                        className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border"
+                        style={{
+                          backgroundColor: `${userStrengthEval.color}20`,
+                          borderColor: `${userStrengthEval.color}40`,
+                          color: userStrengthEval.color
+                        }}
+                      >
+                        {userStrengthEval.currentRatio}× peso corporal
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-zinc-400 font-mono block mt-0.5">
+                      Base biométrica: {currentBodyweightKg} kg ({currentGender === 'male' ? 'Hombre' : 'Mujer'})
+                    </span>
+                  </div>
+                </div>
+
+                {userStrengthEval.nextTier && userStrengthEval.kgToNextTier !== null && (
+                  <div className="text-right font-mono shrink-0">
+                    <span className="text-[10px] text-zinc-500 block">Siguiente nivel</span>
+                    <span className="text-xs font-bold text-accent">
+                      +{userStrengthEval.kgToNextTier} kg
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 4. Inputs con Botones de Ajuste Rápido (+/- 2.5 kg, +/- 1 rep) */}
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-2xl bg-black/40 border border-white/[0.06]">
-                <span className="text-[10px] text-zinc-500 block uppercase font-mono">Carga (kg)</span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] text-zinc-500 uppercase font-mono font-bold">
+                    Carga (kg)
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setCalcWeight((w) => Math.max(0, Math.round((w - 2.5) * 10) / 10))}
+                      className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-white/[0.16] text-zinc-300 flex items-center justify-center cursor-pointer text-xs font-mono font-bold active:scale-90 transition-transform"
+                      title="-2.5 kg"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalcWeight((w) => Math.round((w + 2.5) * 10) / 10)}
+                      className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-white/[0.16] text-zinc-300 flex items-center justify-center cursor-pointer text-xs font-mono font-bold active:scale-90 transition-transform"
+                      title="+2.5 kg"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
                 <input
                   type="number"
+                  step="2.5"
                   value={calcWeight}
                   onChange={(e) => setCalcWeight(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-transparent font-mono font-bold text-xl text-white tabular-nums focus:outline-none mt-1"
+                  className="w-full bg-transparent font-mono font-bold text-2xl text-white tabular-nums focus:outline-none"
                 />
               </div>
+
               <div className="p-3 rounded-2xl bg-black/40 border border-white/[0.06]">
-                <span className="text-[10px] text-zinc-500 block uppercase font-mono">Reps (Máx 12)</span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] text-zinc-500 uppercase font-mono font-bold">
+                    Reps (Máx 12)
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setCalcReps((r) => Math.max(1, r - 1))}
+                      className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-white/[0.16] text-zinc-300 flex items-center justify-center cursor-pointer text-xs font-mono font-bold active:scale-90 transition-transform"
+                      title="-1 rep"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalcReps((r) => Math.min(12, r + 1))}
+                      className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-white/[0.16] text-zinc-300 flex items-center justify-center cursor-pointer text-xs font-mono font-bold active:scale-90 transition-transform"
+                      title="+1 rep"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
                 <input
                   type="number"
+                  min={1}
                   max={12}
                   value={calcReps}
                   onChange={(e) => setCalcReps(parseInt(e.target.value, 10) || 1)}
-                  className="w-full bg-transparent font-mono font-bold text-xl text-white tabular-nums focus:outline-none mt-1"
+                  className="w-full bg-transparent font-mono font-bold text-2xl text-white tabular-nums focus:outline-none"
                 />
               </div>
             </div>
@@ -1047,18 +1339,43 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </div>
             )}
 
+            {/* 5. Comparativa de Fórmulas Teóricas */}
             <div className="grid grid-cols-3 gap-2 text-center p-3 rounded-2xl bg-black/60 border border-white/[0.04]">
               <div>
-                <div className="text-[10px] text-zinc-500 font-mono">Epley</div>
-                <div className="text-base font-bold text-white font-mono">{estimate.epley} kg</div>
+                <div className="text-[10px] text-zinc-500 font-mono uppercase">Epley</div>
+                <div className="text-base font-bold text-white font-mono mt-0.5">{estimate.epley} kg</div>
               </div>
               <div className="border-x border-zinc-800">
-                <div className="text-[10px] text-zinc-500 font-mono">Brzycki</div>
-                <div className="text-base font-bold text-white font-mono">{estimate.brzycki} kg</div>
+                <div className="text-[10px] text-zinc-500 font-mono uppercase">Brzycki</div>
+                <div className="text-base font-bold text-white font-mono mt-0.5">{estimate.brzycki} kg</div>
               </div>
               <div>
-                <div className="text-[10px] text-purple-400 font-mono">Promedio</div>
-                <div className="text-base font-bold text-purple-400 font-mono">{estimate.average} kg</div>
+                <div className="text-[10px] text-accent font-mono uppercase font-bold">Consenso</div>
+                <div className="text-base font-extrabold text-accent font-mono mt-0.5">{estimate.average} kg</div>
+              </div>
+            </div>
+
+            {/* 6. Desglose de Porcentajes de Entrenamiento (70% - 100%) */}
+            <div className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] space-y-2.5">
+              <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
+                ZONAS DE ENTRENAMIENTO BASADAS EN 1RM ({estimate.average} kg)
+              </span>
+              <div className="grid grid-cols-4 gap-1.5 text-center text-xs font-mono">
+                {[
+                  { pct: 100, reps: '1 rep', label: 'Fuerza Máx' },
+                  { pct: 90, reps: '3-4 reps', label: 'Fuerza' },
+                  { pct: 80, reps: '7-8 reps', label: 'Hipertrofia' },
+                  { pct: 70, reps: '11-12 reps', label: 'Resistencia' }
+                ].map((zone) => {
+                  const targetKg = Math.round((estimate.average * (zone.pct / 100)) * 2) / 2;
+                  return (
+                    <div key={zone.pct} className="p-2 rounded-xl bg-black/40 border border-white/[0.04]">
+                      <div className="text-[10px] text-zinc-500 font-bold">{zone.pct}%</div>
+                      <div className="text-sm font-extrabold text-white my-0.5">{targetKg} kg</div>
+                      <div className="text-[9px] text-accent font-semibold">{zone.reps}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1078,6 +1395,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
         session={inspectingSession}
         onClose={() => setInspectingSession(null)}
         exercisesById={exercisesById}
+      />
+
+      {/* Modal Interactivo de Equivalencias Cotidianas de Tonelaje */}
+      <TonnageEquivalenceModal
+        isOpen={isTonnageModalOpen}
+        onClose={() => setIsTonnageModalOpen(false)}
+        totalKg={totalVolumeTonnage}
       />
     </div>
   );

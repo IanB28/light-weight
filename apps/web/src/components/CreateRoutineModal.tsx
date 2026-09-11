@@ -57,7 +57,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xl animate-fade-in">
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col z-10 animate-slide-up">
+      <div role="dialog" aria-modal="true" aria-labelledby="create-routine-title" className="relative w-full max-w-lg dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col z-10 animate-slide-up">
         {/* iOS Grab Handle */}
         <div className="w-full pt-3 pb-1 flex justify-center sm:hidden">
           <div className="w-10 h-1.5 rounded-full bg-white/20" />
@@ -69,12 +69,14 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-accent font-mono">
               NUEVA RUTINA
             </span>
-            <h3 className="text-lg font-bold text-white tracking-tight leading-tight mt-0.5">
+            <h3 id="create-routine-title" className="text-lg font-bold text-white tracking-tight leading-tight mt-0.5">
               Diseñar Rutina
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Cerrar creación de rutina"
             className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 flex items-center justify-center text-zinc-400 hover:text-white transition-colors active:scale-90"
           >
             <X className="w-4 h-4" />

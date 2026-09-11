@@ -95,96 +95,116 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   // Compute maximum volume for balance normalization
   const maxSets = Math.max(1, ...Object.values(data).map((d) => d.sets));
 
-  // Determine fill color for a given muscle group based on mode
-  const getMuscleColor = (muscle: MuscleGroup): { fill: string; stroke: string } => {
+  // Determine fill color and stroke for a given muscle group based on mode
+  const getMuscleColor = (muscle: MuscleGroup): { fill: string; stroke: string; strokeWidth: number } => {
     const item = data[muscle];
-    if (!item) return { fill: '#181A1D', stroke: 'rgba(255,255,255,0.06)' };
+    // Base fallback: clearly visible against dark glass
+    if (!item) return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
 
     if (mode === 'balance') {
       if (item.sets === 0) {
-        return { fill: '#141618', stroke: 'rgba(255,255,255,0.05)' };
+        // Untrained muscle in openGym: color-mix(in srgb, var(--label) 11%, var(--surface))
+        return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
       }
       const ratio = item.sets / maxSets;
-      if (ratio < 0.25) return { fill: 'color-mix(in srgb, var(--accent-color) 25%, #141618)', stroke: 'var(--accent-color)' };
-      if (ratio < 0.55) return { fill: 'color-mix(in srgb, var(--accent-color) 50%, #141618)', stroke: 'var(--accent-color)' };
-      if (ratio < 0.8) return { fill: 'color-mix(in srgb, var(--accent-color) 75%, #141618)', stroke: 'var(--accent-color)' };
-      return { fill: 'var(--accent-color)', stroke: '#ffffff' };
+      if (ratio < 0.25) {
+        return {
+          fill: 'color-mix(in srgb, var(--accent-color) 32%, rgba(255, 255, 255, 0.08))',
+          stroke: 'var(--accent-color)',
+          strokeWidth: 0.9
+        };
+      }
+      if (ratio < 0.55) {
+        return {
+          fill: 'color-mix(in srgb, var(--accent-color) 56%, rgba(255, 255, 255, 0.08))',
+          stroke: 'var(--accent-color)',
+          strokeWidth: 0.9
+        };
+      }
+      if (ratio < 0.85) {
+        return {
+          fill: 'color-mix(in srgb, var(--accent-color) 78%, rgba(255, 255, 255, 0.08))',
+          stroke: 'var(--accent-color)',
+          strokeWidth: 1.0
+        };
+      }
+      return { fill: 'var(--accent-color)', stroke: '#ffffff', strokeWidth: 1.2 };
     }
 
     if (mode === 'fatigue') {
       if (item.recoveryStatus === 'fatigued') {
-        return { fill: '#E11D48', stroke: '#F43F5E' }; // Red/Rose for high fatigue (score >= 4.5)
+        return { fill: '#F43F5E', stroke: '#FDA4AF', strokeWidth: 1.2 }; // Rose/Red
       }
       if (item.recoveryStatus === 'recovering') {
-        return { fill: '#D97706', stroke: '#F59E0B' }; // Amber for recovering (1.8 <= score < 4.5)
+        return { fill: '#F59E0B', stroke: '#FDE68A', strokeWidth: 1.1 }; // Amber
       }
-      return { fill: '#059669', stroke: '#10B981' }; // Emerald for ready (score < 1.8)
+      return { fill: '#10B981', stroke: '#6EE7B7', strokeWidth: 1.0 }; // Emerald
     }
 
     if (mode === 'strength') {
       if (!item.strengthEvaluation || item.topEst1RmKg === 0) {
-        return { fill: '#141618', stroke: 'rgba(255,255,255,0.05)' };
+        return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
       }
       const tier = item.strengthEvaluation.tier;
       switch (tier) {
         case 'elite':
-          return { fill: '#7C3AED', stroke: '#A855F7' }; // Purple / Diamond
+          return { fill: '#A855F7', stroke: '#E9D5FF', strokeWidth: 1.2 };
         case 'advanced':
-          return { fill: '#D97706', stroke: '#F59E0B' }; // Amber / Gold
+          return { fill: '#F59E0B', stroke: '#FDE68A', strokeWidth: 1.1 };
         case 'intermediate':
-          return { fill: '#059669', stroke: '#10B981' }; // Emerald / Silver
+          return { fill: '#10B981', stroke: '#A7F3D0', strokeWidth: 1.0 };
         case 'novice':
-          return { fill: '#0284C7', stroke: '#38BDF8' }; // Sky / Bronze
+          return { fill: '#38BDF8', stroke: '#BAE6FD', strokeWidth: 0.9 };
         case 'beginner':
         default:
-          return { fill: '#3F3F46', stroke: '#71717A' }; // Zinc
+          return { fill: 'rgba(255, 255, 255, 0.22)', stroke: 'rgba(255, 255, 255, 0.35)', strokeWidth: 0.8 };
       }
     }
 
-    return { fill: '#181A1D', stroke: 'rgba(255,255,255,0.06)' };
+    return { fill: 'rgba(255, 255, 255, 0.07)', stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 0.8 };
   };
 
   const renderView = (view: BodyViewData, isFront: boolean) => {
     return (
       <svg
         viewBox={view.vb}
-        className="w-full max-w-[140px] sm:max-w-[170px] h-auto drop-shadow-md select-none transition-transform"
+        className="h-[285px] sm:h-[320px] w-auto max-w-full drop-shadow-xl select-none transition-all duration-200"
         role="img"
         aria-label={isFront ? 'Vista frontal anatómica' : 'Vista dorsal anatómica'}
       >
-        {/* Render inert silhouette parts */}
+        {/* Render inert silhouette parts with distinct openGym contrast */}
         {Object.entries(view.p).map(([key, paths]) => {
           if (!INERT_KEYS.has(key)) return null;
           return paths.map((d, i) => (
             <path
               key={`inert-${key}-${i}`}
               d={d}
-              fill="#181A1D"
-              stroke="#27272A"
-              strokeWidth={0.8}
+              fill="var(--inert-body-fill, rgba(255, 255, 255, 0.12))"
+              stroke="var(--inert-body-stroke, rgba(255, 255, 255, 0.22))"
+              strokeWidth={0.9}
             />
           ));
         })}
 
-        {/* Render muscle groups */}
+        {/* Render muscle groups with openGym styling and crisp separation */}
         {Object.entries(view.p).map(([key, paths]) => {
           if (INERT_KEYS.has(key)) return null;
           const muscle = SVG_TO_MUSCLE_GROUP[key];
           if (!muscle) return null;
 
-          const { fill, stroke } = getMuscleColor(muscle);
+          const { fill, stroke, strokeWidth } = getMuscleColor(muscle);
           const isSelected = selectedMuscle === muscle;
 
           return paths.map((d, i) => (
             <path
               key={`muscle-${key}-${i}`}
               d={d}
-              fill={isSelected ? '#F8FAFC' : fill}
-              stroke={isSelected ? '#38BDF8' : stroke}
-              strokeWidth={isSelected ? 3 : 1}
+              fill={isSelected ? '#FFFFFF' : fill}
+              stroke={isSelected ? '#FFFFFF' : stroke}
+              strokeWidth={isSelected ? 4 : strokeWidth}
               className="cursor-pointer transition-colors duration-150 active:opacity-80"
               style={{
-                filter: isSelected ? 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.7))' : undefined
+                filter: isSelected ? 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.9))' : undefined
               }}
               onClick={() => onSelectMuscle(selectedMuscle === muscle ? null : muscle)}
             >
@@ -200,89 +220,79 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Both Views: Anterior (Frontal) & Posterior (Dorsal) */}
-      <div className="flex items-center justify-center gap-6 py-2 bg-black/50 rounded-3xl border border-white/[0.04] p-3">
-        <div className="flex flex-col items-center">
-          <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mb-1">
+      {/* Both Views: Anterior (Frontal) & Posterior (Dorsal) with openGym Frosted Glass & Rim Depth */}
+      <div className="flex items-center justify-center gap-3 sm:gap-6 py-3 px-2 sm:px-4 bg-gradient-to-b from-white/[0.07] to-white/[0.02] rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+        <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
             Frente
           </span>
           {renderView(genderPaths.front, true)}
         </div>
 
-        <div className="w-[1px] h-48 bg-white/[0.06]" />
+        <div className="w-[1px] h-56 sm:h-64 bg-gradient-to-b from-transparent via-white/15 to-transparent shrink-0" />
 
-        <div className="flex flex-col items-center">
-          <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mb-1">
+        <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
+          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
             Dorso
           </span>
           {renderView(genderPaths.back, false)}
         </div>
       </div>
 
-      {/* Mode Legends */}
+      {/* Mode Legends: Compact, non-deforming, responsive */}
       {mode === 'balance' && (
-        <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/60 rounded-2xl border border-white/[0.04] text-[11px] font-mono text-zinc-400">
-          <span>Menor volumen</span>
-          <div className="flex items-center gap-1">
-            <span className="w-3.5 h-3.5 rounded bg-[#141618] border border-white/[0.06]" />
-            <span className="w-3.5 h-3.5 rounded bg-accent/20" />
-            <span className="w-3.5 h-3.5 rounded bg-accent/40" />
-            <span className="w-3.5 h-3.5 rounded bg-accent/70" />
-            <span className="w-3.5 h-3.5 rounded bg-accent shadow-sm shadow-accent/50" />
+        <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[11px] font-mono text-zinc-400 shadow-sm">
+          <span>Menos</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 rounded bg-white/[0.08] border border-white/20" title="Sin series (l0)" />
+            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_32%,rgba(255,255,255,0.08))] border border-accent/40" title="Volumen bajo (l1)" />
+            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_56%,rgba(255,255,255,0.08))] border border-accent/60" title="Volumen medio (l2)" />
+            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_78%,rgba(255,255,255,0.08))] border border-accent/80" title="Volumen alto (l3)" />
+            <span className="w-3.5 h-3.5 rounded bg-accent shadow-[0_0_8px_var(--accent-glow)]" title="Volumen máximo (l4)" />
           </div>
-          <span className="text-accent font-bold">Mayor volumen</span>
+          <span className="text-accent font-bold">Más</span>
         </div>
       )}
 
       {mode === 'fatigue' && (
-        <div className="space-y-1.5">
-          <div className="grid grid-cols-3 gap-1 px-2 py-2 bg-zinc-900/60 rounded-2xl border border-white/[0.04] text-[10px] font-mono text-center">
-            <div className="flex items-center justify-center gap-1.5 text-rose-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50" />
-              <span>Fatiga Alta (&ge;4.5 pts)</span>
-            </div>
-            <div className="flex items-center justify-center gap-1.5 text-amber-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />
-              <span>Adaptando (1.8-4.5)</span>
-            </div>
-            <div className="flex items-center justify-center gap-1.5 text-emerald-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
-              <span>Listo (&lt;1.8)</span>
-            </div>
+        <div className="grid grid-cols-3 gap-1.5 p-2 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono text-center shadow-sm">
+          <div className="flex items-center justify-center gap-1 text-rose-400 font-semibold" title="Fatiga alta (&ge;4.5 pts)">
+            <span className="w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 shrink-0" />
+            <span>Fatiga (&ge;4.5)</span>
           </div>
-          <p className="text-[10px] text-zinc-500 text-center font-mono">
-            Modelo fisiológico: Carga ponderada por RIR y decaimiento en el tiempo
-          </p>
+          <div className="flex items-center justify-center gap-1 text-amber-400 font-semibold" title="Adaptando (1.8 - 4.5 pts)">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50 shrink-0" />
+            <span>Adaptando</span>
+          </div>
+          <div className="flex items-center justify-center gap-1 text-emerald-400 font-semibold" title="Listo / Recuperado (&lt;1.8 pts)">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 shrink-0" />
+            <span>Listo</span>
+          </div>
         </div>
       )}
 
       {mode === 'strength' && (
-        <div className="space-y-1.5">
-          <div className="grid grid-cols-5 gap-1 px-2 py-2 bg-zinc-900/60 rounded-2xl border border-white/[0.04] text-[10px] font-mono text-center">
-            <div className="flex items-center justify-center gap-1 text-zinc-400">
-              <span className="w-2 h-2 rounded-full bg-zinc-500" />
-              <span>Principiante</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-sky-400">
-              <span className="w-2 h-2 rounded-full bg-sky-400" />
-              <span>Novicio</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Intermedio</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-amber-400">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>Avanzado</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-purple-400 font-bold">
-              <span className="w-2 h-2 rounded-full bg-purple-500" />
-              <span>Élite</span>
-            </div>
+        <div className="flex items-center justify-between p-2 px-3 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono shadow-sm">
+          <div className="flex items-center gap-1 text-zinc-400" title="Principiante">
+            <span className="w-2 h-2 rounded-full bg-zinc-400 shrink-0" />
+            <span>Princ.</span>
           </div>
-          <p className="text-[10px] text-zinc-500 text-center font-mono">
-            Estándares StrengthLevel calculados según peso corporal y género
-          </p>
+          <div className="flex items-center gap-1 text-sky-400" title="Novicio">
+            <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
+            <span>Nov.</span>
+          </div>
+          <div className="flex items-center gap-1 text-emerald-400" title="Intermedio">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+            <span>Inter.</span>
+          </div>
+          <div className="flex items-center gap-1 text-amber-400" title="Avanzado">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+            <span>Avanz.</span>
+          </div>
+          <div className="flex items-center gap-1 text-purple-400 font-bold" title="Élite">
+            <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_6px_rgba(168,85,247,0.5)] shrink-0" />
+            <span>Élite</span>
+          </div>
         </div>
       )}
 

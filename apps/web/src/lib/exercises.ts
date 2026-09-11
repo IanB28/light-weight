@@ -1,90 +1,81 @@
 import { Exercise, MuscleGroup, ExerciseCategory } from '@light-weight/domain';
-// @ts-ignore
-import { EXDB } from './exercises-data.js';
 
 export const IMG_CDN_BASE =
   'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/images/';
-
 export const GIF_CDN_BASE =
   'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/videos/';
 
 export function getExerciseImgUrl(ex: { img?: string } | undefined): string | null {
-  if (!ex?.img) return null;
-  return `${IMG_CDN_BASE}${ex.img}`;
+  return ex?.img ? `${IMG_CDN_BASE}${ex.img}` : null;
 }
 
 export function getExerciseGifUrl(ex: { gif?: string } | undefined): string | null {
-  if (!ex?.gif) return null;
-  return `${GIF_CDN_BASE}${ex.gif}`;
+  return ex?.gif ? `${GIF_CDN_BASE}${ex.gif}` : null;
 }
 
-function mapBodypartToMuscle(bp: string, tg: string): MuscleGroup {
-  const t = (tg || '').toLowerCase();
-  const b = (bp || '').toLowerCase();
-
-  if (t.includes('biceps')) return 'biceps';
-  if (t.includes('triceps')) return 'triceps';
-  if (t.includes('lats') || t.includes('upper back') || t.includes('spine')) return 'back';
-  if (t.includes('pectorals')) return 'chest';
-  if (t.includes('delts')) return 'shoulders';
-  if (t.includes('quads')) return 'quadriceps';
-  if (t.includes('hamstrings')) return 'hamstrings';
-  if (t.includes('glutes')) return 'glutes';
-  if (t.includes('calves')) return 'calves';
-  if (t.includes('forearms')) return 'forearms';
-  if (t.includes('abs') || b === 'waist') return 'core';
-
-  if (b === 'chest') return 'chest';
-  if (b === 'back') return 'back';
-  if (b === 'shoulders') return 'shoulders';
-  if (b === 'upper arms') return 'biceps';
-  if (b === 'lower arms') return 'forearms';
-  if (b === 'upper legs') return 'quadriceps';
-  if (b === 'lower legs') return 'calves';
-  if (b === 'waist') return 'core';
-
-  return 'core';
+function mapBodypartToMuscle(bp = '', tg = ''): MuscleGroup {
+  const target = tg.toLowerCase();
+  const bodyPart = bp.toLowerCase();
+  if (target.includes('biceps')) return 'biceps';
+  if (target.includes('triceps')) return 'triceps';
+  if (target.includes('lats') || target.includes('upper back') || target.includes('spine')) return 'back';
+  if (target.includes('pectorals')) return 'chest';
+  if (target.includes('delts')) return 'shoulders';
+  if (target.includes('quads')) return 'quadriceps';
+  if (target.includes('hamstrings')) return 'hamstrings';
+  if (target.includes('glutes')) return 'glutes';
+  if (target.includes('calves')) return 'calves';
+  if (target.includes('forearms')) return 'forearms';
+  if (target.includes('abs') || bodyPart === 'waist') return 'core';
+  const bodyMap: Partial<Record<string, MuscleGroup>> = {
+    chest: 'chest', back: 'back', shoulders: 'shoulders', 'upper arms': 'biceps',
+    'lower arms': 'forearms', 'upper legs': 'quadriceps', 'lower legs': 'calves', waist: 'core'
+  };
+  return bodyMap[bodyPart] || 'core';
 }
 
-function mapEquipmentToCategory(eq: string): ExerciseCategory {
-  const e = (eq || '').toLowerCase();
-  if (e.includes('barbell') || e.includes('olympic')) return 'barbell';
-  if (e.includes('dumbbell')) return 'dumbbell';
-  if (e.includes('cable')) return 'cable';
-  if (e.includes('body weight') || e.includes('assisted')) return 'bodyweight';
-  if (e.includes('machine') || e.includes('leverage') || e.includes('smith')) return 'machine';
+function mapEquipmentToCategory(equipment = ''): ExerciseCategory {
+  const value = equipment.toLowerCase();
+  if (value.includes('barbell') || value.includes('olympic')) return 'barbell';
+  if (value.includes('dumbbell')) return 'dumbbell';
+  if (value.includes('cable')) return 'cable';
+  if (value.includes('body weight') || value.includes('assisted')) return 'bodyweight';
+  if (value.includes('machine') || value.includes('leverage') || value.includes('smith')) return 'machine';
   return 'other';
 }
 
-// Convertir todo el dataset EXDB al modelo Exercise
-export const CATALOG_EXERCISES: Exercise[] = (EXDB as any[]).map((raw) => {
-  const primaryMuscle = mapBodypartToMuscle(raw.bp, raw.tg);
-  const category = mapEquipmentToCategory(raw.eq);
-  const secondary: MuscleGroup[] = Array.isArray(raw.sm)
-    ? raw.sm.map((s: string) => mapBodypartToMuscle('', s)).filter((m: MuscleGroup) => m !== primaryMuscle)
-    : [];
+interface RawExercise {
+  id: string | number; n?: string; bp?: string; tg?: string; eq?: string;
+  sm?: string[]; st?: string[]; img?: string; gif?: string;
+}
 
+function mapExercise(raw: RawExercise): Exercise {
+  const primaryMuscle = mapBodypartToMuscle(raw.bp, raw.tg);
+  const secondary = (raw.sm || []).map((muscle) => mapBodypartToMuscle('', muscle)).filter((muscle) => muscle !== primaryMuscle);
   return {
     id: `ex-${raw.id}`,
-    name: raw.n
-      ? raw.n.charAt(0).toUpperCase() + raw.n.slice(1)
-      : 'Ejercicio',
-    category,
+    name: raw.n ? raw.n.charAt(0).toUpperCase() + raw.n.slice(1) : 'Ejercicio',
+    category: mapEquipmentToCategory(raw.eq),
     primaryMuscle,
     secondaryMuscles: Array.from(new Set(secondary)),
-    instructions: raw.st || [],
-    img: raw.img,
-    gif: raw.gif,
-    targetMuscle: raw.tg,
-    isCustom: false,
+    instructions: raw.st || [], img: raw.img, gif: raw.gif, targetMuscle: raw.tg, isCustom: false
   };
-});
+}
 
-// Índice rápido por ID
 export const EXERCISES_BY_ID: Record<string, Exercise> = {};
-CATALOG_EXERCISES.forEach((ex) => {
-  EXERCISES_BY_ID[ex.id] = ex;
-});
+let catalogPromise: Promise<Exercise[]> | null = null;
+
+export function loadExerciseCatalog(): Promise<Exercise[]> {
+  if (!catalogPromise) {
+    // @ts-expect-error The generated catalog is intentionally kept as plain JS.
+    catalogPromise = import('./exercises-data.js').then(({ EXDB }) => {
+      const exercises = (EXDB as RawExercise[]).map(mapExercise);
+      exercises.forEach((exercise) => { EXERCISES_BY_ID[exercise.id] = exercise; });
+      return exercises;
+    }).catch((error) => { catalogPromise = null; throw error; });
+  }
+  return catalogPromise;
+}
 
 export function findExerciseById(id: string): Exercise | undefined {
   return EXERCISES_BY_ID[id];

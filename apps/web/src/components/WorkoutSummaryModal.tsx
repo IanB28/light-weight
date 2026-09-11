@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trophy, Clock, Dumbbell, Flame, Check, Sparkles } from 'lucide-react';
 import { Exercise } from '@light-weight/domain';
+import { getTonnageEquivalences } from '../lib/tonnage.js';
 
 export interface CompletedWorkoutSummary {
   routineName: string;
@@ -28,9 +29,11 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
 }) => {
   if (!isOpen || !summary) return null;
 
+  const sessionEquivalence = summary.totalVolumeKg > 0 ? getTonnageEquivalences(summary.totalVolumeKg) : null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-2xl animate-fade-in">
-      <div className="relative w-full max-w-sm dark-glass-card border border-white/[0.08] rounded-[28px] shadow-2xl overflow-hidden p-6 text-center space-y-5 animate-scale-up">
+      <div role="dialog" aria-modal="true" aria-labelledby="workout-summary-title" className="relative w-full max-w-sm dark-glass-card border border-white/[0.08] rounded-[28px] shadow-2xl overflow-y-auto p-6 text-center space-y-5 animate-scale-up max-h-[92dvh]">
         {/* Glow behind trophy */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-36 bg-accent/20 rounded-full blur-2xl pointer-events-none" />
 
@@ -43,7 +46,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
           <span className="text-[10px] font-extrabold uppercase tracking-widest text-accent font-mono">
             SESIÓN COMPLETADA
           </span>
-          <h3 className="text-xl font-black text-white tracking-tight mt-0.5">
+          <h3 id="workout-summary-title" className="text-xl font-black text-white tracking-tight mt-0.5">
             {summary.routineName || 'Entrenamiento Libre'}
           </h3>
           <p className="text-xs text-zinc-400 mt-1">
@@ -83,6 +86,21 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Equivalencia Relacional Cotidiana de la Sesión */}
+        {sessionEquivalence && (
+          <div className="p-3 rounded-2xl bg-gradient-to-r from-accent/15 via-white/[0.04] to-transparent border border-accent/25 flex items-center gap-3 text-left shadow-sm">
+            <span className="text-2xl shrink-0">{sessionEquivalence.primary.icon}</span>
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent block">
+                EQUIVALENCIA DE SESIÓN
+              </span>
+              <p className="text-xs font-bold text-white tracking-tight leading-snug">
+                {sessionEquivalence.primary.sentence}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* New Personal Records (if any) */}
         {summary.newRecords.length > 0 && (

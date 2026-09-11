@@ -85,13 +85,14 @@ export const LineChart: React.FC<LineChartProps> = ({
   const midYVal = minY + (maxY - minY) * 0.5;
   const gridSteps = [maxY - yRange * 0.15, midYVal, minY + yRange * 0.15];
 
-  // Month labels at the bottom: 3 evenly spaced month marks
+  // Three useful date labels avoid repeated month names on short ranges.
   const monthLabels = useMemo(() => {
     const d0 = new Date(t0);
     const d1 = new Date(t1);
-    const m0 = d0.toLocaleDateString('es-ES', { month: 'short' });
-    const mMid = new Date((t0 + t1) / 2).toLocaleDateString('es-ES', { month: 'short' });
-    const m1 = d1.toLocaleDateString('es-ES', { month: 'short' });
+    const formatDate = (date: Date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const m0 = formatDate(d0);
+    const mMid = formatDate(new Date((t0 + t1) / 2));
+    const m1 = formatDate(d1);
 
     // Capitalize first letter
     const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace('.', '');
@@ -109,10 +110,17 @@ export const LineChart: React.FC<LineChartProps> = ({
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto overflow-visible">
         <defs>
           <linearGradient id="openGymChartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.30" />
-            <stop offset="60%" stopColor={color} stopOpacity="0.08" />
+            <stop offset="0%" stopColor={color} stopOpacity="0.20" />
+            <stop offset="65%" stopColor={color} stopOpacity="0.04" />
             <stop offset="100%" stopColor={color} stopOpacity="0.0" />
           </linearGradient>
+          <filter id="chartLineGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" opacity="0.65" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
         {/* Dotted Gridlines with left labels */}
@@ -126,7 +134,8 @@ export const LineChart: React.FC<LineChartProps> = ({
                 y1={y}
                 x2={W - padding.right}
                 y2={y}
-                stroke="rgba(255, 255, 255, 0.08)"
+                stroke="currentColor"
+                className="text-zinc-600/30"
                 strokeWidth="1"
                 strokeDasharray="1 4"
               />
@@ -135,8 +144,8 @@ export const LineChart: React.FC<LineChartProps> = ({
                 y={y + 3}
                 textAnchor="end"
                 fontSize="9"
-                fill="#71717A"
-                className="font-normal"
+                fill="currentColor"
+                className="text-zinc-500 font-normal"
               >
                 {formatted}
               </text>
@@ -144,7 +153,7 @@ export const LineChart: React.FC<LineChartProps> = ({
           );
         })}
 
-        {/* Dashed Yellow Goal Line with label on right */}
+        {/* Dashed Yellow Goal Line with label on right (visible but secondary) */}
         {goal !== null && (
           <g>
             <line
@@ -152,17 +161,19 @@ export const LineChart: React.FC<LineChartProps> = ({
               y1={getY(goal)}
               x2={W - padding.right}
               y2={getY(goal)}
-              stroke="#FACC15"
-              strokeWidth="1.5"
-              strokeDasharray="4 4"
+              stroke="#EAB308"
+              strokeOpacity="0.75"
+              strokeWidth="1.2"
+              strokeDasharray="3 4"
             />
             <text
               x={W - padding.right + 4}
               y={getY(goal) + 3}
               textAnchor="start"
-              fontSize="10"
-              fill="#FACC15"
-              fontWeight="bold"
+              fontSize="9"
+              fill="#EAB308"
+              fillOpacity="0.85"
+              fontWeight="600"
             >
               {goal.toString().replace('.', ',')}
             </text>
@@ -181,7 +192,7 @@ export const LineChart: React.FC<LineChartProps> = ({
           />
         )}
 
-        {/* Continuous Line Curve */}
+        {/* Continuous Line Curve with subtle glass glow */}
         {sorted.length > 1 ? (
           <polyline
             points={pathPoints}
@@ -190,6 +201,7 @@ export const LineChart: React.FC<LineChartProps> = ({
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
+            filter="url(#chartLineGlow)"
           />
         ) : (
           <line
@@ -200,6 +212,7 @@ export const LineChart: React.FC<LineChartProps> = ({
             stroke={color}
             strokeWidth="2.5"
             strokeDasharray="3 3"
+            filter="url(#chartLineGlow)"
           />
         )}
 

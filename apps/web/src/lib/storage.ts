@@ -1,5 +1,4 @@
 import { WorkoutSession, Routine, estimate1RM } from '@light-weight/domain';
-import { INITIAL_ROUTINES, RECENT_SESSIONS } from '../mockData.js';
 
 const STORAGE_KEYS = {
   HISTORY: 'lightweight_workouts_history',
@@ -24,11 +23,11 @@ export type WeekDay =
 export type WeeklySchedule = Record<WeekDay, string | null>;
 
 export const DEFAULT_WEEKLY_SCHEDULE: WeeklySchedule = {
-  monday: 'routine-torso-power',
+  monday: null,
   tuesday: null,
-  wednesday: 'routine-pierna-base',
+  wednesday: null,
   thursday: null,
-  friday: 'routine-empuje-pecho',
+  friday: null,
   saturday: null,
   sunday: null
 };
@@ -56,13 +55,10 @@ export const WEEKDAY_NAMES_ES: Record<WeekDay, { short: string; full: string }> 
 export function getStoredWeeklySchedule(): WeeklySchedule {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.WEEKLY_SCHEDULE);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.WEEKLY_SCHEDULE, JSON.stringify(DEFAULT_WEEKLY_SCHEDULE));
-      return DEFAULT_WEEKLY_SCHEDULE;
-    }
-    return JSON.parse(raw);
+    if (!raw) return { ...DEFAULT_WEEKLY_SCHEDULE };
+    return { ...DEFAULT_WEEKLY_SCHEDULE, ...JSON.parse(raw) };
   } catch {
-    return DEFAULT_WEEKLY_SCHEDULE;
+    return { ...DEFAULT_WEEKLY_SCHEDULE };
   }
 }
 
@@ -109,17 +105,14 @@ export interface UserInfo {
 
 export const DEFAULT_USER_INFO: UserInfo = {
   id: '00000000-0000-0000-0000-000000000001',
-  name: 'Operador Demo',
-  email: 'demo@light-weight.app'
+  name: 'Atleta',
+  email: ''
 };
 
 export function getStoredUserInfo(): UserInfo {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.USER_INFO);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(DEFAULT_USER_INFO));
-      return DEFAULT_USER_INFO;
-    }
+    if (!raw) return DEFAULT_USER_INFO;
     return JSON.parse(raw);
   } catch {
     return DEFAULT_USER_INFO;
@@ -143,25 +136,18 @@ export interface BodyweightEntry {
   weightKg: number;
 }
 
-const INITIAL_BODYWEIGHT: BodyweightEntry[] = [
-  { date: new Date(Date.now() - 86400000 * 28).toISOString().slice(0, 10), timestamp: Date.now() - 86400000 * 28, weightKg: 79.5 },
-  { date: new Date(Date.now() - 86400000 * 21).toISOString().slice(0, 10), timestamp: Date.now() - 86400000 * 21, weightKg: 79.0 },
-  { date: new Date(Date.now() - 86400000 * 14).toISOString().slice(0, 10), timestamp: Date.now() - 86400000 * 14, weightKg: 78.6 },
-  { date: new Date(Date.now() - 86400000 * 7).toISOString().slice(0, 10), timestamp: Date.now() - 86400000 * 7, weightKg: 78.2 },
-  { date: new Date().toISOString().slice(0, 10), timestamp: Date.now(), weightKg: 77.9 }
-];
-
 export function getStoredBodyweight(): BodyweightEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.BODYWEIGHT);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.BODYWEIGHT, JSON.stringify(INITIAL_BODYWEIGHT));
-      return INITIAL_BODYWEIGHT;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
-    return INITIAL_BODYWEIGHT;
+    return [];
   }
+}
+
+export function saveStoredBodyweight(entries: BodyweightEntry[]): void {
+  try { localStorage.setItem(STORAGE_KEYS.BODYWEIGHT, JSON.stringify(entries)); } catch {}
 }
 
 export function saveBodyweightEntry(weightKg: number, dateStr?: string): BodyweightEntry[] {
@@ -187,9 +173,9 @@ export function saveBodyweightEntry(weightKg: number, dateStr?: string): Bodywei
 export function getStoredTargetWeight(): number | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TARGET_WEIGHT);
-    return raw ? parseFloat(raw) : 75.0;
+    return raw ? parseFloat(raw) : null;
   } catch {
-    return 75.0;
+    return null;
   }
 }
 
@@ -202,13 +188,10 @@ export function saveStoredTargetWeight(targetKg: number): void {
 export function getStoredHistory(): WorkoutSession[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.HISTORY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(RECENT_SESSIONS));
-      return RECENT_SESSIONS;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
-    return RECENT_SESSIONS;
+    return [];
   }
 }
 
@@ -233,7 +216,7 @@ export function saveStoredHistory(history: WorkoutSession[]): void {
   }
 }
 
-export function getStoredActiveWorkout(): any | null {
+export function getStoredActiveWorkout<T = unknown>(): T | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_WORKOUT);
     return raw ? JSON.parse(raw) : null;
@@ -242,7 +225,7 @@ export function getStoredActiveWorkout(): any | null {
   }
 }
 
-export function saveActiveWorkout(activeState: any): void {
+export function saveActiveWorkout(activeState: unknown | null): void {
   try {
     if (!activeState) {
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_WORKOUT);
@@ -263,13 +246,10 @@ export function clearActiveWorkout(): void {
 export function getStoredRoutines(): Routine[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ROUTINES);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(INITIAL_ROUTINES));
-      return INITIAL_ROUTINES;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
-    return INITIAL_ROUTINES;
+    return [];
   }
 }
 

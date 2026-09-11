@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { X, Check, Plus, Trash2, Eye, Dumbbell } from 'lucide-react';
-import { Exercise, LoggedSet, estimateOneRm } from '@light-weight/domain';
+import { Exercise, LoggedSet, estimateOneRm, Routine } from '@light-weight/domain';
 import { AddExerciseModal } from '../components/AddExerciseModal.js';
 import { getExerciseImgUrl } from '../lib/exercises.js';
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
 import { WorkoutSummaryModal, CompletedWorkoutSummary } from '../components/WorkoutSummaryModal.js';
+import { AppCard, Button, EmptyState, Modal } from '../components/ui/index.js';
 
 export interface ActiveExerciseSession {
   exercise: Exercise;
   previousRecord?: string;
   bestRecord?: string;
+  bestEst1Rm?: number;
   targetRepRange: [number, number];
   sets: (LoggedSet & { rir?: number })[];
 }
 
 interface WorkoutViewProps {
+  isWorkoutActive: boolean;
+  routines: Routine[];
   routineName: string;
   sessionDuration: string;
   exerciseSessions: ActiveExerciseSession[];
@@ -26,7 +30,7 @@ interface WorkoutViewProps {
     field: 'weightKg' | 'reps' | 'rir',
     value: number
   ) => void;
-  onAddSet: (exerciseId: string) => void;
+  onAddSet: (exerciseId: string, isWarmup?: boolean) => void;
   onRemoveSet: (exerciseId: string) => void;
   onAddExercise: (exercise: Exercise) => void;
   onRemoveExercise: (exerciseId: string) => void;
@@ -34,6 +38,7 @@ interface WorkoutViewProps {
   onFinishWorkout: () => void;
   onCancelWorkout: () => void;
   onStartRestTimer: (seconds: number) => void;
+  onStartRoutine: (routineId: string) => void;
 }
 
 const getDefaultMuscleFilter = (routineName: string): string => {
@@ -48,6 +53,8 @@ const getDefaultMuscleFilter = (routineName: string): string => {
 };
 
 export const WorkoutView: React.FC<WorkoutViewProps> = ({
+  isWorkoutActive,
+  routines,
   routineName,
   sessionDuration,
   exerciseSessions,
@@ -61,11 +68,13 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   onCreateCustomExercise,
   onFinishWorkout,
   onCancelWorkout,
-  onStartRestTimer
+  onStartRestTimer,
+  onStartRoutine
 }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedMediaExercise, setSelectedMediaExercise] = useState<Exercise | null>(null);
   const [summaryData, setSummaryData] = useState<CompletedWorkoutSummary | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const completedSetsCount = exerciseSessions.reduce(
     (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
@@ -83,18 +92,25 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   }, 0);
 
   const handleFinishClick = () => {
-    const newRecords: any[] = [];
+    if (completedSetsCount === 0) return;
+    const newRecords: CompletedWorkoutSummary['newRecords'] = [];
     exerciseSessions.forEach((sess) => {
       const completed = sess.sets.filter((s) => s.completed && s.weightKg > 0 && s.reps > 0);
-      completed.forEach((s) => {
-        const est = estimateOneRm(s.weightKg, s.reps).average;
+      const bestSet = completed.reduce<LoggedSet | null>((best, set) => {
+        if (!best) return set;
+        return estimateOneRm(set.weightKg, set.reps).average > estimateOneRm(best.weightKg, best.reps).average ? set : best;
+      }, null);
+      if (bestSet) {
+        const est = estimateOneRm(bestSet.weightKg, bestSet.reps).average;
+        if (est > (sess.bestEst1Rm || 0)) {
         newRecords.push({
           exerciseName: sess.exercise.name,
-          weightKg: s.weightKg,
-          reps: s.reps,
+          weightKg: bestSet.weightKg,
+          reps: bestSet.reps,
           estimatedOneRm: Math.round(est * 10) / 10,
         });
-      });
+        }
+      }
     });
 
     setSummaryData({
@@ -109,9 +125,11 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   return (
     <div className="space-y-4 pb-36">
       {/* openGym Workout Header */}
-      <div className="flex items-center justify-between sticky top-0 dark-glass-card z-20 py-2.5 px-3 rounded-2xl border border-white/[0.08] shadow-lg shadow-black/40">
+      {(isWorkoutActive || exerciseSessions.length > 0) && <div className="flex items-center justify-between sticky top-0 dark-glass-card z-20 py-2.5 px-3 rounded-2xl border border-white/[0.08] shadow-lg shadow-black/40">
         <button
-          onClick={onCancelWorkout}
+          type="button"
+          onClick={() => setShowDiscardConfirm(true)}
+          aria-label="Descartar sesión"
           className="w-9 h-9 rounded-full glass-subcard flex items-center justify-center text-zinc-400 hover:text-white transition-all active:scale-[0.92] cursor-pointer"
           title="Descartar sesión"
         >
@@ -126,28 +144,38 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={handleFinishClick}
-          className="px-4 py-1.5 rounded-full bg-accent text-accent-fg font-bold text-xs flex items-center gap-1 hover:brightness-110 transition-all active:scale-[0.92] shadow-md shadow-accent/20 cursor-pointer"
+          disabled={completedSetsCount === 0}
+          className="px-4 py-1.5 rounded-full bg-accent text-accent-fg font-bold text-xs flex items-center gap-1 hover:brightness-110 transition-all active:scale-[0.92] shadow-md shadow-accent/20 cursor-pointer disabled:pointer-events-none disabled:opacity-40"
           title="Terminar entrenamiento"
         >
           <Check className="w-4 h-4 stroke-[3]" />
           <span>Fin</span>
         </button>
-      </div>
+      </div>}
 
       {/* Lista de Ejercicios */}
       {exerciseSessions.length === 0 ? (
-        <div className="p-8 text-center space-y-4 dark-glass-card rounded-[28px] border border-white/[0.06]">
-          <p className="text-sm text-zinc-400">
-            Aún no has agregado ejercicios a este entrenamiento.
-          </p>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2.5 bg-accent text-accent-fg font-bold text-xs rounded-xl hover:brightness-110 transition-all active:scale-95 cursor-pointer shadow-sm"
-          >
-            + Agregar Primer Ejercicio
-          </button>
-        </div>
+        <AppCard className="space-y-4">
+          <EmptyState
+            icon={<Dumbbell className="size-5" />}
+            title="¿Qué vas a entrenar hoy?"
+            description={isWorkoutActive ? 'Aún no has agregado ejercicios a este entrenamiento.' : 'Crea una sesión libre o empieza desde una rutina.'}
+            actionLabel="Agregar ejercicio"
+            onAction={() => setIsAddModalOpen(true)}
+          />
+          {routines.length > 0 && (
+            <div className="space-y-2 border-t border-border-subtle pt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-text-muted">Usar una rutina</p>
+              {routines.slice(0, 3).map((routine) => (
+                <button key={routine.id} type="button" onClick={() => onStartRoutine(routine.id)} className="flex min-h-11 w-full items-center justify-between rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left text-sm font-bold text-text-primary hover:border-border-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  <span className="truncate">{routine.name}</span><span className="text-xs font-medium text-text-muted">{routine.exerciseIds.length} ejercicios</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </AppCard>
       ) : (
         exerciseSessions.map((session, exIndex) => {
           const { exercise, sets, previousRecord, bestRecord } = session;
@@ -273,7 +301,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             Math.max(0, Math.round((set.weightKg - 2.5) * 10) / 10)
                           )
                         }
-                        className="w-5 h-8 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 flex items-center justify-center"
+                        aria-label={`Reducir peso de la serie ${set.setIndex}`}
+                        className="hidden min-[390px]:flex w-7 h-10 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 items-center justify-center"
                       >
                         —
                       </button>
@@ -293,7 +322,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             isNaN(val) ? 0 : val
                           );
                         }}
-                        className="font-mono font-bold text-white text-base tabular-nums w-12 text-center bg-zinc-900/80 border border-white/[0.08] rounded-lg py-0.5 focus:outline-none focus:border-accent"
+                        aria-label={`Peso en kilogramos de la serie ${set.setIndex}`}
+                        className="font-mono font-bold text-white text-base tabular-nums w-full min-[390px]:w-12 h-10 text-center bg-zinc-900/80 border border-white/[0.08] rounded-lg py-0.5 focus:outline-none focus:border-accent"
                       />
                       <button
                         type="button"
@@ -305,7 +335,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             Math.round((set.weightKg + 2.5) * 10) / 10
                           )
                         }
-                        className="w-5 h-8 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 flex items-center justify-center"
+                        aria-label={`Aumentar peso de la serie ${set.setIndex}`}
+                        className="hidden min-[390px]:flex w-7 h-10 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 items-center justify-center"
                       >
                         +
                       </button>
@@ -323,7 +354,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             Math.max(1, set.reps - 1)
                           )
                         }
-                        className="w-4 h-8 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 flex items-center justify-center"
+                        aria-label={`Reducir repeticiones de la serie ${set.setIndex}`}
+                        className="hidden min-[390px]:flex w-6 h-10 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 items-center justify-center"
                       >
                         —
                       </button>
@@ -342,7 +374,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             isNaN(val) ? 0 : val
                           );
                         }}
-                        className="font-mono font-bold text-white text-base tabular-nums w-9 text-center bg-zinc-900/80 border border-white/[0.08] rounded-lg py-0.5 focus:outline-none focus:border-accent"
+                        aria-label={`Repeticiones de la serie ${set.setIndex}`}
+                        className="font-mono font-bold text-white text-base tabular-nums w-full min-[390px]:w-9 h-10 text-center bg-zinc-900/80 border border-white/[0.08] rounded-lg py-0.5 focus:outline-none focus:border-accent"
                       />
                       <button
                         type="button"
@@ -354,7 +387,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             set.reps + 1
                           )
                         }
-                        className="w-4 h-8 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 flex items-center justify-center"
+                        aria-label={`Aumentar repeticiones de la serie ${set.setIndex}`}
+                        className="hidden min-[390px]:flex w-6 h-10 text-zinc-500 hover:text-white font-bold text-sm active:scale-75 items-center justify-center"
                       >
                         +
                       </button>
@@ -372,7 +406,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             Math.max(0, (set.rir ?? 2) - 1)
                           )
                         }
-                        className="w-3.5 h-8 text-zinc-500 hover:text-white text-xs active:scale-75 flex items-center justify-center"
+                        aria-label={`Reducir RIR de la serie ${set.setIndex}`}
+                        className="w-6 h-10 text-zinc-500 hover:text-white text-xs active:scale-75 flex items-center justify-center"
                       >
                         -
                       </button>
@@ -389,7 +424,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                             Math.min(5, (set.rir ?? 2) + 1)
                           )
                         }
-                        className="w-3.5 h-8 text-zinc-500 hover:text-white text-xs active:scale-75 flex items-center justify-center"
+                        aria-label={`Aumentar RIR de la serie ${set.setIndex}`}
+                        className="w-6 h-10 text-zinc-500 hover:text-white text-xs active:scale-75 flex items-center justify-center"
                       >
                         +
                       </button>
@@ -403,6 +439,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                           onToggleSet(exercise.id, set.setIndex);
                           if (!set.completed) onStartRestTimer(90);
                         }}
+                        aria-label={`${set.completed ? 'Marcar pendiente' : 'Completar'} serie ${set.setIndex}`}
                         className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 active:scale-75 ${
                           set.completed
                             ? 'bg-accent text-accent-fg shadow-lg shadow-accent/30'
@@ -419,7 +456,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                 <div className="pt-2 flex items-center justify-between text-xs font-semibold text-zinc-400">
                   <button
                     type="button"
-                    onClick={() => onAddSet(exercise.id)}
+                    onClick={() => onAddSet(exercise.id, true)}
                     className="flex items-center gap-1 text-accent hover:brightness-125 transition-colors py-1"
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -436,7 +473,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => onAddSet(exercise.id)}
+                  onClick={() => onAddSet(exercise.id, false)}
                   className="w-full py-2.5 rounded-2xl glass-subcard border border-white/[0.08] text-xs font-bold text-accent hover:border-accent/40 transition-all duration-150 active:scale-[0.97] flex items-center justify-center gap-1.5 mt-1 cursor-pointer"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
@@ -449,7 +486,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
       )}
 
       {/* Botón flotante para Agregar otro Ejercicio a la sesión activa */}
-      <div className="pt-4">
+      {exerciseSessions.length > 0 && <div className="pt-4">
         <button
           type="button"
           onClick={() => setIsAddModalOpen(true)}
@@ -458,7 +495,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
           <Plus className="w-5 h-5 stroke-[2.5]" />
           Agregar Ejercicio a la Sesión
         </button>
-      </div>
+      </div>}
 
       {/* Modal para Buscar / Agregar Ejercicio */}
       <AddExerciseModal
@@ -486,7 +523,13 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
           onFinishWorkout();
         }}
       />
+
+      <Modal open={showDiscardConfirm} onClose={() => setShowDiscardConfirm(false)} title="¿Descartar entrenamiento?" description="Los cambios de esta sesión no se podrán recuperar.">
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={() => setShowDiscardConfirm(false)}>Continuar</Button>
+          <Button variant="danger" onClick={() => { setShowDiscardConfirm(false); onCancelWorkout(); }}>Descartar</Button>
+        </div>
+      </Modal>
     </div>
   );
 };
-

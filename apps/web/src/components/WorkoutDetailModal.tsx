@@ -40,14 +40,14 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
-      <div className="w-full max-w-md dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] max-h-[85vh] flex flex-col overflow-hidden shadow-2xl shadow-black/90 animate-in slide-in-from-bottom-6 duration-200">
+      <div role="dialog" aria-modal="true" aria-labelledby="workout-detail-title" className="w-full max-w-md dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] max-h-[85dvh] flex flex-col overflow-hidden shadow-2xl shadow-black/90 animate-in slide-in-from-bottom-6 duration-200">
         {/* iOS Mobile Sheet Grab Handle */}
         <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto mt-2.5 mb-0.5 sm:hidden" />
 
         {/* Header */}
         <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
           <div>
-            <h3 className="text-base font-extrabold text-white tracking-tight">
+            <h3 id="workout-detail-title" className="text-base font-extrabold text-white tracking-tight">
               {session.routineName || 'Entrenamiento Libre'}
             </h3>
             <span className="text-[11px] text-zinc-400 font-mono capitalize">
@@ -55,7 +55,9 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
             </span>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Cerrar detalle del entrenamiento"
             className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
           >
             <X className="w-4 h-4 stroke-[2.2]" />

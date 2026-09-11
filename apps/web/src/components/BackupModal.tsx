@@ -5,6 +5,12 @@ import {
   getStoredRoutines,
   getStoredBodyweight,
   getStoredProfile,
+  getStoredTargetWeight,
+  getStoredWeeklySchedule,
+  saveStoredBodyweight,
+  saveStoredTargetWeight,
+  saveStoredProfile,
+  saveStoredWeeklySchedule,
   saveStoredHistory,
   saveStoredRoutines
 } from '../lib/storage.js';
@@ -55,8 +61,11 @@ export const BackupModal: React.FC<BackupModalProps> = ({
       exportedAt: new Date().toISOString(),
       profile: getStoredProfile(),
       bodyweight: getStoredBodyweight(),
+      targetWeight: getStoredTargetWeight(),
+      weeklySchedule: getStoredWeeklySchedule(),
       routines: getStoredRoutines(),
       history: getStoredHistory(),
+      theme: getStoredThemeSettings(),
     };
 
     const blob = new Blob([JSON.stringify(backupData, null, 2)], {
@@ -80,11 +89,23 @@ export const BackupModal: React.FC<BackupModalProps> = ({
     reader.onload = async (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
+        if (!json || typeof json !== 'object' || json.app !== 'light-weight') {
+          throw new Error('Formato de respaldo no válido');
+        }
         if (json.history && Array.isArray(json.history)) {
           saveStoredHistory(json.history);
         }
         if (json.routines && Array.isArray(json.routines)) {
           saveStoredRoutines(json.routines);
+        }
+        if (Array.isArray(json.bodyweight)) saveStoredBodyweight(json.bodyweight);
+        if (typeof json.targetWeight === 'number') saveStoredTargetWeight(json.targetWeight);
+        if (json.profile?.gender === 'male' || json.profile?.gender === 'female') saveStoredProfile(json.profile);
+        if (json.weeklySchedule && typeof json.weeklySchedule === 'object') saveStoredWeeklySchedule(json.weeklySchedule);
+        if (json.theme?.glassTheme && GLASS_THEMES[json.theme.glassTheme as GlassTheme] && json.theme?.accentColor && ACCENT_PRESETS[json.theme.accentColor as AccentColorId]) {
+          const importedTheme = json.theme as ThemeSettings;
+          setThemeSettings(importedTheme);
+          applyTheme(importedTheme);
         }
 
         setImportStatus('¡Datos restaurados con éxito!');
@@ -108,7 +129,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xl animate-fade-in">
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="relative w-full max-w-md dark-glass-card border border-white/[0.1] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden p-6 space-y-4 z-10 animate-slide-up">
+      <div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="relative w-full max-w-md dark-glass-card border border-white/[0.1] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-y-auto p-5 sm:p-6 space-y-4 z-10 animate-slide-up max-h-[92dvh]">
         {/* iOS Grab Handle */}
         <div className="w-full pb-2 flex justify-center sm:hidden">
           <div className="w-10 h-1.5 rounded-full bg-white/20" />
@@ -119,12 +140,13 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-accent font-mono">
               CONFIGURACIÓN
             </span>
-            <h3 className="text-lg font-bold text-white tracking-tight">
+            <h3 id="settings-title" className="text-lg font-bold text-white tracking-tight">
               Ajustes y Personalización
             </h3>
           </div>
           <button
             onClick={onClose}
+            aria-label="Cerrar ajustes"
             className="w-8 h-8 rounded-full bg-zinc-800/80 border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-colors active:scale-90 cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -143,48 +165,51 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            {/* Midnight Navy */}
-            <button
-              type="button"
-              onClick={() => handleSelectGlassTheme('midnight')}
-              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                themeSettings.glassTheme === 'midnight'
-                  ? 'border-accent bg-[#172136]/90 shadow-md shadow-accent/10 ring-1 ring-accent'
-                  : 'border-white/[0.08] bg-[#0c1220]/60 hover:border-white/20'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">Azul Noche</span>
-                {themeSettings.glassTheme === 'midnight' && (
-                  <Check className="w-3.5 h-3.5 text-accent" />
-                )}
-              </div>
-              <p className="text-[10px] text-zinc-400 mt-1 leading-tight">
-                Gradiente cósmico con orbes atmosféricos fríos
-              </p>
-            </button>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {(Object.keys(GLASS_THEMES) as GlassTheme[]).map((themeId) => {
+              const theme = GLASS_THEMES[themeId];
+              const isSelected = themeSettings.glassTheme === themeId;
+              return (
+                <button
+                  key={themeId}
+                  type="button"
+                  onClick={() => handleSelectGlassTheme(themeId)}
+                  className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                    isSelected
+                      ? 'border-accent bg-white/[0.08] shadow-md shadow-accent/10 ring-1 ring-accent'
+                      : 'border-white/[0.08] bg-black/20 hover:border-white/20 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div className="w-full">
+                    {/* Visual preview swatch */}
+                    <div
+                      className="w-full h-8 rounded-xl mb-2 border shadow-inner flex items-center justify-end px-2"
+                      style={{
+                        background: theme.previewGradient,
+                        borderColor: theme.previewBorder
+                      }}
+                    >
+                      <span className="text-[9px] font-mono uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-black/50 text-white/95 backdrop-blur-sm">
+                        {theme.badge}
+                      </span>
+                    </div>
 
-            {/* Carbon Black */}
-            <button
-              type="button"
-              onClick={() => handleSelectGlassTheme('carbon')}
-              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                themeSettings.glassTheme === 'carbon'
-                  ? 'border-accent bg-zinc-900 shadow-md shadow-accent/10 ring-1 ring-accent'
-                  : 'border-white/[0.08] bg-black/40 hover:border-white/20'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white">Negro Carbón</span>
-                {themeSettings.glassTheme === 'carbon' && (
-                  <Check className="w-3.5 h-3.5 text-accent" />
-                )}
-              </div>
-              <p className="text-[10px] text-zinc-400 mt-1 leading-tight">
-                Superficie de carbón esmerilada sobria y neutra
-              </p>
-            </button>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-bold text-white truncate">
+                        {theme.name}
+                      </span>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-accent shrink-0" />
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-zinc-400 mt-1 line-clamp-2 leading-tight">
+                    {theme.description}
+                  </p>
+                </button>
+              );
+            })}
           </div>
         </div>
 

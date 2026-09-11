@@ -7,7 +7,7 @@ import { WorkoutView, ActiveExerciseSession } from './views/WorkoutView.js';
 import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
-import { CATALOG_EXERCISES } from './lib/exercises.js';
+import { loadExerciseCatalog } from './lib/exercises.js';
 import { Routine, Exercise, WorkoutSession, MuscleGroup, getPreviousPerformance } from '@light-weight/domain';
 import {
   getStoredHistory,
@@ -30,12 +30,13 @@ import {
   UserInfo
 } from './lib/storage.js';
 import { requestWakeLock, releaseWakeLock } from './lib/wakelock.js';
-import { syncWithCloud, pullFromCloud, fetchUserFromCloud } from './lib/sync.js';
+import { syncWithCloud } from './lib/sync.js';
 import { initTheme } from './lib/theme.js';
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
-  const [exercises, setExercises] = useState<Exercise[]>(CATALOG_EXERCISES);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [routines, setRoutines] = useState<Routine[]>(getStoredRoutines());
   const [history, setHistory] = useState<WorkoutSession[]>(getStoredHistory());
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(getStoredWeeklySchedule());
@@ -55,27 +56,29 @@ export function App() {
   const [restSecondsLeft, setRestSecondsLeft] = useState<number>(0);
   const [restTotalSeconds, setRestTotalSeconds] = useState<number>(90);
 
-  // Background hydration from Neon PostgreSQL on initial load
+  // The catalog is split out of the initial bundle and loaded once on demand.
   useEffect(() => {
-    pullFromCloud().then((success) => {
-      if (success) {
-        setHistory(getStoredHistory());
-        setRoutines(getStoredRoutines());
-        setUserInfo(getStoredUserInfo());
-      }
-    });
-
-    fetchUserFromCloud().then((u) => {
-      if (u) {
-        setUserInfo(u);
-      }
-    });
+    let active = true;
+    loadExerciseCatalog()
+      .then((catalog) => {
+        if (!active) return;
+        setExercises(catalog);
+        setCatalogStatus('ready');
+      })
+      .catch(() => { if (active) setCatalogStatus('error'); });
+    return () => { active = false; };
   }, []);
 
   // Restore Active Session from localStorage on mount if exists
   useEffect(() => {
     initTheme();
-    const saved = getStoredActiveWorkout();
+    const saved = getStoredActiveWorkout<{
+      isWorkoutActive: boolean;
+      workoutSeconds?: number;
+      activeRoutineName?: string;
+      exerciseSessions?: ActiveExerciseSession[];
+      workoutStartTime?: string;
+    }>();
     if (saved && saved.isWorkoutActive) {
       setIsWorkoutActive(true);
       setWorkoutSeconds(saved.workoutSeconds || 0);
@@ -163,6 +166,7 @@ export function App() {
       exercise: ex,
       previousRecord: prev ? prev.summary : undefined,
       bestRecord,
+      bestEst1Rm: prs[ex.id]?.est1Rm,
       targetRepRange: [6, 12],
       sets: initialSets
     };
@@ -197,10 +201,10 @@ export function App() {
 
     if (prefilterMuscles && prefilterMuscles.length > 0) {
       const matching = exercises.filter((ex) => prefilterMuscles.includes(ex.primaryMuscle));
-      const firstEx = matching.length > 0 ? matching[0] : exercises[0];
-      setExerciseSessions([createExerciseSession(firstEx)]);
+      const firstEx = matching[0];
+      setExerciseSessions(firstEx ? [createExerciseSession(firstEx)] : []);
     } else {
-      setExerciseSessions([createExerciseSession(exercises[0])]);
+      setExerciseSessions([]);
     }
 
     setCurrentTab('workout');
@@ -225,6 +229,13 @@ export function App() {
 
   // Handler: Agregar Ejercicio a la sesión activa
   const handleAddExerciseToWorkout = (exercise: Exercise) => {
+    if (!isWorkoutActive) {
+      requestWakeLock();
+      setWorkoutStartTime(new Date().toISOString());
+      setWorkoutSeconds(0);
+      setActiveRoutineName('Entrenamiento Libre');
+      setIsWorkoutActive(true);
+    }
     setExerciseSessions((prev) => {
       if (prev.some((item) => item.exercise.id === exercise.id)) return prev;
       return [...prev, createExerciseSession(exercise)];
@@ -289,7 +300,7 @@ export function App() {
   };
 
   // Handler: Add Set
-  const handleAddSet = (exerciseId: string) => {
+  const handleAddSet = (exerciseId: string, isWarmup = false) => {
     setExerciseSessions((prev) =>
       prev.map((item) => {
         if (item.exercise.id !== exerciseId) return item;
@@ -304,7 +315,7 @@ export function App() {
               weightKg: lastSet ? lastSet.weightKg : 50,
               reps: lastSet ? lastSet.reps : 8,
               completed: false,
-              isWarmup: false,
+              isWarmup,
               rir: lastSet ? lastSet.rir : 2
             }
           ]
@@ -377,13 +388,12 @@ export function App() {
 
   // Handler: Cancel Workout
   const handleCancelWorkout = () => {
-    if (confirm('¿Deseas descartar el entrenamiento actual?')) {
-      releaseWakeLock();
-      clearActiveWorkout();
-      setIsWorkoutActive(false);
-      setRestSecondsLeft(0);
-      setCurrentTab('home');
-    }
+    releaseWakeLock();
+    clearActiveWorkout();
+    setIsWorkoutActive(false);
+    setExerciseSessions([]);
+    setRestSecondsLeft(0);
+    setCurrentTab('home');
   };
 
   const handleDataRestored = () => {
@@ -397,14 +407,26 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans relative overflow-x-hidden selection:bg-accent selection:text-accent-fg">
-      {/* Background Atmospheric Glow Orbs (Midnight Blue & Oceanic depth) */}
-      <div className="fixed top-0 right-0 w-[30rem] h-[30rem] bg-blue-600/[0.12] rounded-full blur-[150px] pointer-events-none -z-10" />
-      <div className="fixed bottom-12 -left-20 w-[34rem] h-[34rem] bg-indigo-500/[0.10] rounded-full blur-[160px] pointer-events-none -z-10" />
-      <div className="fixed top-1/3 left-1/4 w-[28rem] h-[28rem] bg-cyan-500/[0.06] rounded-full blur-[160px] pointer-events-none -z-10" />
-      <div className="fixed top-3/4 right-10 w-[24rem] h-[24rem] bg-accent/[0.04] rounded-full blur-[140px] pointer-events-none -z-10" />
+      {/* Atmospheric Background Ambient Lights (Apple/visionOS Depth) */}
+      <div
+        className="fixed -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[26rem] rounded-full blur-[160px] pointer-events-none -z-10 transition-colors duration-700"
+        style={{ backgroundColor: 'var(--orb-1)' }}
+      />
+      <div
+        className="fixed top-[28%] -left-28 w-[32rem] h-[32rem] rounded-full blur-[170px] pointer-events-none -z-10 transition-colors duration-700"
+        style={{ backgroundColor: 'var(--orb-2)' }}
+      />
+      <div
+        className="fixed top-[52%] -right-24 w-[32rem] h-[32rem] rounded-full blur-[170px] pointer-events-none -z-10 transition-colors duration-700"
+        style={{ backgroundColor: 'var(--orb-3)' }}
+      />
+      <div
+        className="fixed top-[22%] left-1/2 -translate-x-1/2 w-[28rem] h-[28rem] rounded-full blur-[160px] pointer-events-none -z-10 transition-colors duration-700"
+        style={{ backgroundColor: 'var(--orb-brand, rgba(34, 197, 94, 0.08))' }}
+      />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-3 pb-8">
+      <main className="flex-1 max-w-md w-full mx-auto px-page pt-3 pb-page-safe">
         {currentTab === 'home' && (
           <HomeView
             userName={userInfo.name}
@@ -429,6 +451,8 @@ export function App() {
 
         {currentTab === 'workout' && (
           <WorkoutView
+            isWorkoutActive={isWorkoutActive}
+            routines={routines}
             routineName={activeRoutineName}
             sessionDuration={formatDuration(workoutSeconds)}
             exerciseSessions={exerciseSessions}
@@ -443,6 +467,7 @@ export function App() {
             onFinishWorkout={handleFinishWorkout}
             onCancelWorkout={handleCancelWorkout}
             onStartRestTimer={handleStartRestTimer}
+            onStartRoutine={handleStartWorkout}
           />
         )}
 
@@ -474,6 +499,11 @@ export function App() {
               const updated = routines.filter((r) => r.id !== routineId);
               setRoutines(updated);
               saveStoredRoutines(updated);
+              const updatedSchedule = Object.fromEntries(
+                Object.entries(weeklySchedule).map(([day, assignedId]) => [day, assignedId === routineId ? null : assignedId])
+              ) as WeeklySchedule;
+              setWeeklySchedule(updatedSchedule);
+              saveStoredWeeklySchedule(updatedSchedule);
               syncWithCloud();
             }}
             onDataRestored={handleDataRestored}
@@ -487,6 +517,14 @@ export function App() {
         {currentTab === 'exercises' && (
           <LibraryView
             exercises={exercises}
+            catalogStatus={catalogStatus}
+            onRetryCatalog={() => {
+              setCatalogStatus('loading');
+              loadExerciseCatalog().then((catalog) => {
+                setExercises(catalog);
+                setCatalogStatus('ready');
+              }).catch(() => setCatalogStatus('error'));
+            }}
             isWorkoutActive={isWorkoutActive}
             activeWorkoutDuration={formatDuration(workoutSeconds)}
             onNavigateToWorkout={() => setCurrentTab('workout')}

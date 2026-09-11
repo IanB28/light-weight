@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { Plus, Target } from 'lucide-react';
+import { Plus, Scale, Target } from 'lucide-react';
 import { BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from './charts/LineChart.js';
+import { EmptyState } from './ui/index.js';
 
 interface WeightTrackerCardProps {
   entries: BodyweightEntry[];
@@ -67,7 +68,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
             <button
               type="button"
               onClick={onOpenGoalModal}
-              className="glass-subcard flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-accent hover:border-white/20 active:scale-95 transition-all cursor-pointer rounded-full"
+              className="glass-btn-secondary flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-accent cursor-pointer rounded-full"
               title="Cambiar meta de peso"
             >
               <Target className="w-3.5 h-3.5 text-accent" />
@@ -78,7 +79,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
           <button
             type="button"
             onClick={onOpenLogModal}
-            className="bg-accent text-accent-fg flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-sm"
+            className="glass-btn-solid flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold cursor-pointer"
             title="Registrar peso de hoy"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
@@ -87,6 +88,9 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
         </div>
       </div>
 
+      {!latestEntry ? (
+        <EmptyState compact icon={<Scale className="size-5" />} title="Aún no tienes registros de peso." description="Usa Registrar para empezar a ver tu evolución." />
+      ) : (<>
       {/* Main Stat: 78,7 kg  +  Date on the right */}
       <div className="flex items-baseline justify-between pt-0.5">
         <div className="flex items-baseline gap-1">
@@ -132,6 +136,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
           goal={targetWeight}
         />
       </div>
+      </>)}
     </div>
   );
 };

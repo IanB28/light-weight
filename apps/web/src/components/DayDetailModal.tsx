@@ -40,7 +40,7 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
-      <div className="w-full max-w-md dark-glass-card rounded-t-[28px] sm:rounded-[28px] border border-white/[0.08] p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6 duration-200 max-h-[85vh] flex flex-col select-none">
+      <div role="dialog" aria-modal="true" aria-labelledby="day-detail-title" className="w-full max-w-md dark-glass-card rounded-t-[28px] sm:rounded-[28px] border border-white/[0.08] p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6 duration-200 max-h-[85dvh] flex flex-col select-none">
         {/* iOS Grab Handle */}
         <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto -mt-1 mb-1 sm:hidden shrink-0" />
 
@@ -52,7 +52,7 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="text-base font-extrabold text-white capitalize tracking-tight">
+                <h3 id="day-detail-title" className="text-base font-extrabold text-white capitalize tracking-tight">
                   {dateFormatted}
                 </h3>
                 {isToday && (
@@ -67,7 +67,9 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Cerrar detalle del día"
             className="w-8 h-8 rounded-full glass-subcard hover:border-white/20 active:scale-[0.93] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer shrink-0"
           >
             <X className="w-4 h-4 stroke-[2.2]" />
