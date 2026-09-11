@@ -1,7 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Dumbbell, SlidersHorizontal } from 'lucide-react';
-import { Exercise, ExerciseCategory, MuscleGroup } from '@light-weight/domain';
-import { BottomSheet, Button, Chip, EmptyState, SearchInput } from './ui/index.js';
+import { Check, ChevronDown, Dumbbell } from 'lucide-react';
+import { Exercise } from '@light-weight/domain';
+import {
+  EQUIPMENT_LABELS,
+  ExerciseEquipmentFilter,
+  ExerciseMuscleFilter,
+  matchesExerciseFilters,
+  MUSCLE_LABELS,
+  normalizeExerciseSearch
+} from '../lib/exercise-filters.js';
+import { ExerciseFilterControls } from './ExerciseFilterControls.js';
+import { BottomSheet, Button, EmptyState, SearchInput } from './ui/index.js';
 
 interface ExercisePickerProps {
   label: string;
@@ -10,50 +19,11 @@ interface ExercisePickerProps {
   onChange: (exerciseId: string) => void;
 }
 
-const MUSCLE_OPTIONS: { value: 'all' | MuscleGroup; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'chest', label: 'Pecho' },
-  { value: 'back', label: 'Espalda' },
-  { value: 'shoulders', label: 'Hombros' },
-  { value: 'quadriceps', label: 'Cuádriceps' },
-  { value: 'hamstrings', label: 'Femoral' },
-  { value: 'glutes', label: 'Glúteos' },
-  { value: 'biceps', label: 'Bíceps' },
-  { value: 'triceps', label: 'Tríceps' },
-  { value: 'forearms', label: 'Antebrazos' },
-  { value: 'core', label: 'Core' },
-  { value: 'calves', label: 'Gemelos' }
-];
-
-const EQUIPMENT_OPTIONS: { value: 'all' | ExerciseCategory; label: string }[] = [
-  { value: 'all', label: 'Todo el equipo' },
-  { value: 'barbell', label: 'Barra' },
-  { value: 'dumbbell', label: 'Mancuernas' },
-  { value: 'machine', label: 'Máquina' },
-  { value: 'cable', label: 'Polea' },
-  { value: 'bodyweight', label: 'Peso corporal' },
-  { value: 'other', label: 'Otro' }
-];
-
-const MUSCLE_LABELS = Object.fromEntries(
-  MUSCLE_OPTIONS.filter((option) => option.value !== 'all').map((option) => [option.value, option.label])
-) as Record<MuscleGroup, string>;
-
-const EQUIPMENT_LABELS = Object.fromEntries(
-  EQUIPMENT_OPTIONS.filter((option) => option.value !== 'all').map((option) => [option.value, option.label])
-) as Record<ExerciseCategory, string>;
-
-const normalizeSearch = (value: string) => value
-  .normalize('NFD')
-  .replace(/\p{Diacritic}/gu, '')
-  .toLocaleLowerCase('es')
-  .trim();
-
 export function ExercisePicker({ label, value, exercises, onChange }: ExercisePickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [muscle, setMuscle] = useState<'all' | MuscleGroup>('all');
-  const [equipment, setEquipment] = useState<'all' | ExerciseCategory>('all');
+  const [muscle, setMuscle] = useState<ExerciseMuscleFilter>('all');
+  const [equipment, setEquipment] = useState<ExerciseEquipmentFilter>('all');
   const [visibleCount, setVisibleCount] = useState(60);
   const searchRef = useRef<HTMLInputElement>(null);
   const selectedExercise = exercises.find((exercise) => exercise.id === value);
@@ -69,19 +39,8 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
   }, [query, muscle, equipment]);
 
   const filteredExercises = useMemo(() => {
-    const normalizedQuery = normalizeSearch(query);
-    return exercises.filter((exercise) => {
-      const searchableText = normalizeSearch([
-        exercise.name,
-        exercise.targetMuscle || '',
-        MUSCLE_LABELS[exercise.primaryMuscle],
-        EQUIPMENT_LABELS[exercise.category]
-      ].join(' '));
-      const matchesQuery = normalizedQuery.length === 0 || searchableText.includes(normalizedQuery);
-      const matchesMuscle = muscle === 'all' || exercise.primaryMuscle === muscle || exercise.secondaryMuscles?.includes(muscle);
-      const matchesEquipment = equipment === 'all' || exercise.category === equipment;
-      return matchesQuery && matchesMuscle && matchesEquipment;
-    });
+    const normalizedQuery = normalizeExerciseSearch(query);
+    return exercises.filter((exercise) => matchesExerciseFilters(exercise, normalizedQuery, muscle, equipment));
   }, [equipment, exercises, muscle, query]);
 
   const resetFilters = () => {
@@ -140,26 +99,12 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
             onChange={(event) => setQuery(event.target.value)}
           />
 
-          <div className="space-y-2" aria-label="Filtros de ejercicios">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-text-secondary">
-              <SlidersHorizontal aria-hidden="true" className="size-3.5 text-accent" />
-              Grupo muscular
-            </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scroll-smooth scrollbar-none">
-              {MUSCLE_OPTIONS.map((option) => (
-                <Chip key={option.value} selected={muscle === option.value} onClick={() => setMuscle(option.value)}>
-                  {option.label}
-                </Chip>
-              ))}
-            </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scroll-smooth scrollbar-none">
-              {EQUIPMENT_OPTIONS.map((option) => (
-                <Chip key={option.value} selected={equipment === option.value} onClick={() => setEquipment(option.value)}>
-                  {option.label}
-                </Chip>
-              ))}
-            </div>
-          </div>
+          <ExerciseFilterControls
+            muscle={muscle}
+            equipment={equipment}
+            onMuscleChange={setMuscle}
+            onEquipmentChange={setEquipment}
+          />
 
           <div className="flex min-h-10 items-center justify-between gap-3 border-b border-border-subtle pb-2 text-xs text-text-muted">
             <span aria-live="polite">

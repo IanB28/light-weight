@@ -21,6 +21,7 @@ import {
 import {
   estimateOneRm,
   calculateSessionTotalVolume,
+  calculateWeeklyStreak,
   getExerciseProgressSeries,
   getNeglectedMuscles,
   calculateMuscleFatigue,
@@ -52,7 +53,7 @@ import {
   MuscleAnalytics,
   SPANISH_MUSCLE_NAMES
 } from '../components/charts/AnatomicalBodyMap.js';
-import { EmptyState } from '../components/ui/index.js';
+import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
 import { ExercisePicker } from '../components/ExercisePicker.js';
 
 interface StatsViewProps {
@@ -96,7 +97,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   } as const;
 
   // Collapsible Accordion Sections State
-  const [openSection, setOpenSection] = useState<string | null>('muscles');
+  const [openSection, setOpenSection] = useState<string | null>(null);
 
   const toggleSection = (sectionId: string) => {
     setOpenSection((current) => current === sectionId ? null : sectionId);
@@ -341,6 +342,42 @@ export const StatsView: React.FC<StatsViewProps> = ({
     return history.reduce((sum, s) => sum + calculateSessionTotalVolume(s), 0);
   }, [history]);
 
+  const progressSummary = useMemo(() => {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentSessions = history.filter((session) => {
+      const startedAt = Date.parse(session.startedAt);
+      return Number.isFinite(startedAt) && startedAt >= cutoff;
+    });
+    let bestEstimatedOneRm = 0;
+    let bestExerciseName = '';
+
+    for (const session of recentSessions) {
+      for (const [exerciseId, sets] of Object.entries(session.sets)) {
+        for (const set of sets) {
+          if (!set.completed || set.isWarmup || set.weightKg <= 0 || set.reps <= 0) continue;
+          const estimatedOneRm = estimateOneRm(set.weightKg, set.reps).average;
+          if (estimatedOneRm > bestEstimatedOneRm) {
+            bestEstimatedOneRm = estimatedOneRm;
+            bestExerciseName = exercisesById[exerciseId]?.name || 'Ejercicio del historial';
+          }
+        }
+      }
+    }
+
+    return {
+      sessions: recentSessions.length,
+      volumeKg: recentSessions.reduce((sum, session) => sum + calculateSessionTotalVolume(session), 0),
+      bestEstimatedOneRm,
+      bestExerciseName,
+      weeklyStreak: calculateWeeklyStreak(history)
+    };
+  }, [exercisesById, history]);
+
+  const compactNumber = useMemo(
+    () => new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 }),
+    []
+  );
+
   // Modal handlers
   const [inspectingSession, setInspectingSession] = useState<WorkoutSession | null>(null);
 
@@ -356,26 +393,60 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   return (
     <div className="space-y-4 pb-28">
-      {/* 1. Header Homogéneo con Tonelaje Interactivo */}
+      {/* El primer nivel responde cómo va el usuario antes de exponer la analítica. */}
       <ViewHeader
         title="Estadísticas"
-        subtitle="Analítica de rendimiento, fatiga fisiológica y fuerza relativa"
+        subtitle="Tu progreso de un vistazo"
         isWorkoutActive={isWorkoutActive}
         activeWorkoutDuration={activeWorkoutDuration}
         onNavigateToWorkout={onNavigateToWorkout}
         onOpenSettings={onOpenSettings}
-        rightExtra={totalVolumeTonnage > 0 ? (
-          <button
-            type="button"
-            onClick={() => setIsTonnageModalOpen(true)}
-            title="Toca para ver equivalencias cotidianas de tonelaje (coches, aviones, etc.)"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-mono font-bold shadow-sm shrink-0 hover:bg-accent hover:text-accent-fg active:scale-95 transition-all cursor-pointer"
-          >
-            <Flame className="w-3.5 h-3.5 shrink-0" />
-            <span>{totalVolumeTonnage.toLocaleString()} kg</span>
-          </button>
-        ) : undefined}
       />
+
+      <AppCard compact className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-text-secondary">Últimos 30 días</p>
+            <p className="mt-0.5 text-[11px] text-text-muted">Actividad y mejor marca registrada</p>
+          </div>
+          <TrendingUp aria-hidden="true" className="size-5 shrink-0 text-accent" />
+        </div>
+
+        <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input">
+          <div className="min-w-0 px-2 py-3 text-center">
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Mejor e1RM</span>
+            <strong className="mt-1 block truncate text-sm text-text-primary">
+              {progressSummary.bestEstimatedOneRm > 0 ? `${progressSummary.bestEstimatedOneRm.toFixed(1)} kg` : '—'}
+            </strong>
+          </div>
+          <div className="min-w-0 px-2 py-3 text-center">
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Sesiones</span>
+            <strong className="mt-1 block text-sm text-text-primary">{progressSummary.sessions}</strong>
+          </div>
+          <div className="min-w-0 px-2 py-3 text-center">
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Volumen</span>
+            <strong className="mt-1 block truncate text-sm text-text-primary">{compactNumber.format(progressSummary.volumeKg)} kg</strong>
+          </div>
+        </div>
+
+        <div className="flex min-h-10 items-center justify-between gap-3 text-xs">
+          <span className="min-w-0 truncate text-text-muted">
+            {progressSummary.bestExerciseName || 'Sin marcas en este periodo'}
+          </span>
+          <span className="shrink-0 font-semibold text-text-secondary">
+            {progressSummary.weeklyStreak} {progressSummary.weeklyStreak === 1 ? 'semana' : 'semanas'} de racha
+          </span>
+        </div>
+
+        {totalVolumeTonnage > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setIsTonnageModalOpen(true)} className="w-full text-text-muted">
+            <Flame aria-hidden="true" className="size-4 text-accent" />
+            Tonelaje histórico: {compactNumber.format(totalVolumeTonnage)} kg
+          </Button>
+        )}
+      </AppCard>
+
+      <SectionHeader title="Análisis completo" meta="Abre una sección para explorar el detalle" />
 
       {/* ========================================================================= */}
       {/* SECCIONES DESPLEGABLES (ACCORDION TABS)                                    */}
@@ -400,7 +471,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Músculos, Fatiga & Fortaleza
               </h2>
-              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
                 Distribución anatómica de carga, fatiga acumulada y nivel relativo de fuerza.
               </p>
             </div>
@@ -808,7 +879,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Progreso por Ejercicio
               </h2>
-              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
                 Curvas de sobrecarga progresiva, 1RM estimado y esfuerzo RIR por movimiento.
               </p>
             </div>
@@ -958,7 +1029,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Consistencia & Calendario
               </h2>
-              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
                 Mapa anual de entrenamientos, regularidad y registro cronológico de sesiones.
               </p>
             </div>
@@ -1064,7 +1135,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Peso Corporal & Meta
               </h2>
-              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
                 Evolución de peso corporal, ritmo de cambio semanal y distancia a tu objetivo.
               </p>
             </div>
@@ -1161,7 +1232,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 Calculadora 1RM Personalizada
               </h2>
-              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
                 Estimador de fuerza máxima vinculado a tu historial y estándares de peso corporal.
               </p>
             </div>

@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Dumbbell, Check, Eye, ChevronRight, List, LayoutGrid } from 'lucide-react';
-import { Exercise, MuscleGroup } from '@light-weight/domain';
+import { Plus, Dumbbell, Check, Eye, ChevronRight, List, LayoutGrid, SlidersHorizontal } from 'lucide-react';
+import { Exercise } from '@light-weight/domain';
 import { getExerciseImgUrl } from '../lib/exercises.js';
+import {
+  ExerciseEquipmentFilter,
+  ExerciseMuscleFilter,
+  matchesExerciseFilters,
+  normalizeExerciseSearch
+} from '../lib/exercise-filters.js';
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
+import { ExerciseFilterControls } from '../components/ExerciseFilterControls.js';
 import { ViewHeader } from '../components/ViewHeader.js';
-import { AppCard, Button, Chip, EmptyState, ErrorState, LoadingState, SearchInput, SegmentedControl } from '../components/ui/index.js';
+import { AppCard, BottomSheet, Button, EmptyState, ErrorState, LoadingState, SearchInput, SegmentedControl } from '../components/ui/index.js';
 
 interface LibraryViewProps {
   exercises?: Exercise[];
@@ -20,32 +27,9 @@ interface LibraryViewProps {
 
 type ViewMode = 'list' | 'grid';
 
-const MUSCLE_CHIPS = [
-  { id: 'all', label: 'Todos' },
-  { id: 'chest', label: 'Pecho' },
-  { id: 'back', label: 'Espalda' },
-  { id: 'quadriceps', label: 'Cuádriceps' },
-  { id: 'hamstrings', label: 'Femoral' },
-  { id: 'glutes', label: 'Glúteos' },
-  { id: 'shoulders', label: 'Hombros' },
-  { id: 'biceps', label: 'Bíceps' },
-  { id: 'triceps', label: 'Tríceps' },
-  { id: 'core', label: 'Core' },
-  { id: 'calves', label: 'Gemelos' }
-] as const;
-
-const EQUIPMENT_CHIPS = [
-  { id: 'any', label: 'Cualquier equipo' },
-  { id: 'barbell', label: 'Barra' },
-  { id: 'dumbbell', label: 'Mancuernas' },
-  { id: 'cable', label: 'Polea' },
-  { id: 'bodyweight', label: 'Peso Corporal' },
-  { id: 'machine', label: 'Máquina' }
-] as const;
-
 const VIEW_OPTIONS = [
   { value: 'list', label: 'Lista', icon: <List className="size-3.5" aria-hidden="true" /> },
-  { value: 'grid', label: 'Recuadros', icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> }
+  { value: 'grid', label: 'Grid', icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> }
 ] satisfies { value: ViewMode; label: string; icon: React.ReactNode }[];
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -60,8 +44,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onRetryCatalog
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMuscle, setSelectedMuscle] = useState<string>('all');
-  const [selectedEquipment, setSelectedEquipment] = useState<string>('any');
+  const [selectedMuscle, setSelectedMuscle] = useState<ExerciseMuscleFilter>('all');
+  const [selectedEquipment, setSelectedEquipment] = useState<ExerciseEquipmentFilter>('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
   const [selectedMediaExercise, setSelectedMediaExercise] = useState<Exercise | null>(null);
   const [visibleCount, setVisibleCount] = useState(60);
@@ -92,19 +77,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const allExercises = exercises;
 
   const filteredExercises = useMemo(() => {
-    const query = searchTerm.trim().toLocaleLowerCase('es');
-    return allExercises.filter((ex) => {
-      const matchesSearch =
-        ex.name.toLocaleLowerCase('es').includes(query) ||
-        ex.category.toLowerCase().includes(query) ||
-        Boolean(ex.targetMuscle?.toLocaleLowerCase('es').includes(query));
-      const matchesMuscle =
-        selectedMuscle === 'all' ||
-        ex.primaryMuscle === selectedMuscle ||
-        ex.secondaryMuscles?.includes(selectedMuscle as MuscleGroup);
-      const matchesEquipment = selectedEquipment === 'any' || ex.category === selectedEquipment;
-      return matchesSearch && matchesMuscle && matchesEquipment;
-    });
+    const normalizedQuery = normalizeExerciseSearch(searchTerm);
+    return allExercises.filter((exercise) => matchesExerciseFilters(
+      exercise,
+      normalizedQuery,
+      selectedMuscle,
+      selectedEquipment
+    ));
   }, [allExercises, searchTerm, selectedMuscle, selectedEquipment]);
 
   const handleAction = (ex: Exercise) => {
@@ -122,8 +101,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedMuscle('all');
-    setSelectedEquipment('any');
+    setSelectedEquipment('all');
   };
+
+  const clearFacetFilters = () => {
+    setSelectedMuscle('all');
+    setSelectedEquipment('all');
+  };
+
+  const activeFilterCount = Number(selectedMuscle !== 'all') + Number(selectedEquipment !== 'all');
 
   if (catalogStatus !== 'ready') {
     return (
@@ -152,7 +138,6 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       {/* 1. Header Homogéneo */}
       <ViewHeader
         title="Biblioteca"
-        subtitle={`${filteredExercises.length} ejercicios con GIFs de técnica`}
         isWorkoutActive={isWorkoutActive}
         activeWorkoutDuration={activeWorkoutDuration}
         onNavigateToWorkout={onNavigateToWorkout}
@@ -167,46 +152,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           onChange={(e) => setSearchTerm(e.target.value)}
       />
 
-      {/* Muscle Filter Chips (Row 1) */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {MUSCLE_CHIPS.map((chip) => {
-          const isActive = selectedMuscle === chip.id;
-          return (
-            <Chip
-              key={chip.id}
-              selected={isActive}
-              onClick={() => setSelectedMuscle(chip.id)}
-              className="min-h-10"
-            >
-              {chip.label}
-            </Chip>
-          );
-        })}
+      {/* Filtros y preferencia de vista permanecen disponibles sin competir con la búsqueda. */}
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setFiltersOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={filtersOpen}
+          className="shrink-0"
+        >
+          <SlidersHorizontal aria-hidden="true" className="size-4" />
+          Filtros{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+        </Button>
+        <SegmentedControl value={viewMode} options={VIEW_OPTIONS} onChange={handleSetViewMode} label="Vista de la biblioteca" className="w-[146px] shrink-0" />
       </div>
 
-      {/* Equipment Filter Chips (Row 2) */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {EQUIPMENT_CHIPS.map((chip) => {
-          const isActive = selectedEquipment === chip.id;
-          return (
-            <Chip
-              key={chip.id}
-              selected={isActive}
-              onClick={() => setSelectedEquipment(chip.id)}
-              className="min-h-10"
-            >
-              {chip.label}
-            </Chip>
-          );
-        })}
-      </div>
-
-      {/* 5. Barra de Control de Visualización (Segmented Control: Lista vs Recuadros) */}
-      <div className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1">
-        <div className="min-w-0 text-xs font-medium text-text-muted">
-          Mostrando <span className="font-bold text-text-primary">{Math.min(visibleCount, filteredExercises.length)}</span> de {filteredExercises.length}
-        </div>
-        <SegmentedControl value={viewMode} options={VIEW_OPTIONS} onChange={handleSetViewMode} label="Vista de la biblioteca" className="w-[174px] shrink-0" />
+      <div className="px-1 text-xs text-text-muted" aria-live="polite">
+        {filteredExercises.length} {filteredExercises.length === 1 ? 'ejercicio' : 'ejercicios'}
       </div>
 
       {/* 6. Contenido Principal: Lista vs Recuadros */}
@@ -419,6 +382,30 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         isOpen={Boolean(selectedMediaExercise)}
         onClose={() => setSelectedMediaExercise(null)}
       />
+
+      <BottomSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filtros"
+        description="Reduce la biblioteca por músculo o equipo."
+      >
+        <div className="space-y-5">
+          <ExerciseFilterControls
+            muscle={selectedMuscle}
+            equipment={selectedEquipment}
+            onMuscleChange={setSelectedMuscle}
+            onEquipmentChange={setSelectedEquipment}
+          />
+          <div className="grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
+            <Button variant="secondary" onClick={clearFacetFilters} disabled={activeFilterCount === 0}>
+              Limpiar
+            </Button>
+            <Button onClick={() => setFiltersOpen(false)}>
+              Mostrar {filteredExercises.length}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 };

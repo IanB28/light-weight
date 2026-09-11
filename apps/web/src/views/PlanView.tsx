@@ -16,7 +16,6 @@ interface PlanViewProps {
   onSelectAndStartRoutine: (routineId: string) => void;
   onSaveRoutine: (newRoutine: Routine) => void;
   onDeleteRoutine?: (routineId: string) => void;
-  onDataRestored?: () => void;
   isWorkoutActive?: boolean;
   activeWorkoutDuration?: string;
   onNavigateToWorkout?: () => void;

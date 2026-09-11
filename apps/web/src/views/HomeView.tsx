@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Dumbbell,
   Calendar,
-  Zap,
   Flame
 } from 'lucide-react';
 import { ViewHeader } from '../components/ViewHeader.js';
@@ -27,7 +26,6 @@ import { BodyweightModal } from '../components/BodyweightModal.js';
 import { WorkoutFocusModal, WorkoutFocus } from '../components/WorkoutFocusModal.js';
 import { DayDetailModal } from '../components/DayDetailModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
-import { BackupModal } from '../components/BackupModal.js';
 import { MonthCalendarModal } from '../components/MonthCalendarModal.js';
 import { AppCard, Button, IconButton } from '../components/ui/index.js';
 
@@ -42,9 +40,6 @@ interface HomeViewProps {
   onSaveBodyweight: (weightKg: number, dateStr?: string) => void;
   onSaveTargetWeight: (targetKg: number) => void;
   onStartWorkout: (routineId?: string, sessionName?: string, prefilterMuscles?: MuscleGroup[]) => void;
-  onNavigateToStats: () => void;
-  onNavigateToPlan: () => void;
-  onDataRestored?: () => void;
   isWorkoutActive?: boolean;
   activeWorkoutDuration?: string;
   onNavigateToWorkout?: () => void;
@@ -62,9 +57,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onSaveBodyweight,
   onSaveTargetWeight,
   onStartWorkout,
-  onNavigateToStats,
-  onNavigateToPlan,
-  onDataRestored,
   isWorkoutActive = false,
   activeWorkoutDuration = '00:00',
   onNavigateToWorkout,
@@ -80,7 +72,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [bwModalInitialMode, setBwModalInitialMode] = useState<'log' | 'goal'>('log');
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [inspectedSession, setInspectedSession] = useState<WorkoutSession | null>(null);
-  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
 
   const today = new Date();
@@ -216,7 +207,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         isWorkoutActive={isWorkoutActive}
         activeWorkoutDuration={activeWorkoutDuration}
         onNavigateToWorkout={onNavigateToWorkout}
-        onOpenSettings={onOpenSettings || (() => setIsBackupModalOpen(true))}
+        onOpenSettings={onOpenSettings}
       />
 
       {/* 2. Tarjeta 1: Calendario Semanal + Rutina de Hoy (Dark Glassmorphism) */}
@@ -283,9 +274,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
           ))}
         </div>
 
-        {/* Sub-tarjeta interior: HOY + Rutina Asignada + Botón Empezar (Vidrio sobre Vidrio) */}
-        <div className="glass-subcard p-3.5 flex items-center justify-between mt-1 rounded-2xl">
-          <div className="flex items-center gap-3 min-w-0">
+        {/* La decisión principal del día vive dentro del calendario. */}
+        <div className="glass-subcard mt-1 space-y-3 rounded-ui-lg p-3.5">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-active text-accent shadow-sm">
               <Dumbbell className="size-5 stroke-[2.2]" />
             </div>
@@ -296,6 +287,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </span>
               <span className="block truncate text-base font-bold text-text-primary">
                 {todayScheduledRoutine ? todayScheduledRoutine.name : 'Día de Descanso'}
+              </span>
+              <span className="mt-0.5 block text-xs text-text-muted">
+                {todayScheduledRoutine
+                  ? `${todayScheduledRoutine.exerciseIds.length} ${todayScheduledRoutine.exerciseIds.length === 1 ? 'ejercicio' : 'ejercicios'}`
+                  : 'Recuperación programada'}
               </span>
             </div>
           </div>
@@ -308,35 +304,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 setIsFocusModalOpen(true);
               }
             }}
-            className="shrink-0 px-3 text-xs"
+            className="w-full"
           >
-            {todayScheduledRoutine ? 'Empezar' : 'Entrenar de todos modos'}
+            {todayScheduledRoutine ? 'Empezar entrenamiento' : 'Entrenar de todos modos'}
           </Button>
+          {todayScheduledRoutine && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsFocusModalOpen(true)}
+              className="w-full text-text-muted"
+            >
+              Entrenar otra cosa
+            </Button>
+          )}
         </div>
-      </AppCard>
-
-      {/* 3. Tarjeta 2: Sesión Inmediata ("¿Qué harás hoy?") */}
-      <AppCard className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-active text-accent">
-            <Zap className="size-5 fill-accent/20 text-accent" />
-          </div>
-          <div className="min-w-0">
-            <span className="block text-sm font-bold tracking-tight text-text-primary">
-              Sesión Inmediata
-            </span>
-            <span className="mt-0.5 block truncate text-xs text-text-muted">
-              ¿Qué harás hoy? · Push, Pull, Pierna, Glúteos...
-            </span>
-          </div>
-        </div>
-
-        <Button
-          onClick={() => setIsFocusModalOpen(true)}
-          className="shrink-0 px-3 text-xs"
-        >
-          Comenzar
-        </Button>
       </AppCard>
 
       {/* 4. Tarjeta 3: Peso Corporal (Dark Glassmorphism) */}
@@ -420,12 +402,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
         onClose={() => setInspectedSession(null)}
       />
 
-      {/* Modal: Ajustes y Respaldo de Datos */}
-      <BackupModal
-        isOpen={isBackupModalOpen}
-        onClose={() => setIsBackupModalOpen(false)}
-        onDataRestored={onDataRestored}
-      />
     </div>
   );
 };

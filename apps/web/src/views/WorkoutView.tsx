@@ -192,27 +192,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
           return (
             <div key={exercise.id} className="space-y-3 pt-2">
-              {/* Indicador de Ejercicio N / Total con botón de Eliminar ejercicio */}
-              <div className="flex min-h-11 items-center justify-between text-xs text-text-muted">
-                <span className="font-semibold text-text-secondary">
-                  Ejercicio {exIndex + 1} de {exerciseSessions.length}
-                </span>
-                <div className="flex items-center">
-                  <IconButton
-                    variant="ghost"
-                    onClick={() => onRemoveExercise(exercise.id)}
-                    aria-label={`Eliminar ${exercise.name} del entrenamiento`}
-                    className="text-text-muted hover:text-danger"
-                    title="Eliminar este ejercicio"
-                  >
-                    <Trash2 className="size-4" />
-                  </IconButton>
-                </div>
-              </div>
-
-              {/* Título del Ejercicio con Miniatura y Badges */}
+              {/* Encabezado compacto: contexto, técnica y metadata sin acciones duplicadas. */}
               <div className="flex items-start gap-3">
-                {/* Thumbnail con preview de GIF */}
                 <button
                   type="button"
                   onClick={() => setSelectedMediaExercise(exercise)}
@@ -223,7 +204,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                   {imgUrl ? (
                     <img
                       src={imgUrl}
-                      alt={exercise.name}
+                      alt=""
                       loading="lazy"
                       className="h-full w-full object-cover transition-transform group-hover:scale-105"
                     />
@@ -236,31 +217,33 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                 </button>
 
                 <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <h3 className="truncate text-lg font-extrabold leading-tight tracking-tight text-text-primary">
-                      {exercise.name}
-                    </h3>
+                  <div className="flex min-h-10 items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                      Ejercicio {exIndex + 1} de {exerciseSessions.length}
+                    </span>
                     <IconButton
                       variant="ghost"
-                      onClick={() => setSelectedMediaExercise(exercise)}
-                      aria-label={`Ver técnica de ${exercise.name}`}
-                      className="text-text-muted hover:text-accent"
-                      title="Ver técnica"
+                      size="sm"
+                      onClick={() => onRemoveExercise(exercise.id)}
+                      aria-label={`Eliminar ${exercise.name} del entrenamiento`}
+                      className="text-text-muted hover:text-danger"
+                      title="Eliminar este ejercicio"
                     >
-                      <Eye className="size-4" />
+                      <Trash2 className="size-4" />
                     </IconButton>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    <span className="rounded-full border border-accent/30 bg-accent/15 px-2.5 py-0.5 text-xs font-semibold capitalize text-accent">
-                      {exercise.primaryMuscle}
-                    </span>
-                    <span className="rounded-full border border-border-subtle bg-surface-input px-2.5 py-0.5 text-xs font-semibold capitalize text-text-secondary">
-                      {exercise.category}
+                  <h3 className="truncate text-lg font-extrabold leading-tight tracking-tight text-text-primary">
+                    {exercise.name}
+                  </h3>
+
+                  <div className="flex min-w-0 items-center justify-between gap-3 pt-0.5 text-xs">
+                    <span className="min-w-0 truncate capitalize text-text-muted">
+                      {exercise.primaryMuscle} · {exercise.category}
                     </span>
                     {bestRecord && (
-                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
-                        PR: {bestRecord}
+                      <span className="shrink-0 font-semibold text-amber-400">
+                        PR {bestRecord}
                       </span>
                     )}
                   </div>

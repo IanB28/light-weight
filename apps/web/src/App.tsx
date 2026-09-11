@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BottomNav, TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
-import { BackupModal } from './components/BackupModal.js';
+import { SettingsSheet } from './components/SettingsSheet.js';
 import { HomeView } from './views/HomeView.js';
 import { WorkoutView, ActiveExerciseSession } from './views/WorkoutView.js';
 import { StatsView } from './views/StatsView.js';
@@ -43,7 +43,7 @@ export function App() {
   const [bodyweightEntries, setBodyweightEntries] = useState<BodyweightEntry[]>(getStoredBodyweight());
   const [targetWeight, setTargetWeight] = useState<number | null>(getStoredTargetWeight());
   const [userInfo, setUserInfo] = useState<UserInfo>(getStoredUserInfo());
-  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Workout Session State
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
@@ -477,13 +477,10 @@ export function App() {
             onSaveBodyweight={handleSaveBodyweight}
             onSaveTargetWeight={handleSaveTargetWeight}
             onStartWorkout={handleStartWorkout}
-            onNavigateToStats={() => setCurrentTab('stats')}
-            onNavigateToPlan={() => setCurrentTab('plan')}
             isWorkoutActive={isWorkoutActive}
             activeWorkoutDuration={formatDuration(workoutSeconds)}
             onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsBackupModalOpen(true)}
-            onDataRestored={handleDataRestored}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
 
@@ -516,7 +513,7 @@ export function App() {
             isWorkoutActive={isWorkoutActive}
             activeWorkoutDuration={formatDuration(workoutSeconds)}
             onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsBackupModalOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
 
@@ -544,11 +541,10 @@ export function App() {
               saveStoredWeeklySchedule(updatedSchedule);
               syncWithCloud();
             }}
-            onDataRestored={handleDataRestored}
             isWorkoutActive={isWorkoutActive}
             activeWorkoutDuration={formatDuration(workoutSeconds)}
             onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsBackupModalOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
 
@@ -566,7 +562,7 @@ export function App() {
             isWorkoutActive={isWorkoutActive}
             activeWorkoutDuration={formatDuration(workoutSeconds)}
             onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsBackupModalOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             onAddExerciseToActiveWorkout={handleAddExerciseToWorkout}
             onStartWorkoutWithExercise={(ex) => {
               handleStartWorkout();
@@ -592,9 +588,9 @@ export function App() {
       />
 
       {/* Modal de Configuración y Respaldo / Temas */}
-      <BackupModal
-        isOpen={isBackupModalOpen}
-        onClose={() => setIsBackupModalOpen(false)}
+      <SettingsSheet
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
         onDataRestored={handleDataRestored}
       />
     </div>
