@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { X, Play, Pause, Dumbbell, Sparkles } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Dumbbell, Pause, Play, Sparkles } from 'lucide-react';
 import { Exercise } from '@light-weight/domain';
-import { getExerciseImgUrl, getExerciseGifUrl } from '../lib/exercises.js';
+import { getExerciseGifUrl, getExerciseImgUrl } from '../lib/exercises.js';
+import { useExerciseLabels, useI18n } from '../lib/i18n.js';
+import { BottomSheet, Button } from './ui/index.js';
 
 interface ExerciseMediaModalProps {
   exercise: Exercise | null;
@@ -9,148 +11,51 @@ interface ExerciseMediaModalProps {
   onClose: () => void;
 }
 
-export const ExerciseMediaModal: React.FC<ExerciseMediaModalProps> = ({
-  exercise,
-  isOpen,
-  onClose,
-}) => {
+export const ExerciseMediaModal: React.FC<ExerciseMediaModalProps> = ({ exercise, isOpen, onClose }) => {
+  const { t } = useI18n();
+  const { muscleLabel, equipmentLabel } = useExerciseLabels();
   const [isPlaying, setIsPlaying] = useState(true);
 
-  if (!isOpen || !exercise) return null;
+  useEffect(() => {
+    if (isOpen) setIsPlaying(true);
+  }, [exercise?.id, isOpen]);
 
+  if (!exercise) return null;
   const gifUrl = getExerciseGifUrl(exercise);
   const imgUrl = getExerciseImgUrl(exercise);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xl animate-fade-in">
-      {/* Backdrop tap to close */}
-      <div className="absolute inset-0" onClick={onClose} />
-
-      <div role="dialog" aria-modal="true" aria-labelledby="exercise-media-title" className="relative w-full max-w-lg dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col z-10 animate-slide-up">
-        {/* iOS Grab Handle */}
-        <div className="w-full pt-3 pb-1 flex justify-center sm:hidden">
-          <div className="w-10 h-1.5 rounded-full bg-white/20" />
+  return <BottomSheet open={isOpen} onClose={onClose} title={exercise.name} description={t('exercise.techniqueGuide')} className="sm:max-w-lg">
+    <div className="space-y-4">
+      {gifUrl || imgUrl ? (
+        <button type="button" onClick={() => setIsPlaying((value) => !value)} aria-label={isPlaying ? t('exercise.pauseDemo') : t('exercise.playDemo')} className="group relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-ui-xl border border-border-subtle bg-app/60 shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+          <img src={isPlaying && gifUrl ? gifUrl : imgUrl || gifUrl || ''} alt={exercise.name} loading="eager" className="size-full object-contain" />
+          <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-elevated px-2.5 py-1 font-mono text-[11px] text-text-secondary shadow-card">
+            {isPlaying ? <Pause aria-hidden="true" className="size-3 fill-accent text-accent" /> : <Play aria-hidden="true" className="size-3 fill-accent text-accent" />}
+            {isPlaying ? t('exercise.pause') : t('exercise.playGif')}
+          </span>
+        </button>
+      ) : (
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-ui-xl border border-border-subtle bg-surface-input text-text-muted">
+          <Dumbbell aria-hidden="true" className="size-8 stroke-[1.5]" />
+          <span className="text-xs">{t('exercise.noDemo')}</span>
         </div>
+      )}
 
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.08]">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-accent font-mono">
-              GUÍA DE TÉCNICA
-            </span>
-            <h3 id="exercise-media-title" className="text-lg font-bold text-white tracking-tight leading-tight mt-0.5">
-              {exercise.name}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar guía del ejercicio"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-colors hover:border-white/20 hover:text-white active:scale-[0.96]"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <p className="text-xs text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}{exercise.targetMuscle ? ` · ${t('exercise.target')}: ${exercise.targetMuscle}` : ''}</p>
 
-        {/* Modal Body */}
-        <div className="p-5 overflow-y-auto space-y-4">
-          {/* Media Player Container */}
-          {gifUrl || imgUrl ? (
-            <div
-              className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black/50 border border-white/[0.08] shadow-inner flex items-center justify-center cursor-pointer group"
-              onClick={() => setIsPlaying((prev) => !prev)}
-            >
-              <img
-                src={isPlaying && gifUrl ? gifUrl : imgUrl || gifUrl || ''}
-                alt={exercise.name}
-                loading="eager"
-                className="w-full h-full object-contain"
-              />
+      {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && <section className="space-y-1.5">
+        <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">{t('exercise.secondaryMuscles')}</h4>
+        <p className="text-xs text-text-muted">{exercise.secondaryMuscles.map(muscleLabel).join(' · ')}</p>
+      </section>}
 
-              {/* Pause / Play Overlay Hint */}
-              <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/[0.1] text-zinc-300 text-[11px] font-mono flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
-                {isPlaying ? (
-                  <>
-                    <Pause className="w-3 h-3 text-accent fill-accent" />
-                    <span>Pausar</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3 h-3 text-accent fill-accent" />
-                    <span>Reproducir GIF</span>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="w-full aspect-video rounded-2xl bg-zinc-900/50 border border-white/[0.08] flex flex-col items-center justify-center text-zinc-500 gap-2">
-              <Dumbbell className="w-8 h-8 stroke-[1.5]" />
-              <span className="text-xs">Sin demostración visual disponible</span>
-            </div>
-          )}
+      {exercise.instructions && exercise.instructions.length > 0 && <section className="space-y-2 pt-1">
+        <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-secondary"><Sparkles aria-hidden="true" className="size-3.5 text-warning" />{t('exercise.steps')}</h4>
+        <ol className="list-inside list-decimal space-y-2 pl-1 text-xs leading-relaxed text-text-secondary">
+          {exercise.instructions.map((step, index) => <li key={index} className="pl-1 marker:font-bold marker:text-accent"><span>{step}</span></li>)}
+        </ol>
+      </section>}
 
-          {/* Badges */}
-          <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent/15 text-accent border border-accent/30 capitalize">
-              {exercise.primaryMuscle}
-            </span>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800/80 text-zinc-300 border border-white/[0.08] capitalize">
-              {exercise.category}
-            </span>
-            {exercise.targetMuscle && (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30 capitalize">
-                Objetivo: {exercise.targetMuscle}
-              </span>
-            )}
-          </div>
-
-          {/* Secondary muscles */}
-          {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && (
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                Músculos Secundarios:
-              </span>
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {exercise.secondaryMuscles.map((sm) => (
-                  <span
-                    key={sm}
-                    className="px-2.5 py-0.5 rounded-md text-[11px] bg-zinc-800/60 text-zinc-400 border border-white/[0.04] capitalize font-mono"
-                  >
-                    {sm}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step-by-Step Instructions */}
-          {exercise.instructions && exercise.instructions.length > 0 && (
-            <div className="space-y-2 pt-2">
-              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                Ejecución Técnica Paso a Paso
-              </span>
-              <ol className="space-y-2 text-xs text-zinc-300 leading-relaxed list-decimal list-inside pl-1">
-                {exercise.instructions.map((step, idx) => (
-                  <li key={idx} className="pl-1 text-zinc-300 marker:text-accent marker:font-bold">
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-white/[0.08] bg-black/40">
-          <button
-            onClick={onClose}
-            className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 active:scale-[0.98] text-white font-bold text-xs rounded-xl transition-all border border-white/[0.08] cursor-pointer"
-          >
-            Cerrar Guía
-          </button>
-        </div>
-      </div>
+      <Button variant="secondary" onClick={onClose} className="w-full">{t('exercise.closeGuide')}</Button>
     </div>
-  );
+  </BottomSheet>;
 };

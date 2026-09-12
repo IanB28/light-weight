@@ -40,13 +40,33 @@ syncRouter.post('/', async (req, res) => {
 
     const syncedSessionIds: string[] = [];
 
-    // 1. Guardar pesajes corporales si existen
-    for (const b of bLogs) {
-      await db.insert(bodyweightLogs).values({
-        userId,
-        weightKg: String(b.weightKg),
-        loggedAt: new Date(b.loggedAt),
-      });
+    // 1. Guardar pesajes de forma idempotente por usuario + fecha.
+    const existingBodyweightLogs = await db
+      .select()
+      .from(bodyweightLogs)
+      .where(eq(bodyweightLogs.userId, userId));
+    const existingBodyweightByDate = new Map(
+      existingBodyweightLogs.map((entry) => [entry.loggedAt.toISOString(), entry])
+    );
+    const validIncomingBodyweight = (Array.isArray(bLogs) ? bLogs : []).filter(
+      (entry: unknown): entry is { loggedAt: string; weightKg: number } => {
+        if (!entry || typeof entry !== 'object') return false;
+        const candidate = entry as { loggedAt?: unknown; weightKg?: unknown };
+        return typeof candidate.loggedAt === 'string' && !Number.isNaN(new Date(candidate.loggedAt).getTime()) && typeof candidate.weightKg === 'number' && Number.isFinite(candidate.weightKg) && candidate.weightKg > 0;
+      }
+    );
+    const uniqueIncomingBodyweight = Array.from(
+      new Map(validIncomingBodyweight.map((entry) => [new Date(entry.loggedAt).toISOString(), entry])).values()
+    );
+
+    for (const b of uniqueIncomingBodyweight) {
+      const loggedAt = new Date(b.loggedAt);
+      const existing = existingBodyweightByDate.get(loggedAt.toISOString());
+      if (existing) {
+        await db.update(bodyweightLogs).set({ weightKg: String(b.weightKg) }).where(eq(bodyweightLogs.id, existing.id));
+      } else {
+        await db.insert(bodyweightLogs).values({ userId, weightKg: String(b.weightKg), loggedAt });
+      }
 
       // Actualizar perfil con el último peso
       await db

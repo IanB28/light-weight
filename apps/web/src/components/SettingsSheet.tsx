@@ -1,69 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, Database, Download, Dumbbell, Languages, Palette, RefreshCw, Sparkles, Upload, UserRound } from 'lucide-react';
+import { Exercise, WorkoutSession } from '@light-weight/domain';
 import {
-  AlertCircle,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Palette,
-  RefreshCw,
-  Sparkles,
-  Upload
-} from 'lucide-react';
-import {
-  getStoredBodyweight,
-  getStoredHistory,
-  getStoredProfile,
-  getStoredRoutines,
-  getStoredTargetWeight,
-  getStoredWeeklySchedule,
-  saveStoredBodyweight,
-  saveStoredHistory,
-  saveStoredProfile,
-  saveStoredRoutines,
-  saveStoredTargetWeight,
-  saveStoredWeeklySchedule
+  getStoredBodyweight, getStoredHistory, getStoredProfile, getStoredRoutines,
+  getStoredTargetWeight, getStoredWeeklySchedule, saveStoredBodyweight,
+  saveStoredHistory, saveStoredProfile, saveStoredRoutines, saveStoredTargetWeight,
+  saveStoredWeeklySchedule, UserInfo, UserProfile
 } from '../lib/storage.js';
 import { syncWithCloud } from '../lib/sync.js';
-import {
-  AccentColorId,
-  ACCENT_PRESETS,
-  applyTheme,
-  GlassTheme,
-  GLASS_THEMES,
-  getStoredThemeSettings,
-  ThemeSettings
-} from '../lib/theme.js';
-import { BottomSheet, Button, SectionHeader } from './ui/index.js';
+import { AccentColorId, ACCENT_PRESETS, applyTheme, GlassTheme, GLASS_THEMES, getStoredThemeSettings, ThemeSettings } from '../lib/theme.js';
+import { DEFAULT_APP_PREFERENCES, parseAppPreferences, saveStoredPreferences } from '../lib/preferences.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { TranslationKey, useI18n } from '../lib/i18n.js';
+import { ProfileView } from '../features/profile/ProfileView.js';
+import { BottomSheet, Button, SectionHeader, SegmentedControl } from './ui/index.js';
 
 interface SettingsSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onDataRestored?: () => void;
+  profile: UserProfile;
+  userInfo: UserInfo;
+  history: WorkoutSession[];
+  exercises: Exercise[];
+  onProfileChange: (profile: UserProfile) => void;
 }
 
-type SettingsPanel = 'root' | 'theme' | 'accent';
+type SettingsPanel = 'root' | 'profile' | 'training' | 'appearance' | 'theme' | 'accent' | 'language' | 'data';
 type StatusMessage = { tone: 'success' | 'error'; text: string } | null;
 
-interface SettingsRowProps {
-  icon: React.ReactNode;
-  label: string;
-  value?: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-function SettingsRow({ icon, label, value, onClick, disabled }: SettingsRowProps) {
+function SettingsRow({ icon, label, value, onClick, disabled }: { icon: React.ReactNode; label: string; value?: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex min-h-14 w-full items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-left last:border-b-0 hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-45"
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">
-        {icon}
-      </span>
+    <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-14 w-full items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-left last:border-b-0 hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-45">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">{icon}</span>
       <span className="min-w-0 flex-1 text-sm font-bold text-text-primary">{label}</span>
       {value && <span className="max-w-[45%] truncate text-xs text-text-muted">{value}</span>}
       <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
@@ -71,60 +40,39 @@ function SettingsRow({ icon, label, value, onClick, disabled }: SettingsRowProps
   );
 }
 
-export const SettingsSheet: React.FC<SettingsSheetProps> = ({ isOpen, onClose, onDataRestored }) => {
+export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userInfo, history, exercises, onProfileChange }: SettingsSheetProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [panel, setPanel] = useState<SettingsPanel>('root');
   const [status, setStatus] = useState<StatusMessage>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [themeSettings, setThemeSettings] = useState<ThemeSettings>(getStoredThemeSettings());
+  const { preferences, updatePreferences, reloadPreferences } = usePreferences();
+  const { language, setLanguage, t } = useI18n();
+  const themeName = (id: GlassTheme) => t(`theme.${id}` as TranslationKey);
+  const accentName = (id: AccentColorId) => t(`accent.${id}` as TranslationKey);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setPanel('root');
-      setStatus(null);
-    }
-  }, [isOpen]);
+  useEffect(() => { if (!isOpen) { setPanel('root'); setStatus(null); } }, [isOpen]);
 
-  const handleClose = () => {
-    setPanel('root');
-    setStatus(null);
-    onClose();
-  };
-
-  const handleSelectGlassTheme = (theme: GlassTheme) => {
-    const updated = { ...themeSettings, glassTheme: theme };
-    setThemeSettings(updated);
-    applyTheme(updated);
-  };
-
-  const handleSelectAccent = (accentColor: AccentColorId) => {
-    const updated = { ...themeSettings, accentColor };
-    setThemeSettings(updated);
-    applyTheme(updated);
-  };
+  const close = () => { setPanel('root'); setStatus(null); onClose(); };
+  const chooseTheme = (glassTheme: GlassTheme) => { const updated = { ...themeSettings, glassTheme }; setThemeSettings(updated); applyTheme(updated); };
+  const chooseAccent = (accentColor: AccentColorId) => { const updated = { ...themeSettings, accentColor }; setThemeSettings(updated); applyTheme(updated); };
 
   const handleSync = async () => {
+    if (isSyncing) return;
     setStatus(null);
     setIsSyncing(true);
-    const success = await syncWithCloud();
+    const result = await syncWithCloud();
     setIsSyncing(false);
-    setStatus(success
-      ? { tone: 'success', text: 'Datos sincronizados.' }
-      : { tone: 'error', text: 'No pudimos sincronizar. Tus datos locales siguen seguros.' });
+    setStatus(result.ok ? { tone: 'success', text: t('settings.synced') } : { tone: 'error', text: t(`error.${result.error.code === 'not_found' ? 'notFound' : result.error.code === 'rate_limited' ? 'rateLimited' : result.error.code}` as import('../lib/i18n.js').TranslationKey) });
   };
 
-  const handleExportJson = () => {
+  const handleExport = () => {
     const backupData = {
-      app: 'light-weight',
-      version: '1.0.0',
-      exportedAt: new Date().toISOString(),
-      profile: getStoredProfile(),
-      bodyweight: getStoredBodyweight(),
-      targetWeight: getStoredTargetWeight(),
-      weeklySchedule: getStoredWeeklySchedule(),
-      routines: getStoredRoutines(),
-      history: getStoredHistory(),
-      theme: getStoredThemeSettings()
+      app: 'light-weight', version: '2.0.0', exportedAt: new Date().toISOString(),
+      profile: getStoredProfile(), preferences, bodyweight: getStoredBodyweight(),
+      targetWeight: getStoredTargetWeight(), weeklySchedule: getStoredWeeklySchedule(),
+      routines: getStoredRoutines(), history: getStoredHistory(), theme: getStoredThemeSettings()
     };
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -135,174 +83,85 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({ isOpen, onClose, o
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
-    setStatus({ tone: 'success', text: 'Respaldo exportado.' });
+    setStatus({ tone: 'success', text: t('settings.exported') });
   };
 
-  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || isImporting) return;
+    setIsImporting(true);
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const json = JSON.parse(String(reader.result));
-        if (!json || typeof json !== 'object' || json.app !== 'light-weight') {
-          throw new Error('Formato de respaldo no válido');
-        }
-        if (Array.isArray(json.history)) saveStoredHistory(json.history);
-        if (Array.isArray(json.routines)) saveStoredRoutines(json.routines);
-        if (Array.isArray(json.bodyweight)) saveStoredBodyweight(json.bodyweight);
-        if (typeof json.targetWeight === 'number') saveStoredTargetWeight(json.targetWeight);
-        if (json.profile?.gender === 'male' || json.profile?.gender === 'female') saveStoredProfile(json.profile);
-        if (json.weeklySchedule && typeof json.weeklySchedule === 'object') saveStoredWeeklySchedule(json.weeklySchedule);
-        if (
-          json.theme?.glassTheme &&
-          GLASS_THEMES[json.theme.glassTheme as GlassTheme] &&
-          json.theme?.accentColor &&
-          ACCENT_PRESETS[json.theme.accentColor as AccentColorId]
-        ) {
-          const importedTheme = json.theme as ThemeSettings;
+        const json: unknown = JSON.parse(String(reader.result));
+        if (!json || typeof json !== 'object' || (json as { app?: string }).app !== 'light-weight') throw new Error('invalid');
+        const data = json as {
+          history?: unknown; routines?: unknown; bodyweight?: unknown; targetWeight?: unknown;
+          profile?: unknown; preferences?: unknown; weeklySchedule?: unknown;
+          theme?: Partial<ThemeSettings>;
+        };
+        if (Array.isArray(data.history)) saveStoredHistory(data.history);
+        if (Array.isArray(data.routines)) saveStoredRoutines(data.routines);
+        if (Array.isArray(data.bodyweight)) saveStoredBodyweight(data.bodyweight);
+        if (typeof data.targetWeight === 'number') saveStoredTargetWeight(data.targetWeight);
+        if (data.profile && typeof data.profile === 'object') onProfileChange(saveStoredProfile(data.profile as Partial<UserProfile>));
+        if (data.preferences && typeof data.preferences === 'object') saveStoredPreferences(parseAppPreferences(data.preferences));
+        if (data.weeklySchedule && typeof data.weeklySchedule === 'object') saveStoredWeeklySchedule(data.weeklySchedule as ReturnType<typeof getStoredWeeklySchedule>);
+        if (data.theme?.glassTheme && GLASS_THEMES[data.theme.glassTheme as GlassTheme] && data.theme?.accentColor && ACCENT_PRESETS[data.theme.accentColor as AccentColorId]) {
+          const importedTheme = data.theme as ThemeSettings;
           setThemeSettings(importedTheme);
           applyTheme(importedTheme);
         }
-        setStatus({ tone: 'success', text: 'Datos restaurados con éxito.' });
+        reloadPreferences();
+        setStatus({ tone: 'success', text: t('settings.restored') });
         onDataRestored?.();
         void syncWithCloud();
       } catch {
-        setStatus({ tone: 'error', text: 'El archivo no es un respaldo válido de LightWeight.' });
+        setStatus({ tone: 'error', text: t('settings.invalidBackup') });
       } finally {
+        setIsImporting(false);
         event.target.value = '';
       }
     };
+    reader.onerror = () => { setIsImporting(false); event.target.value = ''; setStatus({ tone: 'error', text: t('settings.invalidBackup') }); };
     reader.readAsText(file);
   };
 
-  const panelTitle = panel === 'root' ? 'Configuración' : panel === 'theme' ? 'Tema' : 'Color de acento';
-  const panelDescription = panel === 'root'
-    ? 'Apariencia, sincronización y respaldo.'
-    : panel === 'theme'
-      ? 'Elige la superficie visual de LightWeight.'
-      : 'Elige el color para acciones y estados activos.';
+  const titles: Record<SettingsPanel, string> = {
+    root: t('settings.title'), profile: t('profile.title'), training: t('settings.training'), appearance: t('settings.appearance'),
+    theme: t('settings.theme'), accent: t('settings.accent'), language: t('settings.language'), data: t('settings.data')
+  };
+  const backTarget = panel === 'theme' || panel === 'accent' ? 'appearance' : 'root';
 
   return (
-    <BottomSheet open={isOpen} onClose={handleClose} title={panelTitle} description={panelDescription} className="sm:max-w-md">
-      {panel !== 'root' && (
-        <Button variant="ghost" size="sm" onClick={() => setPanel('root')} className="mb-3 -ml-2">
-          <ChevronLeft aria-hidden="true" className="size-4" />
-          Configuración
-        </Button>
-      )}
+    <BottomSheet open={isOpen} onClose={close} title={titles[panel]} description={panel === 'root' ? t('settings.description') : undefined} className="sm:max-w-md">
+      {panel !== 'root' && <Button variant="ghost" size="sm" onClick={() => setPanel(backTarget)} className="mb-3 -ml-2"><ChevronLeft aria-hidden="true" className="size-4" />{backTarget === 'appearance' ? t('settings.appearance') : t('common.back')}</Button>}
 
-      {panel === 'root' && (
-        <div className="space-y-5">
-          <section className="space-y-2" aria-labelledby="settings-appearance">
-            <SectionHeader title="Apariencia" />
-            <div id="settings-appearance" className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-              <SettingsRow
-                icon={<Sparkles aria-hidden="true" className="size-4" />}
-                label="Tema"
-                value={GLASS_THEMES[themeSettings.glassTheme].name}
-                onClick={() => setPanel('theme')}
-              />
-              <SettingsRow
-                icon={<Palette aria-hidden="true" className="size-4" />}
-                label="Color de acento"
-                value={(
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full" style={{ backgroundColor: ACCENT_PRESETS[themeSettings.accentColor].hex }} />
-                    {ACCENT_PRESETS[themeSettings.accentColor].name}
-                  </span>
-                )}
-                onClick={() => setPanel('accent')}
-              />
-            </div>
-          </section>
+      {panel === 'root' && <div className="space-y-4">
+        <section className="space-y-2"><SectionHeader title={t('settings.profileSection')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profile')} value={profile.displayName === 'Atleta' ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete')) : profile.displayName} onClick={() => setPanel('profile')} /></div></section>
+        <section className="space-y-2"><SectionHeader title={t('settings.trainingSection')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Dumbbell className="size-4" />} label={t('settings.training')} onClick={() => setPanel('training')} /></div></section>
+        <section className="space-y-2"><SectionHeader title={t('settings.appearance')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Palette className="size-4" />} label={t('settings.appearance')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('appearance')} /></div></section>
+        <section className="space-y-2"><SectionHeader title={t('settings.language')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Languages className="size-4" />} label={t('settings.language')} value={language === 'es' ? t('settings.spanish') : t('settings.english')} onClick={() => setPanel('language')} /></div></section>
+        <section className="space-y-2"><SectionHeader title={t('settings.dataSection')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Database className="size-4" />} label={t('settings.data')} onClick={() => setPanel('data')} /></div></section>
+      </div>}
 
-          <section className="space-y-2" aria-labelledby="settings-data">
-            <SectionHeader title="Datos" />
-            <div id="settings-data" className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-              <SettingsRow
-                icon={<RefreshCw aria-hidden="true" className={`size-4 ${isSyncing ? 'motion-safe:animate-spin' : ''}`} />}
-                label={isSyncing ? 'Sincronizando…' : 'Sincronizar ahora'}
-                onClick={() => void handleSync()}
-                disabled={isSyncing}
-              />
-              <SettingsRow
-                icon={<Download aria-hidden="true" className="size-4" />}
-                label="Exportar datos"
-                value="JSON"
-                onClick={handleExportJson}
-              />
-              <SettingsRow
-                icon={<Upload aria-hidden="true" className="size-4" />}
-                label="Restaurar respaldo"
-                value="JSON"
-                onClick={() => fileInputRef.current?.click()}
-              />
-            </div>
-            <input ref={fileInputRef} type="file" accept=".json,application/json" onChange={handleImportFile} className="hidden" />
-          </section>
+      {panel === 'profile' && <ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={onProfileChange} />}
 
-          {status && (
-            <div
-              role="status"
-              className={`flex items-center gap-2 rounded-ui-lg border p-3 text-xs font-semibold ${status.tone === 'error' ? 'border-danger/30 bg-danger-soft text-danger' : 'border-success/30 bg-success/10 text-success'}`}
-            >
-              {status.tone === 'error' ? <AlertCircle aria-hidden="true" className="size-4" /> : <Check aria-hidden="true" className="size-4" />}
-              {status.text}
-            </div>
-          )}
-        </div>
-      )}
+      {panel === 'training' && <div className="space-y-5">
+        <div className="space-y-2"><SectionHeader title={t('settings.units')} /><SegmentedControl value={preferences.units} label={t('settings.units')} options={[{ value: 'metric', label: t('settings.metric') }, { value: 'imperial', label: t('settings.imperial') }]} onChange={(units) => updatePreferences({ units })} /></div>
+        <label className="block space-y-2"><span className="text-xs font-bold text-text-secondary">{t('settings.rest')}</span><select value={preferences.defaultRestSeconds} onChange={(event) => updatePreferences({ defaultRestSeconds: Number(event.target.value) })} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm font-bold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25">{[60, 90, 120, 180].map((seconds) => <option key={seconds} value={seconds}>{seconds}s</option>)}</select></label>
+        <div className="space-y-2"><SectionHeader title={t('settings.weightMode')} /><SegmentedControl value={preferences.weightInputMode} label={t('settings.weightMode')} options={[{ value: 'keyboard', label: t('settings.keyboard') }, { value: 'plates', label: t('settings.plates') }]} onChange={(weightInputMode) => updatePreferences({ weightInputMode })} /></div>
+        <label className="block space-y-2"><span className="text-xs font-bold text-text-secondary">{t('settings.barWeight')}</span><div className="relative"><input type="number" inputMode="decimal" min="0" step="0.5" value={preferences.defaultBarWeightKg} onChange={(event) => updatePreferences({ defaultBarWeightKg: Math.max(0, Number(event.target.value) || 0) })} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 pr-10 font-mono text-sm font-bold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">kg</span></div></label>
+        <div className="space-y-2"><SectionHeader title={t('settings.availablePlates')} /><div className="grid grid-cols-4 gap-2">{DEFAULT_APP_PREFERENCES.availablePlatesKg.map((plate) => { const active = preferences.availablePlatesKg.includes(plate); return <button key={plate} type="button" aria-pressed={active} onClick={() => updatePreferences({ availablePlatesKg: active ? preferences.availablePlatesKg.filter((value) => value !== plate) : [...preferences.availablePlatesKg, plate].sort((a, b) => b - a) })} className={`min-h-11 rounded-ui-md border px-1 font-mono text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${active ? 'border-accent bg-accent-soft text-accent' : 'border-border-subtle bg-surface-input text-text-muted'}`}>{plate}</button>; })}</div></div>
+      </div>}
 
-      {panel === 'theme' && (
-        <div className="space-y-2" role="radiogroup" aria-label="Tema visual">
-          {(Object.keys(GLASS_THEMES) as GlassTheme[]).map((themeId) => {
-            const theme = GLASS_THEMES[themeId];
-            const selected = themeSettings.glassTheme === themeId;
-            return (
-              <button
-                key={themeId}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => handleSelectGlassTheme(themeId)}
-                className={`flex min-h-16 w-full items-center gap-3 rounded-ui-lg border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft' : 'border-border-subtle bg-surface hover:bg-surface-active'}`}
-              >
-                <span className="h-10 w-14 shrink-0 rounded-ui-md border shadow-sm" style={{ background: theme.previewGradient, borderColor: theme.previewBorder }} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-text-primary">{theme.name}</span>
-                  <span className="mt-0.5 block truncate text-[11px] text-text-muted">{theme.description}</span>
-                </span>
-                {selected && <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {panel === 'appearance' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Sparkles className="size-4" />} label={t('settings.theme')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('theme')} /><SettingsRow icon={<Palette className="size-4" />} label={t('settings.accent')} value={<span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ backgroundColor: ACCENT_PRESETS[themeSettings.accentColor].hex }} />{accentName(themeSettings.accentColor)}</span>} onClick={() => setPanel('accent')} /></div>}
 
-      {panel === 'accent' && (
-        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Color de acento">
-          {(Object.keys(ACCENT_PRESETS) as AccentColorId[]).map((accentId) => {
-            const accent = ACCENT_PRESETS[accentId];
-            const selected = themeSettings.accentColor === accentId;
-            return (
-              <button
-                key={accentId}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => handleSelectAccent(accentId)}
-                className={`flex min-h-12 items-center gap-2.5 rounded-ui-lg border p-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft' : 'border-border-subtle bg-surface hover:bg-surface-active'}`}
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full shadow-sm" style={{ backgroundColor: accent.hex }}>
-                  {selected && <Check aria-hidden="true" className="size-4" style={{ color: accent.fg }} />}
-                </span>
-                <span className="min-w-0 truncate text-xs font-bold text-text-primary">{accent.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {panel === 'theme' && <div className="space-y-2" role="radiogroup" aria-label={t('settings.theme')}>{(Object.keys(GLASS_THEMES) as GlassTheme[]).map((id) => { const theme = GLASS_THEMES[id]; const selected = themeSettings.glassTheme === id; return <button key={id} type="button" role="radio" aria-checked={selected} onClick={() => chooseTheme(id)} className={`flex min-h-16 w-full items-center gap-3 rounded-ui-lg border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft' : 'border-border-subtle bg-surface hover:bg-surface-active'}`}><span className="h-10 w-14 shrink-0 rounded-ui-md border shadow-sm" style={{ background: theme.previewGradient, borderColor: theme.previewBorder }} /><span className="min-w-0 flex-1 truncate text-sm font-bold text-text-primary">{themeName(id)}</span>{selected && <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />}</button>; })}</div>}
+      {panel === 'accent' && <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('settings.accent')}>{(Object.keys(ACCENT_PRESETS) as AccentColorId[]).map((id) => { const accent = ACCENT_PRESETS[id]; const selected = themeSettings.accentColor === id; return <button key={id} type="button" role="radio" aria-checked={selected} onClick={() => chooseAccent(id)} className={`flex min-h-12 items-center gap-2.5 rounded-ui-lg border p-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft' : 'border-border-subtle bg-surface hover:bg-surface-active'}`}><span className="flex size-8 shrink-0 items-center justify-center rounded-full shadow-sm" style={{ backgroundColor: accent.hex }}>{selected && <Check aria-hidden="true" className="size-4" style={{ color: accent.fg }} />}</span><span className="min-w-0 truncate text-xs font-bold text-text-primary">{accentName(id)}</span></button>; })}</div>}
+      {panel === 'language' && <div className="space-y-2" role="radiogroup" aria-label={t('settings.language')}>{(['es', 'en'] as const).map((id) => { const selected = language === id; return <button key={id} type="button" role="radio" aria-checked={selected} onClick={() => setLanguage(id)} className={`flex min-h-14 w-full items-center justify-between rounded-ui-lg border px-4 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-subtle bg-surface text-text-secondary hover:bg-surface-active'}`}><span>{id === 'es' ? t('settings.spanish') : t('settings.english')}</span>{selected && <Check aria-hidden="true" className="size-4 text-accent" />}</button>; })}</div>}
+
+      {panel === 'data' && <div className="space-y-3"><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<RefreshCw className={`size-4 ${isSyncing ? 'motion-safe:animate-spin' : ''}`} />} label={isSyncing ? t('settings.syncing') : t('settings.syncNow')} onClick={() => void handleSync()} disabled={isSyncing} /><SettingsRow icon={<Download className="size-4" />} label={t('settings.export')} value="JSON" onClick={handleExport} /><SettingsRow icon={<Upload className="size-4" />} label={isImporting ? t('common.loading') : t('settings.import')} value="JSON" onClick={() => fileInputRef.current?.click()} disabled={isImporting} /></div><input ref={fileInputRef} type="file" accept=".json,application/json" onChange={handleImport} className="hidden" />{status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`rounded-ui-lg border p-3 text-xs font-semibold ${status.tone === 'error' ? 'border-danger/30 bg-danger-soft text-danger' : 'border-success/30 bg-success/10 text-success'}`}>{status.text}</p>}</div>}
     </BottomSheet>
   );
-};
+}

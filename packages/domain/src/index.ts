@@ -4,3 +4,5 @@ export * from './effort.js';
 export * from './progression.js';
 export * from './history.js';
 export * from './strengthStandards.js';
+export * from './profile.js';
+export * from './weight.js';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Dumbbell, Check, Eye, ChevronRight, List, LayoutGrid, SlidersHorizontal } from 'lucide-react';
-import { Exercise } from '@light-weight/domain';
+import { Exercise, WorkoutSession } from '@light-weight/domain';
 import { getExerciseImgUrl } from '../lib/exercises.js';
 import {
   ExerciseEquipmentFilter,
@@ -11,7 +11,9 @@ import {
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
 import { ExerciseFilterControls } from '../components/ExerciseFilterControls.js';
 import { ViewHeader } from '../components/ViewHeader.js';
-import { AppCard, BottomSheet, Button, EmptyState, ErrorState, LoadingState, SearchInput, SegmentedControl } from '../components/ui/index.js';
+import { AppCard, BottomSheet, Button, EmptyState, ErrorState, LoadingState, SearchInput, SectionHeader, SegmentedControl } from '../components/ui/index.js';
+import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
+import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 
 interface LibraryViewProps {
   exercises?: Exercise[];
@@ -23,14 +25,10 @@ interface LibraryViewProps {
   onStartWorkoutWithExercise?: (exercise: Exercise) => void;
   catalogStatus?: 'loading' | 'ready' | 'error';
   onRetryCatalog?: () => void;
+  history?: WorkoutSession[];
 }
 
 type ViewMode = 'list' | 'grid';
-
-const VIEW_OPTIONS = [
-  { value: 'list', label: 'Lista', icon: <List className="size-3.5" aria-hidden="true" /> },
-  { value: 'grid', label: 'Grid', icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> }
-] satisfies { value: ViewMode; label: string; icon: React.ReactNode }[];
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
   exercises = [],
@@ -41,8 +39,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onAddExerciseToActiveWorkout,
   onStartWorkoutWithExercise,
   catalogStatus = 'ready',
-  onRetryCatalog
+  onRetryCatalog,
+  history = []
 }) => {
+  const { t } = useI18n();
+  const { muscleLabel, equipmentLabel } = useExerciseLabels();
+  const viewOptions = [
+    { value: 'list', label: t('library.list'), icon: <List className="size-3.5" aria-hidden="true" /> },
+    { value: 'grid', label: t('library.grid'), icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> }
+  ] satisfies { value: ViewMode; label: string; icon: React.ReactNode }[];
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<ExerciseMuscleFilter>('all');
   const [selectedEquipment, setSelectedEquipment] = useState<ExerciseEquipmentFilter>('all');
@@ -85,6 +90,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       selectedEquipment
     ));
   }, [allExercises, searchTerm, selectedMuscle, selectedEquipment]);
+  const usage = useMemo(() => deriveExerciseUsage(history), [history]);
+  const discovery = useMemo(() => searchTerm.trim() ? { featured: [], remaining: filteredExercises, featuredKind: null } : rankExerciseDiscovery(filteredExercises, usage, selectedMuscle), [filteredExercises, searchTerm, selectedMuscle, usage]);
+  const catalogExercises = searchTerm.trim() ? filteredExercises : discovery.remaining;
+  const featuredTitle = discovery.featuredKind === 'recent' ? t('exercise.recent') : discovery.featuredKind === 'frequent' ? t('exercise.frequent') : t('exercise.recommended');
 
   const handleAction = (ex: Exercise) => {
     if (isWorkoutActive && onAddExerciseToActiveWorkout) {
@@ -115,8 +124,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     return (
       <div className="space-y-4 pb-28">
         <ViewHeader
-          title="Biblioteca"
-          subtitle="Catálogo de ejercicios y técnica"
+          title={t('library.title')}
+          subtitle={t('library.subtitle')}
           isWorkoutActive={isWorkoutActive}
           activeWorkoutDuration={activeWorkoutDuration}
           onNavigateToWorkout={onNavigateToWorkout}
@@ -124,9 +133,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         />
         <AppCard>
           {catalogStatus === 'loading' ? (
-            <LoadingState title="Cargando ejercicios…" description="Preparando el catálogo para búsqueda y filtros." />
+            <LoadingState title={t('library.loading')} description={t('library.loadingDescription')} />
           ) : (
-            <ErrorState title="No pudimos cargar los ejercicios" description="Comprueba la conexión e inténtalo de nuevo." onAction={onRetryCatalog} />
+            <ErrorState title={t('library.loadError')} description={t('library.loadErrorDescription')} onAction={onRetryCatalog} />
           )}
         </AppCard>
       </div>
@@ -137,7 +146,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     <div className="space-y-4 pb-28">
       {/* 1. Header Homogéneo */}
       <ViewHeader
-        title="Biblioteca"
+        title={t('library.title')}
         isWorkoutActive={isWorkoutActive}
         activeWorkoutDuration={activeWorkoutDuration}
         onNavigateToWorkout={onNavigateToWorkout}
@@ -146,8 +155,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       {/* Search bar */}
       <SearchInput
-          label="Buscar ejercicios"
-          placeholder="Buscar entre 1,300+ ejercicios por nombre o músculo..."
+          label={t('library.searchLabel')}
+          placeholder={t('library.searchPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
       />
@@ -163,22 +172,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           className="shrink-0"
         >
           <SlidersHorizontal aria-hidden="true" className="size-4" />
-          Filtros{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+          {t('library.filters')}{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
         </Button>
-        <SegmentedControl value={viewMode} options={VIEW_OPTIONS} onChange={handleSetViewMode} label="Vista de la biblioteca" className="w-[146px] shrink-0" />
+        <SegmentedControl value={viewMode} options={viewOptions} onChange={handleSetViewMode} label={t('library.view')} className="w-[146px] shrink-0" />
       </div>
 
       <div className="px-1 text-xs text-text-muted" aria-live="polite">
-        {filteredExercises.length} {filteredExercises.length === 1 ? 'ejercicio' : 'ejercicios'}
+        {filteredExercises.length} {filteredExercises.length === 1 ? t('library.exercise') : t('library.exercises')}
       </div>
+
+      {discovery.featured.length > 0 && <section className="space-y-2"><SectionHeader title={featuredTitle} /><div className="glass-surface divide-y divide-border-subtle overflow-hidden rounded-ui-xl border border-border-subtle">{discovery.featured.map((exercise) => <div key={exercise.id} className="flex min-h-14 items-center gap-2 px-3"><button type="button" onClick={() => setSelectedMediaExercise(exercise)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><span className="block truncate text-sm font-bold text-text-primary">{exercise.name}</span><span className="block truncate text-[11px] text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}</span></button><Button size="sm" variant="secondary" onClick={() => handleAction(exercise)}>{isWorkoutActive ? <Plus className="size-3.5" /> : <Dumbbell className="size-3.5" />}<span className="sr-only">{exercise.name}</span></Button></div>)}</div><SectionHeader title={t('exercise.all')} /></section>}
 
       {/* 6. Contenido Principal: Lista vs Recuadros */}
       {filteredExercises.length === 0 ? (
-        <AppCard><EmptyState icon={<Dumbbell className="size-5" />} title="No encontramos ejercicios con estos filtros." description="Intenta ajustar los términos de búsqueda o los filtros de músculo y equipo." actionLabel="Limpiar filtros" onAction={clearFilters} /></AppCard>
+        <AppCard><EmptyState icon={<Dumbbell className="size-5" />} title={t('library.noResults')} description={t('library.noResultsDescription')} actionLabel={t('library.clearFilters')} onAction={clearFilters} /></AppCard>
       ) : viewMode === 'list' ? (
         /* MODO LISTA: Estilo iOS Health agrupado con divisores sutiles */
         <div className="glass-surface divide-y divide-border-subtle overflow-hidden rounded-ui-xl border border-border-subtle shadow-card">
-          {filteredExercises.slice(0, visibleCount).map((ex) => {
+          {catalogExercises.slice(0, visibleCount).map((ex) => {
             const isAdded = addedIds[ex.id];
             const imgUrl = getExerciseImgUrl(ex);
 
@@ -188,7 +199,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 className="group flex items-center justify-between px-3.5 py-3 transition-colors hover:bg-surface-active"
               >
                 {/* Thumbnail 44x44 + Nombre */}
-                <button type="button" onClick={() => setSelectedMediaExercise(ex)} aria-label={`Ver técnica de ${ex.name}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-ui-md pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <button type="button" onClick={() => setSelectedMediaExercise(ex)} aria-label={t('library.viewTechnique', { name: ex.name })} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-ui-md pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-sm transition-colors group-hover:border-border-active">
                     {imgUrl ? (
                       <img
@@ -210,7 +221,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       {ex.name}
                     </span>
                     <span className="mt-0.5 block truncate font-mono text-[11px] capitalize text-text-muted">
-                      {ex.primaryMuscle} • {ex.category}
+                      {muscleLabel(ex.primaryMuscle)} • {equipmentLabel(ex.category)}
                     </span>
                   </div>
                 </button>
@@ -223,12 +234,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       e.stopPropagation();
                       handleAction(ex);
                     }}
-                    title={
-                      isWorkoutActive
-                        ? 'Añadir al entrenamiento activo'
-                        : 'Entrenar este ejercicio'
-                    }
-                    aria-label={isWorkoutActive ? `Añadir ${ex.name} al entrenamiento activo` : `Entrenar con ${ex.name}`}
+                    title={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
+                    aria-label={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
                     aria-live="polite"
                     className={`flex min-h-10 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-[transform,background-color,color] duration-150 active:scale-[0.96] ${
                       isAdded
@@ -241,17 +248,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     {isAdded ? (
                       <>
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>¡Añadido!</span>
+                        <span>{t('library.added')}</span>
                       </>
                     ) : isWorkoutActive ? (
                       <>
                         <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Añadir</span>
+                        <span>{t('library.add')}</span>
                       </>
                     ) : (
                       <>
                         <Dumbbell className="w-3.5 h-3.5" />
-                        <span>Entrenar</span>
+                        <span>{t('library.train')}</span>
                       </>
                     )}
                   </button>
@@ -267,7 +274,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       ) : (
         /* MODO RECUADROS: Cuadrícula responsive de tarjetas */
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
-          {filteredExercises.slice(0, visibleCount).map((ex) => {
+          {catalogExercises.slice(0, visibleCount).map((ex) => {
             const isAdded = addedIds[ex.id];
             const imgUrl = getExerciseImgUrl(ex);
 
@@ -276,7 +283,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 key={ex.id}
                 className="glass-surface group flex min-w-0 flex-col justify-between rounded-[22px] border border-border-subtle p-3 shadow-card transition-colors hover:border-border-active"
               >
-                <button type="button" onClick={() => setSelectedMediaExercise(ex)} aria-label={`Ver técnica de ${ex.name}`} className="min-w-0 rounded-ui-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <button type="button" onClick={() => setSelectedMediaExercise(ex)} aria-label={t('library.viewTechnique', { name: ex.name })} className="min-w-0 rounded-ui-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   {/* Caja de Imagen Cuadrada */}
                   <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input transition-colors group-hover:border-border-active">
                     {imgUrl ? (
@@ -292,13 +299,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
                     {/* Tag de Músculo Flotante */}
                     <span className="absolute left-2 top-2 max-w-[80%] truncate rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-semibold capitalize text-text-secondary shadow-sm">
-                      {ex.primaryMuscle}
+                      {muscleLabel(ex.primaryMuscle)}
                     </span>
 
                     {/* Overlay de Hover para ver técnica */}
                     <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center gap-1 bg-app/45 text-xs font-medium text-text-primary opacity-0 transition-opacity group-hover:opacity-100">
                       <Eye className="size-3.5 text-accent" />
-                      <span>Ver técnica</span>
+                      <span>{t('workout.viewTechnique', { name: ex.name })}</span>
                     </div>
                   </div>
 
@@ -308,7 +315,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       {ex.name}
                     </span>
                     <span className="mt-1 block truncate font-mono text-[10px] capitalize text-text-muted">
-                      {ex.category}
+                      {equipmentLabel(ex.category)}
                     </span>
                   </div>
                 </button>
@@ -321,12 +328,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       e.stopPropagation();
                       handleAction(ex);
                     }}
-                    title={
-                      isWorkoutActive
-                        ? 'Añadir al entrenamiento activo'
-                        : 'Entrenar este ejercicio'
-                    }
-                    aria-label={isWorkoutActive ? `Añadir ${ex.name} al entrenamiento activo` : `Entrenar con ${ex.name}`}
+                    title={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
+                    aria-label={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
                     aria-live="polite"
                     className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-ui-md px-2 text-xs font-bold transition-[transform,background-color,color] duration-150 active:scale-[0.96] ${
                       isAdded
@@ -339,17 +342,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     {isAdded ? (
                       <>
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>¡Añadido!</span>
+                        <span>{t('library.added')}</span>
                       </>
                     ) : isWorkoutActive ? (
                       <>
                         <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Añadir</span>
+                        <span>{t('library.add')}</span>
                       </>
                     ) : (
                       <>
                         <Dumbbell className="w-3.5 h-3.5" />
-                        <span>Entrenar</span>
+                        <span>{t('library.train')}</span>
                       </>
                     )}
                   </button>
@@ -361,16 +364,16 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       )}
 
       {/* 7. Botón Cargar Más Ejercicios */}
-      {visibleCount < filteredExercises.length && (
+      {visibleCount < catalogExercises.length && (
         <div className="pt-2 flex justify-center">
           <Button
             variant="secondary"
             onClick={() => setVisibleCount((prev) => prev + 40)}
             className="rounded-full"
           >
-            <span>Cargar más ejercicios (+40)</span>
+            <span>{t('library.loadMore')}</span>
             <span className="font-mono text-[11px] text-text-muted">
-              {visibleCount} de {filteredExercises.length}
+              {t('library.showing', { visible: visibleCount, total: catalogExercises.length })}
             </span>
           </Button>
         </div>
@@ -386,8 +389,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       <BottomSheet
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        title="Filtros"
-        description="Reduce la biblioteca por músculo o equipo."
+        title={t('library.filters')}
+        description={t('library.filtersDescription')}
       >
         <div className="space-y-5">
           <ExerciseFilterControls
@@ -398,10 +401,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           />
           <div className="grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
             <Button variant="secondary" onClick={clearFacetFilters} disabled={activeFilterCount === 0}>
-              Limpiar
+              {t('common.clear')}
             </Button>
             <Button onClick={() => setFiltersOpen(false)}>
-              Mostrar {filteredExercises.length}
+              {t('library.showCount', { count: filteredExercises.length })}
             </Button>
           </div>
         </div>

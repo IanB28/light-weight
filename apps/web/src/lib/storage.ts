@@ -71,31 +71,56 @@ export function saveStoredWeeklySchedule(schedule: WeeklySchedule): void {
 }
 
 export interface UserProfile {
+  displayName: string;
+  username?: string;
+  birthDate?: string;
+  avatarUrl?: string;
   gender: 'male' | 'female';
+}
+
+export const DEFAULT_USER_PROFILE: UserProfile = {
+  displayName: 'Atleta',
+  gender: 'male'
+};
+
+function parseUserProfile(value: unknown): UserProfile {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_USER_PROFILE };
+  const profile = value as Partial<UserProfile>;
+  const username = typeof profile.username === 'string'
+    ? profile.username.trim().replace(/^@/, '').toLowerCase()
+    : undefined;
+  const avatarUrl = typeof profile.avatarUrl === 'string' && /^https?:\/\//i.test(profile.avatarUrl)
+    ? profile.avatarUrl
+    : undefined;
+  return {
+    displayName: typeof profile.displayName === 'string' && profile.displayName.trim()
+      ? profile.displayName.trim().slice(0, 100)
+      : DEFAULT_USER_PROFILE.displayName,
+    gender: profile.gender === 'female' ? 'female' : 'male',
+    ...(username ? { username: username.slice(0, 30) } : {}),
+    ...(typeof profile.birthDate === 'string' ? { birthDate: profile.birthDate } : {}),
+    ...(avatarUrl ? { avatarUrl } : {})
+  };
 }
 
 export function getStoredProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
-    if (!raw) {
-      const def: UserProfile = { gender: 'male' };
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(def));
-      return def;
-    }
-    return JSON.parse(raw);
+    return raw ? parseUserProfile(JSON.parse(raw)) : { ...DEFAULT_USER_PROFILE };
   } catch {
-    return { gender: 'male' };
+    return { ...DEFAULT_USER_PROFILE };
   }
 }
 
 export function saveStoredProfile(profile: Partial<UserProfile>): UserProfile {
   try {
     const current = getStoredProfile();
-    const updated: UserProfile = { ...current, ...profile };
+    const updated = parseUserProfile({ ...current, ...profile });
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('lightweight_profile_changed', { detail: updated }));
     return updated;
   } catch {
-    return { gender: 'male', ...profile };
+    return parseUserProfile(profile);
   }
 }
 

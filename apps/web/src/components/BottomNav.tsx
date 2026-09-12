@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart2, Calendar, Dumbbell, Home, List } from 'lucide-react';
+import { useI18n } from '../lib/i18n.js';
 
 export type TabType = 'home' | 'plan' | 'workout' | 'stats' | 'exercises';
 
@@ -9,20 +10,6 @@ interface BottomNavProps {
   isWorkoutActive: boolean;
 }
 
-interface TabItem {
-  id: TabType;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const TABS: TabItem[] = [
-  { id: 'home', label: 'Inicio', icon: Home },
-  { id: 'plan', label: 'Plan', icon: Calendar },
-  { id: 'workout', label: 'Empezar', icon: Dumbbell },
-  { id: 'stats', label: 'Progreso', icon: BarChart2 },
-  { id: 'exercises', label: 'Ejercicios', icon: List },
-];
-
 const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable="true"]';
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -30,7 +17,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onSelectTab,
   isWorkoutActive,
 }) => {
-  const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.id === currentTab));
+  const { t } = useI18n();
+  const tabs = [
+    { id: 'home', label: t('nav.home'), icon: Home },
+    { id: 'plan', label: t('nav.plan'), icon: Calendar },
+    { id: 'workout', label: t('nav.workout'), icon: Dumbbell },
+    { id: 'stats', label: t('nav.stats'), icon: BarChart2 },
+    { id: 'exercises', label: t('nav.exercises'), icon: List },
+  ] satisfies { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[];
+  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === currentTab));
   const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -59,7 +54,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       }`}
     >
       <nav
-        aria-label="Navegación principal"
+        aria-label={t('nav.label')}
         className={`bottom-nav-surface relative mx-auto flex h-[72px] max-w-md overflow-hidden rounded-[26px] border border-[var(--nav-border)] p-1.5 ${
           mobileKeyboardOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
@@ -71,12 +66,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             style={{ transform: `translate3d(${activeIndex * 100}%, 0, 0)` }}
           />
 
-          {TABS.map((tab, index) => {
+          {tabs.map((tab, index) => {
             const Icon = tab.icon;
             const isActive = index === activeIndex;
             const isActiveWorkout = tab.id === 'workout' && isWorkoutActive;
             const accessibleLabel = isActiveWorkout
-              ? 'Empezar: continuar entrenamiento activo'
+              ? t('nav.workoutActive')
               : tab.label;
 
             return (
@@ -118,7 +113,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 >
                   {tab.label}
                 </span>
-                {isActiveWorkout && <span className="sr-only">Sesión en curso</span>}
+                {isActiveWorkout && <span className="sr-only">{t('nav.sessionActive')}</span>}
               </button>
             );
           })}

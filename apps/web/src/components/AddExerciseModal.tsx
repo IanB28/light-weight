@@ -1,194 +1,74 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, X, Dumbbell } from 'lucide-react';
-import { Exercise, MuscleGroup } from '@light-weight/domain';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Dumbbell, Plus } from 'lucide-react';
+import { Exercise, MuscleGroup, WorkoutSession } from '@light-weight/domain';
 import { getExerciseImgUrl } from '../lib/exercises.js';
+import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
+import {
+  ExerciseEquipmentFilter, ExerciseMuscleFilter,
+  matchesExerciseFilters, MUSCLE_FILTER_OPTIONS, normalizeExerciseSearch
+} from '../lib/exercise-filters.js';
+import { useExerciseLabels, useI18n } from '../lib/i18n.js';
+import { BottomSheet, Button, EmptyState, SearchInput, SectionHeader } from './ui/index.js';
+import { ExerciseFilterControls } from './ExerciseFilterControls.js';
 
 interface AddExerciseModalProps {
   isOpen: boolean;
   onClose: () => void;
   availableExercises: Exercise[];
+  history: WorkoutSession[];
   onSelectExercise: (exercise: Exercise) => void;
   onCreateCustomExercise: (name: string, muscle: MuscleGroup) => void;
   initialMuscleFilter?: string;
 }
 
-export const AddExerciseModal: React.FC<AddExerciseModalProps> = ({
-  isOpen,
-  onClose,
-  availableExercises,
-  onSelectExercise,
-  onCreateCustomExercise,
-  initialMuscleFilter = 'all'
-}) => {
+export function AddExerciseModal({ isOpen, onClose, availableExercises, history, onSelectExercise, onCreateCustomExercise, initialMuscleFilter = 'all' }: AddExerciseModalProps) {
+  const { t } = useI18n();
+  const { muscleLabel, equipmentLabel } = useExerciseLabels();
+  const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
-  const [selectedMuscle, setSelectedMuscle] = useState<string>(initialMuscleFilter);
+  const [muscle, setMuscle] = useState<ExerciseMuscleFilter>('all');
+  const [equipment, setEquipment] = useState<ExerciseEquipmentFilter>('all');
   const [customMuscle, setCustomMuscle] = useState<MuscleGroup>('chest');
+  const [visibleCount, setVisibleCount] = useState(60);
 
-  React.useEffect(() => {
-    if (isOpen) {
-      setSelectedMuscle(initialMuscleFilter);
-    }
-  }, [isOpen, initialMuscleFilter]);
-
-  const filtered = useMemo(() => {
-    return availableExercises.filter((ex) => {
-      const matchesQuery = ex.name.toLowerCase().includes(query.toLowerCase());
-      const matchesMuscle = selectedMuscle === 'all' || ex.primaryMuscle === selectedMuscle;
-      return matchesQuery && matchesMuscle;
-    });
-  }, [availableExercises, query, selectedMuscle]);
-
-  if (!isOpen) return null;
-
-  const handleCreateNew = () => {
-    if (!query.trim()) return;
-    onCreateCustomExercise(query.trim(), customMuscle);
+  useEffect(() => {
+    if (!isOpen) return;
+    const validMuscle = MUSCLE_FILTER_OPTIONS.some((option) => option.value === initialMuscleFilter);
+    setMuscle(validMuscle ? initialMuscleFilter as ExerciseMuscleFilter : 'all');
+    setEquipment('all');
     setQuery('');
+    const timer = window.setTimeout(() => searchRef.current?.focus(), 80);
+    return () => window.clearTimeout(timer);
+  }, [initialMuscleFilter, isOpen]);
+  useEffect(() => setVisibleCount(60), [equipment, muscle, query]);
+
+  const normalizedQuery = useMemo(() => normalizeExerciseSearch(query), [query]);
+  const filtered = useMemo(() => availableExercises.filter((exercise) => matchesExerciseFilters(exercise, normalizedQuery, muscle, equipment)), [availableExercises, equipment, muscle, normalizedQuery]);
+  const usage = useMemo(() => deriveExerciseUsage(history), [history]);
+  const discovery = useMemo(() => normalizedQuery ? { featured: [], remaining: filtered, featuredKind: null } : rankExerciseDiscovery(filtered, usage, muscle), [filtered, muscle, normalizedQuery, usage]);
+  const ordered = [...discovery.featured, ...discovery.remaining];
+
+  const choose = (exercise: Exercise) => { onSelectExercise(exercise); onClose(); };
+  const createCustom = () => {
+    const name = query.trim();
+    if (!name) return;
+    onCreateCustomExercise(name, customMuscle);
     onClose();
   };
+  const featuredTitle = discovery.featuredKind === 'recent' ? t('exercise.recent') : discovery.featuredKind === 'frequent' ? t('exercise.frequent') : t('exercise.recommended');
 
-  const muscles: { id: string; label: string }[] = [
-    { id: 'all', label: 'Todos' },
-    { id: 'chest', label: 'Pecho' },
-    { id: 'back', label: 'Espalda' },
-    { id: 'quadriceps', label: 'Cuádriceps' },
-    { id: 'hamstrings', label: 'Femoral' },
-    { id: 'shoulders', label: 'Hombros' },
-    { id: 'biceps', label: 'Bíceps' },
-    { id: 'triceps', label: 'Tríceps' },
-    { id: 'core', label: 'Core' }
-  ];
+  const row = (exercise: Exercise) => <button key={exercise.id} type="button" onClick={() => choose(exercise)} className="flex min-h-14 w-full items-center gap-3 rounded-ui-lg px-2.5 py-2 text-left hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted">{getExerciseImgUrl(exercise) ? <img src={getExerciseImgUrl(exercise) || ''} alt="" loading="lazy" className="size-full object-cover" /> : <Dumbbell className="size-4" />}</span>
+    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-text-primary">{exercise.name}</span><span className="block truncate text-[11px] text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}</span></span>
+    <Plus aria-hidden="true" className="size-4 shrink-0 text-accent" />
+  </button>;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
-      <div role="dialog" aria-modal="true" aria-labelledby="add-exercise-title" className="w-full max-w-md dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] max-h-[85dvh] flex flex-col overflow-hidden shadow-2xl shadow-black/90 animate-in slide-in-from-bottom-6 duration-200">
-        {/* iOS Mobile Sheet Grab Handle */}
-        <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto mt-2.5 mb-0.5 sm:hidden" />
-
-        {/* Header */}
-        <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-          <h3 id="add-exercise-title" className="text-base font-extrabold text-white flex items-center gap-2 tracking-tight">
-            <Dumbbell className="w-4 h-4 text-accent" />
-            Agregar Ejercicio
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar selector de ejercicios"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
-          >
-            <X className="w-4 h-4 stroke-[2.2]" />
-          </button>
-        </div>
-
-        {/* Search Input with Apple style */}
-        <div className="p-4 pb-2 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Buscar ejercicio (ej. Press, Sentadilla...)"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl glass-subcard border border-white/[0.08] text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-accent transition-colors"
-            />
-          </div>
-
-          {/* Muscle Filter Chips */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-            {muscles.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setSelectedMuscle(m.id)}
-                className={`px-3 py-1.5 rounded-full font-bold whitespace-nowrap active:scale-[0.94] transition-all cursor-pointer ${
-                  selectedMuscle === m.id
-                    ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
-                    : 'glass-subcard border border-white/[0.06] text-zinc-400 hover:text-white'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Exercise List */}
-        <div className="flex-1 overflow-y-auto p-4 pt-1 space-y-1.5 divide-y divide-white/[0.04]">
-          {filtered.slice(0, 50).map((exercise) => {
-            const imgUrl = getExerciseImgUrl(exercise);
-            return (
-              <button
-                key={exercise.id}
-                onClick={() => {
-                  onSelectExercise(exercise);
-                  onClose();
-                }}
-                className="w-full text-left py-2.5 px-3 rounded-2xl hover:bg-white/[0.04] active:scale-[0.98] transition-all flex items-center justify-between group cursor-pointer"
-              >
-                <div className="flex items-center gap-3 min-w-0 pr-2">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/[0.08] flex items-center justify-center text-zinc-500 overflow-hidden shrink-0">
-                    {imgUrl ? (
-                      <img
-                        src={imgUrl}
-                        alt={exercise.name}
-                        loading="lazy"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Dumbbell className="w-4 h-4 text-zinc-400" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-white group-hover:text-accent transition-colors truncate">
-                      {exercise.name}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5 font-mono text-[10px] text-zinc-400 truncate">
-                      <span className="capitalize">{exercise.primaryMuscle}</span>
-                      <span>•</span>
-                      <span className="uppercase text-zinc-500">{exercise.category}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="w-7 h-7 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-zinc-400 group-hover:bg-accent group-hover:text-accent-fg transition-all shrink-0">
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                </div>
-              </button>
-            );
-          })}
-
-          {filtered.length === 0 && (
-            <div className="py-8 text-center space-y-3">
-              <p className="text-sm text-zinc-400 font-medium">No se encontró "{query}"</p>
-              <div className="p-4 rounded-2xl glass-subcard border border-white/[0.06] max-w-xs mx-auto space-y-3 text-left">
-                <p className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                  Crear Ejercicio Personalizado
-                </p>
-                <div>
-                  <label className="text-[11px] text-zinc-400 block mb-1">Músculo Principal</label>
-                  <select
-                    value={customMuscle}
-                    onChange={(e) => setCustomMuscle(e.target.value as MuscleGroup)}
-                    className="w-full py-2 px-3 rounded-xl bg-zinc-900 border border-white/[0.08] text-white text-xs font-bold focus:outline-none focus:border-accent"
-                  >
-                    {muscles.filter((m) => m.id !== 'all').map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  onClick={handleCreateNew}
-                  className="w-full py-2.5 rounded-xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-accent/20 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 stroke-[3]" />
-                  Crear y Añadir
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+  return <BottomSheet open={isOpen} onClose={onClose} title={t('exercise.addTitle')} className="sm:max-w-lg">
+    <div className="space-y-3">
+      <SearchInput ref={searchRef} label={t('exercise.search')} placeholder={t('exercise.searchPlaceholder')} value={query} onChange={(event) => setQuery(event.target.value)} />
+      <ExerciseFilterControls muscle={muscle} equipment={equipment} onMuscleChange={setMuscle} onEquipmentChange={setEquipment} />
+      <p className="text-xs text-text-muted" aria-live="polite">{filtered.length} {t('exercise.results').toLocaleLowerCase()}</p>
+      {ordered.length === 0 ? <div className="space-y-3"><EmptyState compact icon={<Dumbbell className="size-5" />} title={t('exercise.none')} description={t('exercise.noneDescription')} /><div className="rounded-ui-xl border border-border-subtle bg-surface p-3"><SectionHeader title={t('exercise.createCustom')} /><label className="mt-2 block space-y-1.5 text-xs font-bold text-text-secondary"><span>{t('exercise.primaryMuscle')}</span><select value={customMuscle} onChange={(event) => setCustomMuscle(event.target.value as MuscleGroup)} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary outline-none focus:border-accent">{MUSCLE_FILTER_OPTIONS.filter((option) => option.value !== 'all').map((option) => <option key={option.value} value={option.value}>{muscleLabel(option.value as MuscleGroup)}</option>)}</select></label><Button onClick={createCustom} disabled={!query.trim()} className="mt-3 w-full"><Plus className="size-4" />{t('exercise.createAndAdd')}</Button></div></div> : <div className="max-h-[48dvh] overflow-y-auto overscroll-contain pr-1">{discovery.featured.length > 0 && <><SectionHeader title={featuredTitle} />{discovery.featured.map(row)}<SectionHeader title={t('exercise.all')} className="mt-3" /></>}{discovery.remaining.slice(0, Math.max(0, visibleCount - discovery.featured.length)).map(row)}{visibleCount < ordered.length && <Button variant="secondary" onClick={() => setVisibleCount((count) => count + 60)} className="mt-2 w-full">{t('exercise.more')}</Button>}</div>}
     </div>
-  );
-};
+  </BottomSheet>;
+}

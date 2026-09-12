@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { X, Scale, Target, Check } from 'lucide-react';
+import { Scale, Target, Check } from 'lucide-react';
+import { BottomSheet, Button } from './ui/index.js';
+import { useI18n } from '../lib/i18n.js';
 
 interface BodyweightModalProps {
   isOpen: boolean;
@@ -18,6 +20,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
   onSaveWeight,
   onSaveGoal
 }) => {
+  const { t } = useI18n();
   const [weightInput, setWeightInput] = useState<string>('');
   const [goalInput, setGoalInput] = useState<string>(currentGoal ? String(currentGoal) : '');
   const [activeMode, setActiveMode] = useState<'log' | 'goal'>(initialMode);
@@ -28,8 +31,6 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
       if (currentGoal) setGoalInput(String(currentGoal));
     }
   }, [isOpen, initialMode, currentGoal]);
-
-  if (!isOpen) return null;
 
   const handleStep = (delta: number) => {
     if (activeMode === 'log') {
@@ -61,32 +62,8 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
   const canSave = Number.isFinite(Number(activeValue)) && Number(activeValue) > 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bodyweight-modal-title"
-        className="w-full max-w-sm dark-glass-card rounded-t-[28px] sm:rounded-[28px] p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-6 duration-200 select-none border border-white/[0.08]"
-      >
-        {/* iOS Mobile Sheet Grab Handle */}
-        <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto -mt-1 mb-1 sm:hidden" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Scale className="w-5 h-5 text-accent" />
-            <h3 id="bodyweight-modal-title" className="text-base font-extrabold text-primary tracking-tight">Peso Corporal</h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar registro de peso"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
-          >
-            <X className="w-4 h-4 stroke-[2.2]" />
-          </button>
-        </div>
-
+    <BottomSheet open={isOpen} onClose={onClose} title={t('weight.title')} className="sm:max-w-sm">
+      <div className="space-y-4">
         {/* Mode switcher */}
         <div className="p-1 rounded-2xl glass-subcard grid grid-cols-2 gap-1 text-xs">
           <button
@@ -99,7 +76,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
             }`}
           >
             <Scale className="w-3.5 h-3.5" />
-            Registrar Hoy
+            {t('weight.logMode')}
           </button>
           <button
             type="button"
@@ -111,14 +88,14 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
             }`}
           >
             <Target className="w-3.5 h-3.5" />
-            Meta de Peso
+            {t('weight.goalMode')}
           </button>
         </div>
 
         {/* Input Box */}
         <div className="p-4 rounded-2xl glass-subcard text-center space-y-2">
           <label htmlFor="bodyweight-value" className="text-xs text-secondary uppercase font-mono tracking-wider block">
-            {activeMode === 'log' ? 'Pesaje actual (kg)' : 'Peso objetivo / meta (kg)'}
+            {activeMode === 'log' ? t('weight.current') : t('weight.target')}
           </label>
 
           <div className="flex items-center justify-center gap-3">
@@ -162,16 +139,16 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
         </div>
 
         {/* Action Button */}
-        <button
+        <Button
           type="button"
           onClick={handleSave}
           disabled={!canSave}
-          className="w-full min-h-11 py-3.5 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:active:scale-100"
+          className="w-full"
         >
           <Check className="w-4 h-4 stroke-[3]" />
-          {activeMode === 'log' ? 'Guardar Registro' : 'Actualizar Meta'}
-        </button>
+          {activeMode === 'log' ? t('weight.saveLog') : t('weight.updateGoal')}
+        </Button>
       </div>
-    </div>
+    </BottomSheet>
   );
 };

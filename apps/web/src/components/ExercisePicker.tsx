@@ -1,25 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Dumbbell } from 'lucide-react';
-import { Exercise } from '@light-weight/domain';
+import { Exercise, WorkoutSession } from '@light-weight/domain';
 import {
-  EQUIPMENT_LABELS,
   ExerciseEquipmentFilter,
   ExerciseMuscleFilter,
   matchesExerciseFilters,
-  MUSCLE_LABELS,
   normalizeExerciseSearch
 } from '../lib/exercise-filters.js';
 import { ExerciseFilterControls } from './ExerciseFilterControls.js';
 import { BottomSheet, Button, EmptyState, SearchInput } from './ui/index.js';
+import { useExerciseLabels, useI18n } from '../lib/i18n.js';
+import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
 
 interface ExercisePickerProps {
   label: string;
   value: string;
   exercises: Exercise[];
   onChange: (exerciseId: string) => void;
+  history?: WorkoutSession[];
 }
 
-export function ExercisePicker({ label, value, exercises, onChange }: ExercisePickerProps) {
+export function ExercisePicker({ label, value, exercises, onChange, history = [] }: ExercisePickerProps) {
+  const { t } = useI18n();
+  const { muscleLabel, equipmentLabel } = useExerciseLabels();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [muscle, setMuscle] = useState<ExerciseMuscleFilter>('all');
@@ -42,6 +45,9 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
     const normalizedQuery = normalizeExerciseSearch(query);
     return exercises.filter((exercise) => matchesExerciseFilters(exercise, normalizedQuery, muscle, equipment));
   }, [equipment, exercises, muscle, query]);
+  const usage = useMemo(() => deriveExerciseUsage(history), [history]);
+  const discovery = useMemo(() => query.trim() ? { featured: [], remaining: filteredExercises, featuredKind: null } : rankExerciseDiscovery(filteredExercises, usage, muscle), [filteredExercises, muscle, query, usage]);
+  const displayExercises = [...discovery.featured, ...discovery.remaining];
 
   const resetFilters = () => {
     setQuery('');
@@ -72,11 +78,11 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold text-text-primary">
-            {selectedExercise?.name || 'Seleccionar ejercicio'}
+            {selectedExercise?.name || t('exercise.search')}
           </span>
           {selectedExercise && (
             <span className="block truncate text-[11px] text-text-muted">
-              {MUSCLE_LABELS[selectedExercise.primaryMuscle]} · {EQUIPMENT_LABELS[selectedExercise.category]}
+              {muscleLabel(selectedExercise.primaryMuscle)} · {equipmentLabel(selectedExercise.category)}
             </span>
           )}
         </span>
@@ -86,15 +92,14 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
       <BottomSheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Buscar ejercicio"
-        description="Busca por nombre o reduce la lista con los filtros."
+        title={t('exercise.search')}
         className="sm:max-w-lg"
       >
         <div className="space-y-3">
           <SearchInput
             ref={searchRef}
-            label="Buscar ejercicio"
-            placeholder="Nombre, músculo o equipo…"
+            label={t('exercise.search')}
+            placeholder={t('exercise.searchPlaceholder')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -112,7 +117,7 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
             </span>
             {(query || muscle !== 'all' || equipment !== 'all') && (
               <Button variant="ghost" size="sm" onClick={resetFilters} className="px-2.5">
-                Limpiar filtros
+                {t('exercise.clearFilters')}
               </Button>
             )}
           </div>
@@ -120,14 +125,14 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
           {filteredExercises.length === 0 ? (
             <EmptyState
               icon={<Dumbbell className="size-5" />}
-              title="No encontramos ejercicios"
-              description="Prueba con otro nombre o elimina alguno de los filtros."
-              actionLabel="Limpiar filtros"
+              title={t('exercise.none')}
+              description={t('exercise.noneDescription')}
+              actionLabel={t('exercise.clearFilters')}
               onAction={resetFilters}
             />
           ) : (
             <div className="max-h-[46dvh] space-y-1 overflow-y-auto overscroll-contain pr-1" aria-label="Resultados de ejercicios">
-              {filteredExercises.slice(0, visibleCount).map((exercise) => {
+              {displayExercises.slice(0, visibleCount).map((exercise) => {
                 const selected = exercise.id === value;
                 return (
                   <button
@@ -140,16 +145,16 @@ export function ExercisePicker({ label, value, exercises, onChange }: ExercisePi
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-text-primary">{exercise.name}</span>
                       <span className="block truncate text-[11px] text-text-muted">
-                        {MUSCLE_LABELS[exercise.primaryMuscle]} · {EQUIPMENT_LABELS[exercise.category]}
+                        {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
                       </span>
                     </span>
                     {selected && <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />}
                   </button>
                 );
               })}
-              {visibleCount < filteredExercises.length && (
+              {visibleCount < displayExercises.length && (
                 <Button variant="secondary" onClick={() => setVisibleCount((count) => count + 60)} className="mt-2 w-full">
-                  Mostrar 60 más
+                  {t('exercise.more')}
                 </Button>
               )}
             </div>

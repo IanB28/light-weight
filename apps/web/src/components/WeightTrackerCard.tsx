@@ -3,6 +3,7 @@ import { Plus, Scale, Target } from 'lucide-react';
 import { BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from './charts/LineChart.js';
 import { EmptyState } from './ui/index.js';
+import { useI18n } from '../lib/i18n.js';
 
 interface WeightTrackerCardProps {
   entries: BodyweightEntry[];
@@ -17,6 +18,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
   onOpenLogModal,
   onOpenGoalModal
 }) => {
+  const { locale, t } = useI18n();
   // Ordenar cronológicamente
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => a.timestamp - b.timestamp);
@@ -33,11 +35,11 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
   const latestDateStr = useMemo(() => {
     if (!latestEntry) return '';
     const d = new Date(latestEntry.timestamp);
-    const weekday = d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
+    const weekday = d.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '');
     const day = d.getDate();
-    const month = d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+    const month = d.toLocaleDateString(locale, { month: 'short' }).replace('.', '');
     return `${weekday}, ${day} ${month}`;
-  }, [latestEntry]);
+  }, [latestEntry, locale]);
 
   // Diferencia hacia la meta
   const diffToGoal = latestEntry && targetWeight !== null
@@ -61,7 +63,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
     <div className="p-5 dark-glass-card rounded-[28px] space-y-2 select-none transition-all hover:border-white/15">
       {/* Top row: Label | Target Button | + Registrar */}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-zinc-400 font-medium tracking-tight">Peso corporal</span>
+        <span className="text-xs text-zinc-400 font-medium tracking-tight">{t('weight.title')}</span>
 
         <div className="flex items-center gap-2">
           {targetWeight !== null && (
@@ -69,7 +71,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
               type="button"
               onClick={onOpenGoalModal}
               className="glass-btn-secondary flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-accent cursor-pointer rounded-full"
-              title="Cambiar meta de peso"
+              title={t('weight.changeGoal')}
             >
               <Target className="w-3.5 h-3.5 text-accent" />
               <span>{targetWeight.toString().replace('.', ',')}</span>
@@ -80,16 +82,16 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
             type="button"
             onClick={onOpenLogModal}
             className="glass-btn-solid flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold cursor-pointer"
-            title="Registrar peso de hoy"
+            title={t('weight.logToday')}
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
-            <span>Registrar</span>
+            <span>{t('weight.log')}</span>
           </button>
         </div>
       </div>
 
       {!latestEntry ? (
-        <EmptyState compact icon={<Scale className="size-5" />} title="Aún no tienes registros de peso." description="Usa Registrar para empezar a ver tu evolución." />
+        <EmptyState compact icon={<Scale className="size-5" />} title={t('weight.empty')} description={t('weight.emptyDescription')} />
       ) : (<>
       {/* Main Stat: 78,7 kg  +  Date on the right */}
       <div className="flex items-baseline justify-between pt-0.5">
@@ -113,7 +115,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
         >
           <Target className="w-3.5 h-3.5 text-accent shrink-0" />
           <span>
-            Meta {targetWeight.toString().replace('.', ',')} kg · {diffToGoal.toString().replace('.', ',')} kg por {isLosingGoal ? 'perder' : 'ganar'}
+            {t('weight.goal')} {targetWeight.toString().replace('.', ',')} kg · {diffToGoal.toString().replace('.', ',')} kg {isLosingGoal ? t('weight.toLose') : t('weight.toGain')}
           </span>
         </div>
       ) : (
@@ -122,7 +124,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
           className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium cursor-pointer hover:text-white pt-0.5"
         >
           <Target className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-          <span>Pulsa para definir una meta</span>
+          <span>{t('weight.setGoal')}</span>
         </div>
       )}
 

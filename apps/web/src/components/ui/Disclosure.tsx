@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@light-weight/ui';
 import { IconButton } from './Button.js';
+import { useI18n } from '../../lib/i18n.js';
 
 export interface ModalProps {
   open: boolean;
@@ -14,6 +15,7 @@ export interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, description, children, className }: ModalProps) {
+  const { t } = useI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -91,7 +93,7 @@ export function Modal({ open, onClose, title, description, children, className }
             <h2 id={titleId} className="text-lg font-extrabold text-text-primary">{title}</h2>
             {description && <p id={descriptionId} className="mt-1 text-xs text-text-muted">{description}</p>}
           </div>
-          <IconButton variant="ghost" aria-label="Cerrar" onClick={onClose}>
+          <IconButton variant="ghost" aria-label={t('common.close')} onClick={onClose}>
             <X className="size-4" />
           </IconButton>
         </div>

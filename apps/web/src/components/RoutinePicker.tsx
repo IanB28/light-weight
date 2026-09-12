@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Dumbbell, Moon } from 'lucide-react';
 import { Routine } from '@light-weight/domain';
 import { BottomSheet, EmptyState, SearchInput } from './ui/index.js';
+import { useI18n } from '../lib/i18n.js';
 
 interface RoutinePickerProps {
   dayLabel: string;
@@ -17,6 +18,7 @@ const normalizeSearch = (value: string) => value
   .trim();
 
 export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePickerProps) {
+  const { language, t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -32,7 +34,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
     const normalizedQuery = normalizeSearch(query);
     if (!normalizedQuery) return routines;
     return routines.filter((routine) => normalizeSearch(`${routine.name} ${routine.description || ''}`).includes(normalizedQuery));
-  }, [query, routines]);
+  }, [query, routines, language]);
 
   const selectRoutine = (routineId: string | null) => {
     onChange(routineId);
@@ -45,7 +47,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`Rutina para ${dayLabel}: ${selectedRoutine?.name || 'Descanso'}`}
+        aria-label={`${t('routine.forDay', { day: dayLabel })}: ${selectedRoutine?.name || t('routine.rest')}`}
         disabled={routines.length === 0}
         onClick={() => {
           setQuery('');
@@ -59,7 +61,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
           <Moon aria-hidden="true" className="size-3.5 shrink-0 text-text-muted" />
         )}
         <span className={`min-w-0 flex-1 truncate text-xs font-semibold ${selectedRoutine ? 'text-text-primary' : 'text-text-muted'}`}>
-          {selectedRoutine?.name || 'Descanso'}
+          {selectedRoutine?.name || t('routine.rest')}
         </span>
         <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-text-muted" />
       </button>
@@ -67,15 +69,15 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
       <BottomSheet
         open={open}
         onClose={() => setOpen(false)}
-        title={`Rutina para ${dayLabel}`}
-        description="Elige una rutina guardada o programa un día de descanso."
+        title={t('routine.forDay', { day: dayLabel })}
+        description={t('routine.chooseDescription')}
       >
         <div className="space-y-3">
           {routines.length > 4 && (
             <SearchInput
               ref={searchRef}
-              label="Buscar rutina"
-              placeholder="Buscar entre mis rutinas…"
+              label={t('routine.search')}
+              placeholder={t('routine.searchPlaceholder')}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -92,8 +94,8 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
                 <Moon aria-hidden="true" className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-text-primary">Descanso</span>
-                <span className="block text-[11px] text-text-muted">Sin entrenamiento programado</span>
+                <span className="block text-sm font-bold text-text-primary">{t('routine.rest')}</span>
+                <span className="block text-[11px] text-text-muted">{t('routine.noneScheduled')}</span>
               </span>
               {(!value || !selectedRoutine) && <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />}
             </button>
@@ -114,7 +116,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-text-primary">{routine.name}</span>
                     <span className="block truncate text-[11px] text-text-muted">
-                      {routine.exerciseIds.length} {routine.exerciseIds.length === 1 ? 'ejercicio' : 'ejercicios'}
+                      {routine.exerciseIds.length} {routine.exerciseIds.length === 1 ? t('library.exercise') : t('library.exercises')}
                     </span>
                   </span>
                   {selected && <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />}
@@ -127,9 +129,9 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
             <EmptyState
               compact
               icon={<Dumbbell className="size-5" />}
-              title="No encontramos esa rutina"
-              description="Prueba con otro nombre."
-              actionLabel="Limpiar búsqueda"
+              title={t('routine.noneFound')}
+              description={t('routine.tryOther')}
+              actionLabel={t('routine.clearSearch')}
               onAction={() => setQuery('')}
             />
           )}

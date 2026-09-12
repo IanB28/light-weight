@@ -27,13 +27,23 @@ import {
   WeeklySchedule,
   BodyweightEntry,
   getStoredUserInfo,
-  UserInfo
+  UserInfo,
+  getStoredProfile,
+  saveStoredProfile,
+  UserProfile
 } from './lib/storage.js';
 import { requestWakeLock, releaseWakeLock } from './lib/wakelock.js';
-import { fetchUserFromCloud, pullFromCloud, syncWithCloud } from './lib/sync.js';
+import { pullFromCloud, syncWithCloud } from './lib/sync.js';
 import { initTheme } from './lib/theme.js';
+import { usePreferences } from './lib/preferences-context.js';
+import { WeightInputMode } from './lib/preferences.js';
+import { useFeedback } from './lib/feedback-context.js';
+import { useI18n } from './lib/i18n.js';
 
 export function App() {
+  const { preferences } = usePreferences();
+  const { showFeedback } = useFeedback();
+  const { t } = useI18n();
   const [currentTab, setCurrentTab] = useState<TabType>('home');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -43,6 +53,7 @@ export function App() {
   const [bodyweightEntries, setBodyweightEntries] = useState<BodyweightEntry[]>(getStoredBodyweight());
   const [targetWeight, setTargetWeight] = useState<number | null>(getStoredTargetWeight());
   const [userInfo, setUserInfo] = useState<UserInfo>(getStoredUserInfo());
+  const [profile, setProfile] = useState<UserProfile>(getStoredProfile());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Workout Session State
@@ -54,21 +65,18 @@ export function App() {
 
   // Rest Timer State
   const [restSecondsLeft, setRestSecondsLeft] = useState<number>(0);
-  const [restTotalSeconds, setRestTotalSeconds] = useState<number>(90);
+  const [restTotalSeconds, setRestTotalSeconds] = useState<number>(preferences.defaultRestSeconds);
 
   // Hydrate in the background without delaying or replacing the local-first render.
   useEffect(() => {
     let active = true;
 
-    void pullFromCloud().then((success) => {
-      if (!active || !success) return;
+    void pullFromCloud().then((result) => {
+      if (!active || !result.ok) return;
       setHistory(getStoredHistory());
       setRoutines(getStoredRoutines());
       setUserInfo(getStoredUserInfo());
-    });
-
-    void fetchUserFromCloud().then((remoteUser) => {
-      if (active && remoteUser) setUserInfo(remoteUser);
+      setProfile(getStoredProfile());
     });
 
     return () => {
@@ -188,6 +196,7 @@ export function App() {
       bestRecord,
       bestEst1Rm: prs[ex.id]?.est1Rm,
       targetRepRange: [6, 12],
+      weightInputMode: ex.category === 'barbell' ? preferences.weightInputMode : 'keyboard',
       sets: initialSets
     };
   };
@@ -238,13 +247,14 @@ export function App() {
   const handleSaveBodyweight = (weightKg: number, dateStr?: string) => {
     const updated = saveBodyweightEntry(weightKg, dateStr);
     setBodyweightEntries(updated);
-    syncWithCloud();
+    void syncWithCloud();
+    showFeedback(t('feedback.weightSaved'));
   };
 
   const handleSaveTargetWeight = (targetKg: number) => {
     setTargetWeight(targetKg);
     saveStoredTargetWeight(targetKg);
-    syncWithCloud();
+    showFeedback(t('feedback.weightSaved'));
   };
 
   // Handler: Agregar Ejercicio a la sesión activa
@@ -265,6 +275,12 @@ export function App() {
   // Handler: Quitar Ejercicio de la sesión activa
   const handleRemoveExerciseFromWorkout = (exerciseId: string) => {
     setExerciseSessions((prev) => prev.filter((item) => item.exercise.id !== exerciseId));
+  };
+
+  const handleUpdateWeightInputMode = (exerciseId: string, weightInputMode: WeightInputMode) => {
+    setExerciseSessions((current) => current.map((session) => (
+      session.exercise.id === exerciseId ? { ...session, weightInputMode } : session
+    )));
   };
 
   // Handler: Crear Ejercicio Personalizado
@@ -416,9 +432,10 @@ export function App() {
     setActiveRoutineName('Entrenamiento Libre');
     setRestSecondsLeft(0);
     setCurrentTab('stats');
+    showFeedback(t('feedback.workoutSaved'));
 
     // Auto-sincronización con PostgreSQL en segundo plano
-    syncWithCloud();
+    void syncWithCloud();
   };
 
   // Handler: Cancel Workout
@@ -441,6 +458,13 @@ export function App() {
     setBodyweightEntries(getStoredBodyweight());
     setTargetWeight(getStoredTargetWeight());
     setUserInfo(getStoredUserInfo());
+    setProfile(getStoredProfile());
+  };
+
+  const handleProfileChange = (updatedProfile: UserProfile) => {
+    const saved = saveStoredProfile(updatedProfile);
+    setProfile(saved);
+    showFeedback(t('feedback.profileSaved'));
   };
 
   return (
@@ -467,7 +491,7 @@ export function App() {
       <main className="flex-1 max-w-md w-full mx-auto px-page pt-3 pb-page-safe">
         {currentTab === 'home' && (
           <HomeView
-            userName={userInfo.name}
+            userName={profile.displayName === 'Atleta' ? userInfo.name : profile.displayName}
             history={history}
             routines={routines}
             weeklySchedule={weeklySchedule}
@@ -492,6 +516,7 @@ export function App() {
             sessionDuration={formatDuration(workoutSeconds)}
             exerciseSessions={exerciseSessions}
             availableExercises={exercises}
+            history={history}
             onToggleSet={handleToggleSet}
             onUpdateSet={handleUpdateSet}
             onAddSet={handleAddSet}
@@ -503,6 +528,8 @@ export function App() {
             onCancelWorkout={handleCancelWorkout}
             onStartRestTimer={handleStartRestTimer}
             onStartRoutine={handleStartWorkout}
+            preferences={preferences}
+            onUpdateWeightInputMode={handleUpdateWeightInputMode}
           />
         )}
 
@@ -528,7 +555,8 @@ export function App() {
               const updated = [...routines, newRoutine];
               setRoutines(updated);
               saveStoredRoutines(updated);
-              syncWithCloud();
+              void syncWithCloud();
+              showFeedback(t('feedback.routineSaved'));
             }}
             onDeleteRoutine={(routineId) => {
               const updated = routines.filter((r) => r.id !== routineId);
@@ -539,7 +567,7 @@ export function App() {
               ) as WeeklySchedule;
               setWeeklySchedule(updatedSchedule);
               saveStoredWeeklySchedule(updatedSchedule);
-              syncWithCloud();
+              void syncWithCloud();
             }}
             isWorkoutActive={isWorkoutActive}
             activeWorkoutDuration={formatDuration(workoutSeconds)}
@@ -551,6 +579,7 @@ export function App() {
         {currentTab === 'exercises' && (
           <LibraryView
             exercises={exercises}
+            history={history}
             catalogStatus={catalogStatus}
             onRetryCatalog={() => {
               setCatalogStatus('loading');
@@ -592,6 +621,11 @@ export function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onDataRestored={handleDataRestored}
+        profile={profile}
+        userInfo={userInfo}
+        history={history}
+        exercises={exercises}
+        onProfileChange={handleProfileChange}
       />
     </div>
   );

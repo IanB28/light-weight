@@ -29,6 +29,13 @@ import {
   getWorkoutsThisWeek
 } from './history.js';
 import { evaluateRelativeStrength } from './strengthStandards.js';
+import { calculateAge } from './profile.js';
+import {
+  calculateLoadedBarWeight,
+  kilogramsToPounds,
+  normalizeWeightKg,
+  poundsToKilograms
+} from './weight.js';
 import type { LoggedSet, WorkoutSession } from './types.js';
 
 test('1RM estimation with openGym REP_CAP = 12', () => {
@@ -240,3 +247,19 @@ test('calculateWeeklyStreak and weekKey calculation', () => {
   assert.equal(thisWeekSessions.length, 1);
 });
 
+test('calculateAge derives age from birth date and rejects invalid dates', () => {
+  assert.equal(calculateAge('2000-09-12', new Date(2026, 8, 12)), 26);
+  assert.equal(calculateAge('2000-09-13', new Date(2026, 8, 12)), 25);
+  assert.equal(calculateAge('2004-02-29', new Date(2026, 1, 28)), 21);
+  assert.equal(calculateAge('not-a-date', new Date(2026, 8, 12)), null);
+  assert.equal(calculateAge('2027-01-01', new Date(2026, 8, 12)), null);
+});
+
+test('loaded bar weight and unit conversions stay finite and symmetric', () => {
+  assert.equal(calculateLoadedBarWeight(20, [20, 10, 2.5]), 85);
+  assert.equal(calculateLoadedBarWeight(-20, [10, Number.NaN]), 20);
+  assert.ok(Math.abs(kilogramsToPounds(100) - 220.462) < 0.001);
+  assert.ok(Math.abs(poundsToKilograms(220.462) - 100) < 0.001);
+  assert.equal(normalizeWeightKg(Number.NaN), 0);
+  assert.equal(normalizeWeightKg(-5), 0);
+});

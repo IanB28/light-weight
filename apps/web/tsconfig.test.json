@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".test-dist",
+    "rootDir": "src",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "src/lib/api-errors.ts",
+    "src/lib/preferences.ts",
+    "src/lib/exercise-discovery.ts",
+    "src/lib/foundations.test.ts"
+  ]
+}

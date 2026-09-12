@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Activity,
   Calculator,
@@ -55,6 +55,7 @@ import {
 } from '../components/charts/AnatomicalBodyMap.js';
 import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
 import { ExercisePicker } from '../components/ExercisePicker.js';
+import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 
 interface StatsViewProps {
   history?: WorkoutSession[];
@@ -87,6 +88,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
   onNavigateToWorkout,
   onOpenSettings
 }) => {
+  const { locale, t } = useI18n();
+  const { muscleLabel } = useExerciseLabels();
   const accordionId = React.useId();
   const sectionPanelIds = {
     muscles: `${accordionId}-muscles`,
@@ -105,6 +108,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   // User Profile (Gender & Preferences)
   const [profile, setProfile] = useState<UserProfile>(getStoredProfile());
+  useEffect(() => {
+    const refreshProfile = () => setProfile(getStoredProfile());
+    window.addEventListener('lightweight_profile_changed', refreshProfile);
+    return () => window.removeEventListener('lightweight_profile_changed', refreshProfile);
+  }, []);
   const currentGender: Gender = profile.gender;
 
   const handleGenderChange = (newGender: Gender) => {
@@ -374,8 +382,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
   }, [exercisesById, history]);
 
   const compactNumber = useMemo(
-    () => new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 }),
-    []
+    () => new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }),
+    [locale]
   );
 
   // Modal handlers
@@ -395,8 +403,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
     <div className="space-y-4 pb-28">
       {/* El primer nivel responde cómo va el usuario antes de exponer la analítica. */}
       <ViewHeader
-        title="Estadísticas"
-        subtitle="Tu progreso de un vistazo"
+        title={t('stats.title')}
+        subtitle={t('stats.subtitle')}
         isWorkoutActive={isWorkoutActive}
         activeWorkoutDuration={activeWorkoutDuration}
         onNavigateToWorkout={onNavigateToWorkout}
@@ -406,35 +414,35 @@ export const StatsView: React.FC<StatsViewProps> = ({
       <AppCard compact className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-wider text-text-secondary">Últimos 30 días</p>
-            <p className="mt-0.5 text-[11px] text-text-muted">Actividad y mejor marca registrada</p>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-text-secondary">{t('stats.last30')}</p>
+            <p className="mt-0.5 text-[11px] text-text-muted">{t('stats.activity')}</p>
           </div>
           <TrendingUp aria-hidden="true" className="size-5 shrink-0 text-accent" />
         </div>
 
         <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input">
           <div className="min-w-0 px-2 py-3 text-center">
-            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Mejor e1RM</span>
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.bestE1rm')}</span>
             <strong className="mt-1 block truncate text-sm text-text-primary">
               {progressSummary.bestEstimatedOneRm > 0 ? `${progressSummary.bestEstimatedOneRm.toFixed(1)} kg` : '—'}
             </strong>
           </div>
           <div className="min-w-0 px-2 py-3 text-center">
-            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Sesiones</span>
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.sessions')}</span>
             <strong className="mt-1 block text-sm text-text-primary">{progressSummary.sessions}</strong>
           </div>
           <div className="min-w-0 px-2 py-3 text-center">
-            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Volumen</span>
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.volume')}</span>
             <strong className="mt-1 block truncate text-sm text-text-primary">{compactNumber.format(progressSummary.volumeKg)} kg</strong>
           </div>
         </div>
 
         <div className="flex min-h-10 items-center justify-between gap-3 text-xs">
           <span className="min-w-0 truncate text-text-muted">
-            {progressSummary.bestExerciseName || 'Sin marcas en este periodo'}
+            {progressSummary.bestExerciseName || t('stats.noMarks')}
           </span>
           <span className="shrink-0 font-semibold text-text-secondary">
-            {progressSummary.weeklyStreak} {progressSummary.weeklyStreak === 1 ? 'semana' : 'semanas'} de racha
+            {t('stats.streakWeeks', { count: progressSummary.weeklyStreak })}
           </span>
         </div>
 
@@ -446,7 +454,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         )}
       </AppCard>
 
-      <SectionHeader title="Análisis completo" meta="Abre una sección para explorar el detalle" />
+      <SectionHeader title={t('stats.fullAnalysis')} meta={t('stats.openSection')} />
 
       {/* ========================================================================= */}
       {/* SECCIONES DESPLEGABLES (ACCORDION TABS)                                    */}
@@ -469,10 +477,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
-                Músculos, Fatiga & Fortaleza
+                {t('stats.musclesTitle')}
               </h2>
               <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                Distribución anatómica de carga, fatiga acumulada y nivel relativo de fuerza.
+                {t('stats.musclesDescription')}
               </p>
             </div>
           </div>
@@ -480,7 +488,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             {history.length === 0 ? (
               <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-1 text-[10px] font-bold text-text-muted">
-                Sin datos
+                {t('stats.noData')}
               </span>
             ) : muscleAnalysis.neglected.length > 0 ? (
               <span
@@ -508,8 +516,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <div id={sectionPanelIds.muscles} className="border-t border-border-subtle p-4">
             <EmptyState
               icon={<Activity className="size-5" />}
-              title="No hay suficiente historial para mostrar esta estadística."
-              description="Completa tu primer entrenamiento para activar el mapa muscular."
+              title={t('stats.noHistory')}
+              description={t('stats.noHistoryDescription')}
             />
           </div>
         )}
@@ -519,7 +527,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             {/* Barra de Perfil Biométrico: Género y Peso Corporal */}
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
-                ESTÁNDARES DE FUERZA
+                {t('stats.strengthStandards')}
               </span>
               <div className="flex items-center gap-1 bg-zinc-900/90 border border-white/[0.08] p-0.5 rounded-xl text-xs font-mono">
                 <button
@@ -531,7 +539,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  Hombre
+                  {t('stats.male')}
                 </button>
                 <button
                   type="button"
@@ -542,10 +550,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  Mujer
+                  {t('stats.female')}
                 </button>
                 <span className="text-zinc-700 px-1">|</span>
-                <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg ? `${currentBodyweightKg} kg` : 'Sin peso'}</span>
+                <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg ? `${currentBodyweightKg} kg` : t('stats.noWeight')}</span>
               </div>
             </div>
 
@@ -564,7 +572,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
-                <span>Equilibrio</span>
+                <span>{t('stats.balance')}</span>
               </button>
 
               <button
@@ -580,7 +588,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 }`}
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span>Fatiga</span>
+                <span>{t('stats.fatigue')}</span>
               </button>
 
               <button
@@ -596,7 +604,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
-                <span>Fortaleza</span>
+                <span>{t('stats.strength')}</span>
               </button>
             </div>
 
@@ -604,14 +612,14 @@ export const StatsView: React.FC<StatsViewProps> = ({
             {muscleAnalysisMode === 'balance' && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase shrink-0">
-                  VENTANA
+                  {t('stats.window')}
                 </span>
                 <div className="grid grid-cols-4 gap-1 text-xs bg-zinc-900/60 p-1 rounded-xl border border-white/[0.04]">
                   {[
-                    { days: 7, label: '7d', title: 'Últimos 7 días' },
-                    { days: 30, label: '30d', title: 'Últimos 30 días' },
-                    { days: 90, label: '90d', title: 'Últimos 90 días' },
-                    { days: 0, label: 'Todo', title: 'Histórico completo' }
+                    { days: 7, label: '7d', title: t('stats.last7Days') },
+                    { days: 30, label: '30d', title: t('stats.last30') },
+                    { days: 90, label: '90d', title: t('stats.last90Days') },
+                    { days: 0, label: t('stats.allTime'), title: t('stats.fullHistory') }
                   ].map((opt) => (
                     <button
                       key={opt.days}
@@ -653,10 +661,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     </span>
                     <div className="text-left min-w-0">
                       <span className="text-xs font-bold text-amber-300 block">
-                        Músculos Rezagados ({muscleAnalysis.neglected.length})
+                        {t('stats.neglected', { count: muscleAnalysis.neglected.length })}
                       </span>
                       <span className="text-[10px] text-amber-400/80">
-                        {isNeglectedListOpen ? 'Toca para contraer lista' : 'Toca para ver lista desplegable y sugerencias'}
+                        {isNeglectedListOpen ? t('stats.collapseList') : t('stats.expandSuggestions')}
                       </span>
                     </div>
                   </div>
@@ -671,12 +679,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 {isNeglectedListOpen && (
                   <div className="p-3 pt-1 space-y-2 border-t border-amber-500/20 animate-in fade-in duration-150">
                     <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                      Grupos musculares sin series en el período seleccionado. Toca cualquiera para enfocarlo en el mapa anatómico:
+                      {t('stats.neglectedDescription')}
                     </p>
 
                     <div className="space-y-1.5 pt-0.5">
                       {muscleAnalysis.neglected.map((m) => {
-                        const muscleName = SPANISH_MUSCLE_NAMES[m] || m;
+                        const muscleName = muscleLabel(m);
                         const sampleEx = exercises.find((ex) => ex.primaryMuscle === m);
 
                         return (
@@ -691,13 +699,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
                               </span>
                               {sampleEx && (
                                 <span className="text-[10px] text-zinc-400 block truncate mt-0.5">
-                                  Sugerido: <strong className="text-zinc-300">{sampleEx.name}</strong>
+                                  {t('stats.suggested')}: <strong className="text-zinc-300">{sampleEx.name}</strong>
                                 </span>
                               )}
                             </div>
 
                             <span className="text-[10px] font-semibold text-amber-400 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 shrink-0">
-                              Ver en mapa
+                              {t('stats.viewOnMap')}
                             </span>
                           </div>
                         );
@@ -718,21 +726,21 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 <div className="min-w-0 pr-2">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
                     {muscleAnalysisMode === 'balance'
-                      ? 'Series Efectivas por Grupo'
+                      ? t('stats.effectiveSets')
                       : muscleAnalysisMode === 'fatigue'
-                      ? 'Carga de Fatiga Fisiológica y Recuperación'
-                      : 'Insignias de Fuerza Relativa (StrengthLevel)'}
+                      ? t('stats.fatigueLoad')
+                      : t('stats.relativeStrength')}
                   </h3>
                   <span className="text-[10px] text-zinc-400 block mt-0.5">
-                    {isEffectiveSetsOpen ? 'Toca para contraer' : 'Toca para desplegar ranking detallado'}
+                    {isEffectiveSetsOpen ? t('stats.collapse') : t('stats.expandRanking')}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[10px] font-mono font-bold text-zinc-400 bg-white/[0.06] px-2.5 py-0.5 rounded-full">
                     {muscleAnalysisMode === 'balance'
-                      ? `${Object.values(fullMuscleAnalytics).reduce((a, b) => a + b.sets, 0)} series`
-                      : `${ALL_MUSCLE_GROUPS.length} grupos`}
+                      ? t('stats.setCount', { count: Object.values(fullMuscleAnalytics).reduce((a, b) => a + b.sets, 0) })
+                      : t('stats.groupCount', { count: ALL_MUSCLE_GROUPS.length })}
                   </span>
                   <ChevronDown
                     className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
@@ -783,7 +791,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
                           <div className="min-w-0">
                             <span className="font-bold text-white capitalize block truncate">
-                              {item.nameEs}
+                              {muscleLabel(m)}
                             </span>
                             {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
                               <span
@@ -799,7 +807,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                         <div className="text-right font-mono shrink-0">
                           {muscleAnalysisMode === 'balance' && (
                             <span className="text-zinc-400">
-                              <strong className="text-accent">{item.sets}</strong> series •{' '}
+                              <strong className="text-accent">{item.sets}</strong> {t('workout.sets')} •{' '}
                               {item.volumeKg.toLocaleString()} kg
                             </span>
                           )}
@@ -816,18 +824,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                 }`}
                               >
                                 {item.recoveryStatus === 'fatigued'
-                                  ? 'Fatiga Alta'
+                                  ? t('stats.highFatigue')
                                   : item.recoveryStatus === 'recovering'
-                                  ? 'Adaptando'
-                                  : 'Listo'}{' '}
+                                  ? t('stats.recovering')
+                                  : t('stats.ready')}{' '}
                                 <span className="text-zinc-500 font-normal text-[10px]">
                                   ({item.fatigueScore} pts)
                                 </span>
                               </span>
                               <span className="text-zinc-500 font-normal text-[10px] block">
                                 {item.lastTrainedHoursAgo !== null
-                                  ? `Hace ${item.lastTrainedHoursAgo}h (${item.recentHardSetsCount} duras)`
-                                  : 'Descansado'}
+                                  ? t('stats.hoursAgo', { hours: item.lastTrainedHoursAgo, sets: item.recentHardSetsCount })
+                                  : t('stats.rested')}
                               </span>
                             </div>
                           )}
@@ -835,7 +843,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                           {muscleAnalysisMode === 'strength' && (
                             <div>
                               <span className="text-white font-bold block">
-                                {item.topEst1RmKg > 0 ? `${item.topEst1RmKg} kg` : 'Sin datos'}
+                                {item.topEst1RmKg > 0 ? `${item.topEst1RmKg} kg` : t('stats.noData')}
                               </span>
                               {item.strengthEvaluation?.nextTier && item.strengthEvaluation.kgToNextTier !== null ? (
                                 <span className="text-purple-400 text-[10px] block truncate">
@@ -843,7 +851,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                 </span>
                               ) : item.strengthEvaluation?.tier === 'elite' ? (
                                 <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
-                                  <span>Rango Máximo</span>
+                                  <span>{t('stats.maxRank')}</span>
                                   <Sparkles className="w-3.5 h-3.5 text-accent inline" />
                                 </span>
                               ) : null}
@@ -877,10 +885,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
-                Progreso por Ejercicio
+                {t('stats.exerciseProgressTitle')}
               </h2>
               <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                Curvas de sobrecarga progresiva, 1RM estimado y esfuerzo RIR por movimiento.
+                {t('stats.exerciseProgressDescription')}
               </p>
             </div>
           </div>
@@ -903,10 +911,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
         {openSection === 'exercise' && (
           <div id={sectionPanelIds.exercise} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {exercisesWithHistory.length === 0 ? (
-              <EmptyState title="No hay suficiente historial para mostrar esta estadística." description="Completa algunas series y vuelve aquí para ver tu progreso por ejercicio." icon={<TrendingUp className="size-5" />} />
+              <EmptyState title={t('stats.noHistory')} description={t('stats.completeSets')} icon={<TrendingUp className="size-5" />} />
             ) : (<>
             <ExercisePicker
-              label="Selecciona el ejercicio"
+              history={history}
+              label={t('stats.selectExercise')}
               value={currentExerciseId}
               exercises={exercisesWithHistory}
               onChange={setSelectedExId}
@@ -923,7 +932,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                Top Set (kg)
+                {t('stats.topSet')}
               </button>
               <button
                 type="button"
@@ -934,7 +943,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                1RM Est.
+                {t('stats.estimated1rm')}
               </button>
               <button
                 type="button"
@@ -945,7 +954,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                Esfuerzo RIR
+                {t('stats.rirEffort')}
               </button>
             </div>
 
@@ -963,12 +972,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
             {/* Tabla de Sesiones Recientes */}
             <div className="space-y-2 pt-1">
               <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                Historial de Sesiones Recientes
+                {t('stats.recentSessionHistory')}
               </h3>
 
               {exerciseSeries.length === 0 ? (
                 <p className="text-xs text-zinc-500 py-3 text-center">
-                  Aún no has registrado series para este ejercicio.
+                  {t('stats.noExerciseSets')}
                 </p>
               ) : (
                 <div className="space-y-1.5">
@@ -979,7 +988,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     >
                       <div>
                         <span className="font-mono text-zinc-400 block text-[11px]">
-                          {new Date(point.timestamp).toLocaleDateString('es-ES', {
+                          {new Date(point.timestamp).toLocaleDateString(locale, {
                             day: 'numeric',
                             month: 'short'
                           })}
@@ -1027,17 +1036,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
-                Consistencia & Calendario
+                {t('stats.consistencyTitle')}
               </h2>
               <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                Mapa anual de entrenamientos, regularidad y registro cronológico de sesiones.
+                {t('stats.consistencyDescription')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
-              {history.length} ses.
+              {t('stats.sessionCount', { count: history.length })}
             </span>
             <ChevronDown
               aria-hidden="true"
@@ -1054,7 +1063,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
-                  ACTIVIDAD EN LAS ÚLTIMAS 32 SEMANAS
+                  {t('stats.activity32')}
                 </span>
                 <span className="text-[10px] text-zinc-400 font-mono">
                   {history.length} sesiones registradas
@@ -1071,7 +1080,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             {/* Listado Reciente de Entrenamientos */}
             <div className="space-y-2 pt-1">
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase block">
-                ÚLTIMOS ENTRENAMIENTOS
+                {t('stats.recentWorkouts')}
               </span>
               <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                 {history.slice(0, 10).map((session) => {
@@ -1092,12 +1101,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
                           {session.routineName}
                         </span>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
-                          {new Date(session.startedAt).toLocaleDateString('es-ES', {
+                          {new Date(session.startedAt).toLocaleDateString(locale, {
                             weekday: 'short',
                             day: 'numeric',
                             month: 'short'
                           })}{' '}
-                          • {totalSets} series
+                          • {totalSets} {t('workout.sets')}
                         </p>
                       </div>
 
@@ -1133,10 +1142,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
-                Peso Corporal & Meta
+                {t('stats.bodyweightTitle')}
               </h2>
               <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                Evolución de peso corporal, ritmo de cambio semanal y distancia a tu objetivo.
+                {t('stats.bodyweightDescription')}
               </p>
             </div>
           </div>
@@ -1158,36 +1167,36 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <div id={sectionPanelIds.bodyweight} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
-                RESUMEN DE PESO
+                {t('stats.weightSummary')}
               </span>
               <button
                 onClick={() => setIsBwModalOpen(true)}
                 className="px-3.5 py-1.5 rounded-full bg-accent text-accent-fg font-bold text-xs flex items-center gap-1 active:scale-95 transition-all shadow-sm cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                Registrar peso
+                {t('weight.log')}
               </button>
             </div>
 
             {bodyweightEntries.length === 0 ? (
-              <EmptyState title="Aún no tienes registros de peso." description="Registra tu peso para ver tendencias y distancia a tu meta." icon={<Scale className="size-5" />} actionLabel="Registrar peso" onAction={() => setIsBwModalOpen(true)} />
+              <EmptyState title={t('weight.empty')} description={t('weight.emptyDescription')} icon={<Scale className="size-5" />} actionLabel={t('weight.log')} onAction={() => setIsBwModalOpen(true)} />
             ) : (<>
             {/* Metric Banner */}
             <div className="grid grid-cols-3 gap-2 p-3 glass-subcard rounded-2xl text-center">
               <div>
-                <span className="text-[10px] text-zinc-500 font-mono block">Último Peso</span>
+                <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.latestWeight')}</span>
                 <span className="text-base font-extrabold text-white font-mono">
                   {bodyweightEntries[bodyweightEntries.length - 1]?.weightKg || '—'} kg
                 </span>
               </div>
               <div className="border-x border-white/[0.06]">
-                <span className="text-[10px] text-zinc-500 font-mono block">Meta</span>
+                <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.goal')}</span>
                 <span className="text-base font-extrabold text-accent font-mono">
                   {targetWeight ? `${targetWeight} kg` : '—'}
                 </span>
               </div>
               <div>
-                <span className="text-[10px] text-zinc-500 font-mono block">Delta 30d</span>
+                <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.delta30')}</span>
                 <span
                   className={`text-base font-extrabold font-mono ${
                     bw30DayDelta && bw30DayDelta < 0 ? 'text-accent' : 'text-zinc-300'
@@ -1230,10 +1239,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
-                Calculadora 1RM Personalizada
+                {t('stats.calculatorTitle')}
               </h2>
               <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                Estimador de fuerza máxima vinculado a tu historial y estándares de peso corporal.
+                {t('stats.calculatorDescription')}
               </p>
             </div>
           </div>
@@ -1255,7 +1264,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <div id={sectionPanelIds.calculator} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {/* 1. Selector de Ejercicio */}
             <ExercisePicker
-              label="Ejercicio para cálculo de 1RM"
+              history={history}
+              label={t('stats.calcExercise')}
               value={currentCalcExerciseId}
               exercises={calcExerciseOptions}
               onChange={setCalcExerciseId}
@@ -1270,7 +1280,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   </div>
                   <div className="min-w-0">
                     <span className="text-[10px] uppercase font-mono font-bold text-amber-400 block">
-                      ÚLTIMO TOP SET
+                      {t('stats.lastTopSet')}
                     </span>
                     <span className="text-xs text-white font-bold block truncate">
                       {lastTopSet.weightKg} kg × {lastTopSet.reps} reps{' '}
@@ -1289,12 +1299,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   }}
                   className="px-2.5 py-1.5 rounded-xl bg-amber-500 text-black font-extrabold text-xs hover:bg-amber-400 active:scale-95 transition-all cursor-pointer shrink-0 shadow-sm"
                 >
-                  Usar estos valores
+                  {t('stats.useValues')}
                 </button>
               </div>
             ) : (
               <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-[11px] text-zinc-400">
-                Aún no tienes series completadas en este ejercicio. Introduce los valores manualmente abajo para calcular tu 1RM.
+                {t('stats.noCalcHistory')}
               </div>
             )}
 
@@ -1318,18 +1328,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
                           color: userStrengthEval.color
                         }}
                       >
-                        {userStrengthEval.currentRatio}× peso corporal
+                        {t('stats.bodyweightRatio', { ratio: userStrengthEval.currentRatio })}
                       </span>
                     </div>
                     <span className="text-[11px] text-zinc-400 font-mono block mt-0.5">
-                      Base biométrica: {currentBodyweightKg} kg ({currentGender === 'male' ? 'Hombre' : 'Mujer'})
+                      {t('stats.biometricBase', { weight: currentBodyweightKg ?? 0, gender: currentGender === 'male' ? t('stats.male') : t('stats.female') })}
                     </span>
                   </div>
                 </div>
 
                 {userStrengthEval.nextTier && userStrengthEval.kgToNextTier !== null && (
                   <div className="text-right font-mono shrink-0">
-                    <span className="text-[10px] text-zinc-500 block">Siguiente nivel</span>
+                    <span className="text-[10px] text-zinc-500 block">{t('stats.nextLevel')}</span>
                     <span className="text-xs font-bold text-accent">
                       +{userStrengthEval.kgToNextTier} kg
                     </span>
@@ -1343,7 +1353,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <div className="p-3 rounded-2xl bg-black/40 border border-white/[0.06]">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] text-zinc-500 uppercase font-mono font-bold">
-                    Carga (kg)
+                    {t('stats.loadKg')}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
@@ -1376,7 +1386,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <div className="p-3 rounded-2xl bg-black/40 border border-white/[0.06]">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] text-zinc-500 uppercase font-mono font-bold">
-                    Reps (Máx 12)
+                    {t('stats.repsMax')}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
@@ -1410,7 +1420,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
             {calcReps > 12 && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
-                openGym descarta estimaciones de más de 12 repeticiones porque miden resistencia y no fuerza máxima.
+                {t('stats.repCap')}
               </div>
             )}
 
@@ -1425,7 +1435,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 <div className="text-base font-bold text-white font-mono mt-0.5">{estimate.brzycki} kg</div>
               </div>
               <div>
-                <div className="text-[10px] text-accent font-mono uppercase font-bold">Consenso</div>
+                <div className="text-[10px] text-accent font-mono uppercase font-bold">{t('stats.consensus')}</div>
                 <div className="text-base font-extrabold text-accent font-mono mt-0.5">{estimate.average} kg</div>
               </div>
             </div>
@@ -1433,7 +1443,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             {/* 6. Desglose de Porcentajes de Entrenamiento (70% - 100%) */}
             <div className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] space-y-2.5">
               <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
-                ZONAS DE ENTRENAMIENTO BASADAS EN 1RM ({estimate.average} kg)
+                {t('stats.trainingZones', { weight: estimate.average })}
               </span>
               <div className="grid grid-cols-4 gap-1.5 text-center text-xs font-mono">
                 {[

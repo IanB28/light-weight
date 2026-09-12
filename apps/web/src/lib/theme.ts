@@ -9,8 +9,6 @@ export type GlassTheme =
 export interface GlassThemeMeta {
   id: GlassTheme;
   name: string;
-  badge: string;
-  description: string;
   previewGradient: string;
   previewBorder: string;
   isLight?: boolean;
@@ -20,32 +18,24 @@ export const GLASS_THEMES: Record<GlassTheme, GlassThemeMeta> = {
   midnight: {
     id: 'midnight',
     name: 'Azul Noche',
-    badge: 'Cósmico',
-    description: 'Gradiente cósmico profundo con destellos azulados',
     previewGradient: 'linear-gradient(135deg, #172136 0%, #0c1220 100%)',
     previewBorder: 'rgba(56, 189, 248, 0.3)'
   },
   carbon: {
     id: 'carbon',
     name: 'Negro Carbón',
-    badge: 'Sigilo',
-    description: 'Superficie de carbón esmerilada con sobriedad neutra',
     previewGradient: 'linear-gradient(135deg, #1c1c22 0%, #070709 100%)',
     previewBorder: 'rgba(255, 255, 255, 0.2)'
   },
   sunset: {
     id: 'sunset',
     name: 'Atardecer Pizarra',
-    badge: 'Paleta Extraída',
-    description: 'Violeta-grisáceo (#555360) a beige cálido (#ABA6A3)',
     previewGradient: 'linear-gradient(135deg, #555360 0%, #68656E 40%, #8F8B8C 75%, #ABA6A3 100%)',
     previewBorder: 'rgba(245, 158, 11, 0.4)'
   },
   frost: {
     id: 'frost',
     name: 'Cristal Blanco (Frost)',
-    badge: 'Glass Blanco',
-    description: 'Glassmorphism blanco luminiscente con refracción y contraste óptico',
     previewGradient: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)',
     previewBorder: 'rgba(255, 255, 255, 0.9)',
     isLight: true
@@ -53,16 +43,12 @@ export const GLASS_THEMES: Record<GlassTheme, GlassThemeMeta> = {
   aurora: {
     id: 'aurora',
     name: 'Esmeralda Aurora',
-    badge: 'Boreal',
-    description: 'Bosque boreal profundo con destellos esmeralda y turquesa',
     previewGradient: 'linear-gradient(135deg, #0d2820 0%, #040c09 100%)',
     previewBorder: 'rgba(48, 209, 88, 0.35)'
   },
   amethyst: {
     id: 'amethyst',
     name: 'Amatista Mística',
-    badge: 'Ciber Violeta',
-    description: 'Noche violeta de lujo con destellos púrpura y magenta',
     previewGradient: 'linear-gradient(135deg, #26143c 0%, #0a0512 100%)',
     previewBorder: 'rgba(191, 90, 242, 0.35)'
   }
@@ -92,7 +78,7 @@ export interface AccentColorPreset {
 export const ACCENT_PRESETS: Record<AccentColorId, AccentColorPreset> = {
   lime: {
     id: 'lime',
-    name: 'Lima OpenGym',
+    name: 'Lima',
     hex: '#30D158',
     fg: '#000000',
     glow: 'rgba(48, 209, 88, 0.45)'
@@ -184,7 +170,7 @@ export interface ThemeSettings {
 
 export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   glassTheme: 'midnight',
-  accentColor: 'lime'
+  accentColor: 'indigo'
 };
 
 const THEME_STORAGE_KEY = 'lightweight_theme_settings';
@@ -195,8 +181,8 @@ export function getStoredThemeSettings(): ThemeSettings {
     if (!raw) return DEFAULT_THEME_SETTINGS;
     const parsed = JSON.parse(raw);
     return {
-      glassTheme: parsed.glassTheme && GLASS_THEMES[parsed.glassTheme as GlassTheme] ? parsed.glassTheme : 'midnight',
-      accentColor: parsed.accentColor && ACCENT_PRESETS[parsed.accentColor as AccentColorId] ? parsed.accentColor : 'lime'
+      glassTheme: parsed.glassTheme && GLASS_THEMES[parsed.glassTheme as GlassTheme] ? parsed.glassTheme : DEFAULT_THEME_SETTINGS.glassTheme,
+      accentColor: parsed.accentColor && ACCENT_PRESETS[parsed.accentColor as AccentColorId] ? parsed.accentColor : DEFAULT_THEME_SETTINGS.accentColor
     };
   } catch {
     return DEFAULT_THEME_SETTINGS;
@@ -205,7 +191,7 @@ export function getStoredThemeSettings(): ThemeSettings {
 
 export function applyTheme(settings: ThemeSettings): void {
   try {
-    const preset = ACCENT_PRESETS[settings.accentColor] || ACCENT_PRESETS.lime;
+    const preset = ACCENT_PRESETS[settings.accentColor] || ACCENT_PRESETS[DEFAULT_THEME_SETTINGS.accentColor];
     const root = document.documentElement;
 
     // 1. Set data attributes on <html> for Tailwind variants

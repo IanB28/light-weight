@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertCircle, LoaderCircle } from 'lucide-react';
 import { cn } from '@light-weight/ui';
 import { Button } from './Button.js';
+import { useI18n } from '../../lib/i18n.js';
 
 interface FeedbackStateProps {
   title: string;
@@ -26,10 +27,12 @@ export function EmptyState({ title, description, icon, actionLabel, onAction, co
   );
 }
 
-export function LoadingState({ title = 'Cargando…', description, compact, className }: Partial<FeedbackStateProps>) {
-  return <EmptyState title={title} description={description} compact={compact} className={className} icon={<LoaderCircle className="size-5 animate-spin" />} />;
+export function LoadingState({ title, description, compact, className }: Partial<FeedbackStateProps>) {
+  const { t } = useI18n();
+  return <EmptyState title={title || t('common.loading')} description={description} compact={compact} className={className} icon={<LoaderCircle className="size-5 animate-spin" />} />;
 }
 
-export function ErrorState({ title = 'Algo salió mal', description, actionLabel = 'Reintentar', onAction, compact, className }: Partial<FeedbackStateProps>) {
-  return <EmptyState title={title} description={description} actionLabel={onAction ? actionLabel : undefined} onAction={onAction} compact={compact} className={className} icon={<AlertCircle className="size-5 text-danger" />} />;
+export function ErrorState({ title, description, actionLabel, onAction, compact, className }: Partial<FeedbackStateProps>) {
+  const { t } = useI18n();
+  return <EmptyState title={title || t('common.genericError')} description={description} actionLabel={onAction ? (actionLabel || t('common.retry')) : undefined} onAction={onAction} compact={compact} className={className} icon={<AlertCircle className="size-5 text-danger" />} />;
 }

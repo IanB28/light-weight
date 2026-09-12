@@ -1,32 +1,36 @@
+import { Routine, WorkoutSession } from '@light-weight/domain';
 import {
-  getStoredHistory,
-  saveStoredHistory,
-  getStoredBodyweight,
-  getStoredRoutines,
-  saveStoredRoutines,
-  saveStoredUserInfo,
-  UserInfo
+  getStoredBodyweight, getStoredHistory, getStoredRoutines, saveStoredHistory,
+  saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo
 } from './storage.js';
+import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:4000';
+const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 export interface SyncStatus {
   state: 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
   lastSyncedAt?: Date;
-  errorMessage?: string;
+  error?: ApiError;
   syncedSessionsCount?: number;
 }
 
-type SyncListener = (status: SyncStatus) => void;
-const listeners: Set<SyncListener> = new Set();
+interface PullResponse {
+  user?: Partial<UserInfo> | null;
+  profile?: { gender?: string } | null;
+  routines?: Array<Partial<Routine>>;
+  history?: WorkoutSession[];
+}
 
-let currentStatus: SyncStatus = {
-  state: typeof navigator !== 'undefined' && navigator.onLine ? 'idle' : 'offline',
-};
+type SyncListener = (status: SyncStatus) => void;
+const listeners = new Set<SyncListener>();
+let currentStatus: SyncStatus = { state: typeof navigator !== 'undefined' && navigator.onLine ? 'idle' : 'offline' };
+let syncInFlight: Promise<OperationResult<{ syncedCount: number }>> | null = null;
+let pullInFlight: Promise<OperationResult<PullResponse>> | null = null;
 
 function notify(status: SyncStatus) {
   currentStatus = status;
-  listeners.forEach((fn) => fn(currentStatus));
+  listeners.forEach((listener) => listener(status));
 }
 
 export function subscribeToSyncStatus(listener: SyncListener): () => void {
@@ -35,169 +39,79 @@ export function subscribeToSyncStatus(listener: SyncListener): () => void {
   return () => listeners.delete(listener);
 }
 
-export async function checkCloudHealth(): Promise<{ ok: boolean; database?: string; message?: string }> {
-  try {
-    const res = await fetch(`${API_BASE}/api/health`, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) return { ok: false, message: `Status ${res.status}` };
-    const data = await res.json();
-    return { ok: data.status === 'ok', database: data.database, message: data.dbDetails };
-  } catch (err: any) {
-    return { ok: false, message: err.message || 'Sin respuesta del servidor' };
-  }
-}
+const offlineResult = <T,>(): OperationResult<T> => {
+  const error: ApiError = { code: 'network', retryable: true };
+  notify({ state: 'offline', error });
+  return { ok: false, error };
+};
 
-export async function pullFromCloud(userId = '00000000-0000-0000-0000-000000000001'): Promise<boolean> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    notify({ state: 'offline', errorMessage: 'Sin conexión a internet' });
-    return false;
-  }
-
+export function pullFromCloud(userId = DEFAULT_USER_ID): Promise<OperationResult<PullResponse>> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve(offlineResult());
+  if (pullInFlight) return pullInFlight;
   notify({ state: 'syncing' });
 
-  try {
-    const res = await fetch(`${API_BASE}/api/sync/pull?userId=${userId}`, {
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) throw new Error(`Error en servidor: ${res.statusText}`);
-    const data = await res.json();
+  pullInFlight = (async () => {
+    try {
+      const data = await requestJson<PullResponse>(`${API_BASE}/api/sync/pull?userId=${encodeURIComponent(userId)}`);
+      if (data.user?.id && data.user.name) saveStoredUserInfo({ id: data.user.id, name: data.user.name, email: data.user.email || '' });
+      if (data.profile?.gender === 'male' || data.profile?.gender === 'female') saveStoredProfile({ gender: data.profile.gender });
 
-    // Si la nube retorna datos del usuario de la base de datos
-    if (data.user && data.user.name) {
-      saveStoredUserInfo({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email
-      });
+      if (Array.isArray(data.routines) && data.routines.length > 0) {
+        const local = getStoredRoutines();
+        const existing = new Set(local.map((routine) => routine.id));
+        const incoming = data.routines.filter((routine): routine is Routine => Boolean(routine.id && routine.name && Array.isArray(routine.exerciseIds)));
+        saveStoredRoutines([...local, ...incoming.filter((routine) => !existing.has(routine.id))]);
+      }
+      if (Array.isArray(data.history) && data.history.length > 0) {
+        const local = getStoredHistory();
+        const existing = new Set(local.map((session) => session.id));
+        saveStoredHistory([...data.history.filter((session) => !existing.has(session.id)), ...local]);
+      }
+
+      notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: data.history?.length || 0 });
+      return { ok: true, data };
+    } catch (cause) {
+      const error = mapApiError(cause);
+      notify({ state: error.code === 'network' ? 'offline' : 'error', error });
+      return { ok: false, error };
+    } finally {
+      pullInFlight = null;
     }
-
-    // Si la nube tiene rutinas, combinar con las locales
-    if (data.routines && Array.isArray(data.routines) && data.routines.length > 0) {
-      const currentRoutines = getStoredRoutines();
-      const existingIds = new Set(currentRoutines.map((r) => r.id));
-      const incoming = data.routines.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        description: r.description || undefined,
-        exerciseIds: r.exerciseIds || [],
-      }));
-      const uniqueIncoming = Array.from(new Map<string, any>(incoming.map((routine: any) => [routine.id, routine])).values());
-      const merged = [...currentRoutines, ...uniqueIncoming.filter((r: any) => !existingIds.has(r.id))];
-      saveStoredRoutines(merged);
-    }
-
-    // Si la nube tiene historial, combinar con el local
-    if (data.history && Array.isArray(data.history) && data.history.length > 0) {
-      const currentHistory = getStoredHistory();
-      const existingIds = new Set(currentHistory.map((s) => s.id));
-      const incomingSessions = data.history.map((s: any) => ({
-        id: s.id,
-        userId: s.userId,
-        routineId: s.routineId,
-        routineName: s.routineName,
-        startedAt: s.startedAt,
-        endedAt: s.endedAt,
-        notes: s.notes,
-        sets: s.sets || {},
-      }));
-      const uniqueIncoming = Array.from(new Map<string, any>(incomingSessions.map((session: any) => [session.id, session])).values());
-      const mergedHistory = [...uniqueIncoming.filter((s: any) => !existingIds.has(s.id)), ...currentHistory];
-      saveStoredHistory(mergedHistory);
-    }
-
-    notify({
-      state: 'synced',
-      lastSyncedAt: new Date(),
-      syncedSessionsCount: data.history?.length || 0,
-    });
-    return true;
-  } catch (error: any) {
-    console.warn('[Pull Sync Error]', error);
-    notify({
-      state: 'error',
-      errorMessage: error.message || 'Fallo al descargar datos',
-    });
-    return false;
-  }
+  })();
+  return pullInFlight;
 }
 
-export async function syncWithCloud(userId = '00000000-0000-0000-0000-000000000001'): Promise<boolean> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    notify({ state: 'offline', errorMessage: 'Sin conexión a internet' });
-    return false;
-  }
-
+export function syncWithCloud(userId = DEFAULT_USER_ID): Promise<OperationResult<{ syncedCount: number }>> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve(offlineResult());
+  if (syncInFlight) return syncInFlight;
   notify({ state: 'syncing' });
 
-  try {
-    const history = getStoredHistory();
-    const bodyweight = getStoredBodyweight();
-    const routines = getStoredRoutines();
-
-    const payload = {
-      userId,
-      sessions: history,
-      routines,
-      bodyweightLogs: bodyweight.map((b) => ({
-        weightKg: b.weightKg,
-        loggedAt: new Date(b.timestamp).toISOString(),
-      })),
-    };
-
-    const res = await fetch(`${API_BASE}/api/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Error en servidor: ${res.statusText}`);
+  syncInFlight = (async () => {
+    try {
+      const payload = {
+        userId,
+        sessions: getStoredHistory(),
+        routines: getStoredRoutines(),
+        bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() }))
+      };
+      const data = await requestJson<{ syncedCount?: number }>(`${API_BASE}/api/sync`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      }, 10000);
+      const syncedCount = data.syncedCount || 0;
+      notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: syncedCount });
+      return { ok: true, data: { syncedCount } };
+    } catch (cause) {
+      const error = mapApiError(cause);
+      notify({ state: error.code === 'network' ? 'offline' : 'error', error });
+      return { ok: false, error };
+    } finally {
+      syncInFlight = null;
     }
-
-    const data = await res.json();
-
-    notify({
-      state: 'synced',
-      lastSyncedAt: new Date(),
-      syncedSessionsCount: data.syncedCount,
-    });
-    return true;
-  } catch (error: any) {
-    console.warn('[Sync Error]', error);
-    notify({
-      state: 'error',
-      errorMessage: error.message || 'Fallo de sincronización',
-    });
-    return false;
-  }
+  })();
+  return syncInFlight;
 }
 
-export async function fetchUserFromCloud(userId = '00000000-0000-0000-0000-000000000001'): Promise<UserInfo | null> {
-  try {
-    const res = await fetch(`${API_BASE}/api/sync/user?userId=${userId}`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.user && data.user.name) {
-      return saveStoredUserInfo({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email
-      });
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-// Auto-sincronización al recuperar conectividad
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
-    syncWithCloud();
-  });
-  window.addEventListener('offline', () => {
-    notify({ state: 'offline' });
-  });
+  window.addEventListener('online', () => { void syncWithCloud(); });
+  window.addEventListener('offline', () => notify({ state: 'offline', error: { code: 'network', retryable: true } }));
 }

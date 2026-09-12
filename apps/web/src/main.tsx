@@ -2,10 +2,19 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.js';
 import './index.css';
+import { PreferencesProvider } from './lib/preferences-context.js';
+import { I18nProvider } from './lib/i18n.js';
+import { FeedbackProvider } from './lib/feedback-context.js';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <PreferencesProvider>
+      <I18nProvider>
+        <FeedbackProvider>
+          <App />
+        </FeedbackProvider>
+      </I18nProvider>
+    </PreferencesProvider>
   </React.StrictMode>
 );
 
@@ -17,4 +26,3 @@ if ('serviceWorker' in navigator && !window.location.hostname.includes('localhos
     });
   });
 }
-

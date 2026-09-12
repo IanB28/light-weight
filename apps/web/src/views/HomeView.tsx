@@ -18,7 +18,6 @@ import {
   BodyweightEntry,
   WeeklySchedule,
   DAY_NUM_TO_WEEKDAY,
-  WEEKDAY_NAMES_ES,
   getStoredUserInfo
 } from '../lib/storage.js';
 import { WeightTrackerCard } from '../components/WeightTrackerCard.js';
@@ -28,6 +27,7 @@ import { DayDetailModal } from '../components/DayDetailModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
 import { MonthCalendarModal } from '../components/MonthCalendarModal.js';
 import { AppCard, Button, IconButton } from '../components/ui/index.js';
+import { TranslationKey, useI18n } from '../lib/i18n.js';
 
 interface HomeViewProps {
   userName?: string;
@@ -62,9 +62,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onNavigateToWorkout,
   onOpenSettings
 }) => {
+  const { locale, t } = useI18n();
   const [weekOffset, setWeekOffset] = useState<number>(0);
 
-  const effectiveUserName = userName || getStoredUserInfo().name || 'Atleta';
+  const storedName = userName || getStoredUserInfo().name;
+  const effectiveUserName = !storedName || storedName === 'Atleta' ? t('profile.athlete') : storedName;
 
   // Modals state
   const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
@@ -75,7 +77,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
 
   const today = new Date();
-  const rawDateStr = today.toLocaleDateString('es-ES', {
+  const rawDateStr = today.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long'
@@ -131,7 +133,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         date: d,
         iso,
         dayOfWeekKey,
-        dayShort: WEEKDAY_NAMES_ES[dayOfWeekKey].short.slice(0, 2).toUpperCase(),
+        dayShort: t(`weekday.${dayOfWeekKey}.short` as TranslationKey).slice(0, 2).toUpperCase(),
         dayNum: d.getDate(),
         isToday: isCurrentDay,
         completed: Boolean(completed),
@@ -143,12 +145,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
     sunday.setDate(monday.getDate() + 6);
     const startDay = monday.getDate();
     const endDay = sunday.getDate();
-    const startMonth = monday.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
-    const endMonth = sunday.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+    const startMonth = monday.toLocaleDateString(locale, { month: 'short' }).replace('.', '');
+    const endMonth = sunday.toLocaleDateString(locale, { month: 'short' }).replace('.', '');
     const dateRangeStr = startMonth === endMonth ? `${startDay} – ${endDay} ${endMonth}` : `${startDay} ${startMonth} – ${endDay} ${endMonth}`;
-    const label = weekOffset === 0 ? 'Esta semana' : dateRangeStr;
+    const label = weekOffset === 0 ? t('home.thisWeek') : dateRangeStr;
     return { label, days };
-  }, [today, weekOffset, history, weeklySchedule, routines]);
+  }, [today, weekOffset, history, weeklySchedule, routines, locale, t]);
 
   // Modales de peso
   const handleOpenLogWeight = () => {
@@ -163,7 +165,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   // Manejador al elegir enfoque en el modal "¿Qué harás hoy?"
   const handleSelectFocus = (_focus: WorkoutFocus, focusName: string, prefilterMuscles: MuscleGroup[]) => {
-    const sessionTitle = `Entrenamiento: ${focusName}`;
+    const sessionTitle = `${t('home.workoutPrefix')} ${focusName}`;
     onStartWorkout(undefined, sessionTitle, prefilterMuscles);
   };
 
@@ -201,7 +203,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         subtitle={todayStr}
         greeting={
           <h2 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
-            Hola, <span className="text-accent font-extrabold">{effectiveUserName}</span>
+            {t('home.hello')} <span className="text-accent font-extrabold">{effectiveUserName}</span>
           </h2>
         }
         isWorkoutActive={isWorkoutActive}
@@ -217,8 +219,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <IconButton
             variant="ghost"
             onClick={() => setWeekOffset((prev) => prev - 1)}
-            aria-label="Ver semana anterior"
-            title="Semana anterior"
+            aria-label={t('home.previousWeek')}
+            title={t('home.previousWeek')}
           >
             <ChevronLeft className="size-4" />
           </IconButton>
@@ -230,8 +232,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <IconButton
             variant="ghost"
             onClick={() => setWeekOffset((prev) => prev + 1)}
-            aria-label="Ver semana siguiente"
-            title="Semana siguiente"
+            aria-label={t('home.nextWeek')}
+            title={t('home.nextWeek')}
           >
             <ChevronRight className="size-4" />
           </IconButton>
@@ -244,7 +246,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               type="button"
               key={idx}
               onClick={() => setSelectedDayDate(item.date)}
-              aria-label={`${item.dayShort} ${item.dayNum}${item.completed ? ', entrenamiento completado' : item.routine ? `, rutina ${item.routine.name}` : ', descanso'}`}
+              aria-label={`${item.dayShort} ${item.dayNum}${item.completed ? `, ${t('home.completed')}` : item.routine ? `, ${item.routine.name}` : `, ${t('home.rest')}`}`}
               aria-current={item.isToday ? 'date' : undefined}
               className="group flex min-h-11 flex-col items-center rounded-ui-md py-1 transition-transform active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
@@ -283,15 +285,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
             <div className="min-w-0">
               <span className="block text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                HOY
+                {t('home.today')}
               </span>
               <span className="block truncate text-base font-bold text-text-primary">
-                {todayScheduledRoutine ? todayScheduledRoutine.name : 'Día de Descanso'}
+                {todayScheduledRoutine ? todayScheduledRoutine.name : t('home.restDay')}
               </span>
               <span className="mt-0.5 block text-xs text-text-muted">
                 {todayScheduledRoutine
-                  ? `${todayScheduledRoutine.exerciseIds.length} ${todayScheduledRoutine.exerciseIds.length === 1 ? 'ejercicio' : 'ejercicios'}`
-                  : 'Recuperación programada'}
+                  ? `${todayScheduledRoutine.exerciseIds.length} ${todayScheduledRoutine.exerciseIds.length === 1 ? t('library.exercise') : t('library.exercises')}`
+                  : t('home.recovery')}
               </span>
             </div>
           </div>
@@ -306,7 +308,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             }}
             className="w-full"
           >
-            {todayScheduledRoutine ? 'Empezar entrenamiento' : 'Entrenar de todos modos'}
+            {todayScheduledRoutine ? t('home.start') : t('home.trainAnyway')}
           </Button>
           {todayScheduledRoutine && (
             <Button
@@ -315,7 +317,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               onClick={() => setIsFocusModalOpen(true)}
               className="w-full text-text-muted"
             >
-              Entrenar otra cosa
+              {t('home.trainOther')}
             </Button>
           )}
         </div>
@@ -333,18 +335,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <button
         type="button"
         onClick={() => setIsMonthCalendarOpen(true)}
-        aria-label={`Abrir calendario de consistencia, racha de ${streakCount} ${streakCount === 1 ? 'semana' : 'semanas'}`}
+        aria-label={t('home.streak', { count: streakCount, unit: streakCount === 1 ? t('home.week') : t('home.weeks') })}
         className="glass-surface flex min-h-11 w-full items-center justify-between rounded-ui-xl border border-border-subtle p-card text-left shadow-card transition-[transform,border-color] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <div>
           <div className="flex items-center gap-2">
             <Flame className="size-5 text-accent" />
             <h3 className="text-base font-bold tracking-tight text-text-primary">
-              racha de {streakCount} {streakCount === 1 ? 'semana' : 'semanas'}
+              {t('home.streak', { count: streakCount, unit: streakCount === 1 ? t('home.week') : t('home.weeks') })}
             </h3>
           </div>
           <p className="mt-1 text-xs text-text-muted">
-            {thisWeekSessions.length} / {plannedPerWeek} esta semana · {history.length} entrenamientos en total
+            {thisWeekSessions.length} / {plannedPerWeek} {t('home.thisWeek').toLocaleLowerCase()} · {history.length} {t('home.totalWorkouts')}
           </p>
         </div>
 

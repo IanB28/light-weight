@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, Settings } from 'lucide-react';
 import { subscribeToSyncStatus, SyncStatus } from '../lib/sync.js';
 import { Badge, IconButton } from './ui/index.js';
+import { useI18n } from '../lib/i18n.js';
 
 export interface ViewHeaderProps {
   title: string;
@@ -22,6 +23,7 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
   onNavigateToWorkout,
   onOpenSettings
 }) => {
+  const { t } = useI18n();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'idle' });
   const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
   useEffect(() => subscribeToSyncStatus(setSyncStatus), []);
@@ -48,7 +50,7 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
       </div>
 
       <div className="absolute right-0 top-1 flex items-center gap-2">
-        {onOpenSettings && <IconButton variant="secondary" size="sm" aria-label="Abrir ajustes" title="Ajustes y personalización" onClick={onOpenSettings}><Settings className="size-4" /></IconButton>}
+        {onOpenSettings && <IconButton variant="secondary" size="sm" aria-label={t('header.openSettings')} title={t('header.settingsTitle')} onClick={onOpenSettings}><Settings className="size-4" /></IconButton>}
       </div>
 
       {((isWorkoutActive && onNavigateToWorkout) || isOffline || syncStatus.state === 'error' || syncStatus.state === 'syncing') && (
@@ -56,14 +58,14 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
           {isWorkoutActive && onNavigateToWorkout && (
             <button type="button" onClick={onNavigateToWorkout} className="focus-visible:ring-accent inline-flex min-h-9 items-center gap-2 rounded-full border border-accent/30 bg-accent/15 px-3 text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2">
               <span className="size-2 rounded-full bg-accent motion-safe:animate-pulse" aria-hidden="true" />
-              <span>Sesión activa</span>
+              <span>{t('header.activeSession')}</span>
               <span className="font-mono">{activeWorkoutDuration}</span>
             </button>
           )}
-          {syncStatus.state === 'syncing' && <Badge><RefreshCw aria-hidden="true" className="mr-1.5 size-3 motion-safe:animate-spin" />Sincronizando</Badge>}
+          {syncStatus.state === 'syncing' && <Badge><RefreshCw aria-hidden="true" className="mr-1.5 size-3 motion-safe:animate-spin" />{t('header.syncing')}</Badge>}
           {isOffline
-            ? <Badge className="border-amber-500/25 text-amber-400">Sin conexión · guardado local</Badge>
-            : syncStatus.state === 'error' && <Badge className="border-danger/30 text-danger">Error de sincronización</Badge>}
+            ? <Badge className="border-amber-500/25 text-amber-400">{t('header.offline')}</Badge>
+            : syncStatus.state === 'error' && <Badge className="border-danger/30 text-danger">{t('header.syncError')}</Badge>}
         </div>
       )}
       {greeting && <div className="pt-4">{greeting}</div>}
