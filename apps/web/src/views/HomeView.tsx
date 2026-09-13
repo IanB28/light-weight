@@ -76,7 +76,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [inspectedSession, setInspectedSession] = useState<WorkoutSession | null>(null);
   const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
 
-  const today = new Date();
+  // Keep the calendar dependency stable for all renders within the same local day.
+  const todayKey = new Date().toDateString();
+  const today = useMemo(() => new Date(todayKey), [todayKey]);
   const rawDateStr = today.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Activity,
   Calculator,
@@ -33,16 +33,7 @@ import {
   type Exercise,
   type MuscleGroup
 } from '@light-weight/domain';
-import {
-  getStoredBodyweight,
-  saveBodyweightEntry,
-  getStoredTargetWeight,
-  saveStoredTargetWeight,
-  getStoredProfile,
-  saveStoredProfile,
-  UserProfile,
-  BodyweightEntry
-} from '../lib/storage.js';
+import { type UserProfile, type BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from '../components/charts/LineChart.js';
 import { ActivityHeatmap } from '../components/charts/ActivityHeatmap.js';
 import { BodyweightModal } from '../components/BodyweightModal.js';
@@ -51,15 +42,14 @@ import { TonnageEquivalenceModal } from '../components/TonnageEquivalenceModal.j
 import { ViewHeader } from '../components/ViewHeader.js';
 import {
   AnatomicalBodyMap,
-  AnalysisMode,
-  MuscleAnalytics,
-  SPANISH_MUSCLE_NAMES
+  AnalysisMode
 } from '../components/charts/AnatomicalBodyMap.js';
 import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
 import { ExercisePicker } from '../components/ExercisePicker.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
+import { selectLastTopSet, selectStatsSnapshot } from '../features/stats/stats-selectors.js';
 
 interface StatsViewProps {
   history?: WorkoutSession[];
@@ -68,6 +58,12 @@ interface StatsViewProps {
   activeWorkoutDuration?: string;
   onNavigateToWorkout?: () => void;
   onOpenSettings?: () => void;
+  profile: UserProfile;
+  bodyweightEntries: BodyweightEntry[];
+  targetWeight: number | null;
+  onSaveBodyweight: (weightKg: number) => void;
+  onSaveTargetWeight: (weightKg: number) => void;
+  onSaveProfile: (profile: Partial<UserProfile>) => void;
 }
 
 const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
@@ -90,7 +86,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
   isWorkoutActive = false,
   activeWorkoutDuration = '00:00',
   onNavigateToWorkout,
-  onOpenSettings
+  onOpenSettings,
+  profile,
+  bodyweightEntries,
+  targetWeight,
+  onSaveBodyweight,
+  onSaveTargetWeight,
+  onSaveProfile
 }) => {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
@@ -114,30 +116,14 @@ export const StatsView: React.FC<StatsViewProps> = ({
     setOpenSection((current) => current === sectionId ? null : sectionId);
   };
 
-  // User Profile (Gender & Preferences)
-  const [profile, setProfile] = useState<UserProfile>(getStoredProfile());
-  useEffect(() => {
-    const refreshProfile = () => setProfile(getStoredProfile());
-    window.addEventListener('lightweight_profile_changed', refreshProfile);
-    return () => window.removeEventListener('lightweight_profile_changed', refreshProfile);
-  }, []);
   const currentGender: Gender = profile.gender;
 
   const handleGenderChange = (newGender: Gender) => {
-    const updated = saveStoredProfile({ gender: newGender });
-    setProfile(updated);
+    onSaveProfile({ gender: newGender });
   };
 
-  // Bodyweight State
-  const [bodyweightEntries, setBodyweightEntries] = useState<BodyweightEntry[]>(getStoredBodyweight());
-  const [targetWeight, setTargetWeight] = useState<number | null>(getStoredTargetWeight());
   const [isBwModalOpen, setIsBwModalOpen] = useState(false);
-
-  const currentBodyweightKg = useMemo(() => {
-    return bodyweightEntries.length > 0
-      ? bodyweightEntries[bodyweightEntries.length - 1].weightKg
-      : null;
-  }, [bodyweightEntries]);
+  const currentBodyweightKg = useMemo(() => bodyweightEntries.at(-1)?.weightKg ?? null, [bodyweightEntries]);
 
   // =========================================================================
   // 1. MÚSCULOS: MODOS DE ANÁLISIS (EQUILIBRIO, FATIGA, FORTALEZA)
@@ -147,80 +133,19 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
 
   // Exercise lookup dictionary
-  const exercisesById = useMemo(() => {
-    return exercises.reduce((acc, ex) => {
-      acc[ex.id] = ex;
-      return acc;
-    }, {} as Record<string, Exercise>);
-  }, [exercises]);
+  const statsSnapshot = useMemo(
+    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender),
+    [history, exercises, muscleWindow, currentBodyweightKg, currentGender]
+  );
+  const exercisesById = statsSnapshot.exercisesById;
 
   // Muscle Balance & Neglected Muscles calculation
-  const muscleAnalysis = useMemo(() => {
-    return getNeglectedMuscles(history, exercisesById, muscleWindow);
-  }, [history, exercisesById, muscleWindow]);
+  const muscleAnalysis = statsSnapshot.muscle.muscleAnalysis;
 
   // Physiological Fatigue calculation with RIR intensity and exponential time decay
-  const fatigueMap = useMemo(() => {
-    return calculateMuscleFatigue(history, exercisesById);
-  }, [history, exercisesById]);
+  const fatigueMap = statsSnapshot.muscle.fatigueMap;
 
-  // Comprehensive Muscle Analytics (Balance, Fatigue, Strength & StrengthLevel Badges)
-  const fullMuscleAnalytics = useMemo(() => {
-    const workedMap = new Map(muscleAnalysis.worked.map((w) => [w.muscle, w]));
-
-    // Calculate Best 1RM records per muscle group
-    const strengthMap = new Map<MuscleGroup, { top1Rm: number; exName: string }>();
-    for (const session of history) {
-      for (const [exId, sets] of Object.entries(session.sets)) {
-        const ex = exercisesById[exId];
-        if (!ex) continue;
-        const completed = sets.filter(shouldCountForVolume);
-        if (completed.length === 0) continue;
-
-        for (const s of completed) {
-          const est = estimateOneRm(s.weightKg, s.reps).average;
-          const currentBest = strengthMap.get(ex.primaryMuscle) || { top1Rm: 0, exName: '' };
-          if (est > currentBest.top1Rm) {
-            strengthMap.set(ex.primaryMuscle, { top1Rm: est, exName: ex.name });
-          }
-        }
-      }
-    }
-
-    const result = {} as Record<MuscleGroup, MuscleAnalytics>;
-
-    for (const muscle of ALL_MUSCLE_GROUPS) {
-      const workedItem = workedMap.get(muscle);
-      const sets = workedItem?.sets || 0;
-      const volumeKg = workedItem?.volumeKg || 0;
-
-      // Physiological fatigue data
-      const fatigueData = fatigueMap[muscle];
-
-      // Strength & StrengthLevel evaluation
-      const strInfo = strengthMap.get(muscle) || { top1Rm: 0, exName: '' };
-      const strengthEvaluation = currentBodyweightKg && strInfo.top1Rm > 0
-        ? evaluateRelativeStrength(muscle, strInfo.top1Rm, currentBodyweightKg, currentGender)
-        : undefined;
-
-      result[muscle] = {
-        muscle,
-        nameEs: SPANISH_MUSCLE_NAMES[muscle] || muscle,
-        sets,
-        volumeKg,
-        fatigueScore: fatigueData.fatigueScore,
-        recoveryStatus: fatigueData.status,
-        recoveryPct: fatigueData.recoveryPct,
-        lastTrainedHoursAgo: fatigueData.hoursSinceLastTrained,
-        recentHardSetsCount: fatigueData.recentHardSetsCount,
-        topEst1RmKg: strInfo.top1Rm,
-        topExerciseName: strInfo.exName,
-        strengthEvaluation
-      };
-    }
-
-    return result;
-  }, [muscleAnalysis, fatigueMap, history, exercisesById, currentBodyweightKg, currentGender]);
+  const fullMuscleAnalytics = statsSnapshot.muscle.fullMuscleAnalytics;
 
   // =========================================================================
   // 2. PROGRESO POR EJERCICIO
@@ -228,18 +153,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [selectedExId, setSelectedExId] = useState<string>('ex-bench');
   const [exMetric, setExMetric] = useState<'top' | 'e1rm' | 'rir'>('top');
 
-  const exercisesWithHistory = useMemo(() => {
-    const ids = new Set<string>();
-    for (const session of history) {
-      for (const exId of Object.keys(session.sets)) {
-        ids.add(exId);
-      }
-    }
-    const list = Array.from(ids)
-      .map((id) => exercisesById[id] || { id, name: id, category: 'other', primaryMuscle: 'chest' as MuscleGroup })
-      .sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  }, [history, exercisesById, exercises]);
+  const exercisesWithHistory = statsSnapshot.exercisesWithHistory;
 
   const currentExerciseId = exercisesWithHistory.some((e) => e.id === selectedExId)
     ? selectedExId
@@ -320,16 +234,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   }, [calcExerciseOptions, currentCalcExerciseId]);
 
   // Mejor marca registrada por el usuario en este ejercicio
-  const lastTopSet = useMemo(() => {
-    const sessions = [...history].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
-    for (const session of sessions) {
-      const completed = (session.sets[currentCalcExerciseId] || []).filter(shouldCountForPersonalRecord);
-      if (!completed.length) continue;
-      const top = completed.reduce((best, set) => estimateOneRm(set.weightKg, set.reps).average > estimateOneRm(best.weightKg, best.reps).average ? set : best);
-      return { weightKg: top.weightKg, reps: top.reps, estimatedOneRm: estimateOneRm(top.weightKg, top.reps).average };
-    }
-    return null;
-  }, [history, currentCalcExerciseId]);
+  const lastTopSet = useMemo(() => selectLastTopSet(history, currentCalcExerciseId), [history, currentCalcExerciseId]);
 
   const [calcWeight, setCalcWeight] = useState(100);
   const [calcReps, setCalcReps] = useState(6);
@@ -354,40 +259,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   // Total tonnage y modal de equivalencias cotidianas
   const [isTonnageModalOpen, setIsTonnageModalOpen] = useState(false);
-  const totalVolumeTonnage = useMemo(() => {
-    return history.reduce((sum, s) => sum + calculateSessionTotalVolume(s), 0);
-  }, [history]);
-
-  const progressSummary = useMemo(() => {
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recentSessions = history.filter((session) => {
-      const startedAt = Date.parse(session.startedAt);
-      return Number.isFinite(startedAt) && startedAt >= cutoff;
-    });
-    let bestEstimatedOneRm = 0;
-    let bestExerciseName = '';
-
-    for (const session of recentSessions) {
-      for (const [exerciseId, sets] of Object.entries(session.sets)) {
-        for (const set of sets) {
-          if (!shouldCountForPersonalRecord(set)) continue;
-          const estimatedOneRm = estimateOneRm(set.weightKg, set.reps).average;
-          if (estimatedOneRm > bestEstimatedOneRm) {
-            bestEstimatedOneRm = estimatedOneRm;
-            bestExerciseName = exercisesById[exerciseId]?.name || 'Ejercicio del historial';
-          }
-        }
-      }
-    }
-
-    return {
-      sessions: recentSessions.length,
-      volumeKg: recentSessions.reduce((sum, session) => sum + calculateSessionTotalVolume(session), 0),
-      bestEstimatedOneRm,
-      bestExerciseName,
-      weeklyStreak: calculateWeeklyStreak(history)
-    };
-  }, [exercisesById, history]);
+  const totalVolumeTonnage = statsSnapshot.totalVolumeTonnage;
+  const progressSummary = statsSnapshot.progressSummary;
 
   const compactNumber = useMemo(
     () => new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }),
@@ -398,13 +271,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [inspectingSession, setInspectingSession] = useState<WorkoutSession | null>(null);
 
   const handleSaveWeight = (weightKg: number) => {
-    const updated = saveBodyweightEntry(weightKg);
-    setBodyweightEntries(updated);
+    onSaveBodyweight(weightKg);
   };
 
   const handleSaveGoal = (goalKg: number) => {
-    saveStoredTargetWeight(goalKg);
-    setTargetWeight(goalKg);
+    onSaveTargetWeight(goalKg);
   };
 
   return (

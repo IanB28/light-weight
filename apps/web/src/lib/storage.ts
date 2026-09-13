@@ -1,12 +1,13 @@
 import {
-  estimate1RM,
   normalizeLoggedSet,
   normalizeWorkoutSession,
-  shouldCountForPersonalRecord,
   type LegacyWorkoutSession,
   type Routine,
   type WorkoutSession
 } from '@light-weight/domain';
+import { browserStorageAdapter, type StorageAdapter } from './storage-adapter.js';
+export { calculateAllPersonalRecords } from './workout-history-index.js';
+export type { PersonalRecordInfo } from './workout-history-index.js';
 
 const STORAGE_KEYS = {
   HISTORY: 'lightweight_workouts_history',
@@ -125,7 +126,6 @@ export function saveStoredProfile(profile: Partial<UserProfile>): UserProfile {
     const current = getStoredProfile();
     const updated = parseUserProfile({ ...current, ...profile });
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent('lightweight_profile_changed', { detail: updated }));
     return updated;
   } catch {
     return parseUserProfile(profile);
@@ -306,9 +306,9 @@ export function normalizeStoredActiveWorkout<T>(value: T): T {
   } as T;
 }
 
-export function getStoredActiveWorkout<T = unknown>(): T | null {
+export function getStoredActiveWorkout<T = unknown>(adapter: StorageAdapter = browserStorageAdapter): T | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_WORKOUT);
+    const raw = adapter.getItem(STORAGE_KEYS.ACTIVE_WORKOUT);
     if (!raw) return null;
     return normalizeStoredActiveWorkout(JSON.parse(raw) as T);
   } catch {
@@ -316,21 +316,21 @@ export function getStoredActiveWorkout<T = unknown>(): T | null {
   }
 }
 
-export function saveActiveWorkout(activeState: unknown | null): void {
+export function saveActiveWorkout(activeState: unknown | null, adapter: StorageAdapter = browserStorageAdapter): void {
   try {
     if (!activeState) {
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_WORKOUT);
+      adapter.removeItem(STORAGE_KEYS.ACTIVE_WORKOUT);
     } else {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_WORKOUT, JSON.stringify(activeState));
+      adapter.setItem(STORAGE_KEYS.ACTIVE_WORKOUT, JSON.stringify(activeState));
     }
   } catch (err) {
     console.warn('Failed to save active workout state:', err);
   }
 }
 
-export function clearActiveWorkout(): void {
+export function clearActiveWorkout(adapter: StorageAdapter = browserStorageAdapter): void {
   try {
-    localStorage.removeItem(STORAGE_KEYS.ACTIVE_WORKOUT);
+    adapter.removeItem(STORAGE_KEYS.ACTIVE_WORKOUT);
   } catch {}
 }
 
@@ -349,43 +349,4 @@ export function saveStoredRoutines(routines: Routine[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
   } catch {}
-}
-
-export interface PersonalRecordInfo {
-  exerciseId: string;
-  weightKg: number;
-  reps: number;
-  est1Rm: number;
-  date: string;
-}
-
-/**
- * Derives all-time personal records for each exercise from the workout history.
- */
-export function calculateAllPersonalRecords(
-  history: WorkoutSession[]
-): Record<string, PersonalRecordInfo> {
-  const records: Record<string, PersonalRecordInfo> = {};
-
-  for (const session of history) {
-    for (const [exId, sets] of Object.entries(session.sets)) {
-      for (const set of sets) {
-        if (!shouldCountForPersonalRecord(set)) continue;
-        const est = estimate1RM(set.weightKg, set.reps, 'epley');
-        if (est === null) continue;
-
-        if (!records[exId] || est > records[exId].est1Rm) {
-          records[exId] = {
-            exerciseId: exId,
-            weightKg: set.weightKg,
-            reps: set.reps,
-            est1Rm: est,
-            date: session.startedAt
-          };
-        }
-      }
-    }
-  }
-
-  return records;
 }

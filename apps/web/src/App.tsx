@@ -1,708 +1,192 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { BottomNav, TabType } from './components/BottomNav.js';
+import React, { useEffect, useState } from 'react';
+import { BottomNav, type TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
 import { SettingsSheet } from './components/SettingsSheet.js';
 import { HomeView } from './views/HomeView.js';
-import { WorkoutView, ActiveExerciseSession } from './views/WorkoutView.js';
+import { WorkoutView } from './views/WorkoutView.js';
 import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
-import { loadExerciseCatalog } from './lib/exercises.js';
-import {
-  DEFAULT_EXERCISE_LOADING_PROFILE,
-  getPreviousPerformance,
-  normalizeLoggedSet,
-  resolveExerciseLoadingProfile,
-  type Routine,
-  type Exercise,
-  type WorkoutSession,
-  type MuscleGroup,
-  type LoggedSet,
-  type WorkoutSetType
-} from '@light-weight/domain';
-import {
-  getStoredHistory,
-  saveCompletedWorkout,
-  getStoredActiveWorkout,
-  saveActiveWorkout,
-  clearActiveWorkout,
-  getStoredRoutines,
-  saveStoredRoutines,
-  calculateAllPersonalRecords,
-  getStoredWeeklySchedule,
-  saveStoredWeeklySchedule,
-  getStoredBodyweight,
-  saveBodyweightEntry,
-  getStoredTargetWeight,
-  saveStoredTargetWeight,
-  WeeklySchedule,
-  BodyweightEntry,
-  getStoredUserInfo,
-  UserInfo,
-  getStoredProfile,
-  saveStoredProfile,
-  UserProfile
-} from './lib/storage.js';
-import { requestWakeLock, releaseWakeLock } from './lib/wakelock.js';
-import { pullFromCloud, syncWithCloud } from './lib/sync.js';
 import { initTheme } from './lib/theme.js';
 import { usePreferences } from './lib/preferences-context.js';
-import { WeightInputMode } from './lib/preferences.js';
 import { useFeedback } from './lib/feedback-context.js';
 import { useI18n } from './lib/i18n.js';
-import { formatDisplayWeight, getDefaultPlateLoadedWeightKg } from './lib/weight-units.js';
+import { useAppData } from './lib/useAppData.js';
+import { useWorkoutSession } from './features/workouts/useWorkoutSession.js';
+import { useRestTimer } from './features/workouts/useRestTimer.js';
+import type { MuscleGroup } from '@light-weight/domain';
 
 export function App() {
   const { preferences } = usePreferences();
   const { showFeedback } = useFeedback();
   const { t } = useI18n();
   const [currentTab, setCurrentTab] = useState<TabType>('home');
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [routines, setRoutines] = useState<Routine[]>(getStoredRoutines());
-  const [history, setHistory] = useState<WorkoutSession[]>(getStoredHistory());
-  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(getStoredWeeklySchedule());
-  const [bodyweightEntries, setBodyweightEntries] = useState<BodyweightEntry[]>(getStoredBodyweight());
-  const [targetWeight, setTargetWeight] = useState<number | null>(getStoredTargetWeight());
-  const [userInfo, setUserInfo] = useState<UserInfo>(getStoredUserInfo());
-  const [profile, setProfile] = useState<UserProfile>(getStoredProfile());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const data = useAppData();
+  const workout = useWorkoutSession({
+    exercises: data.exercises,
+    routines: data.routines,
+    history: data.history,
+    preferences,
+    userId: data.userInfo.id
+  });
+  const restTimer = useRestTimer();
 
-  // Workout Session State
-  const [isWorkoutActive, setIsWorkoutActive] = useState(false);
-  const [workoutSeconds, setWorkoutSeconds] = useState(0);
-  const [activeRoutineName, setActiveRoutineName] = useState<string>('Entrenamiento Libre');
-  const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>([]);
-  const [workoutStartTime, setWorkoutStartTime] = useState<string>('');
+  useEffect(() => { initTheme(); }, []);
 
-  // Rest Timer State
-  const [restSecondsLeft, setRestSecondsLeft] = useState<number>(0);
-  const [restTotalSeconds, setRestTotalSeconds] = useState<number>(preferences.defaultRestSeconds);
-  const previousWeightInputMode = useRef(preferences.weightInputMode);
-
-  // A Settings change establishes a new default for the active workout too.
-  // Exercise-level switches remain overrides until that global choice changes.
-  useEffect(() => {
-    if (previousWeightInputMode.current === preferences.weightInputMode) return;
-    previousWeightInputMode.current = preferences.weightInputMode;
-    setExerciseSessions((current) => current.map((session) => {
-      if (!session.weightInputModeOverride) return session;
-      const { weightInputModeOverride: _override, ...withoutOverride } = session;
-      return withoutOverride;
-    }));
-  }, [preferences.weightInputMode]);
-
-  // Hydrate in the background without delaying or replacing the local-first render.
-  useEffect(() => {
-    let active = true;
-
-    void pullFromCloud().then((result) => {
-      if (!active || !result.ok) return;
-      setHistory(getStoredHistory());
-      setRoutines(getStoredRoutines());
-      setUserInfo(getStoredUserInfo());
-      setProfile(getStoredProfile());
-    });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // The catalog is split out of the initial bundle and loaded once on demand.
-  useEffect(() => {
-    let active = true;
-    loadExerciseCatalog()
-      .then((catalog) => {
-        if (!active) return;
-        setExercises(catalog);
-        setCatalogStatus('ready');
-      })
-      .catch(() => { if (active) setCatalogStatus('error'); });
-    return () => { active = false; };
-  }, []);
-
-  // Restore Active Session from localStorage on mount if exists
-  useEffect(() => {
-    initTheme();
-    const saved = getStoredActiveWorkout<{
-      isWorkoutActive: boolean;
-      workoutSeconds?: number;
-      activeRoutineName?: string;
-      exerciseSessions?: ActiveExerciseSession[];
-      workoutStartTime?: string;
-    }>();
-    if (saved && saved.isWorkoutActive) {
-      setIsWorkoutActive(true);
-      setWorkoutSeconds(saved.workoutSeconds || 0);
-      setActiveRoutineName(saved.activeRoutineName || 'Entrenamiento Libre');
-      setExerciseSessions((saved.exerciseSessions || []).map((session) => {
-        // Sessions persisted before preferences V2 copied the global mode into
-        // every exercise. Drop that legacy snapshot so the current preference
-        // can drive the UI again; future workout-level choices use an override.
-        const legacySession = session as ActiveExerciseSession & { weightInputMode?: WeightInputMode };
-        const { weightInputMode: _legacyWeightInputMode, ...restoredSession } = legacySession;
-        const loading = resolveExerciseLoadingProfile(restoredSession.exercise).profile;
-        const normalizedSession = {
-          ...restoredSession,
-          exercise: { ...restoredSession.exercise, loading },
-          sets: restoredSession.sets.map((set) => normalizeLoggedSet(set))
-        };
-        return loading.loadMode === 'added_weight'
-          ? {
-              ...normalizedSession,
-              usesAddedWeight: normalizedSession.usesAddedWeight
-                ?? normalizedSession.sets.some((set) => set.weightKg > 0)
-            }
-          : normalizedSession;
-      }));
-      setWorkoutStartTime(saved.workoutStartTime || new Date().toISOString());
-      requestWakeLock();
-    }
-  }, []);
-
-  // Save active workout to localStorage whenever it changes
-  useEffect(() => {
-    if (isWorkoutActive) {
-      saveActiveWorkout({
-        isWorkoutActive,
-        workoutSeconds,
-        activeRoutineName,
-        exerciseSessions,
-        workoutStartTime
-      });
-    }
-  }, [isWorkoutActive, workoutSeconds, activeRoutineName, exerciseSessions, workoutStartTime]);
-
-  // Workout Timer Interval
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (isWorkoutActive) {
-      interval = setInterval(() => {
-        setWorkoutSeconds((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isWorkoutActive]);
-
-  // Rest Timer Countdown Interval
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (restSecondsLeft > 0) {
-      interval = setInterval(() => {
-        setRestSecondsLeft((prev) => {
-          if (prev <= 1) {
-            if ('vibrate' in navigator) {
-              try {
-                navigator.vibrate([150, 80, 150]);
-              } catch {}
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [restSecondsLeft]);
-
-  // Format Elapsed Workout Time
-  const formatDuration = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  // Helper to create an ActiveExerciseSession with previous record lookup
-  const createExerciseSession = (ex: Exercise): ActiveExerciseSession => {
-    const prev = getPreviousPerformance(history, ex.id);
-    const prs = calculateAllPersonalRecords(history);
-    const previousTopSet = prev?.sets.reduce<LoggedSet | null>((best, set) => !best || set.weightKg > best.weightKg ? set : best, null);
-    const previousRecord = previousTopSet ? `${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}` : undefined;
-    const bestRecord = prs[ex.id] ? `${formatDisplayWeight(prs[ex.id].weightKg, preferences.units)} × ${prs[ex.id].reps}` : undefined;
-
-    const loading = resolveExerciseLoadingProfile(ex).profile;
-    const startsWithPlates = loading.supportsPlates && (
-      !loading.supportsKeyboard || preferences.weightInputMode === 'plates'
-    );
-    const defaultWeight = startsWithPlates
-      ? getDefaultPlateLoadedWeightKg(
-          preferences.units,
-          loading.includeBarWeight ? preferences.defaultBarWeightKg : 0,
-          preferences.availablePlatesKg,
-          loading
-        )
-      : loading.loadMode === 'added_weight'
-        ? 0
-        : loading.mechanism === 'dumbbell'
-        ? 22
-        : 45;
-
-    const initialSets = [
-      { setIndex: 1, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, setType: 'working' as const, rir: 2 },
-      { setIndex: 2, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, setType: 'working' as const, rir: 2 },
-      { setIndex: 3, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, setType: 'working' as const, rir: 1 }
-    ];
-
-    return {
-      exercise: ex,
-      previousRecord,
-      bestRecord,
-      bestEst1Rm: prs[ex.id]?.est1Rm,
-      targetRepRange: [6, 12],
-      includeBarWeight: loading.includeBarWeight,
-      sets: initialSets
-    };
-  };
-
-  // Handler: Iniciar Entrenamiento (Libre, por Enfoque o desde Rutina)
-  const handleStartWorkout = (
-    routineId?: string,
-    sessionName?: string,
-    prefilterMuscles?: MuscleGroup[]
-  ) => {
-    requestWakeLock();
-    setWorkoutStartTime(new Date().toISOString());
-    setWorkoutSeconds(0);
-    setIsWorkoutActive(true);
-
-    if (routineId) {
-      const selected = routines.find((r) => r.id === routineId);
-      if (selected) {
-        setActiveRoutineName(selected.name);
-        const routineExs = exercises.filter((ex) => selected.exerciseIds.includes(ex.id));
-        const initialExerciseSessions = routineExs.map(createExerciseSession);
-        setExerciseSessions(initialExerciseSessions);
-        setCurrentTab('workout');
-        return;
-      }
-    }
-
-    // Libre o con Enfoque (Upper, Lower, Push, Pull, Quads, Glutes)
-    const title = sessionName || 'Entrenamiento Libre';
-    setActiveRoutineName(title);
-
-    if (prefilterMuscles && prefilterMuscles.length > 0) {
-      const matching = exercises.filter((ex) => prefilterMuscles.includes(ex.primaryMuscle));
-      const firstEx = matching[0];
-      setExerciseSessions(firstEx ? [createExerciseSession(firstEx)] : []);
-    } else {
-      setExerciseSessions([]);
-    }
-
+  const startWorkout = (routineId?: string, sessionName?: string, prefilterMuscles?: MuscleGroup[]) => {
+    workout.start(routineId, sessionName, prefilterMuscles);
     setCurrentTab('workout');
   };
 
-  const handleUpdateWeeklySchedule = (schedule: WeeklySchedule) => {
-    setWeeklySchedule(schedule);
-    saveStoredWeeklySchedule(schedule);
+  const startWorkoutWithExercise = (exercise: Parameters<typeof workout.addExercise>[0]) => {
+    workout.startWithExercise(exercise);
+    setCurrentTab('workout');
   };
 
-  const handleSaveBodyweight = (weightKg: number, dateStr?: string) => {
-    const updated = saveBodyweightEntry(weightKg, dateStr);
-    setBodyweightEntries(updated);
-    void syncWithCloud();
-    showFeedback(t('feedback.weightSaved'));
+  const createCustomExercise = (name: string, muscle: MuscleGroup) => {
+    const exercise = workout.createCustomExercise(name, muscle);
+    data.addCustomExercise(exercise);
+    if (workout.isWorkoutActive) workout.addExercise(exercise);
   };
 
-  const handleSaveTargetWeight = (targetKg: number) => {
-    setTargetWeight(targetKg);
-    saveStoredTargetWeight(targetKg);
-    showFeedback(t('feedback.weightSaved'));
-  };
-
-  // Handler: Agregar Ejercicio a la sesión activa
-  const handleAddExerciseToWorkout = (exercise: Exercise) => {
-    if (!isWorkoutActive) {
-      requestWakeLock();
-      setWorkoutStartTime(new Date().toISOString());
-      setWorkoutSeconds(0);
-      setActiveRoutineName('Entrenamiento Libre');
-      setIsWorkoutActive(true);
-    }
-    setExerciseSessions((prev) => {
-      if (prev.some((item) => item.exercise.id === exercise.id)) return prev;
-      return [...prev, createExerciseSession(exercise)];
-    });
-  };
-
-  // Handler: Quitar Ejercicio de la sesión activa
-  const handleRemoveExerciseFromWorkout = (exerciseId: string) => {
-    setExerciseSessions((prev) => prev.filter((item) => item.exercise.id !== exerciseId));
-  };
-
-  const handleUpdateWeightInputMode = (exerciseId: string, weightInputMode: WeightInputMode) => {
-    setExerciseSessions((current) => current.map((session) => (
-      session.exercise.id === exerciseId ? { ...session, weightInputModeOverride: weightInputMode } : session
-    )));
-  };
-
-  const handleToggleAddedWeight = (exerciseId: string, enabled: boolean) => {
-    setExerciseSessions((current) => current.map((session) => {
-      if (session.exercise.id !== exerciseId) return session;
-      return {
-        ...session,
-        usesAddedWeight: enabled,
-        sets: enabled
-          ? session.sets
-          : session.sets.map((set) => ({ ...set, weightKg: 0 }))
-      };
-    }));
-  };
-
-  const handleUpdateBarInclusion = (exerciseId: string, includeBarWeight: boolean) => {
-    setExerciseSessions((current) => current.map((session) => (
-      session.exercise.id === exerciseId ? { ...session, includeBarWeight } : session
-    )));
-  };
-
-  // Handler: Crear Ejercicio Personalizado
-  const handleCreateCustomExercise = (name: string, primaryMuscle: MuscleGroup) => {
-    const newEx: Exercise = {
-      id: `ex-custom-${Date.now()}`,
-      name,
-      category: 'other',
-      primaryMuscle,
-      isCustom: true,
-      loading: { ...DEFAULT_EXERCISE_LOADING_PROFILE }
-    };
-    setExercises((prev) => [newEx, ...prev]);
-    if (isWorkoutActive) {
-      handleAddExerciseToWorkout(newEx);
-    }
-  };
-
-  // Handler: Toggle Set Check (trigger rest timer)
-  const handleToggleSet = (exerciseId: string, setIndex: number) => {
-    setExerciseSessions((prev) =>
-      prev.map((item) => {
-        if (item.exercise.id !== exerciseId) return item;
-        return {
-          ...item,
-          sets: item.sets.map((s) => {
-            if (s.setIndex !== setIndex) return s;
-            if (!s.completed && (!Number.isFinite(s.weightKg) || s.weightKg < 0 || !Number.isFinite(s.reps) || s.reps <= 0)) return s;
-            return { ...s, completed: !s.completed };
-          })
-        };
-      })
-    );
-  };
-
-  // Handler: Update Set Weight / Reps / RIR
-  const handleUpdateSet = (
-    exerciseId: string,
-    setIndex: number,
-    field: 'weightKg' | 'reps' | 'rir',
-    value: number
-  ) => {
-    const finiteValue = Number.isFinite(value) ? value : 0;
-    const normalizedValue = field === 'weightKg'
-      ? Math.max(0, finiteValue)
-      : field === 'reps'
-        ? Math.max(0, Math.round(finiteValue))
-        : Math.min(5, Math.max(0, Math.round(finiteValue)));
-
-    setExerciseSessions((prev) =>
-      prev.map((item) => {
-        if (item.exercise.id !== exerciseId) return item;
-        return {
-          ...item,
-          sets: item.sets.map((s) => {
-            if (s.setIndex !== setIndex) return s;
-            return { ...s, [field]: normalizedValue };
-          })
-        };
-      })
-    );
-  };
-
-  // Handler: Add Set
-  const handleAddSet = (exerciseId: string, setType: WorkoutSetType = 'working') => {
-    setExerciseSessions((prev) =>
-      prev.map((item) => {
-        if (item.exercise.id !== exerciseId) return item;
-        const lastSet = item.sets[item.sets.length - 1];
-        const newSetIndex = item.sets.length + 1;
-        return {
-          ...item,
-          sets: [
-            ...item.sets,
-            {
-              setIndex: newSetIndex,
-              weightKg: lastSet ? lastSet.weightKg : 50,
-              reps: lastSet ? lastSet.reps : 8,
-              completed: false,
-              isWarmup: setType === 'warmup',
-              setType,
-              rir: lastSet ? lastSet.rir : 2
-            }
-          ]
-        };
-      })
-    );
-  };
-
-  // Handler: Remove Last Set
-  const handleRemoveSet = (exerciseId: string) => {
-    setExerciseSessions((prev) =>
-      prev.map((item) => {
-        if (item.exercise.id !== exerciseId) return item;
-        if (item.sets.length <= 1) return item;
-        return {
-          ...item,
-          sets: item.sets.slice(0, -1)
-        };
-      })
-    );
-  };
-
-  // Rest Timer Controls
-  const handleStartRestTimer = (seconds: number) => {
-    setRestTotalSeconds(seconds);
-    setRestSecondsLeft(seconds);
-  };
-
-  const handleAddRestSeconds = (delta: number) => {
-    setRestSecondsLeft((prev) => Math.max(0, prev + delta));
-  };
-
-  const handleDismissRestTimer = () => {
-    setRestSecondsLeft(0);
-  };
-
-  // Handler: Finish and Save Workout
-  const handleFinishWorkout = () => {
-    const completedSetsRecord: Record<string, LoggedSet[]> = {};
-    for (const exSession of exerciseSessions) {
-      completedSetsRecord[exSession.exercise.id] = exSession.sets.map((set) => normalizeLoggedSet({
-        ...set,
-        completed: set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0
-      }));
-    }
-
-    const sessionUuid =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
-
-    const newSession: WorkoutSession = {
-      id: sessionUuid,
-      userId: '00000000-0000-0000-0000-000000000001',
-      routineName: activeRoutineName,
-      startedAt: workoutStartTime || new Date(Date.now() - workoutSeconds * 1000).toISOString(),
-      endedAt: new Date().toISOString(),
-      sets: completedSetsRecord
-    };
-
-    const updatedHistory = saveCompletedWorkout(newSession);
-    setHistory(updatedHistory);
-
-    releaseWakeLock();
-    clearActiveWorkout();
-    setIsWorkoutActive(false);
-    setExerciseSessions([]);
-    setWorkoutSeconds(0);
-    setWorkoutStartTime('');
-    setActiveRoutineName('Entrenamiento Libre');
-    setRestSecondsLeft(0);
+  const finishWorkout = () => {
+    const result = workout.finish();
+    if (!result) return;
+    restTimer.cancel();
+    data.setHistory(result.history);
     setCurrentTab('stats');
     showFeedback(t('feedback.workoutSaved'));
-
-    // Auto-sincronización con PostgreSQL en segundo plano
-    void syncWithCloud();
+    void data.sync();
   };
 
-  // Handler: Cancel Workout
-  const handleCancelWorkout = () => {
-    releaseWakeLock();
-    clearActiveWorkout();
-    setIsWorkoutActive(false);
-    setExerciseSessions([]);
-    setWorkoutSeconds(0);
-    setWorkoutStartTime('');
-    setActiveRoutineName('Entrenamiento Libre');
-    setRestSecondsLeft(0);
+  const cancelWorkout = () => {
+    workout.cancel();
+    restTimer.cancel();
     setCurrentTab('home');
   };
 
-  const handleDataRestored = () => {
-    setHistory(getStoredHistory());
-    setRoutines(getStoredRoutines());
-    setWeeklySchedule(getStoredWeeklySchedule());
-    setBodyweightEntries(getStoredBodyweight());
-    setTargetWeight(getStoredTargetWeight());
-    setUserInfo(getStoredUserInfo());
-    setProfile(getStoredProfile());
+  const saveBodyweight = (weightKg: number, dateStr?: string) => {
+    data.saveBodyweight(weightKg, dateStr);
+    showFeedback(t('feedback.weightSaved'));
   };
 
-  const handleProfileChange = (updatedProfile: UserProfile) => {
-    const saved = saveStoredProfile(updatedProfile);
-    setProfile(saved);
-    showFeedback(t('feedback.profileSaved'));
+  const saveTargetWeight = (weightKg: number) => {
+    data.saveTargetWeight(weightKg);
+    showFeedback(t('feedback.weightSaved'));
   };
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-transparent font-sans text-text-primary selection:bg-accent selection:text-accent-fg">
-      {/* Atmospheric Background Ambient Lights (Apple/visionOS Depth) */}
-      <div
-        className="fixed -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[26rem] rounded-full blur-[160px] pointer-events-none -z-10 transition-colors duration-700"
-        style={{ backgroundColor: 'var(--orb-1)' }}
-      />
-      <div
-        className="fixed top-[28%] -left-28 w-[32rem] h-[32rem] rounded-full blur-[170px] pointer-events-none -z-10 transition-colors duration-700"
-        style={{ backgroundColor: 'var(--orb-2)' }}
-      />
-      <div
-        className="fixed top-[52%] -right-24 w-[32rem] h-[32rem] rounded-full blur-[170px] pointer-events-none -z-10 transition-colors duration-700"
-        style={{ backgroundColor: 'var(--orb-3)' }}
-      />
-      <div
-        className="fixed top-[22%] left-1/2 -translate-x-1/2 w-[28rem] h-[28rem] rounded-full blur-[160px] pointer-events-none -z-10 transition-colors duration-700"
-        style={{ backgroundColor: 'var(--orb-brand, rgba(34, 197, 94, 0.08))' }}
-      />
+      <div className="pointer-events-none fixed -top-24 left-1/2 -z-10 h-[26rem] w-[36rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-1)' }} />
+      <div className="pointer-events-none fixed top-[28%] -left-28 -z-10 size-[32rem] rounded-full blur-[170px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-2)' }} />
+      <div className="pointer-events-none fixed top-[52%] -right-24 -z-10 size-[32rem] rounded-full blur-[170px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-3)' }} />
+      <div className="pointer-events-none fixed top-[22%] left-1/2 -z-10 size-[28rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-brand, rgba(34, 197, 94, 0.08))' }} />
 
-      {/* Main Container */}
       <main className="flex-1 max-w-md w-full mx-auto px-page pt-3 pb-page-safe">
-        {currentTab === 'home' && (
-          <HomeView
-            userName={profile.displayName === 'Atleta' ? userInfo.name : profile.displayName}
-            history={history}
-            routines={routines}
-            weeklySchedule={weeklySchedule}
-            onUpdateWeeklySchedule={handleUpdateWeeklySchedule}
-            bodyweightEntries={bodyweightEntries}
-            targetWeight={targetWeight}
-            onSaveBodyweight={handleSaveBodyweight}
-            onSaveTargetWeight={handleSaveTargetWeight}
-            onStartWorkout={handleStartWorkout}
-            isWorkoutActive={isWorkoutActive}
-            activeWorkoutDuration={formatDuration(workoutSeconds)}
-            onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-        )}
+        {currentTab === 'home' && <HomeView
+          userName={data.profile.displayName === 'Atleta' ? data.userInfo.name : data.profile.displayName}
+          history={data.history}
+          routines={data.routines}
+          weeklySchedule={data.weeklySchedule}
+          onUpdateWeeklySchedule={data.updateWeeklySchedule}
+          bodyweightEntries={data.bodyweightEntries}
+          targetWeight={data.targetWeight}
+          onSaveBodyweight={saveBodyweight}
+          onSaveTargetWeight={saveTargetWeight}
+          onStartWorkout={startWorkout}
+          isWorkoutActive={workout.isWorkoutActive}
+          activeWorkoutDuration={workout.duration}
+          onNavigateToWorkout={() => setCurrentTab('workout')}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />}
 
-        {currentTab === 'workout' && (
-          <WorkoutView
-            isWorkoutActive={isWorkoutActive}
-            routines={routines}
-            routineName={activeRoutineName}
-            sessionDuration={formatDuration(workoutSeconds)}
-            exerciseSessions={exerciseSessions}
-            availableExercises={exercises}
-            history={history}
-            onToggleSet={handleToggleSet}
-            onUpdateSet={handleUpdateSet}
-            onAddSet={handleAddSet}
-            onRemoveSet={handleRemoveSet}
-            onAddExercise={handleAddExerciseToWorkout}
-            onRemoveExercise={handleRemoveExerciseFromWorkout}
-            onCreateCustomExercise={handleCreateCustomExercise}
-            onFinishWorkout={handleFinishWorkout}
-            onCancelWorkout={handleCancelWorkout}
-            onStartRestTimer={handleStartRestTimer}
-            onStartRoutine={handleStartWorkout}
-            preferences={preferences}
-            onUpdateWeightInputMode={handleUpdateWeightInputMode}
-            onToggleAddedWeight={handleToggleAddedWeight}
-            onUpdateBarInclusion={handleUpdateBarInclusion}
-          />
-        )}
+        {currentTab === 'workout' && <WorkoutView
+          isWorkoutActive={workout.isWorkoutActive}
+          routines={data.routines}
+          routineName={workout.activeRoutineName}
+          sessionDuration={workout.duration}
+          exerciseSessions={workout.exerciseSessions}
+          availableExercises={data.exercises}
+          history={data.history}
+          onToggleSet={workout.toggleSet}
+          onUpdateSet={workout.updateSet}
+          onAddSet={workout.addSet}
+          onRemoveSet={workout.removeSet}
+          onAddExercise={workout.addExercise}
+          onRemoveExercise={workout.removeExercise}
+          onCreateCustomExercise={createCustomExercise}
+          onFinishWorkout={finishWorkout}
+          onCancelWorkout={cancelWorkout}
+          onStartRestTimer={restTimer.start}
+          onStartRoutine={startWorkout}
+          preferences={preferences}
+          onUpdateWeightInputMode={workout.updateWeightInputMode}
+          onToggleAddedWeight={workout.toggleAddedWeight}
+          onUpdateBarInclusion={workout.updateBarInclusion}
+        />}
 
-        {currentTab === 'stats' && (
-          <StatsView
-            history={history}
-            exercises={exercises}
-            isWorkoutActive={isWorkoutActive}
-            activeWorkoutDuration={formatDuration(workoutSeconds)}
-            onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-        )}
+        {currentTab === 'stats' && <StatsView
+          history={data.history}
+          exercises={data.exercises}
+          isWorkoutActive={workout.isWorkoutActive}
+          activeWorkoutDuration={workout.duration}
+          onNavigateToWorkout={() => setCurrentTab('workout')}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          profile={data.profile}
+          bodyweightEntries={data.bodyweightEntries}
+          targetWeight={data.targetWeight}
+          onSaveBodyweight={data.saveBodyweight}
+          onSaveTargetWeight={data.saveTargetWeight}
+          onSaveProfile={(patch) => data.saveProfile({ ...data.profile, ...patch })}
+        />}
 
-        {currentTab === 'plan' && (
-          <PlanView
-            routines={routines}
-            exercises={exercises}
-            weeklySchedule={weeklySchedule}
-            onUpdateWeeklySchedule={handleUpdateWeeklySchedule}
-            onSelectAndStartRoutine={handleStartWorkout}
-            onSaveRoutine={(newRoutine) => {
-              const updated = [...routines, newRoutine];
-              setRoutines(updated);
-              saveStoredRoutines(updated);
-              void syncWithCloud();
-              showFeedback(t('feedback.routineSaved'));
-            }}
-            onDeleteRoutine={(routineId) => {
-              const updated = routines.filter((r) => r.id !== routineId);
-              setRoutines(updated);
-              saveStoredRoutines(updated);
-              const updatedSchedule = Object.fromEntries(
-                Object.entries(weeklySchedule).map(([day, assignedId]) => [day, assignedId === routineId ? null : assignedId])
-              ) as WeeklySchedule;
-              setWeeklySchedule(updatedSchedule);
-              saveStoredWeeklySchedule(updatedSchedule);
-              void syncWithCloud();
-            }}
-            isWorkoutActive={isWorkoutActive}
-            activeWorkoutDuration={formatDuration(workoutSeconds)}
-            onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-        )}
+        {currentTab === 'plan' && <PlanView
+          routines={data.routines}
+          exercises={data.exercises}
+          weeklySchedule={data.weeklySchedule}
+          onUpdateWeeklySchedule={data.updateWeeklySchedule}
+          onSelectAndStartRoutine={startWorkout}
+          onSaveRoutine={(routine) => { data.saveRoutine(routine); showFeedback(t('feedback.routineSaved')); }}
+          onDeleteRoutine={data.deleteRoutine}
+          isWorkoutActive={workout.isWorkoutActive}
+          activeWorkoutDuration={workout.duration}
+          onNavigateToWorkout={() => setCurrentTab('workout')}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />}
 
-        {currentTab === 'exercises' && (
-          <LibraryView
-            exercises={exercises}
-            history={history}
-            catalogStatus={catalogStatus}
-            onRetryCatalog={() => {
-              setCatalogStatus('loading');
-              loadExerciseCatalog().then((catalog) => {
-                setExercises(catalog);
-                setCatalogStatus('ready');
-              }).catch(() => setCatalogStatus('error'));
-            }}
-            isWorkoutActive={isWorkoutActive}
-            activeWorkoutDuration={formatDuration(workoutSeconds)}
-            onNavigateToWorkout={() => setCurrentTab('workout')}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onAddExerciseToActiveWorkout={handleAddExerciseToWorkout}
-            onStartWorkoutWithExercise={(ex) => {
-              handleStartWorkout();
-              setExerciseSessions([createExerciseSession(ex)]);
-            }}
-          />
-        )}
+        {currentTab === 'exercises' && <LibraryView
+          exercises={data.exercises}
+          history={data.history}
+          catalogStatus={data.catalogStatus}
+          onRetryCatalog={() => { void data.loadCatalog().catch(() => undefined); }}
+          isWorkoutActive={workout.isWorkoutActive}
+          activeWorkoutDuration={workout.duration}
+          onNavigateToWorkout={() => setCurrentTab('workout')}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onAddExerciseToActiveWorkout={workout.addExercise}
+          onStartWorkoutWithExercise={startWorkoutWithExercise}
+        />}
       </main>
 
-      {/* Temporizador de Descanso Flotante */}
       <RestTimerBar
-        secondsLeft={restSecondsLeft}
-        totalSeconds={restTotalSeconds}
-        onAddSeconds={handleAddRestSeconds}
-        onDismiss={handleDismissRestTimer}
+        secondsLeft={restTimer.secondsLeft}
+        totalSeconds={restTimer.totalSeconds}
+        onAddSeconds={restTimer.add}
+        onDismiss={restTimer.cancel}
       />
 
-      {/* Barra de Navegación Inferior (Thumb Zone) */}
-      <BottomNav
-        currentTab={currentTab}
-        onSelectTab={(tab) => setCurrentTab(tab)}
-        isWorkoutActive={isWorkoutActive}
-      />
+      <BottomNav currentTab={currentTab} onSelectTab={setCurrentTab} isWorkoutActive={workout.isWorkoutActive} />
 
-      {/* Modal de Configuración y Respaldo / Temas */}
       <SettingsSheet
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        onDataRestored={handleDataRestored}
-        profile={profile}
-        userInfo={userInfo}
-        history={history}
-        exercises={exercises}
-        onProfileChange={handleProfileChange}
+        onDataRestored={data.reloadFromStorage}
+        profile={data.profile}
+        userInfo={data.userInfo}
+        history={data.history}
+        exercises={data.exercises}
+        onProfileChange={(profile) => { data.saveProfile(profile); showFeedback(t('feedback.profileSaved')); }}
       />
     </div>
   );

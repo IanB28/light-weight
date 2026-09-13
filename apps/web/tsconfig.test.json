@@ -6,6 +6,7 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
+    "jsx": "react-jsx",
     "types": ["node"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
@@ -13,6 +14,12 @@
     "src/lib/api-errors.ts",
     "src/lib/preferences.ts",
     "src/lib/exercise-discovery.ts",
+    "src/lib/workout-history-index.ts",
+    "src/lib/workout-history-index.test.ts",
+    "src/features/workouts/workout-time.ts",
+    "src/features/workouts/workout-time.test.ts",
+    "src/features/stats/stats-selectors.ts",
+    "src/features/stats/stats-selectors.test.ts",
     "src/lib/foundations.test.ts"
   ]
 }

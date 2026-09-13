@@ -4,12 +4,25 @@
  * to unlock their phone between sets.
  */
 
-let wakeLock: any = null;
+interface WakeLockSentinelLike extends EventTarget {
+  released: boolean;
+  release(): Promise<void>;
+}
+
+interface WakeLockNavigator {
+  wakeLock?: {
+    request(type: 'screen'): Promise<WakeLockSentinelLike>;
+  };
+}
+
+let wakeLock: WakeLockSentinelLike | null = null;
 
 export async function requestWakeLock(): Promise<boolean> {
-  if ('wakeLock' in navigator) {
+  if (typeof navigator !== 'undefined') {
+  const wakeLockApi = (navigator as unknown as WakeLockNavigator).wakeLock;
+    if (!wakeLockApi || wakeLock?.released === false) return Boolean(wakeLock && !wakeLock.released);
     try {
-      wakeLock = await (navigator as any).wakeLock.request('screen');
+      wakeLock = await wakeLockApi.request('screen');
       wakeLock.addEventListener('release', () => {
         wakeLock = null;
       });
