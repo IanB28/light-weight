@@ -8,7 +8,18 @@ import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
 import { loadExerciseCatalog } from './lib/exercises.js';
-import { Routine, Exercise, WorkoutSession, MuscleGroup, LoggedSet, getPreviousPerformance, WorkoutSetType } from '@light-weight/domain';
+import {
+  DEFAULT_EXERCISE_LOADING_PROFILE,
+  getPreviousPerformance,
+  normalizeLoggedSet,
+  resolveExerciseLoadingProfile,
+  type Routine,
+  type Exercise,
+  type WorkoutSession,
+  type MuscleGroup,
+  type LoggedSet,
+  type WorkoutSetType
+} from '@light-weight/domain';
 import {
   getStoredHistory,
   saveCompletedWorkout,
@@ -39,7 +50,7 @@ import { usePreferences } from './lib/preferences-context.js';
 import { WeightInputMode } from './lib/preferences.js';
 import { useFeedback } from './lib/feedback-context.js';
 import { useI18n } from './lib/i18n.js';
-import { formatDisplayWeight, getDefaultPlateLoadedWeightKg, getPlateLoadScope, getWeightEntryCapability } from './lib/weight-units.js';
+import { formatDisplayWeight, getDefaultPlateLoadedWeightKg } from './lib/weight-units.js';
 
 export function App() {
   const { preferences } = usePreferences();
@@ -131,13 +142,19 @@ export function App() {
         // can drive the UI again; future workout-level choices use an override.
         const legacySession = session as ActiveExerciseSession & { weightInputMode?: WeightInputMode };
         const { weightInputMode: _legacyWeightInputMode, ...restoredSession } = legacySession;
-        return restoredSession.exercise.category === 'bodyweight'
+        const loading = resolveExerciseLoadingProfile(restoredSession.exercise).profile;
+        const normalizedSession = {
+          ...restoredSession,
+          exercise: { ...restoredSession.exercise, loading },
+          sets: restoredSession.sets.map((set) => normalizeLoggedSet(set))
+        };
+        return loading.loadMode === 'added_weight'
           ? {
-              ...restoredSession,
-              usesAddedWeight: restoredSession.usesAddedWeight
-                ?? restoredSession.sets.some((set) => set.weightKg > 0)
+              ...normalizedSession,
+              usesAddedWeight: normalizedSession.usesAddedWeight
+                ?? normalizedSession.sets.some((set) => set.weightKg > 0)
             }
-          : restoredSession;
+          : normalizedSession;
       }));
       setWorkoutStartTime(saved.workoutStartTime || new Date().toISOString());
       requestWakeLock();
@@ -204,23 +221,21 @@ export function App() {
     const previousRecord = previousTopSet ? `${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}` : undefined;
     const bestRecord = prs[ex.id] ? `${formatDisplayWeight(prs[ex.id].weightKg, preferences.units)} × ${prs[ex.id].reps}` : undefined;
 
-    const weightEntryCapability = getWeightEntryCapability(ex.category);
-    const plateLoadScope = getPlateLoadScope(ex);
-    const startsWithPlates = weightEntryCapability === 'plates-only'
-      || (weightEntryCapability === 'keyboard-and-plates' && preferences.weightInputMode === 'plates');
+    const loading = resolveExerciseLoadingProfile(ex).profile;
+    const startsWithPlates = loading.supportsPlates && (
+      !loading.supportsKeyboard || preferences.weightInputMode === 'plates'
+    );
     const defaultWeight = startsWithPlates
       ? getDefaultPlateLoadedWeightKg(
           preferences.units,
-          weightEntryCapability === 'plates-only' ? preferences.defaultBarWeightKg : 0,
+          loading.includeBarWeight ? preferences.defaultBarWeightKg : 0,
           preferences.availablePlatesKg,
-          plateLoadScope === 'barbell' ? 2 : 1
+          loading
         )
-      : ex.category === 'barbell'
-        ? 60
-        : ex.category === 'dumbbell'
-        ? 22
-        : ex.category === 'bodyweight'
+      : loading.loadMode === 'added_weight'
         ? 0
+        : loading.mechanism === 'dumbbell'
+        ? 22
         : 45;
 
     const initialSets = [
@@ -235,6 +250,7 @@ export function App() {
       bestRecord,
       bestEst1Rm: prs[ex.id]?.est1Rm,
       targetRepRange: [6, 12],
+      includeBarWeight: loading.includeBarWeight,
       sets: initialSets
     };
   };
@@ -347,7 +363,8 @@ export function App() {
       name,
       category: 'other',
       primaryMuscle,
-      isCustom: true
+      isCustom: true,
+      loading: { ...DEFAULT_EXERCISE_LOADING_PROFILE }
     };
     setExercises((prev) => [newEx, ...prev]);
     if (isWorkoutActive) {
@@ -458,7 +475,7 @@ export function App() {
   const handleFinishWorkout = () => {
     const completedSetsRecord: Record<string, LoggedSet[]> = {};
     for (const exSession of exerciseSessions) {
-      completedSetsRecord[exSession.exercise.id] = exSession.sets.map((set) => ({
+      completedSetsRecord[exSession.exercise.id] = exSession.sets.map((set) => normalizeLoggedSet({
         ...set,
         completed: set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0
       }));

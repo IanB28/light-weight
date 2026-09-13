@@ -1,4 +1,4 @@
-import { Exercise, MuscleGroup, WorkoutSession } from '@light-weight/domain';
+import { shouldCountForVolume, type Exercise, type MuscleGroup, type WorkoutSession } from '@light-weight/domain';
 
 export interface ExerciseUsage {
   sessions: number;
@@ -24,7 +24,7 @@ export function deriveExerciseUsage(history: WorkoutSession[]): Record<string, E
   for (const session of history) {
     const timestamp = new Date(session.startedAt).getTime();
     for (const [exerciseId, sets] of Object.entries(session.sets)) {
-      if (!sets.some((set) => set.completed && !set.isWarmup)) continue;
+      if (!sets.some(shouldCountForVolume)) continue;
       const current = usage[exerciseId] || { sessions: 0, lastUsedAt: 0 };
       usage[exerciseId] = {
         sessions: current.sessions + 1,

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { WorkoutSession, Routine } from '@light-weight/domain';
+import { shouldCountForVolume, type WorkoutSession, type Routine } from '@light-weight/domain';
 import { WeeklySchedule, DAY_NUM_TO_WEEKDAY } from '../lib/storage.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
@@ -69,7 +69,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
       if (s.sets) {
         Object.values(s.sets).forEach((setArr) => {
           setArr.forEach((st) => {
-            if (st.completed && !st.isWarmup) {
+            if (shouldCountForVolume(st)) {
               totalVolumeKg += st.weightKg * st.reps;
             }
           });

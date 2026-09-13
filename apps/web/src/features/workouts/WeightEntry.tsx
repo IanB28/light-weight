@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Disc3 } from 'lucide-react';
-import { calculateLoadedBarWeight, decomposeLoadedBarWeight, normalizeWeightKg } from '@light-weight/domain';
+import { calculateLoadedBarWeight, decomposeLoadedBarWeight, getPlateLoadMultiplier, normalizeWeightKg } from '@light-weight/domain';
+import type { ExerciseLoadingProfile } from '@light-weight/domain';
 import type { UnitSystem } from '../../lib/preferences.js';
 import { useI18n } from '../../lib/i18n.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
-import type { PlateLoadScope } from '../../lib/weight-units.js';
 import { BottomSheet, Button } from '../../components/ui/index.js';
 import { WeightPlate } from './WeightPlate.js';
 
@@ -29,7 +29,7 @@ export function PlateWeightButton({ valueKg, units, label, onClick }: { valueKg:
   return <button type="button" onClick={onClick} aria-label={label} className="flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Disc3 aria-hidden="true" className="size-3.5 shrink-0" /><span className="truncate">{displayWeight(valueKg, units)}</span></button>;
 }
 
-export function PlatePickerSheet({ open, onClose, valueKg, units, barWeightKg, availablePlatesKg, includeBarWeight, allowBarToggle, loadScope, onApply }: { open: boolean; onClose: () => void; valueKg: number; units: UnitSystem; barWeightKg: number; availablePlatesKg: number[]; includeBarWeight: boolean; allowBarToggle: boolean; loadScope: PlateLoadScope; onApply: (weightKg: number, includeBarWeight: boolean) => void }) {
+export function PlatePickerSheet({ open, onClose, valueKg, units, barWeightKg, availablePlatesKg, includeBarWeight, allowBarToggle, loading, onApply }: { open: boolean; onClose: () => void; valueKg: number; units: UnitSystem; barWeightKg: number; availablePlatesKg: number[]; includeBarWeight: boolean; allowBarToggle: boolean; loading: ExerciseLoadingProfile; onApply: (weightKg: number, includeBarWeight: boolean) => void }) {
   const { t } = useI18n();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [isExactInitialLoad, setIsExactInitialLoad] = useState(true);
@@ -39,26 +39,26 @@ export function PlatePickerSheet({ open, onClose, valueKg, units, barWeightKg, a
   useEffect(() => {
     if (!open) return;
     const effectiveBarWeightKg = includeBarWeight ? barWeightKg : 0;
-    const plateMultiplier = loadScope === 'barbell' ? 2 : 1;
+    const plateMultiplier = getPlateLoadMultiplier(loading);
     const decomposition = decomposeLoadedBarWeight(valueKg, effectiveBarWeightKg, availablePlatesKg, 0.02, plateMultiplier);
     setCounts(decomposition.counts);
     setIsExactInitialLoad(decomposition.isExact);
     setHasInteracted(false);
     setIncludesBar(includeBarWeight);
-  }, [availablePlatesKg, barWeightKg, includeBarWeight, loadScope, open, valueKg]);
+  }, [availablePlatesKg, barWeightKg, includeBarWeight, loading, open, valueKg]);
 
   const platesPerSide = useMemo(
     () => availablePlatesKg.flatMap((plate) => Array.from({ length: counts[String(plate)] || 0 }, () => plate)),
     [availablePlatesKg, counts]
   );
   const effectiveBarWeightKg = includesBar ? barWeightKg : 0;
-  const plateMultiplier = loadScope === 'barbell' ? 2 : 1;
+  const plateMultiplier = getPlateLoadMultiplier(loading);
   const totalKg = calculateLoadedBarWeight(effectiveBarWeightKg, platesPerSide, plateMultiplier);
   const unit = WEIGHT_UNIT_PRESETS[units].unit;
   const selectedLoad = platesPerSide.length > 0
     ? `${platesPerSide.map((plate) => displayWeight(plate, units)).join(' + ')} ${unit}`
     : '—';
-  const isPerSide = loadScope === 'barbell' || loadScope === 'per-side';
+  const isPerSide = plateMultiplier === 2 || loading.loadMode === 'per_side';
   const loadLabel = isPerSide ? t('workout.perSide') : t('workout.selectedLoad');
 
   const updateCount = (plate: number, delta: number) => {

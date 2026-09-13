@@ -7,13 +7,11 @@ import { resolveExerciseName } from './exercise-names.js';
 import {
   displayWeight,
   getDefaultPlateLoadedWeightKg,
-  getPlateLoadScope,
-  getWeightEntryCapability,
-  isUnilateralExercise,
   parseDisplayWeight,
   WEIGHT_UNIT_PRESETS
 } from './weight-units.js';
-import type { Exercise, WorkoutSession } from '@light-weight/domain';
+import { resolveExerciseLoadingProfile, type Exercise, type WorkoutSession } from '@light-weight/domain';
+import { normalizeStoredActiveWorkout, normalizeStoredHistory } from './storage.js';
 
 test('preference parser applies defaults and preserves valid partial settings', () => {
   assert.deepEqual(parseAppPreferences(null), DEFAULT_APP_PREFERENCES);
@@ -44,36 +42,16 @@ test('weight unit presets display metric and imperial gym loads consistently', (
 });
 
 test('plate entry respects weighted exercises and starts from representable unit loads', () => {
-  assert.equal(getWeightEntryCapability('barbell'), 'plates-only');
-  assert.equal(getWeightEntryCapability('machine'), 'keyboard-and-plates');
-  assert.equal(getWeightEntryCapability('dumbbell'), 'keyboard-and-plates');
-  assert.equal(getWeightEntryCapability('cable'), 'keyboard-and-plates');
-  assert.equal(getWeightEntryCapability('other'), 'keyboard-and-plates');
-  assert.equal(getWeightEntryCapability('bodyweight'), 'added-weight');
-  assert.equal(displayWeight(getDefaultPlateLoadedWeightKg('metric', 20, [25, 20, 10]), 'metric'), 60);
+  const barbell = resolveExerciseLoadingProfile({ id: 'bar', name: 'Bench press', category: 'barbell' }).profile;
+  const plateLoaded = resolveExerciseLoadingProfile({ id: 'ex-0739', name: 'Sled leg press', category: 'machine' }).profile;
+  assert.equal(displayWeight(getDefaultPlateLoadedWeightKg('metric', 20, [25, 20, 10], barbell), 'metric'), 60);
   assert.equal(displayWeight(getDefaultPlateLoadedWeightKg(
     'imperial',
     WEIGHT_UNIT_PRESETS.imperial.barWeightKg,
-    WEIGHT_UNIT_PRESETS.imperial.platesKg
+    WEIGHT_UNIT_PRESETS.imperial.platesKg,
+    barbell
   ), 'imperial'), 135);
-  assert.equal(displayWeight(getDefaultPlateLoadedWeightKg('metric', 0, [20, 10], 1), 'metric'), 20);
-});
-
-test('plate load scope only uses per-side entry for barbells and unilateral exercises', () => {
-  const exercise = (name: string, category: Exercise['category'], instructions: string[] = []): Exercise => ({
-    id: name,
-    name,
-    category,
-    primaryMuscle: 'chest',
-    instructions
-  });
-
-  assert.equal(getPlateLoadScope(exercise('Bench press', 'barbell')), 'barbell');
-  assert.equal(getPlateLoadScope(exercise('Chest press', 'machine')), 'total');
-  assert.equal(getPlateLoadScope(exercise('Cable fly', 'cable')), 'total');
-  assert.equal(getPlateLoadScope(exercise('Single-arm cable row', 'cable')), 'per-side');
-  assert.equal(getPlateLoadScope(exercise('Curl unilateral', 'dumbbell')), 'per-side');
-  assert.equal(isUnilateralExercise(exercise('Dumbbell curl', 'dumbbell', ['Repeat with the other arm.'])), true);
+  assert.equal(displayWeight(getDefaultPlateLoadedWeightKg('metric', 0, [20, 10], plateLoaded), 'metric'), 40);
 });
 
 test('preference parser migrates only legacy imperial defaults', () => {
@@ -120,7 +98,7 @@ test('exercise ranking counts sessions, favors frequency, and removes featured d
     { id: 'b', name: 'B', category: 'barbell', primaryMuscle: 'chest' },
     { id: 'c', name: 'C', category: 'barbell', primaryMuscle: 'chest' }
   ];
-  const set = { setIndex: 1, weightKg: 10, reps: 5, completed: true, isWarmup: false };
+  const set = { setIndex: 1, weightKg: 10, reps: 5, completed: true, setType: 'working' as const, isWarmup: false };
   const history: WorkoutSession[] = [
     { id: '1', userId: 'u', startedAt: '2026-01-01T00:00:00Z', sets: { a: [set], b: [set] } },
     { id: '2', userId: 'u', startedAt: '2026-02-01T00:00:00Z', sets: { a: [set] } }
@@ -131,4 +109,20 @@ test('exercise ranking counts sessions, favors frequency, and removes featured d
   const ranked = rankExerciseDiscovery(exercises, usage, 'chest');
   assert.equal(ranked.featured[0].id, 'a');
   assert.equal(new Set([...ranked.featured, ...ranked.remaining].map((exercise) => exercise.id)).size, 3);
+});
+
+test('legacy local history and active workouts hydrate canonical set types', () => {
+  const legacySession = {
+    id: 'legacy', userId: 'u', startedAt: '2026-09-13T00:00:00.000Z',
+    sets: { bench: [{ setIndex: 1, weightKg: 20, reps: 10, completed: true, isWarmup: true }] }
+  };
+  const [historySession] = normalizeStoredHistory([legacySession]);
+  assert.equal(historySession.sets.bench[0].setType, 'warmup');
+  assert.equal(historySession.sets.bench[0].isWarmup, true);
+
+  const active = normalizeStoredActiveWorkout({
+    isWorkoutActive: true,
+    exerciseSessions: [{ exercise: { id: 'bench' }, sets: legacySession.sets.bench }]
+  }) as unknown as { exerciseSessions: Array<{ sets: Array<{ setType: string }> }> };
+  assert.equal(active.exerciseSessions[0].sets[0].setType, 'warmup');
 });

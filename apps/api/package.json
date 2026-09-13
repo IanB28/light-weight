@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "test": "node --test dist/**/*.test.js",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:validate-domain-migration": "node scripts/validate-domain-migration.mjs",
     "db:seed": "tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio"
   },

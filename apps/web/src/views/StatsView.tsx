@@ -26,10 +26,12 @@ import {
   getNeglectedMuscles,
   calculateMuscleFatigue,
   evaluateRelativeStrength,
-  Gender,
-  WorkoutSession,
-  Exercise,
-  MuscleGroup
+  shouldCountForPersonalRecord,
+  shouldCountForVolume,
+  type Gender,
+  type WorkoutSession,
+  type Exercise,
+  type MuscleGroup
 } from '@light-weight/domain';
 import {
   getStoredBodyweight,
@@ -172,7 +174,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
       for (const [exId, sets] of Object.entries(session.sets)) {
         const ex = exercisesById[exId];
         if (!ex) continue;
-        const completed = sets.filter((s) => s.completed && !s.isWarmup);
+        const completed = sets.filter(shouldCountForVolume);
         if (completed.length === 0) continue;
 
         for (const s of completed) {
@@ -321,7 +323,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const lastTopSet = useMemo(() => {
     const sessions = [...history].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
     for (const session of sessions) {
-      const completed = (session.sets[currentCalcExerciseId] || []).filter((set) => set.completed && !set.isWarmup && set.weightKg > 0 && set.reps > 0);
+      const completed = (session.sets[currentCalcExerciseId] || []).filter(shouldCountForPersonalRecord);
       if (!completed.length) continue;
       const top = completed.reduce((best, set) => estimateOneRm(set.weightKg, set.reps).average > estimateOneRm(best.weightKg, best.reps).average ? set : best);
       return { weightKg: top.weightKg, reps: top.reps, estimatedOneRm: estimateOneRm(top.weightKg, top.reps).average };
@@ -368,7 +370,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
     for (const session of recentSessions) {
       for (const [exerciseId, sets] of Object.entries(session.sets)) {
         for (const set of sets) {
-          if (!set.completed || set.isWarmup || set.weightKg <= 0 || set.reps <= 0) continue;
+          if (!shouldCountForPersonalRecord(set)) continue;
           const estimatedOneRm = estimateOneRm(set.weightKg, set.reps).average;
           if (estimatedOneRm > bestEstimatedOneRm) {
             bestEstimatedOneRm = estimatedOneRm;

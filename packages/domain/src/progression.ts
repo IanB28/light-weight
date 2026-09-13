@@ -1,4 +1,5 @@
 import type { LoggedSet, MuscleGroup, ProgressionPolicy } from './types.js';
+import { shouldCountForVolume } from './setSemantics.js';
 
 export const DELOAD_FACTOR = 0.9;
 export const MAX_BODYWEIGHT_SETS = 6;
@@ -37,7 +38,7 @@ export function calculateDeload(currentWeightKg: number, stepKg: number = 2.5): 
  */
 export function calculateVolume(sets: LoggedSet[]): number {
   return sets
-    .filter((s) => s.completed && !s.isWarmup)
+    .filter(shouldCountForVolume)
     .reduce((total, s) => total + s.weightKg * s.reps, 0);
 }
 
@@ -49,7 +50,7 @@ export function checkProgressionTarget(
   targetSets: number,
   targetReps: number
 ): boolean {
-  const workingSets = sets.filter((s) => s.completed && !s.isWarmup);
+  const workingSets = sets.filter(shouldCountForVolume);
   if (workingSets.length < targetSets) return false;
   return workingSets.slice(0, targetSets).every((s) => s.reps >= targetReps);
 }

@@ -1,5 +1,6 @@
 import { db, sql } from './index.js';
 import { users, userProfiles, exercises, routines } from './schema.js';
+import { resolveExerciseLoadingProfile, type Exercise } from '@light-weight/domain';
 
 export const SYSTEM_EXERCISES = [
   {
@@ -127,9 +128,18 @@ async function seed() {
 
   // 3. Insert system exercises
   for (const ex of SYSTEM_EXERCISES) {
+    const loading = resolveExerciseLoadingProfile(ex as Exercise).profile;
     await db
       .insert(exercises)
-      .values(ex)
+      .values({
+        ...ex,
+        loadMechanism: loading.mechanism,
+        loadMode: loading.loadMode,
+        supportsKeyboard: loading.supportsKeyboard,
+        supportsPlates: loading.supportsPlates,
+        supportsExternalLoad: loading.supportsExternalLoad,
+        includeBarWeight: loading.includeBarWeight
+      })
       .onConflictDoUpdate({
         target: exercises.id,
         set: {
@@ -137,6 +147,12 @@ async function seed() {
           category: ex.category,
           primaryMuscle: ex.primaryMuscle,
           secondaryMuscles: ex.secondaryMuscles,
+          loadMechanism: loading.mechanism,
+          loadMode: loading.loadMode,
+          supportsKeyboard: loading.supportsKeyboard,
+          supportsPlates: loading.supportsPlates,
+          supportsExternalLoad: loading.supportsExternalLoad,
+          includeBarWeight: loading.includeBarWeight,
         },
       });
   }

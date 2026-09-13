@@ -1,4 +1,5 @@
 import type { LoggedSet, OneRmEstimate, OneRmFormula, BestSetRecord } from './types.js';
+import { shouldCountForPersonalRecord } from './setSemantics.js';
 
 /**
  * Above 12 reps, an estimate says more about work capacity/aerobic endurance than
@@ -89,7 +90,7 @@ export function bestSetOf(
   let best: BestSetRecord | null = null;
 
   for (const s of sets) {
-    if (!s.completed) continue;
+    if (!shouldCountForPersonalRecord(s)) continue;
     const est = estimate1RM(s.weightKg, s.reps, formula);
     if (est !== null && (!best || est > best.est)) {
       best = { est, w: s.weightKg, r: Math.round(s.reps) };
@@ -107,7 +108,7 @@ export function is1RMRecord(
   currentSet: LoggedSet,
   formula: OneRmFormula = DEFAULT_FORMULA
 ): { isPr: boolean; newEst: number; diff: number } | null {
-  if (!currentSet.completed) return null;
+  if (!shouldCountForPersonalRecord(currentSet)) return null;
   const currentEst = estimate1RM(currentSet.weightKg, currentSet.reps, formula);
   if (currentEst === null) return null;
 

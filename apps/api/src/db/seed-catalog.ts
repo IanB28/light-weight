@@ -1,9 +1,10 @@
 import { db } from './index.js';
 import { exercises } from './schema.js';
+import { resolveExerciseLoadingProfile, type Exercise, type ExerciseCategory, type MuscleGroup } from '@light-weight/domain';
 // @ts-ignore
 import { EXDB } from '../../../web/src/lib/exercises-data.js';
 
-function mapBodypartToMuscle(bp: string, tg: string): string {
+function mapBodypartToMuscle(bp: string, tg: string): MuscleGroup {
   const t = (tg || '').toLowerCase();
   const b = (bp || '').toLowerCase();
 
@@ -31,7 +32,7 @@ function mapBodypartToMuscle(bp: string, tg: string): string {
   return 'core';
 }
 
-function mapEquipmentToCategory(eq: string): string {
+function mapEquipmentToCategory(eq: string): ExerciseCategory {
   const e = (eq || '').toLowerCase();
   if (e.includes('barbell') || e.includes('olympic')) return 'barbell';
   if (e.includes('dumbbell')) return 'dumbbell';
@@ -51,7 +52,7 @@ async function seedCatalog() {
       ? raw.sm.map((s: string) => mapBodypartToMuscle('', s)).filter((m: string) => m !== primaryMuscle)
       : [];
 
-    return {
+    const exercise: Exercise = {
       id: `ex-${raw.id}`,
       name: raw.n
         ? raw.n.charAt(0).toUpperCase() + raw.n.slice(1)
@@ -61,13 +62,35 @@ async function seedCatalog() {
       secondaryMuscles: Array.from(new Set(secondary)),
       isCustom: false,
     };
+    const loading = resolveExerciseLoadingProfile(exercise, { legacyEquipment: raw.eq }).profile;
+    return {
+      ...exercise,
+      loadMechanism: loading.mechanism,
+      loadMode: loading.loadMode,
+      supportsKeyboard: loading.supportsKeyboard,
+      supportsPlates: loading.supportsPlates,
+      supportsExternalLoad: loading.supportsExternalLoad,
+      includeBarWeight: loading.includeBarWeight
+    };
   });
 
   // Batch insert in chunks of 100
   const CHUNK_SIZE = 100;
   for (let i = 0; i < mapped.length; i += CHUNK_SIZE) {
     const chunk = mapped.slice(i, i + CHUNK_SIZE);
-    await db.insert(exercises).values(chunk).onConflictDoNothing();
+    for (const exercise of chunk) {
+      await db.insert(exercises).values(exercise).onConflictDoUpdate({
+        target: exercises.id,
+        set: {
+          loadMechanism: exercise.loadMechanism,
+          loadMode: exercise.loadMode,
+          supportsKeyboard: exercise.supportsKeyboard,
+          supportsPlates: exercise.supportsPlates,
+          supportsExternalLoad: exercise.supportsExternalLoad,
+          includeBarWeight: exercise.includeBarWeight
+        }
+      });
+    }
     console.log(`Inserted chunk ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(mapped.length / CHUNK_SIZE)}`);
   }
 

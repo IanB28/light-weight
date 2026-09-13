@@ -1,4 +1,5 @@
-import { Exercise, kilogramsToPounds, poundsToKilograms } from '@light-weight/domain';
+import { getPlateLoadMultiplier, kilogramsToPounds, poundsToKilograms } from '@light-weight/domain';
+import type { ExerciseLoadingProfile } from '@light-weight/domain';
 import type { UnitSystem } from './preferences.js';
 
 export interface WeightUnitPreset {
@@ -58,43 +59,16 @@ export function usesUnitDefaults(barWeightKg: number, platesKg: number[], units:
   return weightsMatch(barWeightKg, preset.barWeightKg) && plateListsMatch(platesKg, preset.platesKg);
 }
 
-export type WeightEntryCapability = 'plates-only' | 'keyboard-and-plates' | 'added-weight';
-export type PlateLoadScope = 'barbell' | 'per-side' | 'total';
-
-const UNILATERAL_NAME_PATTERN = /\b(?:unilateral|one[ -]?(?:arm|hand|leg|foot)|single[ -]?(?:arm|hand|leg|foot)|alternat(?:e|ed|ing)|un[ -]?brazo|una[ -]?(?:mano|pierna)|altern(?:o|a|ado|ada))\b/i;
-const UNILATERAL_INSTRUCTION_PATTERN = /\b(?:one (?:arm|hand|leg|foot) at a time|repeat (?:with|on) the other (?:arm|hand|leg|foot|side)|switch (?:arms|hands|legs|feet|sides)|each (?:arm|hand|leg|foot)|opposite (?:arm|hand|leg|foot))\b/i;
-
-export function isUnilateralExercise(
-  exercise: Pick<Exercise, 'name' | 'instructions'>
-): boolean {
-  if (UNILATERAL_NAME_PATTERN.test(exercise.name)) return true;
-  return UNILATERAL_INSTRUCTION_PATTERN.test((exercise.instructions || []).join(' '));
-}
-
-export function getPlateLoadScope(
-  exercise: Pick<Exercise, 'category' | 'name' | 'instructions'>
-): PlateLoadScope {
-  if (exercise.category === 'barbell') return 'barbell';
-  return isUnilateralExercise(exercise) ? 'per-side' : 'total';
-}
-
-export function getWeightEntryCapability(category: string): WeightEntryCapability {
-  if (category === 'barbell') return 'plates-only';
-  if (category === 'bodyweight') return 'added-weight';
-  return 'keyboard-and-plates';
-}
-
 export function getDefaultPlateLoadedWeightKg(
   units: UnitSystem,
   barWeightKg: number,
   availablePlatesKg: number[],
-  plateMultiplier = 2
+  loading: ExerciseLoadingProfile
 ): number {
   const preferredPlateDisplayWeight = units === 'imperial' ? 45 : 20;
   const preferredPlate = availablePlatesKg.find(
     (plate) => weightsMatch(displayWeight(plate, units), preferredPlateDisplayWeight, 0.02)
   );
   const platePerSide = preferredPlate ?? availablePlatesKg[0] ?? 0;
-  const safeMultiplier = plateMultiplier === 1 ? 1 : 2;
-  return Math.round((barWeightKg + (safeMultiplier * platePerSide)) * 100_000) / 100_000;
+  return Math.round((barWeightKg + (getPlateLoadMultiplier(loading) * platePerSide)) * 100_000) / 100_000;
 }

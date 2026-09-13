@@ -60,9 +60,9 @@ test('1RM estimation with openGym REP_CAP = 12', () => {
 
 test('bestSetOf and is1RMRecord', () => {
   const sets: LoggedSet[] = [
-    { setIndex: 1, weightKg: 80, reps: 10, completed: true, isWarmup: false }, // 80 * (1 + 10/30) = 106.7
-    { setIndex: 2, weightKg: 90, reps: 8, completed: true, isWarmup: false },  // 90 * (1 + 8/30) = 114
-    { setIndex: 3, weightKg: 100, reps: 4, completed: false, isWarmup: false } // not completed
+    { setIndex: 1, weightKg: 80, reps: 10, completed: true, setType: 'working', isWarmup: false }, // 80 * (1 + 10/30) = 106.7
+    { setIndex: 2, weightKg: 90, reps: 8, completed: true, setType: 'working', isWarmup: false },  // 90 * (1 + 8/30) = 114
+    { setIndex: 3, weightKg: 100, reps: 4, completed: false, setType: 'working', isWarmup: false } // not completed
   ];
 
   const best = bestSetOf(sets, 'epley');
@@ -72,7 +72,7 @@ test('bestSetOf and is1RMRecord', () => {
   assert.equal(best.est, 114);
 
   // Check new PR detection
-  const newSetPr: LoggedSet = { setIndex: 4, weightKg: 100, reps: 6, completed: true, isWarmup: false }; // 100 * (1 + 6/30) = 120
+  const newSetPr: LoggedSet = { setIndex: 4, weightKg: 100, reps: 6, completed: true, setType: 'working', isWarmup: false }; // 100 * (1 + 6/30) = 120
   const prResult = is1RMRecord(114, newSetPr, 'epley');
   assert.ok(prResult);
   assert.equal(prResult.isPr, true);
@@ -80,7 +80,7 @@ test('bestSetOf and is1RMRecord', () => {
   assert.equal(prResult.diff, 6);
 
   // Non-PR
-  const nonPrSet: LoggedSet = { setIndex: 5, weightKg: 80, reps: 5, completed: true, isWarmup: false };
+  const nonPrSet: LoggedSet = { setIndex: 5, weightKg: 80, reps: 5, completed: true, setType: 'working', isWarmup: false };
   const nonPrResult = is1RMRecord(114, nonPrSet, 'epley');
   assert.ok(nonPrResult);
   assert.equal(nonPrResult.isPr, false);
@@ -106,8 +106,8 @@ test('Progression deload and muscle increments', () => {
 
   // Deload after 3 stalls
   const failedSets: LoggedSet[] = [
-    { setIndex: 1, weightKg: 100, reps: 6, completed: true, isWarmup: false },
-    { setIndex: 2, weightKg: 100, reps: 5, completed: true, isWarmup: false }
+    { setIndex: 1, weightKg: 100, reps: 6, completed: true, setType: 'working', isWarmup: false },
+    { setIndex: 2, weightKg: 100, reps: 5, completed: true, setType: 'working', isWarmup: false }
   ];
   const evalDeload = evaluateNextWeight(100, failedSets, 3, 8, 'chest', 2, 'double');
   assert.equal(evalDeload.isDeload, true);
@@ -121,8 +121,8 @@ test('History volume and previous performance lookup', () => {
     startedAt: '2026-09-01T10:00:00Z',
     sets: {
       'ex-bench': [
-        { setIndex: 1, weightKg: 80, reps: 8, completed: true, isWarmup: false },
-        { setIndex: 2, weightKg: 80, reps: 8, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 80, reps: 8, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 80, reps: 8, completed: true, setType: 'working', isWarmup: false }
       ]
     }
   };
@@ -133,7 +133,7 @@ test('History volume and previous performance lookup', () => {
     startedAt: '2026-09-05T10:00:00Z',
     sets: {
       'ex-bench': [
-        { setIndex: 1, weightKg: 82.5, reps: 8, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 82.5, reps: 8, completed: true, setType: 'working', isWarmup: false }
       ]
     }
   };
@@ -169,10 +169,10 @@ test('calculateMuscleFatigue physiological model with RIR and time decay', () =>
     startedAt: new Date(nowMs - 12 * 3600000).toISOString(),
     sets: {
       'ex-bench': [
-        { setIndex: 1, weightKg: 100, reps: 6, rir: 0, completed: true, isWarmup: false },
-        { setIndex: 2, weightKg: 100, reps: 6, rir: 0, completed: true, isWarmup: false },
-        { setIndex: 3, weightKg: 100, reps: 5, rir: 0, completed: true, isWarmup: false },
-        { setIndex: 4, weightKg: 100, reps: 5, rir: 0, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 100, reps: 6, rir: 0, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 100, reps: 6, rir: 0, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 3, weightKg: 100, reps: 5, rir: 0, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 4, weightKg: 100, reps: 5, rir: 0, completed: true, setType: 'working', isWarmup: false }
       ]
     }
   };

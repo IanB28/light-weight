@@ -10,8 +10,18 @@ import {
   routines,
   users
 } from '../db/schema.js';
-import { estimateOneRm } from '@light-weight/domain';
+import {
+  DEFAULT_EXERCISE_LOADING_PROFILE,
+  estimateOneRm,
+  shouldCountForPersonalRecord,
+  shouldCountForVolume
+} from '@light-weight/domain';
 import { eq, desc } from 'drizzle-orm';
+import {
+  hydrateSyncedSet,
+  normalizeIncomingSyncSessions,
+  SyncValidationError
+} from '../lib/sync-mappers.js';
 
 export const syncRouter: Router = Router();
 
@@ -33,10 +43,12 @@ syncRouter.post('/', async (req, res) => {
   try {
     const {
       userId = '00000000-0000-0000-0000-000000000001',
-      sessions = [],
+      sessions: rawSessions = [],
       bodyweightLogs: bLogs = [],
       routines: incomingRoutines = []
     } = req.body;
+    // Validate and normalize canonical set semantics before performing any write.
+    const sessions = normalizeIncomingSyncSessions(rawSessions);
 
     const syncedSessionIds: string[] = [];
 
@@ -110,9 +122,9 @@ syncRouter.post('/', async (req, res) => {
 
       // Calcular volumen total
       let totalVolume = 0;
-      Object.values(sets).forEach((setArray: any) => {
-        setArray.forEach((s: any) => {
-          if (s.completed && !s.isWarmup) {
+      Object.values(sets).forEach((setArray) => {
+        setArray.forEach((s) => {
+          if (shouldCountForVolume(s)) {
             totalVolume += (Number(s.weightKg) || 0) * (Number(s.reps) || 0);
           }
         });
@@ -146,7 +158,7 @@ syncRouter.post('/', async (req, res) => {
       await db.delete(loggedSets).where(eq(loggedSets.sessionId, sessionUuid));
 
       // Insertar series asociadas
-      for (const [exerciseId, exerciseSets] of Object.entries(sets) as [string, any[]][]) {
+      for (const [exerciseId, exerciseSets] of Object.entries(sets)) {
         // Garantizar que el ejercicio exista en Postgres para no violar FK
         await db
           .insert(exercises)
@@ -155,12 +167,18 @@ syncRouter.post('/', async (req, res) => {
             name: exerciseId,
             category: 'other',
             primaryMuscle: 'core',
+            loadMechanism: DEFAULT_EXERCISE_LOADING_PROFILE.mechanism,
+            loadMode: DEFAULT_EXERCISE_LOADING_PROFILE.loadMode,
+            supportsKeyboard: DEFAULT_EXERCISE_LOADING_PROFILE.supportsKeyboard,
+            supportsPlates: DEFAULT_EXERCISE_LOADING_PROFILE.supportsPlates,
+            supportsExternalLoad: DEFAULT_EXERCISE_LOADING_PROFILE.supportsExternalLoad,
+            includeBarWeight: DEFAULT_EXERCISE_LOADING_PROFILE.includeBarWeight,
             isCustom: true,
           })
           .onConflictDoNothing();
 
         for (const s of exerciseSets) {
-          const est1Rm = s.completed && s.weightKg > 0 && s.reps > 0
+          const est1Rm = shouldCountForPersonalRecord(s)
             ? estimateOneRm(Number(s.weightKg), Number(s.reps)).average
             : null;
 
@@ -172,7 +190,8 @@ syncRouter.post('/', async (req, res) => {
             reps: s.reps,
             rir: s.rir !== undefined ? s.rir : null,
             rpe: s.rpe !== undefined ? String(s.rpe) : null,
-            isWarmup: Boolean(s.isWarmup),
+            setType: s.setType,
+            isWarmup: s.isWarmup,
             completed: Boolean(s.completed),
             estimatedOneRm: est1Rm ? String(est1Rm) : null,
           });
@@ -229,9 +248,12 @@ syncRouter.post('/', async (req, res) => {
       personalRecords: currentPrs,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Sync API Error]', error);
-    res.status(500).json({ error: error.message });
+    if (error instanceof SyncValidationError) {
+      return res.status(error.status).json({ error: error.code });
+    }
+    res.status(500).json({ error: 'SYNC_FAILED' });
   }
 });
 
@@ -295,15 +317,16 @@ syncRouter.get('/pull', async (req, res) => {
         const setsByExercise: Record<string, any[]> = {};
         for (const s of setsList) {
           if (!setsByExercise[s.exerciseId]) setsByExercise[s.exerciseId] = [];
-          setsByExercise[s.exerciseId].push({
+          setsByExercise[s.exerciseId].push(hydrateSyncedSet({
             setIndex: s.setIndex,
             weightKg: Number(s.weightKg),
             reps: s.reps,
             rir: s.rir ?? undefined,
             rpe: s.rpe ? Number(s.rpe) : undefined,
+            setType: s.setType,
             isWarmup: s.isWarmup,
             completed: s.completed,
-          });
+          }));
         }
 
         return {

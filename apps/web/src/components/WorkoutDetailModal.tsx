@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Calendar, Clock, Flame, Dumbbell } from 'lucide-react';
-import { WorkoutSession, calculateSessionTotalVolume, Exercise } from '@light-weight/domain';
+import { calculateSessionTotalVolume, normalizeWorkoutSetType, shouldCountForVolume, type WorkoutSession, type Exercise } from '@light-weight/domain';
 import { EXERCISES_BY_ID } from '../lib/exercises.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
@@ -99,7 +99,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
               category: 'other',
               primaryMuscle: 'chest'
             };
-            const completedSets = sets.filter((s) => s.completed && !s.isWarmup);
+            const completedSets = sets.filter(shouldCountForVolume);
 
             return (
               <div
@@ -121,7 +121,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
                 {/* Sets Table */}
                 <div className="space-y-1">
                   {sets.map((s, idx) => {
-                    const setType = s.setType ?? (s.isWarmup ? 'warmup' : 'working');
+                    const setType = normalizeWorkoutSetType(s);
                     const setTypeMarker = setType === 'drop'
                       ? 'D'
                       : setType === 'backoff'

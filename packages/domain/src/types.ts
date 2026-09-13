@@ -19,6 +19,34 @@ export type ExerciseCategory =
   | 'bodyweight'
   | 'other';
 
+export type ExerciseLoadMechanism =
+  | 'barbell'
+  | 'dumbbell'
+  | 'plate_loaded'
+  | 'selectorized'
+  | 'cable'
+  | 'bodyweight'
+  | 'other';
+
+export type ExerciseLoadMode = 'total' | 'per_side' | 'per_hand' | 'added_weight';
+
+/**
+ * Canonical loading semantics for an exercise.
+ *
+ * `total` stores the total exercise load. `per_side` stores the load handled by
+ * one working side. `per_hand` stores the weight of each dumbbell/hand.
+ * `added_weight` stores only external load added to body weight. Stored values
+ * are never implicitly doubled based on unilateral wording.
+ */
+export interface ExerciseLoadingProfile {
+  mechanism: ExerciseLoadMechanism;
+  loadMode: ExerciseLoadMode;
+  supportsKeyboard: boolean;
+  supportsPlates: boolean;
+  supportsExternalLoad: boolean;
+  includeBarWeight: boolean;
+}
+
 export interface Exercise {
   id: string;
   name: string;
@@ -30,6 +58,7 @@ export interface Exercise {
   gif?: string;
   instructions?: string[];
   targetMuscle?: string;
+  loading?: ExerciseLoadingProfile;
 }
 
 export type WorkoutSetType = 'working' | 'warmup' | 'drop' | 'backoff';
@@ -41,8 +70,9 @@ export interface LoggedSet {
   rpe?: number;
   rir?: number;
   completed: boolean;
-  isWarmup: boolean;
-  setType?: WorkoutSetType;
+  setType: WorkoutSetType;
+  /** @deprecated Compatibility mirror. Use setType through domain helpers. */
+  isWarmup?: boolean;
 }
 
 export interface WorkoutSession {

@@ -6,3 +6,5 @@ export * from './history.js';
 export * from './strengthStandards.js';
 export * from './profile.js';
 export * from './weight.js';
+export * from './exerciseLoading.js';
+export * from './setSemantics.js';

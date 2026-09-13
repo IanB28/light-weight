@@ -1,4 +1,12 @@
-import { WorkoutSession, Routine, estimate1RM } from '@light-weight/domain';
+import {
+  estimate1RM,
+  normalizeLoggedSet,
+  normalizeWorkoutSession,
+  shouldCountForPersonalRecord,
+  type LegacyWorkoutSession,
+  type Routine,
+  type WorkoutSession
+} from '@light-weight/domain';
 
 const STORAGE_KEYS = {
   HISTORY: 'lightweight_workouts_history',
@@ -232,12 +240,27 @@ export function saveStoredTargetWeight(targetKg: number): void {
   } catch {}
 }
 
+export function normalizeStoredHistory(value: unknown): WorkoutSession[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((session): session is LegacyWorkoutSession => (
+      Boolean(session)
+      && typeof session === 'object'
+      && typeof session.id === 'string'
+      && typeof session.userId === 'string'
+      && typeof session.startedAt === 'string'
+      && Boolean(session.sets)
+      && typeof session.sets === 'object'
+      && !Array.isArray(session.sets)
+    ))
+    .map(normalizeWorkoutSession);
+}
+
 export function getStoredHistory(): WorkoutSession[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.HISTORY);
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return normalizeStoredHistory(JSON.parse(raw));
   } catch {
     return [];
   }
@@ -246,7 +269,7 @@ export function getStoredHistory(): WorkoutSession[] {
 export function saveCompletedWorkout(session: WorkoutSession): WorkoutSession[] {
   try {
     const current = getStoredHistory();
-    const updated = [session, ...current];
+    const updated = [normalizeWorkoutSession(session), ...current];
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updated));
     clearActiveWorkout();
     return updated;
@@ -258,16 +281,36 @@ export function saveCompletedWorkout(session: WorkoutSession): WorkoutSession[] 
 
 export function saveStoredHistory(history: WorkoutSession[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
+    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history.map(normalizeWorkoutSession)));
   } catch (err) {
     console.error('Failed to save history:', err);
   }
 }
 
+export function normalizeStoredActiveWorkout<T>(value: T): T {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const state = value as Record<string, unknown>;
+  if (!Array.isArray(state.exerciseSessions)) return value;
+  return {
+    ...state,
+    exerciseSessions: state.exerciseSessions.map((session) => {
+      if (!session || typeof session !== 'object' || Array.isArray(session)) return session;
+      const exerciseSession = session as Record<string, unknown>;
+      return {
+        ...exerciseSession,
+        sets: Array.isArray(exerciseSession.sets)
+          ? exerciseSession.sets.map((set) => normalizeLoggedSet(set as Parameters<typeof normalizeLoggedSet>[0]))
+          : []
+      };
+    })
+  } as T;
+}
+
 export function getStoredActiveWorkout<T = unknown>(): T | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_WORKOUT);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    return normalizeStoredActiveWorkout(JSON.parse(raw) as T);
   } catch {
     return null;
   }
@@ -327,7 +370,7 @@ export function calculateAllPersonalRecords(
   for (const session of history) {
     for (const [exId, sets] of Object.entries(session.sets)) {
       for (const set of sets) {
-        if (!set.completed || set.isWarmup) continue;
+        if (!shouldCountForPersonalRecord(set)) continue;
         const est = estimate1RM(set.weightKg, set.reps, 'epley');
         if (est === null) continue;
 

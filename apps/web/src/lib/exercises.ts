@@ -1,4 +1,9 @@
-import { Exercise, MuscleGroup, ExerciseCategory } from '@light-weight/domain';
+import {
+  resolveExerciseLoadingProfile,
+  type Exercise,
+  type MuscleGroup,
+  type ExerciseCategory
+} from '@light-weight/domain';
 
 export const IMG_CDN_BASE =
   'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/images/';
@@ -52,7 +57,7 @@ interface RawExercise {
 function mapExercise(raw: RawExercise): Exercise {
   const primaryMuscle = mapBodypartToMuscle(raw.bp, raw.tg);
   const secondary = (raw.sm || []).map((muscle) => mapBodypartToMuscle('', muscle)).filter((muscle) => muscle !== primaryMuscle);
-  return {
+  const exercise: Exercise = {
     id: `ex-${raw.id}`,
     name: raw.n ? raw.n.charAt(0).toUpperCase() + raw.n.slice(1) : 'Ejercicio',
     category: mapEquipmentToCategory(raw.eq),
@@ -60,6 +65,8 @@ function mapExercise(raw: RawExercise): Exercise {
     secondaryMuscles: Array.from(new Set(secondary)),
     instructions: raw.st || [], img: raw.img, gif: raw.gif, targetMuscle: raw.tg, isCustom: false
   };
+  exercise.loading = resolveExerciseLoadingProfile(exercise, { legacyEquipment: raw.eq }).profile;
+  return exercise;
 }
 
 export const EXERCISES_BY_ID: Record<string, Exercise> = {};

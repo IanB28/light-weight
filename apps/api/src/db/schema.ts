@@ -7,8 +7,11 @@ import {
   boolean,
   numeric,
   jsonb,
-  uuid
+  uuid,
+  check
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import type { ExerciseLoadMechanism, ExerciseLoadMode, WorkoutSetType } from '@light-weight/domain';
 
 // 1. Usuarios
 export const users = pgTable('users', {
@@ -50,9 +53,18 @@ export const exercises = pgTable('exercises', {
   primaryMuscle: varchar('primary_muscle', { length: 50 }).notNull(),
   secondaryMuscles: jsonb('secondary_muscles').$type<string[]>().default([]).notNull(),
   category: varchar('category', { length: 50 }).notNull(),
+  loadMechanism: varchar('load_mechanism', { length: 32 }).$type<ExerciseLoadMechanism>(),
+  loadMode: varchar('load_mode', { length: 32 }).$type<ExerciseLoadMode>(),
+  supportsKeyboard: boolean('supports_keyboard'),
+  supportsPlates: boolean('supports_plates'),
+  supportsExternalLoad: boolean('supports_external_load'),
+  includeBarWeight: boolean('include_bar_weight'),
   isCustom: boolean('is_custom').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, () => [
+  check('exercises_load_mechanism_check', sql`load_mechanism IS NULL OR load_mechanism IN ('barbell', 'dumbbell', 'plate_loaded', 'selectorized', 'cable', 'bodyweight', 'other')`),
+  check('exercises_load_mode_check', sql`load_mode IS NULL OR load_mode IN ('total', 'per_side', 'per_hand', 'added_weight')`)
+]);
 
 // 5. Rutinas guardadas
 export const routines = pgTable('routines', {
@@ -96,11 +108,15 @@ export const loggedSets = pgTable('logged_sets', {
   reps: integer('reps').notNull(),
   rir: integer('rir'),
   rpe: numeric('rpe', { precision: 3, scale: 1 }),
+  setType: varchar('set_type', { length: 16 }).$type<WorkoutSetType>().default('working').notNull(),
   isWarmup: boolean('is_warmup').default(false).notNull(),
   completed: boolean('completed').default(true).notNull(),
   estimatedOneRm: numeric('estimated_one_rm', { precision: 6, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, () => [
+  check('logged_sets_set_type_check', sql`set_type IN ('working', 'warmup', 'drop', 'backoff')`),
+  check('logged_sets_warmup_consistency_check', sql`is_warmup = (set_type = 'warmup')`)
+]);
 
 // 8. Récords personales (PRs) calculados
 export const personalRecords = pgTable('personal_records', {

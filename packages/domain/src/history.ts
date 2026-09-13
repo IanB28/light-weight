@@ -1,6 +1,7 @@
 import type { WorkoutSession, LoggedSet, MuscleGroup, Exercise } from './types.js';
 import { calculateVolume } from './progression.js';
 import { estimate1RM } from './onerm.js';
+import { shouldCountForVolume } from './setSemantics.js';
 
 export interface MuscleVolumeDistribution {
   muscle: MuscleGroup;
@@ -63,8 +64,8 @@ export function getPreviousPerformance(
 
   for (const session of sorted) {
     const exerciseSets = session.sets[exerciseId];
-    if (exerciseSets && exerciseSets.some((s) => s.completed)) {
-      const completed = exerciseSets.filter((s) => s.completed);
+    if (exerciseSets && exerciseSets.some(shouldCountForVolume)) {
+      const completed = exerciseSets.filter(shouldCountForVolume);
       const topSet = completed.reduce((max, s) => (s.weightKg > max.weightKg ? s : max), completed[0]);
       const summary = topSet ? `${topSet.weightKg} kg × ${topSet.reps}` : '';
       return {
@@ -96,7 +97,7 @@ export function getExerciseProgressSeries(
     const rawSets = session.sets[exerciseId];
     if (!rawSets || rawSets.length === 0) continue;
 
-    const completedSets = rawSets.filter((s) => s.completed && !s.isWarmup);
+    const completedSets = rawSets.filter(shouldCountForVolume);
     if (completedSets.length === 0) continue;
 
     const topSet = completedSets.reduce(
@@ -194,7 +195,7 @@ export function calculateMuscleVolumeDistribution(
         result[muscle] = { volumeKg: 0, sets: 0 };
       }
 
-      const completed = sets.filter((s) => s.completed && !s.isWarmup);
+      const completed = sets.filter(shouldCountForVolume);
       const vol = calculateVolume(completed);
 
       result[muscle].volumeKg += vol;
@@ -260,7 +261,7 @@ export function calculateMuscleFatigue(
       const exercise = exercisesById[exId];
       if (!exercise) continue;
 
-      const completed = sets.filter((s) => s.completed && !s.isWarmup);
+      const completed = sets.filter(shouldCountForVolume);
       if (completed.length === 0) continue;
 
       const primary = exercise.primaryMuscle;

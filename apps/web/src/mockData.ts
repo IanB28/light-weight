@@ -39,19 +39,19 @@ const generateHistory = (): WorkoutSession[] => {
     notes: 'Excelente sesión en banca y jalón.',
     sets: {
       'ex-bench': [
-        { setIndex: 1, weightKg: 80, reps: 8, completed: true, isWarmup: false, rpe: 8 },
-        { setIndex: 2, weightKg: 82.5, reps: 8, completed: true, isWarmup: false, rpe: 8.5 },
-        { setIndex: 3, weightKg: 85, reps: 7, completed: true, isWarmup: false, rpe: 9.5 }
+        { setIndex: 1, weightKg: 80, reps: 8, completed: true, setType: 'working', isWarmup: false, rpe: 8 },
+        { setIndex: 2, weightKg: 82.5, reps: 8, completed: true, setType: 'working', isWarmup: false, rpe: 8.5 },
+        { setIndex: 3, weightKg: 85, reps: 7, completed: true, setType: 'working', isWarmup: false, rpe: 9.5 }
       ],
       'ex-lat-pulldown': [
-        { setIndex: 1, weightKg: 70, reps: 10, completed: true, isWarmup: false, rpe: 8 },
-        { setIndex: 2, weightKg: 75, reps: 9, completed: true, isWarmup: false, rpe: 9 },
-        { setIndex: 3, weightKg: 75, reps: 8, completed: true, isWarmup: false, rpe: 9.5 }
+        { setIndex: 1, weightKg: 70, reps: 10, completed: true, setType: 'working', isWarmup: false, rpe: 8 },
+        { setIndex: 2, weightKg: 75, reps: 9, completed: true, setType: 'working', isWarmup: false, rpe: 9 },
+        { setIndex: 3, weightKg: 75, reps: 8, completed: true, setType: 'working', isWarmup: false, rpe: 9.5 }
       ],
       'ex-ohp': [
-        { setIndex: 1, weightKg: 50, reps: 8, completed: true, isWarmup: false, rpe: 8 },
-        { setIndex: 2, weightKg: 52.5, reps: 7, completed: true, isWarmup: false, rpe: 8.5 },
-        { setIndex: 3, weightKg: 52.5, reps: 6, completed: true, isWarmup: false, rpe: 9 }
+        { setIndex: 1, weightKg: 50, reps: 8, completed: true, setType: 'working', isWarmup: false, rpe: 8 },
+        { setIndex: 2, weightKg: 52.5, reps: 7, completed: true, setType: 'working', isWarmup: false, rpe: 8.5 },
+        { setIndex: 3, weightKg: 52.5, reps: 6, completed: true, setType: 'working', isWarmup: false, rpe: 9 }
       ]
     }
   });
@@ -67,17 +67,17 @@ const generateHistory = (): WorkoutSession[] => {
     notes: 'Press plano y mancuernas.',
     sets: {
       'ex-bench': [
-        { setIndex: 1, weightKg: 77.5, reps: 10, completed: true, isWarmup: false },
-        { setIndex: 2, weightKg: 80, reps: 8, completed: true, isWarmup: false },
-        { setIndex: 3, weightKg: 82.5, reps: 8, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 77.5, reps: 10, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 80, reps: 8, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 3, weightKg: 82.5, reps: 8, completed: true, setType: 'working', isWarmup: false }
       ],
       'ex-incline-db': [
-        { setIndex: 1, weightKg: 30, reps: 10, completed: true, isWarmup: false },
-        { setIndex: 2, weightKg: 32, reps: 8, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 30, reps: 10, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 32, reps: 8, completed: true, setType: 'working', isWarmup: false }
       ],
       'ex-tricep-pushdown': [
-        { setIndex: 1, weightKg: 35, reps: 12, completed: true, isWarmup: false },
-        { setIndex: 2, weightKg: 40, reps: 10, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 35, reps: 12, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 40, reps: 10, completed: true, setType: 'working', isWarmup: false }
       ]
     }
   });
@@ -93,13 +93,13 @@ const generateHistory = (): WorkoutSession[] => {
     notes: 'Sentadilla pesada y RDL.',
     sets: {
       'ex-squat': [
-        { setIndex: 1, weightKg: 100, reps: 8, completed: true, isWarmup: false },
-        { setIndex: 2, weightKg: 105, reps: 8, completed: true, isWarmup: false },
-        { setIndex: 3, weightKg: 110, reps: 6, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 100, reps: 8, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 105, reps: 8, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 3, weightKg: 110, reps: 6, completed: true, setType: 'working', isWarmup: false }
       ],
       'ex-rdl': [
-        { setIndex: 1, weightKg: 90, reps: 10, completed: true, isWarmup: false },
-        { setIndex: 2, weightKg: 95, reps: 8, completed: true, isWarmup: false }
+        { setIndex: 1, weightKg: 90, reps: 10, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 95, reps: 8, completed: true, setType: 'working', isWarmup: false }
       ]
     }
   });
@@ -120,12 +120,12 @@ const generateHistory = (): WorkoutSession[] => {
         endedAt: new Date(now - 86400000 * daysAgo + 3600000).toISOString(),
         sets: {
           'ex-bench': [
-            { setIndex: 1, weightKg: 75, reps: 8, completed: true, isWarmup: false },
-            { setIndex: 2, weightKg: 77.5, reps: 8, completed: true, isWarmup: false }
+            { setIndex: 1, weightKg: 75, reps: 8, completed: true, setType: 'working', isWarmup: false },
+            { setIndex: 2, weightKg: 77.5, reps: 8, completed: true, setType: 'working', isWarmup: false }
           ],
           'ex-squat': [
-            { setIndex: 1, weightKg: 95, reps: 8, completed: true, isWarmup: false },
-            { setIndex: 2, weightKg: 100, reps: 6, completed: true, isWarmup: false }
+            { setIndex: 1, weightKg: 95, reps: 8, completed: true, setType: 'working', isWarmup: false },
+            { setIndex: 2, weightKg: 100, reps: 6, completed: true, setType: 'working', isWarmup: false }
           ]
         }
       });
