@@ -122,7 +122,8 @@ test('legacy local history and active workouts hydrate canonical set types', () 
 
   const active = normalizeStoredActiveWorkout({
     isWorkoutActive: true,
-    exerciseSessions: [{ exercise: { id: 'bench' }, sets: legacySession.sets.bench }]
-  }) as unknown as { exerciseSessions: Array<{ sets: Array<{ setType: string }> }> };
+    exerciseSessions: [{ exercise: { id: 'ex-0748' }, plateBaseWeightKg: 9.0718474, sets: legacySession.sets.bench }]
+  }) as unknown as { exerciseSessions: Array<{ sets: Array<{ setType: string }>; plateBaseWeightKg?: number }> };
   assert.equal(active.exerciseSessions[0].sets[0].setType, 'warmup');
+  assert.equal(active.exerciseSessions[0].plateBaseWeightKg, 9.0718474);
 });

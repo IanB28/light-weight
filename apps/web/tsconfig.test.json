@@ -18,6 +18,8 @@
     "src/lib/workout-history-index.test.ts",
     "src/features/workouts/workout-time.ts",
     "src/features/workouts/workout-time.test.ts",
+    "src/features/workouts/initial-weight.ts",
+    "src/features/workouts/initial-weight.test.ts",
     "src/features/stats/stats-selectors.ts",
     "src/features/stats/stats-selectors.test.ts",
     "src/lib/foundations.test.ts"

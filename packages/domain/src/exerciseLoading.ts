@@ -2,8 +2,10 @@ import type {
   Exercise,
   ExerciseLoadingProfile,
   ExerciseLoadMechanism,
-  ExerciseLoadMode
+  ExerciseLoadMode,
+  ExercisePlateBase
 } from './types.js';
+import { poundsToKilograms } from './weight.js';
 
 export type ExerciseLoadingProfileSource = 'explicit' | 'override' | 'fallback' | 'default';
 
@@ -37,6 +39,15 @@ const PLATE_LOADED_PROFILE: ExerciseLoadingProfile = Object.freeze({
   mechanism: 'plate_loaded', loadMode: 'total', supportsKeyboard: true,
   supportsPlates: true, supportsExternalLoad: true, includeBarWeight: false
 });
+const SMITH_PROFILE: ExerciseLoadingProfile = Object.freeze({
+  ...PLATE_LOADED_PROFILE,
+  plateBase: {
+    kind: 'fixed' as const,
+    weightKg: poundsToKilograms(20),
+    selectableWeightsKg: [poundsToKilograms(20), poundsToKilograms(22)],
+    label: 'smith' as const
+  }
+});
 const SELECTORIZED_PROFILE: ExerciseLoadingProfile = Object.freeze({
   mechanism: 'selectorized', loadMode: 'total', supportsKeyboard: true,
   supportsPlates: false, supportsExternalLoad: true, includeBarWeight: false
@@ -56,14 +67,25 @@ const selectorizedProfile = (loadMode: ExerciseLoadMode): ExerciseLoadingProfile
   loadMode
 });
 
-const cloneProfile = (profile: ExerciseLoadingProfile): ExerciseLoadingProfile => ({ ...profile });
+const defaultPlateBase = (profile: ExerciseLoadingProfile): ExercisePlateBase => profile.mechanism === 'barbell' ? { kind: 'user_bar' } : { kind: 'none' };
+const cloneProfile = (profile: ExerciseLoadingProfile): ExerciseLoadingProfile => ({ ...profile, plateBase: profile.plateBase ? { ...profile.plateBase, selectableWeightsKg: profile.plateBase.selectableWeightsKg ? [...profile.plateBase.selectableWeightsKg] : undefined } : defaultPlateBase(profile) });
+
+export function resolvePlateBaseWeightKg(profile: ExerciseLoadingProfile, userBarWeightKg: number, selectedBaseWeightKg?: number): number {
+  const base = profile.plateBase || defaultPlateBase(profile);
+  if (base.kind === 'user_bar') return Math.max(0, userBarWeightKg);
+  if (base.kind === 'fixed') {
+    const choices = base.selectableWeightsKg || [];
+    return choices.some((choice) => Math.abs(choice - (selectedBaseWeightKg ?? -1)) < 0.001) ? selectedBaseWeightKg! : Math.max(0, base.weightKg || 0);
+  }
+  return 0;
+}
 
 export const EXERCISE_LOADING_OVERRIDES: Readonly<Record<string, ExerciseLoadingProfile>> = Object.freeze({
   'ex-0739': PLATE_LOADED_PROFILE, // Sled 45° leg press
   'ex-0743': PLATE_LOADED_PROFILE, // Sled hack squat
-  'ex-0748': PLATE_LOADED_PROFILE, // Smith bench press
-  'ex-0755': PLATE_LOADED_PROFILE, // Smith hack squat
-  'ex-0760': PLATE_LOADED_PROFILE, // Smith leg press
+  'ex-0748': SMITH_PROFILE, // Smith bench press
+  'ex-0755': SMITH_PROFILE, // Smith hack squat
+  'ex-0760': SMITH_PROFILE, // Smith leg press
   'ex-0585': SELECTORIZED_PROFILE, // Lever leg extension
   'ex-0189': cableProfile('per_side'), // Cable one arm bent-over row
   'ex-0214': cableProfile('per_side'), // Cable seated one arm alternate row

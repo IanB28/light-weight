@@ -3,6 +3,7 @@ import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
   normalizeLoggedSet,
   resolveExerciseLoadingProfile,
+  resolvePlateBaseWeightKg,
   type Exercise,
   type LoggedSet,
   type MuscleGroup,
@@ -25,6 +26,7 @@ import {
 } from '../../lib/workout-history-index.js';
 import { formatElapsedDuration, workoutElapsedSeconds, workoutStartFromLegacySeconds } from './workout-time.js';
 import type { ActiveExerciseSession } from './types.js';
+import { resolveInitialWeightKg } from './initial-weight.js';
 
 interface StoredActiveWorkout {
   isWorkoutActive: boolean;
@@ -65,7 +67,10 @@ function normalizeActiveExerciseSession(session: ActiveExerciseSession): ActiveE
         usesAddedWeight: normalized.usesAddedWeight
           ?? normalized.sets.some((set) => set.weightKg > 0)
       }
-    : normalized;
+    : {
+        ...normalized,
+        plateBaseWeightKg: normalized.plateBaseWeightKg ?? loading.plateBase?.weightKg
+      };
 }
 
 function createWorkoutId(): string {
@@ -104,18 +109,20 @@ export function useWorkoutSession({
     const startsWithPlates = loading.supportsPlates && (
       !loading.supportsKeyboard || preferences.weightInputMode === 'plates'
     );
-    const defaultWeight = startsWithPlates
+    const semanticDefaultWeight = startsWithPlates
       ? getDefaultPlateLoadedWeightKg(
           preferences.units,
-          loading.includeBarWeight ? preferences.defaultBarWeightKg : 0,
+          resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg),
           preferences.availablePlatesKg,
           loading
         )
       : loading.loadMode === 'added_weight'
         ? 0
         : loading.mechanism === 'dumbbell'
-          ? 22
-          : 45;
+          ? 0
+          : 0;
+    // Preserve a user's own valid last load; zero is the conservative semantic fallback.
+    const defaultWeight = resolveInitialWeightKg(previousTopSet?.weightKg, semanticDefaultWeight);
     const initialSets = [
       { setIndex: 1, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: 2 },
       { setIndex: 2, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: 2 },
@@ -129,6 +136,7 @@ export function useWorkoutSession({
       bestEst1Rm: personalRecord?.est1Rm,
       targetRepRange: [6, 12],
       includeBarWeight: loading.includeBarWeight,
+      plateBaseWeightKg: resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg),
       sets: initialSets
     };
   };
@@ -327,6 +335,12 @@ export function useWorkoutSession({
     )));
   };
 
+  const updatePlateBaseWeight = (exerciseId: string, plateBaseWeightKg: number) => {
+    setExerciseSessions((current) => current.map((session) => (
+      session.exercise.id === exerciseId ? { ...session, plateBaseWeightKg } : session
+    )));
+  };
+
   const finish = (): WorkoutFinishResult | null => {
     if (!isWorkoutActive) return null;
     const sets: Record<string, LoggedSet[]> = {};
@@ -388,6 +402,7 @@ export function useWorkoutSession({
     updateWeightInputMode,
     toggleAddedWeight,
     updateBarInclusion,
+    updatePlateBaseWeight,
     finish,
     cancel,
     createCustomExercise

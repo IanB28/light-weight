@@ -10,5 +10,7 @@ export interface ActiveExerciseSession {
   weightInputModeOverride?: WeightInputMode;
   usesAddedWeight?: boolean;
   includeBarWeight?: boolean;
+  /** Session-level selected equipment base, e.g. 20 lb or 22 lb Smith rail. */
+  plateBaseWeightKg?: number;
   sets: (LoggedSet & { rir?: number })[];
 }

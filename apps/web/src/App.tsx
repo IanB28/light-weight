@@ -124,6 +124,7 @@ export function App() {
           onUpdateWeightInputMode={workout.updateWeightInputMode}
           onToggleAddedWeight={workout.toggleAddedWeight}
           onUpdateBarInclusion={workout.updateBarInclusion}
+          onUpdatePlateBaseWeight={workout.updatePlateBaseWeight}
         />}
 
         {currentTab === 'stats' && <StatsView

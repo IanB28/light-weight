@@ -29,6 +29,14 @@ export type ExerciseLoadMechanism =
   | 'other';
 
 export type ExerciseLoadMode = 'total' | 'per_side' | 'per_hand' | 'added_weight';
+export type ExercisePlateBaseKind = 'user_bar' | 'fixed' | 'none';
+
+export interface ExercisePlateBase {
+  kind: ExercisePlateBaseKind;
+  weightKg?: number;
+  selectableWeightsKg?: number[];
+  label?: 'smith';
+}
 
 /**
  * Canonical loading semantics for an exercise.
@@ -45,6 +53,8 @@ export interface ExerciseLoadingProfile {
   supportsPlates: boolean;
   supportsExternalLoad: boolean;
   includeBarWeight: boolean;
+  /** Optional for legacy entries; the resolver supplies a semantic default. */
+  plateBase?: ExercisePlateBase;
 }
 
 export interface Exercise {

@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
-  resolveExerciseLoadingProfile
+  resolveExerciseLoadingProfile,
+  resolvePlateBaseWeightKg
 } from './exerciseLoading.js';
+import { calculateLoadedBarWeight, poundsToKilograms } from './weight.js';
 import {
   isEffectiveSet,
   normalizeLoggedSet,
@@ -39,15 +41,14 @@ test('loading resolver prioritizes explicit metadata over curated and fallback d
     loading
   }));
   assert.equal(resolved.source, 'explicit');
-  assert.deepEqual(resolved.profile, loading);
+  assert.equal(resolved.profile.mechanism, loading.mechanism);
+  assert.equal(resolved.profile.plateBase?.kind, 'none');
 });
 
 test('loading resolver distinguishes common mechanisms and stable load modes', () => {
   const barbell = resolveExerciseLoadingProfile(exercise({ name: 'Barbell bench press', category: 'barbell' }));
-  assert.deepEqual(barbell.profile, {
-    mechanism: 'barbell', loadMode: 'total', supportsKeyboard: false,
-    supportsPlates: true, supportsExternalLoad: true, includeBarWeight: true
-  });
+  assert.equal(barbell.profile.mechanism, 'barbell');
+  assert.equal(barbell.profile.plateBase?.kind, 'user_bar');
 
   const dumbbell = resolveExerciseLoadingProfile(exercise({ name: 'Dumbbell curl', category: 'dumbbell' }));
   assert.equal(dumbbell.profile.loadMode, 'per_hand');
@@ -76,7 +77,17 @@ test('loading resolver distinguishes common mechanisms and stable load modes', (
 
   const unknown = resolveExerciseLoadingProfile(exercise({}));
   assert.equal(unknown.source, 'default');
-  assert.deepEqual(unknown.profile, DEFAULT_EXERCISE_LOADING_PROFILE);
+  assert.equal(unknown.profile.mechanism, DEFAULT_EXERCISE_LOADING_PROFILE.mechanism);
+  assert.equal(unknown.profile.plateBase?.kind, 'none');
+});
+
+test('Smith machines use their fixed 20 lb base, not the user barbell preference', () => {
+  const smith = resolveExerciseLoadingProfile(exercise({ id: 'ex-0748', name: 'Smith bench press', category: 'machine' })).profile;
+  const base20 = resolvePlateBaseWeightKg(smith, 100);
+  const base22 = resolvePlateBaseWeightKg(smith, 100, poundsToKilograms(22));
+  assert.equal(Math.round(base20 * 100) / 100, Math.round(poundsToKilograms(20) * 100) / 100);
+  assert.equal(Math.round(base22 * 100) / 100, Math.round(poundsToKilograms(22) * 100) / 100);
+  assert.equal(Math.round(calculateLoadedBarWeight(base20, [poundsToKilograms(45)]) * 10) / 10, 49.9);
 });
 
 test('legacy set classification normalizes to canonical setType', () => {

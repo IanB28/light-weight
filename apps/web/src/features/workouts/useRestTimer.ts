@@ -30,7 +30,8 @@ export function useRestTimer(notifier: RestTimerNotifier = webRestTimerNotifier)
   useEffect(() => {
     if (!restEndsAt || secondsLeft > 0 || notifiedEndRef.current === restEndsAt) return;
     notifiedEndRef.current = restEndsAt;
-    notifier.notifyFinished();
+    notifier.notifyForegroundFinished();
+    notifier.cancel();
     setRestEndsAt(null);
   }, [notifier, restEndsAt, secondsLeft]);
 
@@ -41,10 +42,13 @@ export function useRestTimer(notifier: RestTimerNotifier = webRestTimerNotifier)
     notifiedEndRef.current = null;
     setNowMs(now);
     setTotalSeconds(safeSeconds);
-    setRestEndsAt(now + safeSeconds * 1_000);
+    const endAt = now + safeSeconds * 1_000;
+    notifier.schedule(endAt);
+    setRestEndsAt(endAt);
   };
 
   const cancel = () => {
+    notifier.cancel();
     setRestEndsAt(null);
     setTotalSeconds(0);
   };
@@ -52,6 +56,7 @@ export function useRestTimer(notifier: RestTimerNotifier = webRestTimerNotifier)
   const add = (seconds: number) => {
     const now = Date.now();
     const nextEnd = adjustRestEnd(restEndsAt, seconds, now);
+    if (nextEnd) notifier.schedule(nextEnd); else notifier.cancel();
     setNowMs(now);
     setRestEndsAt(nextEnd);
     if (nextEnd) setTotalSeconds((current) => Math.max(1, current + seconds));

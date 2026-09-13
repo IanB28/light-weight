@@ -37,6 +37,7 @@ interface WorkoutViewProps {
   onUpdateWeightInputMode: (exerciseId: string, mode: WeightInputMode) => void;
   onToggleAddedWeight: (exerciseId: string, enabled: boolean) => void;
   onUpdateBarInclusion: (exerciseId: string, includeBarWeight: boolean) => void;
+  onUpdatePlateBaseWeight: (exerciseId: string, weightKg: number) => void;
 }
 
 const getDefaultMuscleFilter = (routineName: string): string => {
@@ -56,7 +57,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   isWorkoutActive, routines, routineName, sessionDuration, exerciseSessions, availableExercises, history,
   onToggleSet, onUpdateSet, onAddSet, onRemoveSet, onAddExercise, onRemoveExercise, onCreateCustomExercise,
   onFinishWorkout, onCancelWorkout, onStartRestTimer, onStartRoutine, preferences, onUpdateWeightInputMode,
-  onToggleAddedWeight, onUpdateBarInclusion
+  onToggleAddedWeight, onUpdateBarInclusion, onUpdatePlateBaseWeight
 }) => {
   const { t } = useI18n();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -93,6 +94,6 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     <ExerciseMediaModal exercise={selectedMediaExercise} isOpen={Boolean(selectedMediaExercise)} onClose={() => setSelectedMediaExercise(null)} />
     <WorkoutSummaryModal isOpen={Boolean(summaryData)} summary={summaryData} onConfirmSave={() => { setSummaryData(null); onFinishWorkout(); }} />
     <Modal open={showDiscardConfirm} onClose={() => setShowDiscardConfirm(false)} title={t('workout.discardTitle')} description={t('workout.discardDescription')}><div className="grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => setShowDiscardConfirm(false)}>{t('workout.continue')}</Button><Button variant="danger" onClick={() => { setShowDiscardConfirm(false); onCancelWorkout(); }}>{t('workout.discard')}</Button></div></Modal>
-    <PlatePickerSheet open={Boolean(plateTarget)} onClose={() => setPlateTarget(null)} valueKg={plateTarget?.valueKg || 0} units={preferences.units} barWeightKg={preferences.defaultBarWeightKg} availablePlatesKg={preferences.availablePlatesKg} includeBarWeight={plateTarget?.includeBarWeight ?? false} allowBarToggle={plateTarget?.allowBarToggle ?? false} loading={plateTarget?.loading ?? DEFAULT_EXERCISE_LOADING_PROFILE} onApply={(valueKg, includeBarWeight) => { if (!plateTarget) return; onUpdateSet(plateTarget.exerciseId, plateTarget.setIndex, 'weightKg', valueKg); onUpdateBarInclusion(plateTarget.exerciseId, includeBarWeight); }} />
+    <PlatePickerSheet open={Boolean(plateTarget)} onClose={() => setPlateTarget(null)} valueKg={plateTarget?.valueKg || 0} units={preferences.units} baseWeightKg={plateTarget?.baseWeightKg || 0} availablePlatesKg={preferences.availablePlatesKg} includeBarWeight={plateTarget?.includeBarWeight ?? false} allowBarToggle={plateTarget?.allowBarToggle ?? false} loading={plateTarget?.loading ?? DEFAULT_EXERCISE_LOADING_PROFILE} onApply={(valueKg, includeBarWeight, baseWeightKg) => { if (!plateTarget) return; onUpdateSet(plateTarget.exerciseId, plateTarget.setIndex, 'weightKg', valueKg); onUpdateBarInclusion(plateTarget.exerciseId, includeBarWeight); onUpdatePlateBaseWeight(plateTarget.exerciseId, baseWeightKg); }} />
   </div>;
 };
