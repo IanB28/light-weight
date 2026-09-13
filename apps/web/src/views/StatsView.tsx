@@ -56,6 +56,8 @@ import {
 import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
 import { ExercisePicker } from '../components/ExercisePicker.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 
 interface StatsViewProps {
   history?: WorkoutSession[];
@@ -89,6 +91,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
   onOpenSettings
 }) => {
   const { locale, t } = useI18n();
+  const { preferences } = usePreferences();
+  const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
+  const bodyweightUnit = WEIGHT_UNIT_PRESETS[preferences.bodyweightUnits].unit;
+  const calculatorStepKg = preferences.units === 'imperial' ? parseDisplayWeight(5, 'imperial') : 2.5;
   const { muscleLabel } = useExerciseLabels();
   const accordionId = React.useId();
   const sectionPanelIds = {
@@ -244,19 +250,19 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const exerciseChartPoints: ChartPoint[] = useMemo(() => {
     return exerciseSeries
       .map((p) => {
-        let yVal = p.topWeightKg;
-        if (exMetric === 'e1rm') yVal = p.est1Rm || p.topWeightKg;
+        let yVal = displayWeight(p.topWeightKg, preferences.units);
+        if (exMetric === 'e1rm') yVal = displayWeight(p.est1Rm || p.topWeightKg, preferences.units);
         if (exMetric === 'rir') yVal = p.avgRir !== null ? p.avgRir : 2;
 
         return {
           t: p.timestamp,
           y: yVal,
           dateStr: p.date,
-          label: `${p.topWeightKg} kg × ${p.sets[0]?.reps || 0} (${p.sets.length} series)`
+          label: `${formatDisplayWeight(p.topWeightKg, preferences.units)} × ${p.sets[0]?.reps || 0} (${p.sets.length} series)`
         };
       })
       .filter((p) => Number.isFinite(p.y));
-  }, [exerciseSeries, exMetric]);
+  }, [exerciseSeries, exMetric, preferences.units]);
 
   const bestAllTimeEstimate = useMemo(() => {
     let best = 0;
@@ -272,17 +278,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const bwChartPoints: ChartPoint[] = useMemo(() => {
     return bodyweightEntries.map((b) => ({
       t: b.timestamp,
-      y: b.weightKg,
+      y: displayWeight(b.weightKg, preferences.bodyweightUnits),
       dateStr: b.date
     }));
-  }, [bodyweightEntries]);
+  }, [bodyweightEntries, preferences.bodyweightUnits]);
 
   const bw30DayDelta = useMemo(() => {
     if (bodyweightEntries.length < 2) return null;
     const latest = bodyweightEntries[bodyweightEntries.length - 1].weightKg;
     const past = bodyweightEntries[0].weightKg;
-    return Math.round((latest - past) * 10) / 10;
-  }, [bodyweightEntries]);
+    return displayWeight(latest - past, preferences.bodyweightUnits);
+  }, [bodyweightEntries, preferences.bodyweightUnits]);
 
   // =========================================================================
   // =========================================================================
@@ -424,7 +430,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <div className="min-w-0 px-2 py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.bestE1rm')}</span>
             <strong className="mt-1 block truncate text-sm text-text-primary">
-              {progressSummary.bestEstimatedOneRm > 0 ? `${progressSummary.bestEstimatedOneRm.toFixed(1)} kg` : '—'}
+              {progressSummary.bestEstimatedOneRm > 0 ? formatDisplayWeight(progressSummary.bestEstimatedOneRm, preferences.units) : '—'}
             </strong>
           </div>
           <div className="min-w-0 px-2 py-3 text-center">
@@ -433,7 +439,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
           </div>
           <div className="min-w-0 px-2 py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.volume')}</span>
-            <strong className="mt-1 block truncate text-sm text-text-primary">{compactNumber.format(progressSummary.volumeKg)} kg</strong>
+            <strong className="mt-1 block truncate text-sm text-text-primary">{compactNumber.format(displayWeight(progressSummary.volumeKg, preferences.units))} {weightUnit}</strong>
           </div>
         </div>
 
@@ -449,7 +455,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         {totalVolumeTonnage > 0 && (
           <Button variant="ghost" size="sm" onClick={() => setIsTonnageModalOpen(true)} className="w-full text-text-muted">
             <Flame aria-hidden="true" className="size-4 text-accent" />
-            Tonelaje histórico: {compactNumber.format(totalVolumeTonnage)} kg
+            Tonelaje histórico: {compactNumber.format(displayWeight(totalVolumeTonnage, preferences.units))} {weightUnit}
           </Button>
         )}
       </AppCard>
@@ -553,7 +559,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   {t('stats.female')}
                 </button>
                 <span className="text-zinc-700 px-1">|</span>
-                <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg ? `${currentBodyweightKg} kg` : t('stats.noWeight')}</span>
+                <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg ? formatDisplayWeight(currentBodyweightKg, preferences.bodyweightUnits) : t('stats.noWeight')}</span>
               </div>
             </div>
 
@@ -808,7 +814,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                           {muscleAnalysisMode === 'balance' && (
                             <span className="text-zinc-400">
                               <strong className="text-accent">{item.sets}</strong> {t('workout.sets')} •{' '}
-                              {item.volumeKg.toLocaleString()} kg
+                              {displayWeight(item.volumeKg, preferences.units).toLocaleString(locale)} {weightUnit}
                             </span>
                           )}
 
@@ -843,11 +849,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                           {muscleAnalysisMode === 'strength' && (
                             <div>
                               <span className="text-white font-bold block">
-                                {item.topEst1RmKg > 0 ? `${item.topEst1RmKg} kg` : t('stats.noData')}
+                                {item.topEst1RmKg > 0 ? formatDisplayWeight(item.topEst1RmKg, preferences.units) : t('stats.noData')}
                               </span>
                               {item.strengthEvaluation?.nextTier && item.strengthEvaluation.kgToNextTier !== null ? (
                                 <span className="text-purple-400 text-[10px] block truncate">
-                                  +{item.strengthEvaluation.kgToNextTier} kg → {item.strengthEvaluation.nextTierLabelEs}
+                                  +{formatDisplayWeight(item.strengthEvaluation.kgToNextTier, preferences.units)} → {item.strengthEvaluation.nextTierLabelEs}
                                 </span>
                               ) : item.strengthEvaluation?.tier === 'elite' ? (
                                 <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
@@ -896,7 +902,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             {bestAllTimeEstimate > 0 && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/25 shrink-0">
-                PR: {bestAllTimeEstimate} kg
+                PR: {formatDisplayWeight(bestAllTimeEstimate, preferences.units)}
               </span>
             )}
             <ChevronDown
@@ -932,7 +938,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                {t('stats.topSet')}
+                {t('stats.topSet', { unit: weightUnit })}
               </button>
               <button
                 type="button"
@@ -963,7 +969,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <LineChart
                 points={exerciseChartPoints}
                 height={150}
-                unit={exMetric === 'rir' ? 'RIR' : 'kg'}
+                unit={exMetric === 'rir' ? 'RIR' : weightUnit}
                 color={exMetric === 'rir' ? '#F59E0B' : 'var(--accent-color)'}
                 invertY={exMetric === 'rir'}
               />
@@ -1000,7 +1006,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       <div className="text-right">
                         {point.est1Rm && (
                           <span className="text-sky-400 font-mono font-bold text-xs block">
-                            1RM: {point.est1Rm} kg
+                            1RM: {formatDisplayWeight(point.est1Rm, preferences.units)}
                           </span>
                         )}
                         {point.avgRir !== null && (
@@ -1112,7 +1118,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-bold text-accent">
-                          {vol.toLocaleString()} kg
+                          {displayWeight(vol, preferences.units).toLocaleString(locale)} {weightUnit}
                         </span>
                         <ChevronRight className="w-4 h-4 text-zinc-500" />
                       </div>
@@ -1152,7 +1158,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
-              {bodyweightEntries[bodyweightEntries.length - 1]?.weightKg || '—'} kg
+              {bodyweightEntries.length > 0 ? formatDisplayWeight(bodyweightEntries[bodyweightEntries.length - 1].weightKg, preferences.bodyweightUnits) : '—'}
             </span>
             <ChevronDown
               aria-hidden="true"
@@ -1186,13 +1192,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <div>
                 <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.latestWeight')}</span>
                 <span className="text-base font-extrabold text-white font-mono">
-                  {bodyweightEntries[bodyweightEntries.length - 1]?.weightKg || '—'} kg
+                  {bodyweightEntries.length > 0 ? formatDisplayWeight(bodyweightEntries[bodyweightEntries.length - 1].weightKg, preferences.bodyweightUnits) : '—'}
                 </span>
               </div>
               <div className="border-x border-white/[0.06]">
                 <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.goal')}</span>
                 <span className="text-base font-extrabold text-accent font-mono">
-                  {targetWeight ? `${targetWeight} kg` : '—'}
+                  {targetWeight ? formatDisplayWeight(targetWeight, preferences.bodyweightUnits) : '—'}
                 </span>
               </div>
               <div>
@@ -1202,7 +1208,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     bw30DayDelta && bw30DayDelta < 0 ? 'text-accent' : 'text-zinc-300'
                   }`}
                 >
-                  {bw30DayDelta !== null ? `${bw30DayDelta > 0 ? '+' : ''}${bw30DayDelta} kg` : '—'}
+                  {bw30DayDelta !== null ? `${bw30DayDelta > 0 ? '+' : ''}${bw30DayDelta} ${bodyweightUnit}` : '—'}
                 </span>
               </div>
             </div>
@@ -1212,9 +1218,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <LineChart
                 points={bwChartPoints}
                 height={160}
-                unit="kg"
+                unit={bodyweightUnit}
                 color="var(--accent-color)"
-                goal={targetWeight}
+                goal={targetWeight === null ? null : displayWeight(targetWeight, preferences.bodyweightUnits)}
               />
             </div>
             </>)}
@@ -1249,7 +1255,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-accent/15 text-accent border border-accent/25 shrink-0">
-              {estimate.average} kg
+              {formatDisplayWeight(estimate.average, preferences.units)}
             </span>
             <ChevronDown
               aria-hidden="true"
@@ -1283,9 +1289,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       {t('stats.lastTopSet')}
                     </span>
                     <span className="text-xs text-white font-bold block truncate">
-                      {lastTopSet.weightKg} kg × {lastTopSet.reps} reps{' '}
+                      {formatDisplayWeight(lastTopSet.weightKg, preferences.units)} × {lastTopSet.reps} reps{' '}
                       <span className="text-amber-300 font-normal">
-                        (1RM ~{lastTopSet.estimatedOneRm} kg)
+                        (1RM ~{formatDisplayWeight(lastTopSet.estimatedOneRm, preferences.units)})
                       </span>
                     </span>
                   </div>
@@ -1332,7 +1338,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       </span>
                     </div>
                     <span className="text-[11px] text-zinc-400 font-mono block mt-0.5">
-                      {t('stats.biometricBase', { weight: currentBodyweightKg ?? 0, gender: currentGender === 'male' ? t('stats.male') : t('stats.female') })}
+                      {t('stats.biometricBase', { weight: formatDisplayWeight(currentBodyweightKg ?? 0, preferences.bodyweightUnits), gender: currentGender === 'male' ? t('stats.male') : t('stats.female') })}
                     </span>
                   </div>
                 </div>
@@ -1341,7 +1347,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   <div className="text-right font-mono shrink-0">
                     <span className="text-[10px] text-zinc-500 block">{t('stats.nextLevel')}</span>
                     <span className="text-xs font-bold text-accent">
-                      +{userStrengthEval.kgToNextTier} kg
+                      +{formatDisplayWeight(userStrengthEval.kgToNextTier, preferences.units)}
                     </span>
                   </div>
                 )}
@@ -1353,22 +1359,22 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <div className="p-3 rounded-2xl bg-black/40 border border-white/[0.06]">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] text-zinc-500 uppercase font-mono font-bold">
-                    {t('stats.loadKg')}
+                    {t('stats.loadKg', { unit: weightUnit })}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={() => setCalcWeight((w) => Math.max(0, Math.round((w - 2.5) * 10) / 10))}
+                      onClick={() => setCalcWeight((w) => Math.max(0, Math.round((w - calculatorStepKg) * 100) / 100))}
                       className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-white/[0.16] text-zinc-300 flex items-center justify-center cursor-pointer text-xs font-mono font-bold active:scale-90 transition-transform"
-                      title="-2.5 kg"
+                      title={`-${displayWeight(calculatorStepKg, preferences.units)} ${weightUnit}`}
                     >
                       <Minus className="w-3 h-3" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCalcWeight((w) => Math.round((w + 2.5) * 10) / 10)}
+                      onClick={() => setCalcWeight((w) => Math.round((w + calculatorStepKg) * 100) / 100)}
                       className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-white/[0.16] text-zinc-300 flex items-center justify-center cursor-pointer text-xs font-mono font-bold active:scale-90 transition-transform"
-                      title="+2.5 kg"
+                      title={`+${displayWeight(calculatorStepKg, preferences.units)} ${weightUnit}`}
                     >
                       <Plus className="w-3 h-3" />
                     </button>
@@ -1376,9 +1382,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 </div>
                 <input
                   type="number"
-                  step="2.5"
-                  value={calcWeight}
-                  onChange={(e) => setCalcWeight(parseFloat(e.target.value) || 0)}
+                  step={preferences.units === 'imperial' ? 5 : 2.5}
+                  value={displayWeight(calcWeight, preferences.units)}
+                  onChange={(e) => setCalcWeight(parseDisplayWeight(parseFloat(e.target.value) || 0, preferences.units))}
                   className="w-full bg-transparent font-mono font-bold text-2xl text-white tabular-nums focus:outline-none"
                 />
               </div>
@@ -1428,22 +1434,22 @@ export const StatsView: React.FC<StatsViewProps> = ({
             <div className="grid grid-cols-3 gap-2 text-center p-3 rounded-2xl bg-black/60 border border-white/[0.04]">
               <div>
                 <div className="text-[10px] text-zinc-500 font-mono uppercase">Epley</div>
-                <div className="text-base font-bold text-white font-mono mt-0.5">{estimate.epley} kg</div>
+                <div className="text-base font-bold text-white font-mono mt-0.5">{formatDisplayWeight(estimate.epley, preferences.units)}</div>
               </div>
               <div className="border-x border-zinc-800">
                 <div className="text-[10px] text-zinc-500 font-mono uppercase">Brzycki</div>
-                <div className="text-base font-bold text-white font-mono mt-0.5">{estimate.brzycki} kg</div>
+                <div className="text-base font-bold text-white font-mono mt-0.5">{formatDisplayWeight(estimate.brzycki, preferences.units)}</div>
               </div>
               <div>
                 <div className="text-[10px] text-accent font-mono uppercase font-bold">{t('stats.consensus')}</div>
-                <div className="text-base font-extrabold text-accent font-mono mt-0.5">{estimate.average} kg</div>
+                <div className="text-base font-extrabold text-accent font-mono mt-0.5">{formatDisplayWeight(estimate.average, preferences.units)}</div>
               </div>
             </div>
 
             {/* 6. Desglose de Porcentajes de Entrenamiento (70% - 100%) */}
             <div className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] space-y-2.5">
               <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
-                {t('stats.trainingZones', { weight: estimate.average })}
+                {t('stats.trainingZones', { weight: formatDisplayWeight(estimate.average, preferences.units) })}
               </span>
               <div className="grid grid-cols-4 gap-1.5 text-center text-xs font-mono">
                 {[
@@ -1456,7 +1462,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   return (
                     <div key={zone.pct} className="p-2 rounded-xl bg-black/40 border border-white/[0.04]">
                       <div className="text-[10px] text-zinc-500 font-bold">{zone.pct}%</div>
-                      <div className="text-sm font-extrabold text-white my-0.5">{targetKg} kg</div>
+                      <div className="text-sm font-extrabold text-white my-0.5">{formatDisplayWeight(targetKg, preferences.units)}</div>
                       <div className="text-[9px] text-accent font-semibold">{zone.reps}</div>
                     </div>
                   );

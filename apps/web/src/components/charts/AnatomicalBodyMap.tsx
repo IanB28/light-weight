@@ -7,6 +7,8 @@ import {
   Gender
 } from '@light-weight/domain';
 import BODY_PATHS, { BodyViewData } from '../../lib/body-paths.js';
+import { usePreferences } from '../../lib/preferences-context.js';
+import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 
 export type AnalysisMode = 'balance' | 'fatigue' | 'strength';
 
@@ -90,6 +92,8 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   onSelectMuscle,
   className = ''
 }) => {
+  const { preferences } = usePreferences();
+  const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   const genderPaths = BODY_PATHS[gender] || BODY_PATHS.male;
 
   // Compute maximum volume for balance normalization
@@ -343,7 +347,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               <span className="text-[10px] text-zinc-500 block uppercase">Volumen</span>
               <span className="text-sm font-bold text-white">{selectedData.sets} series</span>
               <span className="text-[10px] text-zinc-400 block mt-0.5">
-                {selectedData.volumeKg.toLocaleString()} kg
+                {displayWeight(selectedData.volumeKg, preferences.units).toLocaleString()} {weightUnit}
               </span>
             </div>
 
@@ -381,7 +385,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                   : '—'}
               </span>
               <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[90px] mx-auto" title={selectedData.topExerciseName}>
-                {selectedData.topEst1RmKg > 0 ? `${selectedData.topEst1RmKg} kg 1RM` : 'Sin registro'}
+                {selectedData.topEst1RmKg > 0 ? `${formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)} 1RM` : 'Sin registro'}
               </span>
             </div>
           </div>
@@ -397,7 +401,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                   </strong>
                 </span>
                 <span className="text-purple-400 font-bold text-[11px]">
-                  Faltan +{selectedData.strengthEvaluation.kgToNextTier} kg
+                  Faltan +{formatDisplayWeight(selectedData.strengthEvaluation.kgToNextTier ?? 0, preferences.units)}
                 </span>
               </div>
 
@@ -410,8 +414,8 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               </div>
 
               <div className="flex justify-between text-[10px] text-zinc-500">
-                <span>Actual: {selectedData.topEst1RmKg} kg</span>
-                <span>Objetivo: {selectedData.strengthEvaluation.targetOneRmKg} kg ({selectedData.strengthEvaluation.targetRatio}× BW)</span>
+                <span>Actual: {formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)}</span>
+                <span>Objetivo: {formatDisplayWeight(selectedData.strengthEvaluation.targetOneRmKg ?? 0, preferences.units)} ({selectedData.strengthEvaluation.targetRatio}× BW)</span>
               </div>
             </div>
           )}

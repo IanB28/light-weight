@@ -13,6 +13,9 @@ import {
   UserProfile
 } from '../../lib/storage.js';
 import { useI18n } from '../../lib/i18n.js';
+import { resolveExerciseName } from '../../lib/exercise-names.js';
+import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
+import { usePreferences } from '../../lib/preferences-context.js';
 import { AppCard, Button, EmptyState, SegmentedControl } from '../../components/ui/index.js';
 
 interface ProfileViewProps {
@@ -27,6 +30,7 @@ type ProfileMode = 'summary' | 'edit';
 
 export function ProfileView({ profile, userInfo, history, exercises, onSave }: ProfileViewProps) {
   const { locale, t } = useI18n();
+  const { preferences } = usePreferences();
   const [mode, setMode] = useState<ProfileMode>('summary');
   const [draft, setDraft] = useState<UserProfile>(profile);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +44,6 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave }: P
 
   const summary = useMemo(() => {
     const records = calculateAllPersonalRecords(history);
-    const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]));
     return {
       totalWorkouts: history.length,
       totalVolumeKg: history.reduce((total, session) => total + calculateSessionTotalVolume(session), 0),
@@ -48,9 +51,12 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave }: P
       records: Object.values(records)
         .sort((a, b) => b.est1Rm - a.est1Rm)
         .slice(0, 3)
-        .map((record) => ({ ...record, name: byId.get(record.exerciseId)?.name || record.exerciseId }))
+        .map((record) => ({
+          ...record,
+          name: resolveExerciseName(record.exerciseId, exercises, history, t('profile.exerciseUnavailable'))
+        }))
     };
-  }, [exercises, history]);
+  }, [exercises, history, t]);
 
   const openEdit = () => {
     setDraft({ ...profile, displayName });
@@ -134,7 +140,7 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave }: P
       <AppCard compact className="grid grid-cols-3 divide-x divide-border-subtle text-center">
         {[
           [summary.totalWorkouts, t('profile.workouts')],
-          [new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(summary.totalVolumeKg), t('profile.volume')],
+          [new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(displayWeight(summary.totalVolumeKg, preferences.units)), t('profile.volume', { unit: WEIGHT_UNIT_PRESETS[preferences.units].unit })],
           [summary.streak, t('profile.weeks')]
         ].map(([value, label]) => <div key={String(label)} className="min-w-0 px-1.5"><p className="truncate font-mono text-base font-extrabold text-text-primary">{value}</p><p className="mt-0.5 text-[10px] leading-tight text-text-muted">{label}</p></div>)}
       </AppCard>
@@ -148,7 +154,7 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave }: P
             {summary.records.map((record) => (
               <div key={record.exerciseId} className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle px-3 last:border-b-0">
                 <span className="min-w-0 truncate text-xs font-bold text-text-primary">{record.name}</span>
-                <span className="shrink-0 font-mono text-xs font-bold text-accent">{record.est1Rm.toFixed(1)} kg</span>
+                <span className="shrink-0 font-mono text-xs font-bold text-accent">{formatDisplayWeight(record.est1Rm, preferences.units)}</span>
               </div>
             ))}
           </div>

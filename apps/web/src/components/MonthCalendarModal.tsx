@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { WorkoutSession, Routine } from '@light-weight/domain';
 import { WeeklySchedule, DAY_NUM_TO_WEEKDAY } from '../lib/storage.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 
 interface MonthCalendarModalProps {
   isOpen: boolean;
@@ -20,6 +22,8 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
   routines,
   onSelectDay
 }) => {
+  const { preferences } = usePreferences();
+  const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   const today = useMemo(() => new Date(), []);
   // monthOffset: 0 = mes actual, -1 = mes anterior, +1 = mes siguiente
   const [monthOffset, setMonthOffset] = useState<number>(0);
@@ -76,7 +80,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-    const volumeFormatted = totalVolumeKg.toLocaleString('es-ES', {
+    const volumeFormatted = displayWeight(totalVolumeKg, preferences.units).toLocaleString('es-ES', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1
     });
@@ -86,7 +90,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
       durationStr,
       volumeFormatted
     };
-  }, [monthSessions]);
+  }, [monthSessions, preferences.units]);
 
   // Matriz de días del mes para la cuadrícula
   const calendarDays = useMemo(() => {
@@ -174,7 +178,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
               {monthTitle}
             </h2>
             <p className="text-xs text-zinc-400 font-normal mt-0.5">
-              {monthStats.count} {monthStats.count === 1 ? 'entrenamiento' : 'entrenamientos'} · {monthStats.durationStr} · {monthStats.volumeFormatted} kg
+              {monthStats.count} {monthStats.count === 1 ? 'entrenamiento' : 'entrenamientos'} · {monthStats.durationStr} · {monthStats.volumeFormatted} {weightUnit}
             </p>
           </div>
 

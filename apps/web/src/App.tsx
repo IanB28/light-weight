@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BottomNav, TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
 import { SettingsSheet } from './components/SettingsSheet.js';
@@ -8,7 +8,7 @@ import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
 import { loadExerciseCatalog } from './lib/exercises.js';
-import { Routine, Exercise, WorkoutSession, MuscleGroup, LoggedSet, getPreviousPerformance } from '@light-weight/domain';
+import { Routine, Exercise, WorkoutSession, MuscleGroup, LoggedSet, getPreviousPerformance, WorkoutSetType } from '@light-weight/domain';
 import {
   getStoredHistory,
   saveCompletedWorkout,
@@ -39,6 +39,7 @@ import { usePreferences } from './lib/preferences-context.js';
 import { WeightInputMode } from './lib/preferences.js';
 import { useFeedback } from './lib/feedback-context.js';
 import { useI18n } from './lib/i18n.js';
+import { formatDisplayWeight, getDefaultPlateLoadedWeightKg, getPlateLoadScope, getWeightEntryCapability } from './lib/weight-units.js';
 
 export function App() {
   const { preferences } = usePreferences();
@@ -66,6 +67,19 @@ export function App() {
   // Rest Timer State
   const [restSecondsLeft, setRestSecondsLeft] = useState<number>(0);
   const [restTotalSeconds, setRestTotalSeconds] = useState<number>(preferences.defaultRestSeconds);
+  const previousWeightInputMode = useRef(preferences.weightInputMode);
+
+  // A Settings change establishes a new default for the active workout too.
+  // Exercise-level switches remain overrides until that global choice changes.
+  useEffect(() => {
+    if (previousWeightInputMode.current === preferences.weightInputMode) return;
+    previousWeightInputMode.current = preferences.weightInputMode;
+    setExerciseSessions((current) => current.map((session) => {
+      if (!session.weightInputModeOverride) return session;
+      const { weightInputModeOverride: _override, ...withoutOverride } = session;
+      return withoutOverride;
+    }));
+  }, [preferences.weightInputMode]);
 
   // Hydrate in the background without delaying or replacing the local-first render.
   useEffect(() => {
@@ -111,7 +125,20 @@ export function App() {
       setIsWorkoutActive(true);
       setWorkoutSeconds(saved.workoutSeconds || 0);
       setActiveRoutineName(saved.activeRoutineName || 'Entrenamiento Libre');
-      setExerciseSessions(saved.exerciseSessions || []);
+      setExerciseSessions((saved.exerciseSessions || []).map((session) => {
+        // Sessions persisted before preferences V2 copied the global mode into
+        // every exercise. Drop that legacy snapshot so the current preference
+        // can drive the UI again; future workout-level choices use an override.
+        const legacySession = session as ActiveExerciseSession & { weightInputMode?: WeightInputMode };
+        const { weightInputMode: _legacyWeightInputMode, ...restoredSession } = legacySession;
+        return restoredSession.exercise.category === 'bodyweight'
+          ? {
+              ...restoredSession,
+              usesAddedWeight: restoredSession.usesAddedWeight
+                ?? restoredSession.sets.some((set) => set.weightKg > 0)
+            }
+          : restoredSession;
+      }));
       setWorkoutStartTime(saved.workoutStartTime || new Date().toISOString());
       requestWakeLock();
     }
@@ -173,10 +200,22 @@ export function App() {
   const createExerciseSession = (ex: Exercise): ActiveExerciseSession => {
     const prev = getPreviousPerformance(history, ex.id);
     const prs = calculateAllPersonalRecords(history);
-    const bestRecord = prs[ex.id] ? `${prs[ex.id].weightKg} kg × ${prs[ex.id].reps}` : undefined;
+    const previousTopSet = prev?.sets.reduce<LoggedSet | null>((best, set) => !best || set.weightKg > best.weightKg ? set : best, null);
+    const previousRecord = previousTopSet ? `${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}` : undefined;
+    const bestRecord = prs[ex.id] ? `${formatDisplayWeight(prs[ex.id].weightKg, preferences.units)} × ${prs[ex.id].reps}` : undefined;
 
-    const defaultWeight =
-      ex.category === 'barbell'
+    const weightEntryCapability = getWeightEntryCapability(ex.category);
+    const plateLoadScope = getPlateLoadScope(ex);
+    const startsWithPlates = weightEntryCapability === 'plates-only'
+      || (weightEntryCapability === 'keyboard-and-plates' && preferences.weightInputMode === 'plates');
+    const defaultWeight = startsWithPlates
+      ? getDefaultPlateLoadedWeightKg(
+          preferences.units,
+          weightEntryCapability === 'plates-only' ? preferences.defaultBarWeightKg : 0,
+          preferences.availablePlatesKg,
+          plateLoadScope === 'barbell' ? 2 : 1
+        )
+      : ex.category === 'barbell'
         ? 60
         : ex.category === 'dumbbell'
         ? 22
@@ -185,18 +224,17 @@ export function App() {
         : 45;
 
     const initialSets = [
-      { setIndex: 1, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, rir: 2 },
-      { setIndex: 2, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, rir: 2 },
-      { setIndex: 3, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, rir: 1 }
+      { setIndex: 1, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, setType: 'working' as const, rir: 2 },
+      { setIndex: 2, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, setType: 'working' as const, rir: 2 },
+      { setIndex: 3, weightKg: defaultWeight, reps: 8, completed: false, isWarmup: false, setType: 'working' as const, rir: 1 }
     ];
 
     return {
       exercise: ex,
-      previousRecord: prev ? prev.summary : undefined,
+      previousRecord,
       bestRecord,
       bestEst1Rm: prs[ex.id]?.est1Rm,
       targetRepRange: [6, 12],
-      weightInputMode: ex.category === 'barbell' ? preferences.weightInputMode : 'keyboard',
       sets: initialSets
     };
   };
@@ -279,7 +317,26 @@ export function App() {
 
   const handleUpdateWeightInputMode = (exerciseId: string, weightInputMode: WeightInputMode) => {
     setExerciseSessions((current) => current.map((session) => (
-      session.exercise.id === exerciseId ? { ...session, weightInputMode } : session
+      session.exercise.id === exerciseId ? { ...session, weightInputModeOverride: weightInputMode } : session
+    )));
+  };
+
+  const handleToggleAddedWeight = (exerciseId: string, enabled: boolean) => {
+    setExerciseSessions((current) => current.map((session) => {
+      if (session.exercise.id !== exerciseId) return session;
+      return {
+        ...session,
+        usesAddedWeight: enabled,
+        sets: enabled
+          ? session.sets
+          : session.sets.map((set) => ({ ...set, weightKg: 0 }))
+      };
+    }));
+  };
+
+  const handleUpdateBarInclusion = (exerciseId: string, includeBarWeight: boolean) => {
+    setExerciseSessions((current) => current.map((session) => (
+      session.exercise.id === exerciseId ? { ...session, includeBarWeight } : session
     )));
   };
 
@@ -344,7 +401,7 @@ export function App() {
   };
 
   // Handler: Add Set
-  const handleAddSet = (exerciseId: string, isWarmup = false) => {
+  const handleAddSet = (exerciseId: string, setType: WorkoutSetType = 'working') => {
     setExerciseSessions((prev) =>
       prev.map((item) => {
         if (item.exercise.id !== exerciseId) return item;
@@ -359,7 +416,8 @@ export function App() {
               weightKg: lastSet ? lastSet.weightKg : 50,
               reps: lastSet ? lastSet.reps : 8,
               completed: false,
-              isWarmup,
+              isWarmup: setType === 'warmup',
+              setType,
               rir: lastSet ? lastSet.rir : 2
             }
           ]
@@ -530,6 +588,8 @@ export function App() {
             onStartRoutine={handleStartWorkout}
             preferences={preferences}
             onUpdateWeightInputMode={handleUpdateWeightInputMode}
+            onToggleAddedWeight={handleToggleAddedWeight}
+            onUpdateBarInclusion={handleUpdateBarInclusion}
           />
         )}
 

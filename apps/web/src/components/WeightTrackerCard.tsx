@@ -4,6 +4,8 @@ import { BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from './charts/LineChart.js';
 import { EmptyState } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 
 interface WeightTrackerCardProps {
   entries: BodyweightEntry[];
@@ -19,6 +21,9 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
   onOpenGoalModal
 }) => {
   const { locale, t } = useI18n();
+  const { preferences } = usePreferences();
+  const units = preferences.bodyweightUnits;
+  const unit = WEIGHT_UNIT_PRESETS[units].unit;
   // Ordenar cronológicamente
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => a.timestamp - b.timestamp);
@@ -28,7 +33,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
 
   // Formato del peso actual (ej. 78,7)
   const latestWeightFormatted = latestEntry
-    ? latestEntry.weightKg.toFixed(1).replace('.', ',')
+    ? displayWeight(latestEntry.weightKg, units).toLocaleString(locale, { maximumFractionDigits: 1 })
     : '--';
 
   // Formato de fecha del último pesaje (ej. mar, 8 sept)
@@ -43,7 +48,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
 
   // Diferencia hacia la meta
   const diffToGoal = latestEntry && targetWeight !== null
-    ? Math.round(Math.abs(latestEntry.weightKg - targetWeight) * 10) / 10
+    ? displayWeight(Math.abs(latestEntry.weightKg - targetWeight), units)
     : null;
 
   const isLosingGoal = latestEntry && targetWeight !== null && targetWeight < latestEntry.weightKg;
@@ -53,11 +58,11 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
     if (sortedEntries.length === 0) return [];
     return sortedEntries.map((e) => ({
       t: e.timestamp,
-      y: e.weightKg,
+      y: displayWeight(e.weightKg, units),
       dateStr: e.date,
-      label: `${e.weightKg.toString().replace('.', ',')} kg`
+      label: `${displayWeight(e.weightKg, units)} ${unit}`
     }));
-  }, [sortedEntries]);
+  }, [sortedEntries, unit, units]);
 
   return (
     <div className="p-5 dark-glass-card rounded-[28px] space-y-2 select-none transition-all hover:border-white/15">
@@ -74,7 +79,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
               title={t('weight.changeGoal')}
             >
               <Target className="w-3.5 h-3.5 text-accent" />
-              <span>{targetWeight.toString().replace('.', ',')}</span>
+              <span>{displayWeight(targetWeight, units)} {unit}</span>
             </button>
           )}
 
@@ -99,7 +104,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
           <span className="text-4xl font-extrabold text-white tracking-tight">
             {latestWeightFormatted}
           </span>
-          <span className="text-base text-zinc-400 font-normal">kg</span>
+          <span className="text-base text-zinc-400 font-normal">{unit}</span>
         </div>
 
         <span className="text-xs text-zinc-400 font-normal lowercase">
@@ -115,7 +120,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
         >
           <Target className="w-3.5 h-3.5 text-accent shrink-0" />
           <span>
-            {t('weight.goal')} {targetWeight.toString().replace('.', ',')} kg · {diffToGoal.toString().replace('.', ',')} kg {isLosingGoal ? t('weight.toLose') : t('weight.toGain')}
+            {t('weight.goal')} {displayWeight(targetWeight, units)} {unit} · {diffToGoal} {unit} {isLosingGoal ? t('weight.toLose') : t('weight.toGain')}
           </span>
         </div>
       ) : (
@@ -133,9 +138,9 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
         <LineChart
           points={chartPoints}
           height={130}
-          unit="kg"
+          unit={unit}
           color="var(--accent-color, #EAFF55)"
-          goal={targetWeight}
+          goal={targetWeight === null ? null : displayWeight(targetWeight, units)}
         />
       </div>
       </>)}

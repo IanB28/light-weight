@@ -32,6 +32,7 @@ import { evaluateRelativeStrength } from './strengthStandards.js';
 import { calculateAge } from './profile.js';
 import {
   calculateLoadedBarWeight,
+  decomposeLoadedBarWeight,
   kilogramsToPounds,
   normalizeWeightKg,
   poundsToKilograms
@@ -257,9 +258,29 @@ test('calculateAge derives age from birth date and rejects invalid dates', () =>
 
 test('loaded bar weight and unit conversions stay finite and symmetric', () => {
   assert.equal(calculateLoadedBarWeight(20, [20, 10, 2.5]), 85);
+  assert.equal(calculateLoadedBarWeight(0, [20, 10, 2.5], 1), 32.5);
   assert.equal(calculateLoadedBarWeight(-20, [10, Number.NaN]), 20);
   assert.ok(Math.abs(kilogramsToPounds(100) - 220.462) < 0.001);
   assert.ok(Math.abs(poundsToKilograms(220.462) - 100) < 0.001);
   assert.equal(normalizeWeightKg(Number.NaN), 0);
   assert.equal(normalizeWeightKg(-5), 0);
+});
+
+test('loaded bar decomposition restores exact plates and rejects inexact loads', () => {
+  const exact = decomposeLoadedBarWeight(85, 20, [25, 20, 15, 10, 5, 2.5, 1.25]);
+  assert.equal(exact.isExact, true);
+  const restoredPlates = Object.entries(exact.counts).flatMap(([plate, count]) => Array.from({ length: count }, () => Number(plate)));
+  assert.equal(calculateLoadedBarWeight(20, restoredPlates), 85);
+
+  const inexact = decomposeLoadedBarWeight(83, 20, [20, 10, 5, 2.5]);
+  assert.equal(inexact.isExact, false);
+  assert.deepEqual(inexact.counts, {});
+
+  const nonGreedy = decomposeLoadedBarWeight(32, 20, [5, 3]);
+  assert.equal(nonGreedy.isExact, true);
+  assert.deepEqual(nonGreedy.counts, { '3': 2 });
+
+  const singleLoad = decomposeLoadedBarWeight(32.5, 0, [20, 10, 2.5], 0.02, 1);
+  assert.equal(singleLoad.isExact, true);
+  assert.deepEqual(singleLoad.counts, { '20': 1, '10': 1, '2.5': 1 });
 });

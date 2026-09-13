@@ -32,6 +32,8 @@ export interface Exercise {
   targetMuscle?: string;
 }
 
+export type WorkoutSetType = 'working' | 'warmup' | 'drop' | 'backoff';
+
 export interface LoggedSet {
   setIndex: number;
   weightKg: number;
@@ -40,6 +42,7 @@ export interface LoggedSet {
   rir?: number;
   completed: boolean;
   isWarmup: boolean;
+  setType?: WorkoutSetType;
 }
 
 export interface WorkoutSession {

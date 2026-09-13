@@ -1,86 +1,105 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CircleMinus, CirclePlus, Disc3 } from 'lucide-react';
-import {
-  calculateLoadedBarWeight,
-  kilogramsToPounds,
-  normalizeWeightKg,
-  poundsToKilograms
-} from '@light-weight/domain';
-import { UnitSystem } from '../../lib/preferences.js';
+import { Disc3 } from 'lucide-react';
+import { calculateLoadedBarWeight, decomposeLoadedBarWeight, normalizeWeightKg } from '@light-weight/domain';
+import type { UnitSystem } from '../../lib/preferences.js';
 import { useI18n } from '../../lib/i18n.js';
+import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
+import type { PlateLoadScope } from '../../lib/weight-units.js';
 import { BottomSheet, Button } from '../../components/ui/index.js';
-
-const formatLoad = (weightKg: number, units: UnitSystem) => {
-  const value = units === 'imperial' ? kilogramsToPounds(weightKg) : weightKg;
-  const rounded = Math.round(value * (units === 'imperial' ? 10 : 100)) / (units === 'imperial' ? 10 : 100);
-  return `${rounded} ${units === 'imperial' ? 'lb' : 'kg'}`;
-};
+import { WeightPlate } from './WeightPlate.js';
 
 export function KeyboardWeightInput({ valueKg, units, label, onChange }: { valueKg: number; units: UnitSystem; label: string; onChange: (weightKg: number) => void }) {
-  const displayValue = units === 'imperial' ? kilogramsToPounds(valueKg) : valueKg;
-  const [draft, setDraft] = useState(displayValue === 0 ? '' : String(Math.round(displayValue * 10) / 10));
+  const displayValue = displayWeight(valueKg, units);
+  const [draft, setDraft] = useState(displayValue === 0 ? '' : String(displayValue));
 
   useEffect(() => {
-    const next = units === 'imperial' ? kilogramsToPounds(valueKg) : valueKg;
-    setDraft(next === 0 ? '' : String(Math.round(next * 10) / 10));
+    const next = displayWeight(valueKg, units);
+    setDraft(next === 0 ? '' : String(next));
   }, [units, valueKg]);
 
   const commit = () => {
     const parsed = Number.parseFloat(draft.replace(',', '.'));
-    const nextKg = units === 'imperial' ? poundsToKilograms(parsed) : parsed;
-    onChange(normalizeWeightKg(nextKg));
+    onChange(normalizeWeightKg(parseDisplayWeight(parsed, units)));
   };
 
   return <input type="text" inputMode="decimal" value={draft} placeholder="0" onFocus={(event) => event.currentTarget.select()} onChange={(event) => setDraft(event.target.value.replace(/[^0-9.,]/g, ''))} onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit(); event.currentTarget.blur(); } }} aria-label={label} className="h-11 min-w-0 w-full rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 min-[390px]:w-16" />;
 }
 
-function decomposeLoad(totalKg: number, barKg: number, plates: number[]): Record<string, number> {
-  const counts: Record<string, number> = {};
-  let remaining = Math.max(0, (totalKg - barKg) / 2);
-  for (const plate of [...plates].sort((a, b) => b - a)) {
-    const count = Math.floor((remaining + 0.001) / plate);
-    if (count > 0) {
-      counts[String(plate)] = count;
-      remaining -= count * plate;
-    }
-  }
-  return remaining < 0.01 ? counts : {};
-}
-
 export function PlateWeightButton({ valueKg, units, label, onClick }: { valueKg: number; units: UnitSystem; label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-label={label} className="flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Disc3 aria-hidden="true" className="size-3.5 shrink-0" /><span className="truncate">{formatLoad(valueKg, units).replace(/\s(kg|lb)$/, '')}</span></button>;
+  return <button type="button" onClick={onClick} aria-label={label} className="flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Disc3 aria-hidden="true" className="size-3.5 shrink-0" /><span className="truncate">{displayWeight(valueKg, units)}</span></button>;
 }
 
-export function PlatePickerSheet({ open, onClose, valueKg, units, barWeightKg, availablePlatesKg, onApply }: { open: boolean; onClose: () => void; valueKg: number; units: UnitSystem; barWeightKg: number; availablePlatesKg: number[]; onApply: (weightKg: number) => void }) {
+export function PlatePickerSheet({ open, onClose, valueKg, units, barWeightKg, availablePlatesKg, includeBarWeight, allowBarToggle, loadScope, onApply }: { open: boolean; onClose: () => void; valueKg: number; units: UnitSystem; barWeightKg: number; availablePlatesKg: number[]; includeBarWeight: boolean; allowBarToggle: boolean; loadScope: PlateLoadScope; onApply: (weightKg: number, includeBarWeight: boolean) => void }) {
   const { t } = useI18n();
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [isExactInitialLoad, setIsExactInitialLoad] = useState(true);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [includesBar, setIncludesBar] = useState(includeBarWeight);
 
   useEffect(() => {
-    if (open) setCounts(decomposeLoad(valueKg, barWeightKg, availablePlatesKg));
-  }, [availablePlatesKg, barWeightKg, open, valueKg]);
+    if (!open) return;
+    const effectiveBarWeightKg = includeBarWeight ? barWeightKg : 0;
+    const plateMultiplier = loadScope === 'barbell' ? 2 : 1;
+    const decomposition = decomposeLoadedBarWeight(valueKg, effectiveBarWeightKg, availablePlatesKg, 0.02, plateMultiplier);
+    setCounts(decomposition.counts);
+    setIsExactInitialLoad(decomposition.isExact);
+    setHasInteracted(false);
+    setIncludesBar(includeBarWeight);
+  }, [availablePlatesKg, barWeightKg, includeBarWeight, loadScope, open, valueKg]);
 
-  const platesPerSide = useMemo(() => availablePlatesKg.flatMap((plate) => Array.from({ length: counts[String(plate)] || 0 }, () => plate)), [availablePlatesKg, counts]);
-  const totalKg = calculateLoadedBarWeight(barWeightKg, platesPerSide);
+  const platesPerSide = useMemo(
+    () => availablePlatesKg.flatMap((plate) => Array.from({ length: counts[String(plate)] || 0 }, () => plate)),
+    [availablePlatesKg, counts]
+  );
+  const effectiveBarWeightKg = includesBar ? barWeightKg : 0;
+  const plateMultiplier = loadScope === 'barbell' ? 2 : 1;
+  const totalKg = calculateLoadedBarWeight(effectiveBarWeightKg, platesPerSide, plateMultiplier);
+  const unit = WEIGHT_UNIT_PRESETS[units].unit;
+  const selectedLoad = platesPerSide.length > 0
+    ? `${platesPerSide.map((plate) => displayWeight(plate, units)).join(' + ')} ${unit}`
+    : '—';
+  const isPerSide = loadScope === 'barbell' || loadScope === 'per-side';
+  const loadLabel = isPerSide ? t('workout.perSide') : t('workout.selectedLoad');
 
-  return <BottomSheet open={open} onClose={onClose} title={t('workout.platePicker')} description={`${t('workout.bar')}: ${formatLoad(barWeightKg, units)}`}>
-    <div className="space-y-5">
+  const updateCount = (plate: number, delta: number) => {
+    setHasInteracted(true);
+    setCounts((current) => ({ ...current, [String(plate)]: Math.max(0, (current[String(plate)] || 0) + delta) }));
+  };
+
+  return <BottomSheet open={open} onClose={onClose} title={t('workout.platePicker')}>
+    <div className="space-y-4 pb-16 sm:pb-0">
+      {allowBarToggle && <button type="button" aria-pressed={includesBar} onClick={() => { setIncludesBar((current) => !current); setHasInteracted(true); }} className={`flex min-h-11 w-full items-center justify-between rounded-ui-lg border px-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${includesBar ? 'border-accent bg-accent-soft' : 'border-border-subtle bg-surface-input'}`}>
+        <span className="text-xs font-bold text-text-primary">{t('workout.includeBar')}</span>
+        <span className={`font-mono text-xs font-bold ${includesBar ? 'text-accent' : 'text-text-muted'}`}>{includesBar ? formatDisplayWeight(barWeightKg, units) : t('workout.barDisabled')}</span>
+      </button>}
       <div className="space-y-2">
-        <p className="text-center text-[10px] font-extrabold uppercase tracking-wider text-text-muted">{t('workout.perSide')}</p>
-        <div className="grid grid-cols-2 gap-2 min-[390px]:grid-cols-3">
+        <p className="text-center text-[10px] font-extrabold uppercase tracking-wider text-text-muted">{loadLabel}</p>
+        <div className="grid grid-cols-3 gap-x-1 gap-y-3">
           {availablePlatesKg.map((plate) => {
             const count = counts[String(plate)] || 0;
-            return <div key={plate} className={`rounded-ui-lg border p-2 ${count ? 'border-accent bg-accent-soft' : 'border-border-subtle bg-surface'}`}>
-              <button type="button" aria-label={`+ ${formatLoad(plate, units)}`} onClick={() => setCounts((current) => ({ ...current, [String(plate)]: count + 1 }))} className="flex min-h-11 w-full items-center justify-center gap-1 rounded-ui-md font-mono text-sm font-extrabold text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><CirclePlus aria-hidden="true" className="size-4 text-accent" />{formatLoad(plate, units)}</button>
-              <div className="flex items-center justify-between border-t border-border-subtle pt-1.5">
-                <button type="button" disabled={count === 0} onClick={() => setCounts((current) => ({ ...current, [String(plate)]: Math.max(0, count - 1) }))} aria-label={`- ${formatLoad(plate, units)}`} className="flex size-10 items-center justify-center rounded-full text-text-muted disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><CircleMinus aria-hidden="true" className="size-4" /></button>
-                <span className="font-mono text-xs font-bold text-text-secondary" aria-label={t('workout.plateCount', { count })}>×{count}</span>
-              </div>
-            </div>;
+            const weight = formatDisplayWeight(plate, units);
+            const addLabel = isPerSide
+              ? t('workout.addPlate', { weight, count })
+              : t('workout.addLoadPlate', { weight, count });
+            const removeLabel = isPerSide
+              ? t('workout.removePlate', { weight, count })
+              : t('workout.removeLoadPlate', { weight, count });
+            return <WeightPlate key={plate} weightKg={plate} units={units} count={count} addLabel={addLabel} removeLabel={removeLabel} onAdd={() => updateCount(plate, 1)} onRemove={() => updateCount(plate, -1)} />;
           })}
         </div>
       </div>
-      <div className="rounded-ui-xl border border-border-subtle bg-surface-elevated p-4 text-center" aria-live="polite"><p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.total')}</p><p className="mt-1 font-mono text-3xl font-extrabold text-text-primary">{formatLoad(totalKg, units)}</p></div>
-      <div className="grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => setCounts({})}>{t('workout.clearPlates')}</Button><Button onClick={() => { onApply(totalKg); onClose(); }}>{t('workout.useWeight', { weight: formatLoad(totalKg, units) })}</Button></div>
+      <div className="rounded-ui-xl border border-border-subtle bg-surface-elevated p-3" aria-live="polite">
+        <dl className="space-y-1.5 text-xs">
+          {includesBar && <div className="flex justify-between gap-3"><dt className="text-text-muted">{t('workout.bar')}</dt><dd className="font-mono font-bold text-text-primary">{formatDisplayWeight(barWeightKg, units)}</dd></div>}
+          <div className="flex justify-between gap-3"><dt className="text-text-muted">{loadLabel}</dt><dd className="min-w-0 truncate text-right font-mono font-bold text-text-secondary">{selectedLoad}</dd></div>
+          <div className="flex items-end justify-between gap-3 border-t border-border-subtle pt-2"><dt className="font-bold text-text-secondary">{t('workout.total')}</dt><dd className="font-mono text-2xl font-black text-accent">{formatDisplayWeight(totalKg, units)}</dd></div>
+        </dl>
+      </div>
+      {!isExactInitialLoad && !hasInteracted && <p role="status" className="text-center text-xs leading-relaxed text-text-muted">{t('workout.currentLoadNotRepresentable')}</p>}
+      <div className="fixed inset-x-0 bottom-0 z-10 mx-auto grid max-w-md grid-cols-2 gap-2 border-t border-border-subtle bg-surface-elevated/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl sm:sticky sm:-bottom-1 sm:-mx-1 sm:px-1 sm:pb-1">
+        <Button variant="secondary" onClick={() => { setHasInteracted(true); setCounts({}); }}>{t('workout.clearPlates')}</Button>
+        <Button disabled={!isExactInitialLoad && !hasInteracted} onClick={() => { onApply(totalKg, includesBar); onClose(); }}>{t('workout.useWeight', { weight: formatDisplayWeight(totalKg, units) })}</Button>
+      </div>
     </div>
   </BottomSheet>;
 }

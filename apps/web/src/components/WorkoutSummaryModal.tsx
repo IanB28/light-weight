@@ -2,6 +2,8 @@ import React from 'react';
 import { Trophy, Clock, Dumbbell, Flame, Check, Sparkles } from 'lucide-react';
 import { Exercise } from '@light-weight/domain';
 import { getTonnageEquivalences } from '../lib/tonnage.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { formatDisplayWeight } from '../lib/weight-units.js';
 
 export interface CompletedWorkoutSummary {
   routineName: string;
@@ -27,6 +29,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   summary,
   onConfirmSave,
 }) => {
+  const { preferences } = usePreferences();
   if (!isOpen || !summary) return null;
 
   const sessionEquivalence = summary.totalVolumeKg > 0 ? getTonnageEquivalences(summary.totalVolumeKg) : null;
@@ -72,7 +75,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
               <span>Volumen</span>
             </div>
             <p className="text-sm font-extrabold text-accent font-mono mt-1">
-              {summary.totalVolumeKg} <span className="text-[10px] font-normal">kg</span>
+              {formatDisplayWeight(summary.totalVolumeKg, preferences.units)}
             </p>
           </div>
 
@@ -114,7 +117,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
                 <div key={i} className="flex items-center justify-between text-xs text-zinc-300">
                   <span className="font-semibold text-white">{rec.exerciseName}</span>
                   <span className="font-mono text-amber-400 font-bold">
-                    {rec.weightKg} kg × {rec.reps} (1RM: ~{rec.estimatedOneRm} kg)
+                    {formatDisplayWeight(rec.weightKg, preferences.units)} × {rec.reps} (1RM: ~{formatDisplayWeight(rec.estimatedOneRm, preferences.units)})
                   </span>
                 </div>
               ))}

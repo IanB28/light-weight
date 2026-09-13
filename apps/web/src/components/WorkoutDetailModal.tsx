@@ -2,6 +2,9 @@ import React from 'react';
 import { X, Calendar, Clock, Flame, Dumbbell } from 'lucide-react';
 import { WorkoutSession, calculateSessionTotalVolume, Exercise } from '@light-weight/domain';
 import { EXERCISES_BY_ID } from '../lib/exercises.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
+import { useI18n } from '../lib/i18n.js';
 
 interface WorkoutDetailModalProps {
   session: WorkoutSession | null;
@@ -14,6 +17,9 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   onClose,
   exercisesById = EXERCISES_BY_ID
 }) => {
+  const { preferences } = usePreferences();
+  const { t } = useI18n();
+  const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   if (!session) return null;
 
   const totalVolume = calculateSessionTotalVolume(session);
@@ -69,7 +75,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
           <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
             <span className="text-[10px] text-zinc-500 block uppercase">Tonelaje</span>
             <span className="text-sm font-extrabold text-accent">
-              {totalVolume.toLocaleString()} kg
+              {displayWeight(totalVolume, preferences.units).toLocaleString()} {weightUnit}
             </span>
           </div>
 
@@ -114,24 +120,44 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
                 {/* Sets Table */}
                 <div className="space-y-1">
-                  {sets.map((s, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-mono ${
-                        s.completed
-                          ? 'bg-white/[0.03] text-zinc-200'
-                          : 'opacity-40 text-zinc-500'
-                      }`}
-                    >
-                      <span className="text-zinc-500 text-[11px]">S{idx + 1}</span>
-                      <span className="font-bold">
-                        {s.weightKg} kg × {s.reps} reps
-                      </span>
-                      <span className="text-[11px] text-zinc-500">
-                        {s.rir !== undefined ? `RIR ${s.rir}` : '—'}
-                      </span>
-                    </div>
-                  ))}
+                  {sets.map((s, idx) => {
+                    const setType = s.setType ?? (s.isWarmup ? 'warmup' : 'working');
+                    const setTypeMarker = setType === 'drop'
+                      ? 'D'
+                      : setType === 'backoff'
+                        ? 'B'
+                        : setType === 'warmup'
+                          ? 'C'
+                          : `S${idx + 1}`;
+                    const setTypeLabel = setType === 'drop'
+                      ? t('workout.dropSet')
+                      : setType === 'backoff'
+                        ? t('workout.backoffSet')
+                        : setType === 'warmup'
+                          ? t('workout.warmupSet')
+                          : t('workout.workingSet');
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-mono ${
+                          s.completed
+                            ? 'bg-white/[0.03] text-zinc-200'
+                            : 'opacity-40 text-zinc-500'
+                        }`}
+                      >
+                        <span className="text-zinc-500 text-[11px]" title={setTypeLabel}>
+                          {setTypeMarker}
+                        </span>
+                        <span className="font-bold">
+                          {formatDisplayWeight(s.weightKg, preferences.units)} × {s.reps} reps
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          {s.rir !== undefined ? `RIR ${s.rir}` : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

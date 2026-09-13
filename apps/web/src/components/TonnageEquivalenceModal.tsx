@@ -1,6 +1,8 @@
 import React from 'react';
 import { X, Flame, Target, Sparkles } from 'lucide-react';
 import { getTonnageEquivalences } from '../lib/tonnage.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 
 interface TonnageEquivalenceModalProps {
   isOpen: boolean;
@@ -13,6 +15,8 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
   onClose,
   totalKg
 }) => {
+  const { preferences } = usePreferences();
+  const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   if (!isOpen) return null;
 
   const data = getTonnageEquivalences(totalKg);
@@ -57,7 +61,7 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
               {data.primary.icon}
             </div>
             <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-              {data.totalKg.toLocaleString()} <span className="text-sm font-normal text-zinc-400">kg</span>
+              {displayWeight(data.totalKg, preferences.units).toLocaleString()} <span className="text-sm font-normal text-zinc-400">{weightUnit}</span>
               <span className="text-xs text-zinc-400 font-normal ml-2">({data.totalTonnes} t)</span>
             </div>
             <p className="text-xs sm:text-sm font-bold text-accent">
@@ -86,9 +90,9 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-              <span>{data.totalKg.toLocaleString()} kg</span>
+              <span>{displayWeight(data.totalKg, preferences.units).toLocaleString()} {weightUnit}</span>
               <span>
-                Faltan {data.nextMilestone.remainingKg.toLocaleString()} kg para {data.nextMilestone.targetKg.toLocaleString()} kg
+                Faltan {displayWeight(data.nextMilestone.remainingKg, preferences.units).toLocaleString()} {weightUnit} para {displayWeight(data.nextMilestone.targetKg, preferences.units).toLocaleString()} {weightUnit}
               </span>
             </div>
           </div>
@@ -122,7 +126,7 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
                       {item.name}
                     </h4>
                     <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                      {item.unitKg.toLocaleString()} kg c/u
+                      {displayWeight(item.unitKg, preferences.units).toLocaleString()} {weightUnit} c/u
                     </p>
                   </div>
                 </div>

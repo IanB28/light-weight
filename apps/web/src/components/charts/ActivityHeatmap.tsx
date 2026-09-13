@@ -1,5 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { WorkoutSession, calculateSessionTotalVolume } from '@light-weight/domain';
+import { usePreferences } from '../../lib/preferences-context.js';
+import { displayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 
 interface ActivityHeatmapProps {
   history: WorkoutSession[];
@@ -10,6 +12,8 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   history,
   onSelectDate
 }) => {
+  const { preferences } = usePreferences();
+  const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,7 +115,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
                       }}
                       title={`${day.dateStr}${
                         day.data
-                          ? ` • ${day.data.sets} series • ${day.data.volumeKg.toLocaleString()} kg`
+                          ? ` • ${day.data.sets} series • ${displayWeight(day.data.volumeKg, preferences.units).toLocaleString()} ${weightUnit}`
                           : ''
                       }`}
                       className={`w-3 h-3 rounded-[3px] transition-all ${

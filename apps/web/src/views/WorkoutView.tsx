@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Check, Plus, Trash2, Eye, Dumbbell } from 'lucide-react';
-import { Exercise, LoggedSet, estimateOneRm, MuscleGroup, poundsToKilograms, Routine } from '@light-weight/domain';
+import { X, Check, Plus, Trash2, Eye, Dumbbell, Disc3, ChevronDown } from 'lucide-react';
+import { Exercise, LoggedSet, estimateOneRm, MuscleGroup, poundsToKilograms, Routine, WorkoutSetType } from '@light-weight/domain';
 import { AddExerciseModal } from '../components/AddExerciseModal.js';
 import { getExerciseImgUrl } from '../lib/exercises.js';
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
@@ -9,6 +9,8 @@ import { AppCard, Button, EmptyState, IconButton, Modal } from '../components/ui
 import { AppPreferences, WeightInputMode } from '../lib/preferences.js';
 import { KeyboardWeightInput, PlatePickerSheet, PlateWeightButton } from '../features/workouts/WeightEntry.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
+import { formatDisplayWeight, getPlateLoadScope, getWeightEntryCapability } from '../lib/weight-units.js';
+import type { PlateLoadScope } from '../lib/weight-units.js';
 
 export interface ActiveExerciseSession {
   exercise: Exercise;
@@ -16,7 +18,9 @@ export interface ActiveExerciseSession {
   bestRecord?: string;
   bestEst1Rm?: number;
   targetRepRange: [number, number];
-  weightInputMode?: WeightInputMode;
+  weightInputModeOverride?: WeightInputMode;
+  usesAddedWeight?: boolean;
+  includeBarWeight?: boolean;
   sets: (LoggedSet & { rir?: number })[];
 }
 
@@ -35,7 +39,7 @@ interface WorkoutViewProps {
     field: 'weightKg' | 'reps' | 'rir',
     value: number
   ) => void;
-  onAddSet: (exerciseId: string, isWarmup?: boolean) => void;
+  onAddSet: (exerciseId: string, setType?: WorkoutSetType) => void;
   onRemoveSet: (exerciseId: string) => void;
   onAddExercise: (exercise: Exercise) => void;
   onRemoveExercise: (exerciseId: string) => void;
@@ -46,6 +50,8 @@ interface WorkoutViewProps {
   onStartRoutine: (routineId: string) => void;
   preferences: AppPreferences;
   onUpdateWeightInputMode: (exerciseId: string, mode: WeightInputMode) => void;
+  onToggleAddedWeight: (exerciseId: string, enabled: boolean) => void;
+  onUpdateBarInclusion: (exerciseId: string, includeBarWeight: boolean) => void;
 }
 
 const getDefaultMuscleFilter = (routineName: string): string => {
@@ -86,7 +92,9 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   onStartRestTimer,
   onStartRoutine,
   preferences,
-  onUpdateWeightInputMode
+  onUpdateWeightInputMode,
+  onToggleAddedWeight,
+  onUpdateBarInclusion
 }) => {
   const { t } = useI18n();
   const { muscleLabel, equipmentLabel } = useExerciseLabels();
@@ -94,7 +102,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   const [selectedMediaExercise, setSelectedMediaExercise] = useState<Exercise | null>(null);
   const [summaryData, setSummaryData] = useState<CompletedWorkoutSummary | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [plateTarget, setPlateTarget] = useState<{ exerciseId: string; setIndex: number; valueKg: number } | null>(null);
+  const [plateTarget, setPlateTarget] = useState<{ exerciseId: string; setIndex: number; valueKg: number; includeBarWeight: boolean; allowBarToggle: boolean; loadScope: PlateLoadScope } | null>(null);
   const weightStepKg = preferences.units === 'imperial' ? poundsToKilograms(5) : 2.5;
   const displayRoutineName = routineName === 'Entrenamiento Libre' ? t('workout.freeWorkout') : routineName;
 
@@ -163,7 +171,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         <div className="text-center">
           <h2 className="text-base font-extrabold tracking-tight text-text-primary">{displayRoutineName}</h2>
           <p className="mt-0.5 font-mono text-xs text-text-muted">
-            {sessionDuration} · <span className="text-accent">{completedSetsCount}/{totalSetsCount} {t('workout.sets')}</span> · <span className="font-bold text-text-secondary">{totalVolumeKg} kg</span>
+            {sessionDuration} · <span className="text-accent">{completedSetsCount}/{totalSetsCount} {t('workout.sets')}</span> · <span className="font-bold text-text-secondary">{formatDisplayWeight(totalVolumeKg, preferences.units)}</span>
           </p>
         </div>
 
@@ -204,7 +212,14 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         exerciseSessions.map((session, exIndex) => {
           const { exercise, sets, previousRecord, bestRecord } = session;
           const imgUrl = getExerciseImgUrl(exercise);
-          const weightInputMode = exercise.category === 'barbell' ? (session.weightInputMode || preferences.weightInputMode) : 'keyboard';
+          const weightEntryCapability = getWeightEntryCapability(exercise.category);
+          const plateLoadScope = getPlateLoadScope(exercise);
+          const usesAddedWeight = weightEntryCapability !== 'added-weight' || Boolean(session.usesAddedWeight);
+          const weightInputMode = weightEntryCapability === 'plates-only'
+            ? 'plates'
+            : weightEntryCapability === 'keyboard-and-plates'
+              ? (session.weightInputModeOverride || preferences.weightInputMode)
+              : 'keyboard';
 
           return (
             <div key={exercise.id} className="space-y-3 pt-2">
@@ -275,11 +290,21 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
               {/* openGym Table: WEIGHT (KG) | REPS | RIR | CHECK */}
               <div className="glass-surface space-y-2 rounded-ui-xl border border-border-subtle p-3.5 shadow-card">
-                {exercise.category === 'barbell' && <div className="flex items-center justify-between gap-2 border-b border-border-subtle pb-2">
+                {weightEntryCapability === 'keyboard-and-plates' && <div className="flex items-center justify-between gap-2 border-b border-border-subtle pb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.weightMode')}</span>
                   <div className="flex rounded-ui-md border border-border-subtle bg-surface-input p-0.5" role="group" aria-label={t('workout.weightMode')}>
                     {(['keyboard', 'plates'] as const).map((mode) => <button key={mode} type="button" aria-pressed={weightInputMode === mode} onClick={() => onUpdateWeightInputMode(exercise.id, mode)} className={`min-h-9 rounded-md px-2.5 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${weightInputMode === mode ? 'bg-accent text-accent-fg' : 'text-text-muted'}`}>{mode === 'keyboard' ? t('workout.keyboard') : t('workout.plates')}</button>)}
                   </div>
+                </div>}
+                {weightEntryCapability === 'plates-only' && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.weightMode')}</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-accent"><Disc3 aria-hidden="true" className="size-4" />{t('workout.plates')}</span>
+                </div>}
+                {weightEntryCapability === 'added-weight' && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.additionalWeight')}</span>
+                  <button type="button" aria-pressed={usesAddedWeight} onClick={() => onToggleAddedWeight(exercise.id, !usesAddedWeight)} className={`min-h-9 rounded-ui-md border px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${usesAddedWeight ? 'border-accent bg-accent-soft text-accent' : 'border-border-subtle bg-surface-input text-text-secondary'}`}>
+                    {usesAddedWeight ? t('workout.additionalWeightActive') : t('workout.addWeight')}
+                  </button>
                 </div>}
                 <div className="grid grid-cols-12 gap-1 px-1 pb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-muted">
                   <span className="col-span-1">#</span>
@@ -291,6 +316,15 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
                 {sets.map((set) => {
                   const canComplete = isValidWorkoutSet(set);
+                  const setType = set.setType ?? (set.isWarmup ? 'warmup' : 'working');
+                  const setTypeLabel = setType === 'warmup'
+                    ? t('workout.warmupSet')
+                    : setType === 'drop'
+                      ? t('workout.dropSet')
+                      : setType === 'backoff'
+                        ? t('workout.backoffSet')
+                        : t('workout.workingSet');
+                  const setMarker = setType === 'working' ? String(set.setIndex) : setType === 'warmup' ? 'C' : setType === 'drop' ? 'D' : 'B';
                   return (
                   <div
                     key={set.setIndex}
@@ -301,19 +335,26 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                     {/* Set Circle Badge */}
                     <div className="col-span-1 flex items-center justify-center">
                       <span
+                        aria-label={`${set.setIndex}: ${setTypeLabel}`}
+                        title={setTypeLabel}
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold font-mono ${
                           set.completed
                             ? 'bg-accent text-accent-fg'
                             : 'bg-surface-active text-text-muted'
                         }`}
                       >
-                        {set.setIndex}
+                        {setMarker}
                       </span>
                     </div>
 
                     {/* Weight Controls con Input directo (- 82.5 +) */}
                     <div className="col-span-4 flex items-center justify-center gap-0.5">
-                      <button
+                      {!usesAddedWeight ? (
+                        <span aria-label={t('workout.bodyweightOnly')} className="flex h-11 w-full items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input font-mono text-xs font-bold text-text-muted">
+                          BW
+                        </span>
+                      ) : (<>
+                      {weightInputMode === 'keyboard' && <button
                         type="button"
                         onClick={() =>
                           onUpdateSet(
@@ -327,9 +368,9 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                         className="hidden h-11 w-7 items-center justify-center rounded-md text-sm font-bold text-text-muted hover:bg-surface-active hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent min-[390px]:flex"
                       >
                         —
-                      </button>
-                      {weightInputMode === 'plates' ? <PlateWeightButton valueKg={set.weightKg} units={preferences.units} label={t('workout.weightForSet', { set: set.setIndex })} onClick={() => setPlateTarget({ exerciseId: exercise.id, setIndex: set.setIndex, valueKg: set.weightKg })} /> : <KeyboardWeightInput valueKg={set.weightKg} units={preferences.units} label={t('workout.weightForSet', { set: set.setIndex })} onChange={(value) => onUpdateSet(exercise.id, set.setIndex, 'weightKg', value)} />}
-                      <button
+                      </button>}
+                      {weightInputMode === 'plates' ? <PlateWeightButton valueKg={set.weightKg} units={preferences.units} label={t('workout.weightForSet', { set: set.setIndex })} onClick={() => setPlateTarget({ exerciseId: exercise.id, setIndex: set.setIndex, valueKg: set.weightKg, includeBarWeight: session.includeBarWeight ?? weightEntryCapability === 'plates-only', allowBarToggle: weightEntryCapability === 'plates-only', loadScope: plateLoadScope })} /> : <KeyboardWeightInput valueKg={set.weightKg} units={preferences.units} label={t('workout.weightForSet', { set: set.setIndex })} onChange={(value) => onUpdateSet(exercise.id, set.setIndex, 'weightKg', value)} />}
+                      {weightInputMode === 'keyboard' && <button
                         type="button"
                         onClick={() =>
                           onUpdateSet(
@@ -343,7 +384,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                         className="hidden h-11 w-7 items-center justify-center rounded-md text-sm font-bold text-text-muted hover:bg-surface-active hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent min-[390px]:flex"
                       >
                         +
-                      </button>
+                      </button>}
+                      </>)}
                     </div>
 
                     {/* Reps Controls con Input directo (- 8 +) */}
@@ -438,16 +480,26 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                 })}
 
                 {/* Botones de Acción de Serie */}
-                <div className="flex flex-col gap-1 pt-2 text-xs font-semibold min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between">
-                  <Button
-                    variant="ghost"
-                    size="md"
-                    onClick={() => onAddSet(exercise.id, true)}
-                    className="justify-start px-2 text-accent"
-                  >
-                    <Plus className="size-3.5 stroke-[3]" />
-                    + {t('workout.addWarmup')}
-                  </Button>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-2 text-xs font-semibold">
+                  <label className="relative min-w-0">
+                    <span className="sr-only">{t('workout.addSetType')}</span>
+                    <select
+                      value=""
+                      aria-label={t('workout.addSetType')}
+                      onChange={(event) => {
+                        const setType = event.target.value as WorkoutSetType;
+                        if (setType) onAddSet(exercise.id, setType);
+                      }}
+                      className="h-11 w-full appearance-none rounded-ui-lg border border-border-subtle bg-surface-input px-3 pr-8 text-xs font-bold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+                    >
+                      <option value="">+ {t('workout.addSet')}</option>
+                      <option value="working">{t('workout.workingSet')}</option>
+                      <option value="warmup">{t('workout.addWarmup')}</option>
+                      <option value="drop">{t('workout.dropSet')}</option>
+                      <option value="backoff">{t('workout.backoffSet')}</option>
+                    </select>
+                    <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
+                  </label>
                   <Button
                     variant="ghost"
                     size="md"
@@ -459,14 +511,6 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                   </Button>
                 </div>
 
-                <Button
-                  variant="secondary"
-                  onClick={() => onAddSet(exercise.id, false)}
-                  className="mt-1 w-full text-accent hover:border-accent/40"
-                >
-                  <Plus className="size-4 stroke-[3]" />
-                  {t('workout.addWorkingSet')}
-                </Button>
               </div>
             </div>
           );
@@ -526,7 +570,14 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         units={preferences.units}
         barWeightKg={preferences.defaultBarWeightKg}
         availablePlatesKg={preferences.availablePlatesKg}
-        onApply={(valueKg) => { if (plateTarget) onUpdateSet(plateTarget.exerciseId, plateTarget.setIndex, 'weightKg', valueKg); }}
+        includeBarWeight={plateTarget?.includeBarWeight ?? false}
+        allowBarToggle={plateTarget?.allowBarToggle ?? false}
+        loadScope={plateTarget?.loadScope ?? 'total'}
+        onApply={(valueKg, includeBarWeight) => {
+          if (!plateTarget) return;
+          onUpdateSet(plateTarget.exerciseId, plateTarget.setIndex, 'weightKg', valueKg);
+          onUpdateBarInclusion(plateTarget.exerciseId, includeBarWeight);
+        }}
       />
     </div>
   );

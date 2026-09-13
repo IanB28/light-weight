@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Scale, Target, Check } from 'lucide-react';
 import { BottomSheet, Button } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
+import { usePreferences } from '../lib/preferences-context.js';
+import { displayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 
 interface BodyweightModalProps {
   isOpen: boolean;
@@ -21,23 +23,27 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
   onSaveGoal
 }) => {
   const { t } = useI18n();
+  const { preferences } = usePreferences();
+  const units = preferences.bodyweightUnits;
+  const unit = WEIGHT_UNIT_PRESETS[units].unit;
+  const step = units === 'imperial' ? 1 : 0.5;
   const [weightInput, setWeightInput] = useState<string>('');
-  const [goalInput, setGoalInput] = useState<string>(currentGoal ? String(currentGoal) : '');
+  const [goalInput, setGoalInput] = useState<string>(currentGoal ? String(displayWeight(currentGoal, units)) : '');
   const [activeMode, setActiveMode] = useState<'log' | 'goal'>(initialMode);
 
   React.useEffect(() => {
     if (isOpen) {
       setActiveMode(initialMode);
-      if (currentGoal) setGoalInput(String(currentGoal));
+      if (currentGoal) setGoalInput(String(displayWeight(currentGoal, units)));
     }
-  }, [isOpen, initialMode, currentGoal]);
+  }, [isOpen, initialMode, currentGoal, units]);
 
   const handleStep = (delta: number) => {
     if (activeMode === 'log') {
-      const val = (parseFloat(weightInput) || 75.0) + delta;
+      const val = (parseFloat(weightInput) || displayWeight(75, units)) + delta;
       setWeightInput((Math.round(val * 10) / 10).toFixed(1));
     } else {
-      const val = (parseFloat(goalInput) || 75.0) + delta;
+      const val = (parseFloat(goalInput) || displayWeight(75, units)) + delta;
       setGoalInput((Math.round(val * 10) / 10).toFixed(1));
     }
   };
@@ -46,13 +52,13 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
     if (activeMode === 'log') {
       const val = parseFloat(weightInput);
       if (!isNaN(val) && val > 0) {
-        onSaveWeight(val);
+        onSaveWeight(parseDisplayWeight(val, units));
         onClose();
       }
     } else {
       const val = parseFloat(goalInput);
       if (!isNaN(val) && val > 0) {
-        onSaveGoal(val);
+        onSaveGoal(parseDisplayWeight(val, units));
         onClose();
       }
     }
@@ -101,11 +107,11 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
           <div className="flex items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => handleStep(-0.5)}
-              aria-label="Reducir 0.5 kilogramos"
+              onClick={() => handleStep(-step)}
+              aria-label={t('weight.decrease', { amount: step, unit })}
               className="flex size-11 items-center justify-center rounded-ui-lg glass-subcard font-mono text-sm font-bold text-white transition-all hover:border-white/20 active:scale-[0.96]"
             >
-              -0.5
+              -{step}
             </button>
 
             <div className="flex items-baseline justify-center gap-1.5">
@@ -124,16 +130,16 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
                 className="w-28 text-center text-4xl font-extrabold font-mono text-white bg-transparent border-b-2 border-accent focus:outline-none tabular-nums pb-1"
                 autoFocus
               />
-              <span className="text-xl font-bold text-zinc-500 font-mono">kg</span>
+              <span className="text-xl font-bold text-zinc-500 font-mono">{unit}</span>
             </div>
 
             <button
               type="button"
-              onClick={() => handleStep(0.5)}
-              aria-label="Aumentar 0.5 kilogramos"
+              onClick={() => handleStep(step)}
+              aria-label={t('weight.increase', { amount: step, unit })}
               className="flex size-11 items-center justify-center rounded-ui-lg glass-subcard font-mono text-sm font-bold text-white transition-all hover:border-white/20 active:scale-[0.96]"
             >
-              +0.5
+              +{step}
             </button>
           </div>
         </div>

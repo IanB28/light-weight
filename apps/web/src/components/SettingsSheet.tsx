@@ -9,9 +9,17 @@ import {
 } from '../lib/storage.js';
 import { syncWithCloud } from '../lib/sync.js';
 import { AccentColorId, ACCENT_PRESETS, applyTheme, GlassTheme, GLASS_THEMES, getStoredThemeSettings, ThemeSettings } from '../lib/theme.js';
-import { DEFAULT_APP_PREFERENCES, parseAppPreferences, saveStoredPreferences } from '../lib/preferences.js';
+import { parseAppPreferences, saveStoredPreferences } from '../lib/preferences.js';
+import type { UnitSystem } from '../lib/preferences.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { TranslationKey, useI18n } from '../lib/i18n.js';
+import {
+  displayWeight,
+  parseDisplayWeight,
+  usesUnitDefaults,
+  weightsMatch,
+  WEIGHT_UNIT_PRESETS
+} from '../lib/weight-units.js';
 import { ProfileView } from '../features/profile/ProfileView.js';
 import { BottomSheet, Button, SectionHeader, SegmentedControl } from './ui/index.js';
 
@@ -32,7 +40,7 @@ type StatusMessage = { tone: 'success' | 'error'; text: string } | null;
 function SettingsRow({ icon, label, value, onClick, disabled }: { icon: React.ReactNode; label: string; value?: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-14 w-full items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-left last:border-b-0 hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-45">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">{icon}</span>
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">{icon}</span>
       <span className="min-w-0 flex-1 text-sm font-bold text-text-primary">{label}</span>
       {value && <span className="max-w-[45%] truncate text-xs text-text-muted">{value}</span>}
       <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
@@ -57,6 +65,24 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
   const close = () => { setPanel('root'); setStatus(null); onClose(); };
   const chooseTheme = (glassTheme: GlassTheme) => { const updated = { ...themeSettings, glassTheme }; setThemeSettings(updated); applyTheme(updated); };
   const chooseAccent = (accentColor: AccentColorId) => { const updated = { ...themeSettings, accentColor }; setThemeSettings(updated); applyTheme(updated); };
+  const unitPreset = WEIGHT_UNIT_PRESETS[preferences.units];
+  const displayedPlateOptions = Array.from(new Set([
+    ...unitPreset.platesKg,
+    ...preferences.availablePlatesKg
+  ])).sort((a, b) => b - a);
+
+  const changeUnits = (units: UnitSystem) => {
+    if (units === preferences.units) return;
+    const shouldUseTargetDefaults = usesUnitDefaults(
+      preferences.defaultBarWeightKg,
+      preferences.availablePlatesKg,
+      preferences.units
+    );
+    const targetPreset = WEIGHT_UNIT_PRESETS[units];
+    updatePreferences(shouldUseTargetDefaults
+      ? { units, defaultBarWeightKg: targetPreset.barWeightKg, availablePlatesKg: [...targetPreset.platesKg] }
+      : { units });
+  };
 
   const handleSync = async () => {
     if (isSyncing) return;
@@ -134,25 +160,26 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
   const backTarget = panel === 'theme' || panel === 'accent' ? 'appearance' : 'root';
 
   return (
-    <BottomSheet open={isOpen} onClose={close} title={titles[panel]} description={panel === 'root' ? t('settings.description') : undefined} className="sm:max-w-md">
+    <BottomSheet open={isOpen} onClose={close} title={titles[panel]} className={panel === 'profile' ? 'min-h-[90dvh] sm:min-h-0 sm:max-w-md' : 'sm:max-w-md'}>
       {panel !== 'root' && <Button variant="ghost" size="sm" onClick={() => setPanel(backTarget)} className="mb-3 -ml-2"><ChevronLeft aria-hidden="true" className="size-4" />{backTarget === 'appearance' ? t('settings.appearance') : t('common.back')}</Button>}
 
-      {panel === 'root' && <div className="space-y-4">
-        <section className="space-y-2"><SectionHeader title={t('settings.profileSection')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profile')} value={profile.displayName === 'Atleta' ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete')) : profile.displayName} onClick={() => setPanel('profile')} /></div></section>
-        <section className="space-y-2"><SectionHeader title={t('settings.trainingSection')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Dumbbell className="size-4" />} label={t('settings.training')} onClick={() => setPanel('training')} /></div></section>
-        <section className="space-y-2"><SectionHeader title={t('settings.appearance')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Palette className="size-4" />} label={t('settings.appearance')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('appearance')} /></div></section>
-        <section className="space-y-2"><SectionHeader title={t('settings.language')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Languages className="size-4" />} label={t('settings.language')} value={language === 'es' ? t('settings.spanish') : t('settings.english')} onClick={() => setPanel('language')} /></div></section>
-        <section className="space-y-2"><SectionHeader title={t('settings.dataSection')} /><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Database className="size-4" />} label={t('settings.data')} onClick={() => setPanel('data')} /></div></section>
+      {panel === 'root' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
+        <SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profile')} value={profile.displayName === 'Atleta' ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete')) : profile.displayName} onClick={() => setPanel('profile')} />
+        <SettingsRow icon={<Dumbbell className="size-4" />} label={t('settings.training')} onClick={() => setPanel('training')} />
+        <SettingsRow icon={<Palette className="size-4" />} label={t('settings.appearance')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('appearance')} />
+        <SettingsRow icon={<Languages className="size-4" />} label={t('settings.language')} value={language === 'es' ? t('settings.spanish') : t('settings.english')} onClick={() => setPanel('language')} />
+        <SettingsRow icon={<Database className="size-4" />} label={t('settings.data')} onClick={() => setPanel('data')} />
       </div>}
 
       {panel === 'profile' && <ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={onProfileChange} />}
 
       {panel === 'training' && <div className="space-y-5">
-        <div className="space-y-2"><SectionHeader title={t('settings.units')} /><SegmentedControl value={preferences.units} label={t('settings.units')} options={[{ value: 'metric', label: t('settings.metric') }, { value: 'imperial', label: t('settings.imperial') }]} onChange={(units) => updatePreferences({ units })} /></div>
+        <div className="space-y-2"><SectionHeader title={t('settings.units')} /><SegmentedControl value={preferences.units} label={t('settings.units')} options={[{ value: 'metric', label: t('settings.metric') }, { value: 'imperial', label: t('settings.imperial') }]} onChange={changeUnits} /></div>
+        <div className="space-y-2"><SectionHeader title={t('settings.bodyweightUnits')} /><SegmentedControl value={preferences.bodyweightUnits} label={t('settings.bodyweightUnits')} options={[{ value: 'metric', label: t('settings.metric') }, { value: 'imperial', label: t('settings.imperial') }]} onChange={(bodyweightUnits) => updatePreferences({ bodyweightUnits })} /></div>
         <label className="block space-y-2"><span className="text-xs font-bold text-text-secondary">{t('settings.rest')}</span><select value={preferences.defaultRestSeconds} onChange={(event) => updatePreferences({ defaultRestSeconds: Number(event.target.value) })} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm font-bold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25">{[60, 90, 120, 180].map((seconds) => <option key={seconds} value={seconds}>{seconds}s</option>)}</select></label>
         <div className="space-y-2"><SectionHeader title={t('settings.weightMode')} /><SegmentedControl value={preferences.weightInputMode} label={t('settings.weightMode')} options={[{ value: 'keyboard', label: t('settings.keyboard') }, { value: 'plates', label: t('settings.plates') }]} onChange={(weightInputMode) => updatePreferences({ weightInputMode })} /></div>
-        <label className="block space-y-2"><span className="text-xs font-bold text-text-secondary">{t('settings.barWeight')}</span><div className="relative"><input type="number" inputMode="decimal" min="0" step="0.5" value={preferences.defaultBarWeightKg} onChange={(event) => updatePreferences({ defaultBarWeightKg: Math.max(0, Number(event.target.value) || 0) })} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 pr-10 font-mono text-sm font-bold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">kg</span></div></label>
-        <div className="space-y-2"><SectionHeader title={t('settings.availablePlates')} /><div className="grid grid-cols-4 gap-2">{DEFAULT_APP_PREFERENCES.availablePlatesKg.map((plate) => { const active = preferences.availablePlatesKg.includes(plate); return <button key={plate} type="button" aria-pressed={active} onClick={() => updatePreferences({ availablePlatesKg: active ? preferences.availablePlatesKg.filter((value) => value !== plate) : [...preferences.availablePlatesKg, plate].sort((a, b) => b - a) })} className={`min-h-11 rounded-ui-md border px-1 font-mono text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${active ? 'border-accent bg-accent-soft text-accent' : 'border-border-subtle bg-surface-input text-text-muted'}`}>{plate}</button>; })}</div></div>
+        <label className="block space-y-2"><span className="text-xs font-bold text-text-secondary">{t('settings.barWeight')}</span><div className="relative"><input type="number" inputMode="decimal" min="0" step="0.5" value={displayWeight(preferences.defaultBarWeightKg, preferences.units)} onChange={(event) => updatePreferences({ defaultBarWeightKg: parseDisplayWeight(Math.max(0, Number(event.target.value) || 0), preferences.units) })} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 pr-10 font-mono text-sm font-bold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">{unitPreset.unit}</span></div></label>
+        <div className="space-y-2"><SectionHeader title={`${t('settings.availablePlates')} (${unitPreset.unit})`} /><div className="grid grid-cols-4 gap-2">{displayedPlateOptions.map((plate) => { const active = preferences.availablePlatesKg.some((value) => weightsMatch(value, plate)); return <button key={plate} type="button" aria-pressed={active} onClick={() => updatePreferences({ availablePlatesKg: active ? preferences.availablePlatesKg.filter((value) => !weightsMatch(value, plate)) : [...preferences.availablePlatesKg, plate].sort((a, b) => b - a) })} className={`min-h-11 rounded-ui-md border px-1 font-mono text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${active ? 'border-accent bg-accent-soft text-accent' : 'border-border-subtle bg-surface-input text-text-muted'}`}>{displayWeight(plate, preferences.units)}</button>; })}</div></div>
       </div>}
 
       {panel === 'appearance' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Sparkles className="size-4" />} label={t('settings.theme')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('theme')} /><SettingsRow icon={<Palette className="size-4" />} label={t('settings.accent')} value={<span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ backgroundColor: ACCENT_PRESETS[themeSettings.accentColor].hex }} />{accentName(themeSettings.accentColor)}</span>} onClick={() => setPanel('accent')} /></div>}
