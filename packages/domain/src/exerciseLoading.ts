@@ -128,7 +128,8 @@ function resolveFallbackProfile(
   const equipment = legacyEquipment.toLowerCase();
   const unilateral = isLegacyUnilateralExercise(exercise);
 
-  if (equipment.includes('smith') || equipment.includes('sled') || equipment.includes('plate loaded') || equipment.includes('plate-loaded')) {
+  if (equipment.includes('smith')) return SMITH_PROFILE;
+  if (equipment.includes('sled') || equipment.includes('plate loaded') || equipment.includes('plate-loaded')) {
     return PLATE_LOADED_PROFILE;
   }
   if (equipment.includes('barbell') || equipment.includes('olympic') || exercise.category === 'barbell') return BARBELL_PROFILE;
@@ -145,11 +146,14 @@ export function resolveExerciseLoadingProfile(
   exercise: Pick<Exercise, 'id' | 'category' | 'name' | 'instructions' | 'loading'>,
   options: ExerciseLoadingResolutionOptions = {}
 ): ResolvedExerciseLoadingProfile {
+  const override = EXERCISE_LOADING_OVERRIDES[exercise.id];
   if (isExerciseLoadingProfile(exercise.loading)) {
-    return { profile: cloneProfile(exercise.loading), source: 'explicit' };
+    // Database rows predate plate-base metadata. Keep explicit mechanics but restore
+    // curated equipment semantics when the metadata was not persisted.
+    const plateBase = exercise.loading.plateBase ?? override?.plateBase;
+    return { profile: cloneProfile({ ...exercise.loading, plateBase }), source: 'explicit' };
   }
 
-  const override = EXERCISE_LOADING_OVERRIDES[exercise.id];
   if (override) return { profile: cloneProfile(override), source: 'override' };
 
   const fallback = resolveFallbackProfile(exercise, options.legacyEquipment);
