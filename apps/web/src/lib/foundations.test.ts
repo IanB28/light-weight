@@ -11,7 +11,17 @@ import {
   WEIGHT_UNIT_PRESETS
 } from './weight-units.js';
 import { resolveExerciseLoadingProfile, type Exercise, type WorkoutSession } from '@light-weight/domain';
-import { normalizeStoredActiveWorkout, normalizeStoredHistory } from './storage.js';
+import { normalizeStoredActiveWorkout, normalizeStoredHistory, storedUserScopeMatches, switchStoredUserScope } from './storage.js';
+
+class MemoryStorage implements Storage {
+  private values = new Map<string, string>();
+  get length() { return this.values.size; }
+  clear() { this.values.clear(); }
+  getItem(key: string) { return this.values.get(key) ?? null; }
+  key(index: number) { return [...this.values.keys()][index] ?? null; }
+  removeItem(key: string) { this.values.delete(key); }
+  setItem(key: string, value: string) { this.values.set(key, String(value)); }
+}
 
 test('preference parser applies defaults and preserves valid partial settings', () => {
   assert.deepEqual(parseAppPreferences(null), DEFAULT_APP_PREFERENCES);
@@ -126,4 +136,25 @@ test('legacy local history and active workouts hydrate canonical set types', () 
   }) as unknown as { exerciseSessions: Array<{ sets: Array<{ setType: string }>; plateBaseWeightKg?: number }> };
   assert.equal(active.exerciseSessions[0].sets[0].setType, 'warmup');
   assert.equal(active.exerciseSessions[0].plateBaseWeightKg, 9.0718474);
+});
+
+test('local account scopes isolate private workout data during auth transitions', () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: new MemoryStorage() });
+  try {
+    localStorage.setItem('lightweight_workouts_history', '[{"id":"anonymous"}]');
+    assert.equal(switchStoredUserScope('user-a'), true);
+    assert.equal(storedUserScopeMatches('user-a'), true);
+    assert.equal(localStorage.getItem('lightweight_workouts_history'), '[{"id":"anonymous"}]');
+    assert.equal(switchStoredUserScope(null), true);
+    assert.equal(localStorage.getItem('lightweight_workouts_history'), null);
+    localStorage.setItem('lightweight_workouts_history', '[{"id":"anonymous-2"}]');
+    assert.equal(switchStoredUserScope('user-b'), true);
+    assert.equal(switchStoredUserScope(null), true);
+    assert.equal(switchStoredUserScope('user-a'), true);
+    assert.equal(localStorage.getItem('lightweight_workouts_history'), '[{"id":"anonymous"}]');
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
 });

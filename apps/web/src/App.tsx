@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BottomNav, type TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
 import { SettingsSheet } from './components/SettingsSheet.js';
@@ -15,11 +15,15 @@ import { useAppData } from './lib/useAppData.js';
 import { useWorkoutSession } from './features/workouts/useWorkoutSession.js';
 import { useRestTimer } from './features/workouts/useRestTimer.js';
 import type { MuscleGroup } from '@light-weight/domain';
+import { useAuth } from './lib/auth-context.js';
+import { switchStoredUserScope } from './lib/storage.js';
 
 export function App() {
   const { preferences } = usePreferences();
   const { showFeedback } = useFeedback();
   const { t } = useI18n();
+  const auth = useAuth();
+  const previousAuthScope = useRef<string | null>(null);
   const [currentTab, setCurrentTab] = useState<TabType>('home');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const data = useAppData();
@@ -28,11 +32,18 @@ export function App() {
     routines: data.routines,
     history: data.history,
     preferences,
-    userId: data.userInfo.id
+    userId: auth.user?.id || data.userInfo.id
   });
   const restTimer = useRestTimer();
 
   useEffect(() => { initTheme(); }, []);
+  useEffect(() => {
+    if (auth.status === 'loading' || auth.status === 'offline') return;
+    const nextScope = auth.user?.id || 'anonymous';
+    if (previousAuthScope.current === nextScope) return;
+    previousAuthScope.current = nextScope;
+    if (switchStoredUserScope(auth.user?.id || null)) window.location.reload();
+  }, [auth.status, auth.user?.id]);
 
   const startWorkout = (routineId?: string, sessionName?: string, prefilterMuscles?: MuscleGroup[]) => {
     workout.start(routineId, sessionName, prefilterMuscles);

@@ -91,6 +91,8 @@ test('Smith machines use their fixed 20 lb base, not the user barbell preference
   const equipmentFallback = resolveExerciseLoadingProfile(exercise({ id: 'legacy-smith', category: 'machine' }), { legacyEquipment: 'Smith machine' }).profile;
   assert.equal(equipmentFallback.plateBase?.label, 'smith');
   assert.equal(Math.round(resolvePlateBaseWeightKg(equipmentFallback, 200) * 100) / 100, Math.round(poundsToKilograms(20) * 100) / 100);
+  const nameFallback = resolveExerciseLoadingProfile(exercise({ id: 'new-smith', name: 'Smith machine squat', category: 'machine' })).profile;
+  assert.equal(nameFallback.plateBase?.label, 'smith');
 });
 
 test('legacy set classification normalizes to canonical setType', () => {

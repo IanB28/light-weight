@@ -8,6 +8,7 @@ import { RoutineDetailSheet } from '../features/routines/RoutineDetailSheet.js';
 import { RoutinePicker } from '../components/RoutinePicker.js';
 import { WeeklySchedule, WeekDay } from '../lib/storage.js';
 import { TranslationKey, useI18n } from '../lib/i18n.js';
+import { ReceivedRoutines } from '../features/routines/ReceivedRoutines.js';
 
 interface PlanViewProps {
   routines: Routine[];
@@ -61,6 +62,8 @@ export const PlanView: React.FC<PlanViewProps> = ({
           ))}
         </AppCard>
       </section>
+
+      <ReceivedRoutines onImport={onSaveRoutine} />
 
       <section className="space-y-2.5">
         <SectionHeader title={t('plan.myRoutines')} meta={`${routines.length} ${t('plan.saved')}`} action={<Button size="sm" onClick={() => setIsCreateModalOpen(true)}><Plus className="size-4" />{t('plan.newRoutine')}</Button>} />

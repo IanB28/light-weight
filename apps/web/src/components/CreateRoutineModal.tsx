@@ -40,7 +40,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
 
     const newRoutine: Routine = {
       id: 'rt-' + Date.now(),
-      userId: '00000000-0000-0000-0000-000000000001',
+      userId: 'local-anonymous',
       name: name.trim(),
       description: description.trim() || undefined,
       exerciseIds: selectedExerciseIds,

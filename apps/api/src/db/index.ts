@@ -33,7 +33,7 @@ export async function testDbConnection(): Promise<{ ok: boolean; message?: strin
   try {
     const result = await sql`SELECT 1 as connected`;
     return { ok: result.length > 0 && result[0].connected === 1 };
-  } catch (error: any) {
-    return { ok: false, message: error.message };
+  } catch (error: unknown) {
+    return { ok: false, message: error instanceof Error ? error.message : 'Database unavailable' };
   }
 }

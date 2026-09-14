@@ -5,14 +5,17 @@ import './index.css';
 import { PreferencesProvider } from './lib/preferences-context.js';
 import { I18nProvider } from './lib/i18n.js';
 import { FeedbackProvider } from './lib/feedback-context.js';
+import { AuthProvider } from './lib/auth-context.js';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <PreferencesProvider>
       <I18nProvider>
-        <FeedbackProvider>
-          <App />
-        </FeedbackProvider>
+        <AuthProvider>
+          <FeedbackProvider>
+            <App />
+          </FeedbackProvider>
+        </AuthProvider>
       </I18nProvider>
     </PreferencesProvider>
   </React.StrictMode>

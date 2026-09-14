@@ -50,7 +50,7 @@ export interface WorkoutFinishResult {
   history: WorkoutSession[];
 }
 
-const FALLBACK_USER_ID = '00000000-0000-0000-0000-000000000001';
+const FALLBACK_USER_ID = 'local-anonymous';
 
 function normalizeActiveExerciseSession(session: ActiveExerciseSession): ActiveExerciseSession {
   const legacySession = session as ActiveExerciseSession & { weightInputMode?: WeightInputMode };

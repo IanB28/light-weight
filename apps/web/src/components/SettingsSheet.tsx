@@ -5,7 +5,7 @@ import {
   getStoredBodyweight, getStoredHistory, getStoredProfile, getStoredRoutines,
   getStoredTargetWeight, getStoredWeeklySchedule, saveStoredBodyweight,
   saveStoredHistory, saveStoredProfile, saveStoredRoutines, saveStoredTargetWeight,
-  saveStoredWeeklySchedule, UserInfo, UserProfile
+  saveStoredWeeklySchedule, switchStoredUserScope, UserInfo, UserProfile
 } from '../lib/storage.js';
 import { syncWithCloud } from '../lib/sync.js';
 import { AccentColorId, ACCENT_PRESETS, applyTheme, GlassTheme, GLASS_THEMES, getStoredThemeSettings, ThemeSettings } from '../lib/theme.js';
@@ -21,7 +21,10 @@ import {
   WEIGHT_UNIT_PRESETS
 } from '../lib/weight-units.js';
 import { ProfileView } from '../features/profile/ProfileView.js';
-import { BottomSheet, Button, OptionPicker, SectionHeader, SegmentedControl } from './ui/index.js';
+import { AuthPanel } from '../features/auth/AuthPanel.js';
+import { FriendsPanel } from '../features/friends/FriendsPanel.js';
+import { useAuth } from '../lib/auth-context.js';
+import { BottomSheet, Button, LoadingState, OptionPicker, SectionHeader, SegmentedControl } from './ui/index.js';
 
 interface SettingsSheetProps {
   isOpen: boolean;
@@ -34,7 +37,7 @@ interface SettingsSheetProps {
   onProfileChange: (profile: UserProfile) => void;
 }
 
-type SettingsPanel = 'root' | 'profile' | 'training' | 'appearance' | 'theme' | 'accent' | 'language' | 'data';
+type SettingsPanel = 'root' | 'profile' | 'friends' | 'training' | 'appearance' | 'theme' | 'accent' | 'language' | 'data';
 type StatusMessage = { tone: 'success' | 'error'; text: string } | null;
 
 function SettingsRow({ icon, label, value, onClick, disabled }: { icon: React.ReactNode; label: string; value?: React.ReactNode; onClick: () => void; disabled?: boolean }) {
@@ -57,6 +60,7 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
   const [themeSettings, setThemeSettings] = useState<ThemeSettings>(getStoredThemeSettings());
   const { preferences, updatePreferences, reloadPreferences } = usePreferences();
   const { language, setLanguage, t } = useI18n();
+  const auth = useAuth();
   const themeName = (id: GlassTheme) => t(`theme.${id}` as TranslationKey);
   const accentName = (id: AccentColorId) => t(`accent.${id}` as TranslationKey);
 
@@ -90,7 +94,7 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
     setIsSyncing(true);
     const result = await syncWithCloud();
     setIsSyncing(false);
-    setStatus(result.ok ? { tone: 'success', text: t('settings.synced') } : { tone: 'error', text: t(`error.${result.error.code === 'not_found' ? 'notFound' : result.error.code === 'rate_limited' ? 'rateLimited' : result.error.code}` as import('../lib/i18n.js').TranslationKey) });
+    setStatus(result.ok ? { tone: 'success', text: t('settings.synced') } : { tone: 'error', text: result.error.code === 'auth_required' || result.error.code === 'unauthorized' ? t('auth.error.auth_required') : t(`error.${result.error.code === 'not_found' ? 'notFound' : result.error.code === 'rate_limited' ? 'rateLimited' : result.error.code}` as import('../lib/i18n.js').TranslationKey) });
   };
 
   const handleExport = () => {
@@ -155,7 +159,7 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
 
   const titles: Record<SettingsPanel, string> = {
     root: t('settings.title'), profile: t('profile.title'), training: t('settings.training'), appearance: t('settings.appearance'),
-    theme: t('settings.theme'), accent: t('settings.accent'), language: t('settings.language'), data: t('settings.data')
+    friends: t('friends.title'), theme: t('settings.theme'), accent: t('settings.accent'), language: t('settings.language'), data: t('settings.data')
   };
   const backTarget = panel === 'theme' || panel === 'accent' ? 'appearance' : 'root';
 
@@ -164,14 +168,26 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
       {panel !== 'root' && <Button variant="ghost" size="sm" onClick={() => setPanel(backTarget)} className="mb-3 -ml-2"><ChevronLeft aria-hidden="true" className="size-4" />{backTarget === 'appearance' ? t('settings.appearance') : t('common.back')}</Button>}
 
       {panel === 'root' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-        <SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profile')} value={profile.displayName === 'Atleta' ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete')) : profile.displayName} onClick={() => setPanel('profile')} />
+        <SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profile')} value={auth.user?.displayName || (profile.displayName === 'Atleta' ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete')) : profile.displayName)} onClick={() => setPanel('profile')} />
         <SettingsRow icon={<Dumbbell className="size-4" />} label={t('settings.training')} onClick={() => setPanel('training')} />
         <SettingsRow icon={<Palette className="size-4" />} label={t('settings.appearance')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('appearance')} />
         <SettingsRow icon={<Languages className="size-4" />} label={t('settings.language')} value={language === 'es' ? t('settings.spanish') : t('settings.english')} onClick={() => setPanel('language')} />
         <SettingsRow icon={<Database className="size-4" />} label={t('settings.data')} onClick={() => setPanel('data')} />
       </div>}
 
-      {panel === 'profile' && <ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={onProfileChange} />}
+      {panel === 'profile' && (auth.status === 'loading' ? <LoadingState compact title={t('common.loading')} /> : auth.isAuthenticated && auth.user ? <ProfileView
+        profile={{ ...profile, displayName: auth.user.displayName, username: auth.user.username, birthDate: auth.user.birthDate, gender: auth.user.gender || profile.gender, avatarUrl: auth.user.avatarUrl }}
+        userInfo={{ id: auth.user.id, name: auth.user.displayName, email: auth.user.email }} history={history} exercises={exercises} isRemote
+        onOpenFriends={() => setPanel('friends')}
+        onLogout={() => { void auth.logout().then((result) => { if (result.ok) { switchStoredUserScope(null); window.location.reload(); } }); }}
+        onSave={async (nextProfile) => {
+          const result = await auth.updateProfile(nextProfile);
+          if (!result.ok) return t(`auth.error.${result.error.code}` as TranslationKey);
+          onProfileChange({ ...nextProfile, displayName: result.data.displayName, username: result.data.username, birthDate: result.data.birthDate, gender: result.data.gender || nextProfile.gender, avatarUrl: result.data.avatarUrl });
+        }}
+      /> : auth.status === 'offline' && userInfo.id !== 'local-anonymous' ? <div className="space-y-3"><p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p><ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={(nextProfile) => { onProfileChange(nextProfile); }} /></div> : <AuthPanel />)}
+
+      {panel === 'friends' && <FriendsPanel />}
 
       {panel === 'training' && <div className="space-y-5">
         <div className="space-y-2"><SectionHeader title={t('settings.units')} /><SegmentedControl value={preferences.units} label={t('settings.units')} options={[{ value: 'metric', label: t('settings.metric') }, { value: 'imperial', label: t('settings.imperial') }]} onChange={changeUnits} /></div>
@@ -188,7 +204,7 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
       {panel === 'accent' && <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('settings.accent')}>{(Object.keys(ACCENT_PRESETS) as AccentColorId[]).map((id) => { const accent = ACCENT_PRESETS[id]; const selected = themeSettings.accentColor === id; return <button key={id} type="button" role="radio" aria-checked={selected} onClick={() => chooseAccent(id)} className={`flex min-h-12 items-center gap-2.5 rounded-ui-lg border p-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft' : 'border-border-subtle bg-surface hover:bg-surface-active'}`}><span className="flex size-8 shrink-0 items-center justify-center rounded-full shadow-sm" style={{ backgroundColor: accent.hex }}>{selected && <Check aria-hidden="true" className="size-4" style={{ color: accent.fg }} />}</span><span className="min-w-0 truncate text-xs font-bold text-text-primary">{accentName(id)}</span></button>; })}</div>}
       {panel === 'language' && <div className="space-y-2" role="radiogroup" aria-label={t('settings.language')}>{(['es', 'en'] as const).map((id) => { const selected = language === id; return <button key={id} type="button" role="radio" aria-checked={selected} onClick={() => setLanguage(id)} className={`flex min-h-14 w-full items-center justify-between rounded-ui-lg border px-4 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft text-text-primary' : 'border-border-subtle bg-surface text-text-secondary hover:bg-surface-active'}`}><span>{id === 'es' ? t('settings.spanish') : t('settings.english')}</span>{selected && <Check aria-hidden="true" className="size-4 text-accent" />}</button>; })}</div>}
 
-      {panel === 'data' && <div className="space-y-3"><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<RefreshCw className={`size-4 ${isSyncing ? 'motion-safe:animate-spin' : ''}`} />} label={isSyncing ? t('settings.syncing') : t('settings.syncNow')} onClick={() => void handleSync()} disabled={isSyncing} /><SettingsRow icon={<Download className="size-4" />} label={t('settings.export')} value="JSON" onClick={handleExport} /><SettingsRow icon={<Upload className="size-4" />} label={isImporting ? t('common.loading') : t('settings.import')} value="JSON" onClick={() => fileInputRef.current?.click()} disabled={isImporting} /></div><input ref={fileInputRef} type="file" accept=".json,application/json" onChange={handleImport} className="hidden" />{status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`rounded-ui-lg border p-3 text-xs font-semibold ${status.tone === 'error' ? 'border-danger/30 bg-danger-soft text-danger' : 'border-success/30 bg-success/10 text-success'}`}>{status.text}</p>}</div>}
+      {panel === 'data' && <div className="space-y-3"><div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<RefreshCw className={`size-4 ${isSyncing ? 'motion-safe:animate-spin' : ''}`} />} label={isSyncing ? t('settings.syncing') : t('settings.syncNow')} onClick={() => void handleSync()} disabled={isSyncing || !auth.isAuthenticated} /><SettingsRow icon={<Download className="size-4" />} label={t('settings.export')} value="JSON" onClick={handleExport} /><SettingsRow icon={<Upload className="size-4" />} label={isImporting ? t('common.loading') : t('settings.import')} value="JSON" onClick={() => fileInputRef.current?.click()} disabled={isImporting} /></div>{!auth.isAuthenticated && <p className="rounded-ui-lg border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.syncRequiresLogin')}</p>}<input ref={fileInputRef} type="file" accept=".json,application/json" onChange={handleImport} className="hidden" />{status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`rounded-ui-lg border p-3 text-xs font-semibold ${status.tone === 'error' ? 'border-danger/30 bg-danger-soft text-danger' : 'border-success/30 bg-success/10 text-success'}`}>{status.text}</p>}</div>}
     </BottomSheet>
   );
 }

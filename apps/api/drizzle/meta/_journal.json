@@ -8,6 +8,13 @@
       "when": 1789279804495,
       "tag": "0000_product_domain_semantics_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1799816400000,
+      "tag": "0001_auth_friends_routine_sharing_v1",
+      "breakpoints": true
     }
   ]
 }

@@ -8,7 +8,10 @@ import {
   numeric,
   jsonb,
   uuid,
-  check
+  check,
+  date,
+  uniqueIndex,
+  index
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type { ExerciseLoadMechanism, ExerciseLoadMode, WorkoutSetType } from '@light-weight/domain';
@@ -17,10 +20,31 @@ import type { ExerciseLoadMechanism, ExerciseLoadMode, WorkoutSetType } from '@l
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
+  username: varchar('username', { length: 30 }).unique(),
+  passwordHash: text('password_hash'),
+  displayName: varchar('display_name', { length: 100 }).default('Atleta').notNull(),
+  birthDate: date('birth_date'),
+  gender: varchar('gender', { length: 16 }),
+  avatarUrl: text('avatar_url'),
+  // Legacy compatibility during the additive identity migration.
   name: varchar('name', { length: 100 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex('users_email_normalized_uidx').on(sql`lower(${table.email})`),
+  uniqueIndex('users_username_normalized_uidx').on(sql`lower(${table.username})`).where(sql`${table.username} IS NOT NULL`),
+  check('users_gender_check', sql`${table.gender} IS NULL OR ${table.gender} IN ('male', 'female')`)
+]);
+
+export const authSessions = pgTable('auth_sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
+  csrfTokenHash: varchar('csrf_token_hash', { length: 64 }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [index('auth_sessions_user_id_idx').on(table.userId), index('auth_sessions_expires_at_idx').on(table.expiresAt)]);
 
 // 2. Perfil biométrico del usuario (para fuerza relativa y fatiga)
 export const userProfiles = pgTable('user_profiles', {
@@ -133,3 +157,40 @@ export const personalRecords = pgTable('personal_records', {
   achievedAt: timestamp('achieved_at', { withTimezone: true }).notNull(),
   sessionId: uuid('session_id').references(() => workoutSessions.id, { onDelete: 'cascade' }),
 });
+
+export const friendships = pgTable('friendships', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // userAId/userBId are stored in lexical order to make an unordered pair unique.
+  userAId: uuid('user_a_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  userBId: uuid('user_b_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  requesterId: uuid('requester_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 16 }).default('pending').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('friendships_user_pair_uidx').on(table.userAId, table.userBId),
+  index('friendships_user_a_idx').on(table.userAId),
+  index('friendships_user_b_idx').on(table.userBId),
+  check('friendships_distinct_users_check', sql`${table.userAId} <> ${table.userBId}`),
+  check('friendships_requester_check', sql`${table.requesterId} IN (${table.userAId}, ${table.userBId})`),
+  check('friendships_status_check', sql`${table.status} IN ('pending', 'accepted')`),
+]);
+
+export const routineShares = pgTable('routine_shares', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sourceRoutineId: uuid('source_routine_id').references(() => routines.id, { onDelete: 'set null' }),
+  senderId: uuid('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  recipientId: uuid('recipient_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  routineName: varchar('routine_name', { length: 255 }).notNull(),
+  routineDescription: text('routine_description'),
+  exerciseIds: jsonb('exercise_ids').$type<string[]>().default([]).notNull(),
+  status: varchar('status', { length: 16 }).default('pending').notNull(),
+  importedRoutineId: uuid('imported_routine_id').references(() => routines.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  importedAt: timestamp('imported_at', { withTimezone: true }),
+}, (table) => [
+  index('routine_shares_recipient_idx').on(table.recipientId),
+  index('routine_shares_sender_idx').on(table.senderId),
+  check('routine_shares_distinct_users_check', sql`${table.senderId} <> ${table.recipientId}`),
+  check('routine_shares_status_check', sql`${table.status} IN ('pending', 'imported', 'dismissed')`),
+]);

@@ -14,14 +14,17 @@ import {
   saveStoredRoutines,
   saveStoredTargetWeight,
   saveStoredWeeklySchedule,
+  storedUserScopeMatches,
   type BodyweightEntry,
   type UserProfile,
   type UserInfo,
   type WeeklySchedule
 } from './storage.js';
 import { useCloudSync } from './useCloudSync.js';
+import { useAuth } from './auth-context.js';
 
 export function useAppData() {
+  const auth = useAuth();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [routines, setRoutines] = useState<Routine[]>(() => getStoredRoutines());
@@ -41,7 +44,7 @@ export function useAppData() {
     setUserInfo(getStoredUserInfo());
     setProfile(getStoredProfile());
   }, []);
-  const sync = useCloudSync(reloadFromStorage);
+  const sync = useCloudSync(reloadFromStorage, auth.isAuthenticated && storedUserScopeMatches(auth.user?.id || null));
 
   const loadCatalog = useCallback(() => {
     setCatalogStatus('loading');

@@ -8,3 +8,4 @@ export * from './profile.js';
 export * from './weight.js';
 export * from './exerciseLoading.js';
 export * from './setSemantics.js';
+export * from './identity.js';

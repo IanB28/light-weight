@@ -224,9 +224,12 @@ test('evaluateRelativeStrength StrengthLevel gamification and gender standards',
 
 test('calculateWeeklyStreak and weekKey calculation', () => {
   const now = new Date();
-  const week1 = new Date(now.getTime() - 86400000 * 2).toISOString(); // this week
-  const week2 = new Date(now.getTime() - 86400000 * 9).toISOString(); // last week
-  const week3 = new Date(now.getTime() - 86400000 * 16).toISOString(); // 2 weeks ago
+  const monday = new Date(now);
+  monday.setHours(12, 0, 0, 0);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const week1 = monday.toISOString();
+  const week2 = new Date(monday.getTime() - 86400000 * 7).toISOString();
+  const week3 = new Date(monday.getTime() - 86400000 * 14).toISOString();
 
   const mockHistory: WorkoutSession[] = [
     { id: '1', userId: 'u', routineName: 'R1', startedAt: week1, sets: {} },

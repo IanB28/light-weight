@@ -23,12 +23,15 @@ interface ProfileViewProps {
   userInfo: UserInfo;
   history: WorkoutSession[];
   exercises: Exercise[];
-  onSave: (profile: UserProfile) => void;
+  onSave: (profile: UserProfile) => void | string | Promise<void | string>;
+  onOpenFriends?: () => void;
+  onLogout?: () => void;
+  isRemote?: boolean;
 }
 
 type ProfileMode = 'summary' | 'edit';
 
-export function ProfileView({ profile, userInfo, history, exercises, onSave }: ProfileViewProps) {
+export function ProfileView({ profile, userInfo, history, exercises, onSave, onOpenFriends, onLogout, isRemote = false }: ProfileViewProps) {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
   const [mode, setMode] = useState<ProfileMode>('summary');
@@ -64,7 +67,7 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave }: P
     setMode('edit');
   };
 
-  const handleSave = (event: React.FormEvent) => {
+  const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
     const username = draft.username?.trim().replace(/^@/, '').toLowerCase();
     if (username && !/^[a-z0-9._]{3,30}$/.test(username)) {
@@ -75,11 +78,12 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave }: P
       setError(t('profile.invalidBirthDate'));
       return;
     }
-    onSave({
+    const saveError = await onSave({
       ...draft,
       displayName: draft.displayName.trim() || userInfo.name || t('profile.athlete'),
       username: username || undefined
     });
+    if (saveError) { setError(saveError); return; }
     setMode('summary');
   };
 
@@ -135,6 +139,10 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave }: P
         <Button variant="ghost" size="sm" onClick={openEdit} className="mt-2">
           <Pencil aria-hidden="true" className="size-3.5" />{t('profile.edit')}
         </Button>
+        {isRemote && <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {onOpenFriends && <Button variant="secondary" size="sm" onClick={onOpenFriends}>{t('friends.title')}</Button>}
+          {onLogout && <Button variant="ghost" size="sm" onClick={onLogout}>{t('auth.logout')}</Button>}
+        </div>}
       </div>
 
       <AppCard compact className="grid grid-cols-3 divide-x divide-border-subtle text-center">

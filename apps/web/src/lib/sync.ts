@@ -1,12 +1,11 @@
 import { Routine, WorkoutSession } from '@light-weight/domain';
 import {
   getStoredBodyweight, getStoredHistory, getStoredRoutines, saveStoredHistory,
-  saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo
+  saveStoredBodyweight, saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo
 } from './storage.js';
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
 
 const API_BASE = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:4000';
-const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 export interface SyncStatus {
   state: 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
@@ -16,10 +15,11 @@ export interface SyncStatus {
 }
 
 interface PullResponse {
-  user?: Partial<UserInfo> | null;
+  user?: (Partial<UserInfo> & { displayName?: string }) | null;
   profile?: { gender?: string } | null;
   routines?: Array<Partial<Routine>>;
   history?: WorkoutSession[];
+  bodyweightLogs?: Array<{ weightKg?: unknown; loggedAt?: unknown }>;
 }
 
 type SyncListener = (status: SyncStatus) => void;
@@ -45,16 +45,24 @@ const offlineResult = <T,>(): OperationResult<T> => {
   return { ok: false, error };
 };
 
-export function pullFromCloud(userId = DEFAULT_USER_ID): Promise<OperationResult<PullResponse>> {
+export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve(offlineResult());
   if (pullInFlight) return pullInFlight;
   notify({ state: 'syncing' });
 
   pullInFlight = (async () => {
     try {
-      const data = await requestJson<PullResponse>(`${API_BASE}/api/sync/pull?userId=${encodeURIComponent(userId)}`);
-      if (data.user?.id && data.user.name) saveStoredUserInfo({ id: data.user.id, name: data.user.name, email: data.user.email || '' });
-      if (data.profile?.gender === 'male' || data.profile?.gender === 'female') saveStoredProfile({ gender: data.profile.gender });
+      const data = await requestJson<PullResponse>(`${API_BASE}/api/sync/pull`);
+      if (data.user?.id && (data.user.name || data.user.displayName)) {
+        saveStoredUserInfo({ id: data.user.id, name: data.user.displayName || data.user.name || '', email: data.user.email || '' });
+        saveStoredProfile({
+          displayName: data.user.displayName || data.user.name,
+          ...(typeof (data.user as { username?: unknown }).username === 'string' ? { username: (data.user as { username: string }).username } : {}),
+          ...(typeof (data.user as { birthDate?: unknown }).birthDate === 'string' ? { birthDate: (data.user as { birthDate: string }).birthDate } : {}),
+          ...((data.user as { gender?: unknown }).gender === 'male' || (data.user as { gender?: unknown }).gender === 'female' ? { gender: (data.user as { gender: 'male' | 'female' }).gender } : {}),
+          ...(typeof (data.user as { avatarUrl?: unknown }).avatarUrl === 'string' ? { avatarUrl: (data.user as { avatarUrl: string }).avatarUrl } : {})
+        });
+      } else if (data.profile?.gender === 'male' || data.profile?.gender === 'female') saveStoredProfile({ gender: data.profile.gender });
 
       if (Array.isArray(data.routines) && data.routines.length > 0) {
         const local = getStoredRoutines();
@@ -66,6 +74,16 @@ export function pullFromCloud(userId = DEFAULT_USER_ID): Promise<OperationResult
         const local = getStoredHistory();
         const existing = new Set(local.map((session) => session.id));
         saveStoredHistory([...data.history.filter((session) => !existing.has(session.id)), ...local]);
+      }
+      if (Array.isArray(data.bodyweightLogs) && data.bodyweightLogs.length > 0) {
+        const incoming = data.bodyweightLogs.flatMap((entry) => {
+          const timestamp = typeof entry.loggedAt === 'string' ? new Date(entry.loggedAt).getTime() : Number.NaN;
+          const weightKg = typeof entry.weightKg === 'number' ? entry.weightKg : Number.NaN;
+          if (!Number.isFinite(timestamp) || !Number.isFinite(weightKg) || weightKg <= 0) return [];
+          return [{ date: new Date(timestamp).toISOString().slice(0, 10), timestamp, weightKg }];
+        });
+        const byDate = new Map([...incoming, ...getStoredBodyweight()].map((entry) => [entry.date, entry]));
+        saveStoredBodyweight([...byDate.values()].sort((a, b) => a.timestamp - b.timestamp));
       }
 
       notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: data.history?.length || 0 });
@@ -81,7 +99,7 @@ export function pullFromCloud(userId = DEFAULT_USER_ID): Promise<OperationResult
   return pullInFlight;
 }
 
-export function syncWithCloud(userId = DEFAULT_USER_ID): Promise<OperationResult<{ syncedCount: number }>> {
+export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }>> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve(offlineResult());
   if (syncInFlight) return syncInFlight;
   notify({ state: 'syncing' });
@@ -89,7 +107,6 @@ export function syncWithCloud(userId = DEFAULT_USER_ID): Promise<OperationResult
   syncInFlight = (async () => {
     try {
       const payload = {
-        userId,
         sessions: getStoredHistory(),
         routines: getStoredRoutines(),
         bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() }))
@@ -111,7 +128,4 @@ export function syncWithCloud(userId = DEFAULT_USER_ID): Promise<OperationResult
   return syncInFlight;
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { void syncWithCloud(); });
-  window.addEventListener('offline', () => notify({ state: 'offline', error: { code: 'network', retryable: true } }));
-}
+if (typeof window !== 'undefined') window.addEventListener('offline', () => notify({ state: 'offline', error: { code: 'network', retryable: true } }));

@@ -16,37 +16,27 @@ import {
   shouldCountForPersonalRecord,
   shouldCountForVolume
 } from '@light-weight/domain';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 import {
   hydrateSyncedSet,
   normalizeIncomingSyncSessions,
   SyncValidationError
 } from '../lib/sync-mappers.js';
+import { ApiError, asyncRoute } from '../lib/api-error.js';
+import { requireAuth, requireCsrf, toAuthUser } from '../lib/auth-session.js';
+import { toDatabaseUuid } from '../lib/client-id.js';
 
 export const syncRouter: Router = Router();
 
-function toValidUuid(rawId?: string | null): string {
-  if (!rawId) return '00000000-0000-4000-8000-000000000000';
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (uuidRegex.test(rawId)) return rawId;
-  let hash = 0;
-  for (let i = 0; i < rawId.length; i++) {
-    hash = ((hash << 5) - hash) + rawId.charCodeAt(i);
-    hash |= 0;
-  }
-  const hex = Math.abs(hash).toString(16).padStart(12, '0');
-  return `00000000-0000-4000-8000-${hex.slice(0, 12)}`;
-}
-
 // POST /api/sync - Sincronización en lote de entrenamientos (Offline-First)
-syncRouter.post('/', async (req, res) => {
+syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
   try {
     const {
-      userId = '00000000-0000-0000-0000-000000000001',
       sessions: rawSessions = [],
       bodyweightLogs: bLogs = [],
       routines: incomingRoutines = []
-    } = req.body;
+    } = req.body || {};
+    const userId = req.auth!.userId;
     // Validate and normalize canonical set semantics before performing any write.
     const sessions = normalizeIncomingSyncSessions(rawSessions);
 
@@ -81,34 +71,41 @@ syncRouter.post('/', async (req, res) => {
       }
 
       // Actualizar perfil con el último peso
-      await db
-        .update(userProfiles)
-        .set({
-          currentBodyweightKg: String(b.weightKg),
-          updatedAt: new Date(),
-        })
-        .where(eq(userProfiles.userId, userId));
+      await db.insert(userProfiles).values({
+        userId,
+        gender: req.auth!.user.gender || 'male',
+        currentBodyweightKg: String(b.weightKg),
+        updatedAt: new Date()
+      }).onConflictDoUpdate({
+        target: userProfiles.userId,
+        set: { currentBodyweightKg: String(b.weightKg), updatedAt: new Date() }
+      });
     }
 
     // 2. Sincronizar rutinas si se incluyen
-    for (const r of incomingRoutines) {
-      if (!r.name) continue;
-      const rUuid = toValidUuid(r.id);
+    for (const rawRoutine of Array.isArray(incomingRoutines) ? incomingRoutines.slice(0, 250) : []) {
+      if (!rawRoutine || typeof rawRoutine !== 'object') continue;
+      const r = rawRoutine as { id?: string; name?: string; description?: string; exerciseIds?: unknown };
+      if (typeof r.name !== 'string' || !r.name.trim() || r.name.length > 255) continue;
+      const rUuid = toDatabaseUuid(r.id);
+      const [existingRoutine] = await db.select({ userId: routines.userId }).from(routines).where(eq(routines.id, rUuid)).limit(1);
+      if (existingRoutine && existingRoutine.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
       await db
         .insert(routines)
         .values({
           id: rUuid,
           userId,
-          name: r.name,
+          name: r.name.trim(),
           description: r.description || null,
-          exerciseIds: r.exerciseIds || [],
+          exerciseIds: Array.isArray(r.exerciseIds) ? r.exerciseIds.filter((id): id is string => typeof id === 'string').slice(0, 100) : [],
         })
         .onConflictDoUpdate({
           target: routines.id,
+          setWhere: eq(routines.userId, userId),
           set: {
-            name: r.name,
+            name: r.name.trim(),
             description: r.description || null,
-            exerciseIds: r.exerciseIds || [],
+            exerciseIds: Array.isArray(r.exerciseIds) ? r.exerciseIds.filter((id): id is string => typeof id === 'string').slice(0, 100) : [],
             updatedAt: new Date(),
           },
         });
@@ -117,8 +114,14 @@ syncRouter.post('/', async (req, res) => {
     // 3. Procesar y persistir sesiones de entrenamiento en lote
     for (const session of sessions) {
       const { id, routineId, routineName, startedAt, endedAt, notes, sets = {} } = session;
-      const sessionUuid = toValidUuid(id);
-      const routineUuid = routineId ? toValidUuid(routineId) : null;
+      const sessionUuid = toDatabaseUuid(id);
+      const routineUuid = routineId ? toDatabaseUuid(routineId) : null;
+      const [existingSession] = await db.select({ userId: workoutSessions.userId }).from(workoutSessions).where(eq(workoutSessions.id, sessionUuid)).limit(1);
+      if (existingSession && existingSession.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
+      if (routineUuid) {
+        const [ownedRoutine] = await db.select({ id: routines.id }).from(routines).where(and(eq(routines.id, routineUuid), eq(routines.userId, userId))).limit(1);
+        if (!ownedRoutine) throw new ApiError(403, 'ROUTINE_NOT_OWNED');
+      }
 
       // Calcular volumen total
       let totalVolume = 0;
@@ -146,6 +149,7 @@ syncRouter.post('/', async (req, res) => {
         })
         .onConflictDoUpdate({
           target: workoutSessions.id,
+          setWhere: eq(workoutSessions.userId, userId),
           set: {
             endedAt: endedAt ? new Date(endedAt) : null,
             totalVolumeKg: String(totalVolume),
@@ -159,11 +163,14 @@ syncRouter.post('/', async (req, res) => {
 
       // Insertar series asociadas
       for (const [exerciseId, exerciseSets] of Object.entries(sets)) {
+        const [existingExercise] = await db.select({ userId: exercises.userId }).from(exercises).where(eq(exercises.id, exerciseId)).limit(1);
+        if (existingExercise?.userId && existingExercise.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
         // Garantizar que el ejercicio exista en Postgres para no violar FK
         await db
           .insert(exercises)
           .values({
             id: exerciseId,
+            userId,
             name: exerciseId,
             category: 'other',
             primaryMuscle: 'core',
@@ -249,35 +256,33 @@ syncRouter.post('/', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error: unknown) {
-    console.error('[Sync API Error]', error);
     if (error instanceof SyncValidationError) {
       return res.status(error.status).json({ error: error.code });
     }
-    res.status(500).json({ error: 'SYNC_FAILED' });
+    throw error;
   }
-});
+}));
 
 // GET /api/sync/user?userId=... - Obtener usuario de la base de datos
-syncRouter.get('/user', async (req, res) => {
+syncRouter.get('/user', requireAuth, asyncRoute(async (req, res) => {
   try {
-    const userId = (req.query.userId as string) || '00000000-0000-0000-0000-000000000001';
+    const userId = req.auth!.userId;
     const userRecord = await db
       .select()
       .from(users)
       .where(eq(users.id, userId))
       .then((res) => res[0] || null);
 
-    res.json({ user: userRecord });
-  } catch (error: any) {
-    console.error('[Sync User Error]', error);
-    res.status(500).json({ error: error.message });
+    res.json({ user: userRecord ? toAuthUser(userRecord) : null });
+  } catch (error) {
+    throw error;
   }
-});
+}));
 
 // GET /api/sync/pull?userId=... - Hidratación inicial del cliente
-syncRouter.get('/pull', async (req, res) => {
+syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
   try {
-    const userId = (req.query.userId as string) || '00000000-0000-0000-0000-000000000001';
+    const userId = req.auth!.userId;
 
     // 0. Usuario de la base de datos
     const userRecord = await db
@@ -314,7 +319,7 @@ syncRouter.get('/pull', async (req, res) => {
           .from(loggedSets)
           .where(eq(loggedSets.sessionId, sess.id));
 
-        const setsByExercise: Record<string, any[]> = {};
+        const setsByExercise: Record<string, Array<ReturnType<typeof hydrateSyncedSet>>> = {};
         for (const s of setsList) {
           if (!setsByExercise[s.exerciseId]) setsByExercise[s.exerciseId] = [];
           setsByExercise[s.exerciseId].push(hydrateSyncedSet({
@@ -348,15 +353,25 @@ syncRouter.get('/pull', async (req, res) => {
       .from(personalRecords)
       .where(eq(personalRecords.userId, userId));
 
+    const userBodyweightLogs = await db
+      .select()
+      .from(bodyweightLogs)
+      .where(eq(bodyweightLogs.userId, userId))
+      .orderBy(desc(bodyweightLogs.loggedAt))
+      .limit(1_000);
+
     res.json({
-      user: userRecord,
+      user: userRecord ? toAuthUser(userRecord) : null,
       profile,
       routines: userRoutines,
       history: historyWithSets,
+      bodyweightLogs: userBodyweightLogs.map((entry) => ({
+        weightKg: Number(entry.weightKg),
+        loggedAt: entry.loggedAt.toISOString()
+      })),
       personalRecords: prs,
     });
-  } catch (error: any) {
-    console.error('[Sync Pull Error]', error);
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    throw error;
   }
-});
+}));

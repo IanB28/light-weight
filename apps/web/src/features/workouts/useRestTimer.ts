@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { webRestTimerNotifier, type RestTimerNotifier } from './rest-timer-notifier.js';
-import { adjustRestEnd, restSecondsRemaining } from './workout-time.js';
+import { restSecondsRemaining } from './workout-time.js';
+import { RestTimerLifecycle } from './rest-timer-lifecycle.js';
 
 export interface RestTimerRuntime {
   restEndsAt: number | null;
@@ -17,6 +18,8 @@ export function useRestTimer(notifier: RestTimerNotifier = webRestTimerNotifier)
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const notifiedEndRef = useRef<number | null>(null);
+  const lifecycleRef = useRef(new RestTimerLifecycle(notifier));
+  useEffect(() => { lifecycleRef.current = new RestTimerLifecycle(notifier); }, [notifier]);
   const secondsLeft = restSecondsRemaining(restEndsAt, nowMs);
 
   useEffect(() => {
@@ -30,8 +33,7 @@ export function useRestTimer(notifier: RestTimerNotifier = webRestTimerNotifier)
   useEffect(() => {
     if (!restEndsAt || secondsLeft > 0 || notifiedEndRef.current === restEndsAt) return;
     notifiedEndRef.current = restEndsAt;
-    notifier.notifyForegroundFinished();
-    notifier.cancel();
+    lifecycleRef.current.finishInForeground();
     setRestEndsAt(null);
   }, [notifier, restEndsAt, secondsLeft]);
 
@@ -42,21 +44,20 @@ export function useRestTimer(notifier: RestTimerNotifier = webRestTimerNotifier)
     notifiedEndRef.current = null;
     setNowMs(now);
     setTotalSeconds(safeSeconds);
-    const endAt = now + safeSeconds * 1_000;
-    notifier.schedule(endAt);
+    const endAt = lifecycleRef.current.start(safeSeconds);
+    if (!endAt) return;
     setRestEndsAt(endAt);
   };
 
   const cancel = () => {
-    notifier.cancel();
+    lifecycleRef.current.cancel();
     setRestEndsAt(null);
     setTotalSeconds(0);
   };
 
   const add = (seconds: number) => {
     const now = Date.now();
-    const nextEnd = adjustRestEnd(restEndsAt, seconds, now);
-    if (nextEnd) notifier.schedule(nextEnd); else notifier.cancel();
+    const nextEnd = lifecycleRef.current.adjust(restEndsAt, seconds);
     setNowMs(now);
     setRestEndsAt(nextEnd);
     if (nextEnd) setTotalSeconds((current) => Math.max(1, current + seconds));

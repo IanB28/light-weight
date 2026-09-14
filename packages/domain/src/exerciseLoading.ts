@@ -113,6 +113,7 @@ export function isExerciseLoadingProfile(value: unknown): value is ExerciseLoadi
 
 const UNILATERAL_NAME_PATTERN = /\b(?:unilateral|one[ -]?(?:arm|hand|leg|foot)|single[ -]?(?:arm|hand|leg|foot)|alternat(?:e|ed|ing)|un[ -]?brazo|una[ -]?(?:mano|pierna)|altern(?:o|a|ado|ada))\b/i;
 const UNILATERAL_INSTRUCTION_PATTERN = /\b(?:one (?:arm|hand|leg|foot) at a time|repeat (?:with|on) the other (?:arm|hand|leg|foot|side)|switch (?:arms|hands|legs|feet|sides)|each (?:arm|hand|leg|foot)|opposite (?:arm|hand|leg|foot))\b/i;
+const SMITH_NAME_PATTERN = /\bsmith(?:\s+machine)?\b/i;
 
 export function isLegacyUnilateralExercise(
   exercise: Pick<Exercise, 'name' | 'instructions'>
@@ -128,7 +129,9 @@ function resolveFallbackProfile(
   const equipment = legacyEquipment.toLowerCase();
   const unilateral = isLegacyUnilateralExercise(exercise);
 
-  if (equipment.includes('smith')) return SMITH_PROFILE;
+  // Some API/database rows predate equipment persistence. Name recognition is
+  // intentionally centralized here so web and API rebuild the same safe base.
+  if (equipment.includes('smith') || SMITH_NAME_PATTERN.test(exercise.name)) return SMITH_PROFILE;
   if (equipment.includes('sled') || equipment.includes('plate loaded') || equipment.includes('plate-loaded')) {
     return PLATE_LOADED_PROFILE;
   }
@@ -150,7 +153,8 @@ export function resolveExerciseLoadingProfile(
   if (isExerciseLoadingProfile(exercise.loading)) {
     // Database rows predate plate-base metadata. Keep explicit mechanics but restore
     // curated equipment semantics when the metadata was not persisted.
-    const plateBase = exercise.loading.plateBase ?? override?.plateBase;
+    const fallbackPlateBase = resolveFallbackProfile(exercise, options.legacyEquipment)?.plateBase;
+    const plateBase = exercise.loading.plateBase ?? override?.plateBase ?? fallbackPlateBase;
     return { profile: cloneProfile({ ...exercise.loading, plateBase }), source: 'explicit' };
   }
 

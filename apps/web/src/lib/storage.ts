@@ -20,6 +20,51 @@ const STORAGE_KEYS = {
   USER_INFO: 'lightweight_user_info'
 };
 
+const PRIVATE_STORAGE_KEYS = Object.values(STORAGE_KEYS);
+const DATA_SCOPE_KEY = 'lightweight_data_scope';
+const ANONYMOUS_SCOPE = 'anonymous';
+
+function scopeCacheKey(scope: string): string {
+  return `lightweight_data_scope_cache:${scope}`;
+}
+
+export function storedUserScopeMatches(userId: string | null): boolean {
+  try {
+    return (localStorage.getItem(DATA_SCOPE_KEY) || ANONYMOUS_SCOPE) === (userId || ANONYMOUS_SCOPE);
+  } catch {
+    return userId === null;
+  }
+}
+
+/** Keeps authenticated caches isolated while allowing the first account to claim existing offline data. */
+export function switchStoredUserScope(nextUserId: string | null): boolean {
+  try {
+    const nextScope = nextUserId || ANONYMOUS_SCOPE;
+    const currentScope = localStorage.getItem(DATA_SCOPE_KEY) || ANONYMOUS_SCOPE;
+    if (currentScope === nextScope) return false;
+    const currentSnapshot = Object.fromEntries(PRIVATE_STORAGE_KEYS.flatMap((key) => {
+      const value = localStorage.getItem(key);
+      return value === null ? [] : [[key, value]];
+    }));
+    localStorage.setItem(scopeCacheKey(currentScope), JSON.stringify(currentSnapshot));
+    const targetRaw = localStorage.getItem(scopeCacheKey(nextScope));
+    const firstAccountClaimsLocalData = currentScope === ANONYMOUS_SCOPE && nextScope !== ANONYMOUS_SCOPE && !targetRaw;
+    if (firstAccountClaimsLocalData) {
+      localStorage.removeItem(scopeCacheKey(ANONYMOUS_SCOPE));
+    } else {
+      PRIVATE_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+      if (targetRaw) {
+        const target = JSON.parse(targetRaw) as Record<string, unknown>;
+        PRIVATE_STORAGE_KEYS.forEach((key) => { if (typeof target[key] === 'string') localStorage.setItem(key, target[key] as string); });
+      }
+    }
+    localStorage.setItem(DATA_SCOPE_KEY, nextScope);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export type WeekDay =
   | 'monday'
   | 'tuesday'
@@ -139,7 +184,7 @@ export interface UserInfo {
 }
 
 export const DEFAULT_USER_INFO: UserInfo = {
-  id: '00000000-0000-0000-0000-000000000001',
+  id: 'local-anonymous',
   name: 'Atleta',
   email: ''
 };
