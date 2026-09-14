@@ -7,7 +7,8 @@ export type ApiErrorCode =
   | 'already_friends' | 'cannot_friend_self' | 'not_friends'
   | 'routine_not_owned' | 'routine_share_not_found' | 'csrf_invalid'
   | 'cannot_share_with_self' | 'friend_request_not_found'
-  | 'origin_not_allowed' | 'invalid_birth_date';
+  | 'origin_not_allowed' | 'invalid_birth_date' | 'routine_has_custom_exercises'
+  | 'routine_share_dismissed';
 
 export interface ApiError { code: ApiErrorCode; status?: number; retryable: boolean }
 export type OperationResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
@@ -24,6 +25,8 @@ const SERVER_CODES: Record<string, ApiErrorCode> = {
   FRIEND_REQUEST_EXISTS: 'friend_request_exists', ALREADY_FRIENDS: 'already_friends',
   CANNOT_FRIEND_SELF: 'cannot_friend_self', NOT_FRIENDS: 'not_friends',
   ROUTINE_NOT_OWNED: 'routine_not_owned', ROUTINE_SHARE_NOT_FOUND: 'routine_share_not_found',
+  ROUTINE_HAS_CUSTOM_EXERCISES: 'routine_has_custom_exercises',
+  ROUTINE_SHARE_DISMISSED: 'routine_share_dismissed',
   CANNOT_SHARE_WITH_SELF: 'cannot_share_with_self', FRIEND_REQUEST_NOT_FOUND: 'friend_request_not_found',
   ORIGIN_NOT_ALLOWED: 'origin_not_allowed', INVALID_BIRTH_DATE: 'invalid_birth_date',
   CSRF_INVALID: 'csrf_invalid', RATE_LIMITED: 'rate_limited', FORBIDDEN: 'forbidden'

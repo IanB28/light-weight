@@ -1,9 +1,9 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { AuthUser } from '@light-weight/domain';
 import { mapApiError, requestJson, setCsrfToken, type ApiError, type OperationResult } from './api-errors.js';
+import { resolveSessionRefreshFailure, type AuthStatus } from './auth-session-state.js';
 
 const API_BASE = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:4000';
-type AuthStatus = 'loading' | 'authenticated' | 'anonymous' | 'offline';
 type AuthResult = OperationResult<AuthUser>;
 
 interface AuthContextValue {
@@ -24,6 +24,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [error, setError] = useState<ApiError | null>(null);
+  const userRef = useRef<AuthUser | null>(null);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -31,8 +33,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCsrfToken(result.csrfToken); setUser(result.user); setStatus('authenticated'); setError(null);
     } catch (cause) {
       const next = mapApiError(cause);
-      setUser(null); setError(next.code === 'network' ? next : null);
-      setStatus(next.code === 'network' ? 'offline' : 'anonymous');
+      const resolution = resolveSessionRefreshFailure(userRef.current, next);
+      setUser(resolution.user); setError(resolution.error); setStatus(resolution.status);
     }
   }, []);
 
@@ -79,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
-    user, status, isAuthenticated: status === 'authenticated', error,
+    user, status, isAuthenticated: user !== null && status !== 'anonymous' && status !== 'loading', error,
     login: (email, password) => submit('login', { email, password }),
     register: (input) => submit('register', input), logout, refreshSession, updateProfile
   }), [error, logout, refreshSession, status, submit, updateProfile, user]);

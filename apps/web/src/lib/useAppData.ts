@@ -9,6 +9,8 @@ import {
   getStoredTargetWeight,
   getStoredUserInfo,
   getStoredWeeklySchedule,
+  addStoredDeletedRoutineId,
+  removeStoredDeletedRoutineIds,
   saveBodyweightEntry,
   saveStoredProfile,
   saveStoredRoutines,
@@ -90,8 +92,12 @@ export function useAppData() {
   }, []);
 
   const saveRoutine = useCallback((routine: Routine) => {
+    removeStoredDeletedRoutineIds([routine.id]);
     setRoutines((current) => {
-      const updated = [...current, routine];
+      const existingIndex = current.findIndex((item) => item.id === routine.id);
+      const updated = existingIndex < 0
+        ? [...current, routine]
+        : current.map((item) => item.id === routine.id ? routine : item);
       saveStoredRoutines(updated);
       return updated;
     });
@@ -99,6 +105,7 @@ export function useAppData() {
   }, [sync]);
 
   const deleteRoutine = useCallback((routineId: string) => {
+    addStoredDeletedRoutineId(routineId);
     setRoutines((current) => {
       const updated = current.filter((routine) => routine.id !== routineId);
       saveStoredRoutines(updated);

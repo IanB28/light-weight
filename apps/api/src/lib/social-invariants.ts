@@ -1,3 +1,4 @@
+import type { PublicUserSummary } from '@light-weight/domain';
 import { ApiError } from './api-error.js';
 
 export interface FriendshipIdentity {
@@ -32,16 +33,22 @@ export function assertCanShareRoutine(input: {
   if (!input.areFriends) throw new ApiError(403, 'NOT_FRIENDS');
 }
 
+export function assertRoutineHasNoCustomExercises(hasCustomExercises: boolean): void {
+  if (hasCustomExercises) throw new ApiError(422, 'ROUTINE_HAS_CUSTOM_EXERCISES');
+}
+
 export function cloneRoutineSnapshot<T extends { routineName: string; routineDescription: string | null; exerciseIds: string[] }>(
   share: T,
   recipientId: string,
-  id: string
+  id: string,
+  origin?: { type: 'shared'; sharedBy: PublicUserSummary; shareId?: string }
 ) {
   return {
     id,
     userId: recipientId,
     name: share.routineName,
     description: share.routineDescription,
-    exerciseIds: [...share.exerciseIds]
+    exerciseIds: [...share.exerciseIds],
+    ...(origin ? { origin } : {})
   };
 }

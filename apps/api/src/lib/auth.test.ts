@@ -5,7 +5,8 @@ import { normalizedFriendPair } from '../routes/friends.js';
 import { canMutateRoutine } from '../routes/routine-shares.js';
 import { ApiError } from './api-error.js';
 import { mapIdentityUniqueViolation, parseBirthDate, parseLoginInput, parseRegistrationInput } from './auth-validation.js';
-import { assertCanSendFriendRequest, assertCanShareRoutine, canAcceptFriendship, canManageFriendship, cloneRoutineSnapshot } from './social-invariants.js';
+import { assertCanSendFriendRequest, assertCanShareRoutine, assertRoutineHasNoCustomExercises, canAcceptFriendship, canManageFriendship, cloneRoutineSnapshot } from './social-invariants.js';
+import { shouldUseSecureCookie } from './auth-session.js';
 import { authenticateIdentity, registerIdentity } from './auth-service.js';
 import type { CreateIdentityInput, IdentityRecord, IdentityRepository } from './identity-repository.js';
 
@@ -116,8 +117,26 @@ test('routine sharing requires ownership and accepted friendship', () => {
 
 test('imported routine is an independent recipient-owned copy', () => {
   const source = { routineName: 'Push', routineDescription: null, exerciseIds: ['bench'] };
-  const clone = cloneRoutineSnapshot(source, 'user-b', 'clone-id');
+  const clone = cloneRoutineSnapshot(source, 'user-b', 'clone-id', {
+    type: 'shared',
+    sharedBy: { id: 'user-a', username: 'ian', displayName: 'Ian' },
+    shareId: 'share-id'
+  });
   clone.exerciseIds.push('dip');
   assert.deepEqual(source.exerciseIds, ['bench']);
   assert.equal(clone.userId, 'user-b');
+  assert.equal(clone.origin?.sharedBy.username, 'ian');
+});
+
+test('sharing custom exercises is explicitly rejected instead of producing a broken routine', () => {
+  assert.throws(() => assertRoutineHasNoCustomExercises(true),
+    (error: unknown) => error instanceof ApiError && error.code === 'ROUTINE_HAS_CUSTOM_EXERCISES');
+  assert.doesNotThrow(() => assertRoutineHasNoCustomExercises(false));
+});
+
+test('session cookies are Secure by default in production only', () => {
+  assert.equal(shouldUseSecureCookie({ NODE_ENV: 'production' }), true);
+  assert.equal(shouldUseSecureCookie({ NODE_ENV: 'development' }), false);
+  assert.equal(shouldUseSecureCookie({ NODE_ENV: 'production', SESSION_COOKIE_SECURE: 'false' }), false);
+  assert.equal(shouldUseSecureCookie({ NODE_ENV: 'development', SESSION_COOKIE_SECURE: 'true' }), true);
 });

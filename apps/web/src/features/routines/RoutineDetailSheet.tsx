@@ -24,6 +24,9 @@ export function RoutineDetailSheet({ routine, exercises, onClose, onStart, onDel
   return (<>
     <BottomSheet open title={routine.name} description={routine.description || `${routine.exerciseIds.length} ejercicios`} onClose={onClose}>
       <div className="space-y-4">
+        {routine.origin?.type === 'shared' && (
+          <p className="text-xs font-semibold text-text-secondary">{t('sharing.sharedBy', { username: routine.origin.sharedBy.username })}</p>
+        )}
         {routineExercises.length ? (
           <div className="divide-y divide-border-subtle overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input">
             {routineExercises.map((exercise, index) => (

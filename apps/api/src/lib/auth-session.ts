@@ -36,14 +36,15 @@ function parseCookies(header?: string): Record<string, string> {
   }));
 }
 
-function secureCookie(): boolean {
-  return process.env.SESSION_COOKIE_SECURE
-    ? process.env.SESSION_COOKIE_SECURE === 'true'
-    : process.env.NODE_ENV === 'production';
+/** Secure is the production default; an override is intentional and explicit. */
+export function shouldUseSecureCookie(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.SESSION_COOKIE_SECURE === 'true') return true;
+  if (env.SESSION_COOKIE_SECURE === 'false') return false;
+  return env.NODE_ENV === 'production';
 }
 
 function cookieOptions(httpOnly: boolean, maxAge = SESSION_TTL_MS) {
-  return { httpOnly, secure: secureCookie(), sameSite: 'lax' as const, path: '/', maxAge };
+  return { httpOnly, secure: shouldUseSecureCookie(), sameSite: 'lax' as const, path: '/', maxAge };
 }
 
 export function setSessionCookies(res: Response, sessionToken: string, csrfToken: string) {

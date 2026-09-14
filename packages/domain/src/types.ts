@@ -102,6 +102,15 @@ export interface Routine {
   name: string;
   description?: string;
   exerciseIds: string[];
+  /**
+   * Immutable, privacy-minimal attribution for an independently owned routine
+   * imported from a friend. It deliberately contains no email or birth date.
+   */
+  origin?: {
+    type: 'shared';
+    sharedBy: import('./identity.js').PublicUserSummary;
+    shareId?: string;
+  };
 }
 
 export type OneRmFormula = 'epley' | 'brzycki' | 'lombardi';

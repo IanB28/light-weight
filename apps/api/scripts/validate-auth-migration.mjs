@@ -27,6 +27,11 @@ try {
         WHERE table_schema = 'public' AND table_name IN ('auth_sessions', 'friendships', 'routine_shares')
       `;
       assert.equal(tables.length, 3);
+      const originColumns = await tx`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'routines' AND column_name = 'origin'
+      `;
+      assert.equal(originColumns.length, 1);
       const [afterUsers] = await tx`SELECT count(*)::int AS users FROM users`;
       assert.equal(afterUsers.users, before.users, 'identity migration must preserve existing users');
       throw rollbackSignal;

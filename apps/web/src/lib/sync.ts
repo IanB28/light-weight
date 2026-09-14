@@ -1,9 +1,11 @@
 import { Routine, WorkoutSession } from '@light-weight/domain';
 import {
   getStoredBodyweight, getStoredHistory, getStoredRoutines, saveStoredHistory,
-  saveStoredBodyweight, saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo
+  saveStoredBodyweight, saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo,
+  getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds
 } from './storage.js';
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
+import { excludePendingRoutineTombstones } from './routine-tombstones.js';
 
 const API_BASE = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:4000';
 
@@ -67,8 +69,18 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
       if (Array.isArray(data.routines) && data.routines.length > 0) {
         const local = getStoredRoutines();
         const existing = new Set(local.map((routine) => routine.id));
-        const incoming = data.routines.filter((routine): routine is Routine => Boolean(routine.id && routine.name && Array.isArray(routine.exerciseIds)));
-        saveStoredRoutines([...local, ...incoming.filter((routine) => !existing.has(routine.id))]);
+        const incoming = excludePendingRoutineTombstones(
+          data.routines.filter((routine): routine is Routine => Boolean(routine.id && routine.name && Array.isArray(routine.exerciseIds))),
+          getStoredDeletedRoutineIds()
+        );
+        // Pull never overwrites local edits, but immutable share attribution is
+        // server-authored metadata and can safely repair an older local copy.
+        const incomingById = new Map(incoming.map((routine) => [routine.id, routine]));
+        const attributedLocal = local.map((routine) => {
+          const remote = incomingById.get(routine.id);
+          return !routine.origin && remote?.origin ? { ...routine, origin: remote.origin } : routine;
+        });
+        saveStoredRoutines([...attributedLocal, ...incoming.filter((routine) => !existing.has(routine.id))]);
       }
       if (Array.isArray(data.history) && data.history.length > 0) {
         const local = getStoredHistory();
@@ -109,12 +121,14 @@ export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }
       const payload = {
         sessions: getStoredHistory(),
         routines: getStoredRoutines(),
+        deletedRoutineIds: getStoredDeletedRoutineIds(),
         bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() }))
       };
-      const data = await requestJson<{ syncedCount?: number }>(`${API_BASE}/api/sync`, {
+      const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(`${API_BASE}/api/sync`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       }, 10000);
       const syncedCount = data.syncedCount || 0;
+      if (Array.isArray(data.deletedRoutineIds)) removeStoredDeletedRoutineIds(data.deletedRoutineIds);
       notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: syncedCount });
       return { ok: true, data: { syncedCount } };
     } catch (cause) {

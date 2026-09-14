@@ -3,11 +3,11 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { PublicUserSummary, RoutineShareSummary } from '@light-weight/domain';
 import { db } from '../db/index.js';
-import { friendships, routines, routineShares, users } from '../db/schema.js';
+import { exercises, friendships, routines, routineShares, users } from '../db/schema.js';
 import { ApiError, asyncRoute } from '../lib/api-error.js';
 import { requireAuth, requireCsrf } from '../lib/auth-session.js';
 import { isUuid, toDatabaseUuid } from '../lib/client-id.js';
-import { assertCanShareRoutine, cloneRoutineSnapshot } from '../lib/social-invariants.js';
+import { assertCanShareRoutine, assertRoutineHasNoCustomExercises, cloneRoutineSnapshot } from '../lib/social-invariants.js';
 
 export const routineSharesRouter: Router = Router();
 routineSharesRouter.use(requireAuth);
@@ -56,6 +56,16 @@ routineSharesRouter.post('/', requireCsrf, asyncRoute(async (req, res) => {
     eq(routines.id, routineId), eq(routines.userId, req.auth!.userId)
   )).limit(1);
   if (!routine) throw new ApiError(404, 'ROUTINE_NOT_OWNED');
+  // Custom exercises are private resources. Rejecting is safer than cloning a
+  // routine that refers to an exercise the recipient cannot access.
+  if (routine.exerciseIds.length) {
+    const custom = await db.select({ id: exercises.id }).from(exercises).where(and(
+      inArray(exercises.id, routine.exerciseIds),
+      eq(exercises.userId, req.auth!.userId),
+      eq(exercises.isCustom, true)
+    )).limit(1);
+    assertRoutineHasNoCustomExercises(custom.length > 0);
+  }
   const [recipient] = await db.select({ id: users.id }).from(users).where(eq(users.id, recipientId)).limit(1);
   if (!recipient) throw new ApiError(404, 'USER_NOT_FOUND');
   assertCanShareRoutine({ ownerId: routine.userId, actorId: req.auth!.userId, recipientId, areFriends: await areFriends(req.auth!.userId, recipientId) });
@@ -76,16 +86,32 @@ routineSharesRouter.post('/:id/import', requireCsrf, asyncRoute(async (req, res)
   const result = await db.transaction(async (tx) => {
     const [share] = await tx.select().from(routineShares).where(and(
       eq(routineShares.id, shareId),
-      eq(routineShares.recipientId, req.auth!.userId),
-      eq(routineShares.status, 'pending')
-    )).limit(1);
+      eq(routineShares.recipientId, req.auth!.userId)
+    )).for('update').limit(1);
     if (!share) throw new ApiError(404, 'ROUTINE_SHARE_NOT_FOUND');
-    const [clone] = await tx.insert(routines).values(cloneRoutineSnapshot(share, req.auth!.userId, randomUUID())).returning();
+    if (share.status === 'dismissed') throw new ApiError(409, 'ROUTINE_SHARE_DISMISSED');
+    if (share.status === 'imported' && share.importedRoutineId) {
+      const [existingClone] = await tx.select().from(routines).where(and(
+        eq(routines.id, share.importedRoutineId),
+        eq(routines.userId, req.auth!.userId)
+      )).limit(1);
+      if (!existingClone) throw new ApiError(404, 'ROUTINE_SHARE_NOT_FOUND');
+      return { routine: existingClone, imported: true };
+    }
+    if (share.status !== 'pending') throw new ApiError(409, 'ROUTINE_SHARE_DISMISSED');
+    const [sender] = await tx.select().from(users).where(eq(users.id, share.senderId)).limit(1);
+    if (!sender) throw new ApiError(404, 'USER_NOT_FOUND');
+    const [clone] = await tx.insert(routines).values(cloneRoutineSnapshot(
+      share,
+      req.auth!.userId,
+      randomUUID(),
+      { type: 'shared', sharedBy: publicUser(sender), shareId: share.id }
+    )).returning();
     await tx.update(routineShares).set({ status: 'imported', importedRoutineId: clone.id, importedAt: new Date() })
       .where(and(eq(routineShares.id, share.id), eq(routineShares.recipientId, req.auth!.userId)));
-    return clone;
+    return { routine: clone, imported: false };
   });
-  res.status(201).json({ routine: result });
+  res.status(result.imported ? 200 : 201).json({ routine: result.routine });
 }));
 
 routineSharesRouter.delete('/:id', requireCsrf, asyncRoute(async (req, res) => {

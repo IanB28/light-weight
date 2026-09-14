@@ -11,7 +11,18 @@ import {
   WEIGHT_UNIT_PRESETS
 } from './weight-units.js';
 import { resolveExerciseLoadingProfile, type Exercise, type WorkoutSession } from '@light-weight/domain';
-import { normalizeStoredActiveWorkout, normalizeStoredHistory, storedUserScopeMatches, switchStoredUserScope } from './storage.js';
+import {
+  addStoredDeletedRoutineId,
+  getStoredDeletedRoutineIds,
+  normalizeStoredActiveWorkout,
+  normalizeStoredHistory,
+  removeStoredDeletedRoutineIds,
+  saveStoredRoutines,
+  storedUserScopeMatches,
+  switchStoredUserScope
+} from './storage.js';
+import { resolveSessionRefreshFailure } from './auth-session-state.js';
+import { excludePendingRoutineTombstones } from './routine-tombstones.js';
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -157,4 +168,49 @@ test('local account scopes isolate private workout data during auth transitions'
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else Reflect.deleteProperty(globalThis, 'localStorage');
   }
+});
+
+test('shared routine attribution survives local serialization and pending tombstones win over pulls', () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: new MemoryStorage() });
+  try {
+    saveStoredRoutines([{
+      id: 'shared-routine', userId: 'recipient', name: 'Push', exerciseIds: ['bench'],
+      origin: { type: 'shared', sharedBy: { id: 'sender', username: 'ian', displayName: 'Ian' }, shareId: 'share-1' }
+    }]);
+    assert.match(localStorage.getItem('lightweight_routines') || '', /sharedBy/);
+    addStoredDeletedRoutineId('shared-routine');
+    addStoredDeletedRoutineId('shared-routine');
+    assert.deepEqual(getStoredDeletedRoutineIds(), ['shared-routine']);
+    removeStoredDeletedRoutineIds(['other']);
+    assert.deepEqual(getStoredDeletedRoutineIds(), ['shared-routine']);
+    removeStoredDeletedRoutineIds(['shared-routine']);
+    assert.deepEqual(getStoredDeletedRoutineIds(), []);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
+});
+
+test('session restoration only clears identity for confirmed unauthenticated responses', () => {
+  const known = {
+    id: 'user-a', email: 'ian@example.com', username: 'ian', displayName: 'Ian',
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z'
+  };
+  assert.equal(resolveSessionRefreshFailure(known, { code: 'unauthorized', retryable: false }).user, null);
+  assert.equal(resolveSessionRefreshFailure(known, { code: 'unauthorized', retryable: false }).status, 'anonymous');
+  const offline = resolveSessionRefreshFailure(known, { code: 'network', retryable: true });
+  assert.equal(offline.user?.id, 'user-a');
+  assert.equal(offline.status, 'offline');
+  const server = resolveSessionRefreshFailure(known, { code: 'server', status: 503, retryable: true });
+  assert.equal(server.user?.id, 'user-a');
+  assert.equal(server.status, 'error');
+});
+
+test('a pending routine tombstone prevents cloud pull resurrection', () => {
+  const routines = [
+    { id: 'deleted', userId: 'u', name: 'Old push', exerciseIds: [] },
+    { id: 'kept', userId: 'u', name: 'Pull', exerciseIds: [] }
+  ];
+  assert.deepEqual(excludePendingRoutineTombstones(routines, ['deleted']).map((routine) => routine.id), ['kept']);
 });

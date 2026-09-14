@@ -34,11 +34,17 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
     const {
       sessions: rawSessions = [],
       bodyweightLogs: bLogs = [],
-      routines: incomingRoutines = []
+      routines: incomingRoutines = [],
+      deletedRoutineIds: rawDeletedRoutineIds = []
     } = req.body || {};
     const userId = req.auth!.userId;
     // Validate and normalize canonical set semantics before performing any write.
     const sessions = normalizeIncomingSyncSessions(rawSessions);
+    const deletedRoutineIds = [...new Set((Array.isArray(rawDeletedRoutineIds) ? rawDeletedRoutineIds : [])
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      .slice(0, 250))];
+    const deletedRoutineDbIds = new Set(deletedRoutineIds.map(toDatabaseUuid));
+    const acknowledgedDeletedRoutineIds: string[] = [];
 
     const syncedSessionIds: string[] = [];
 
@@ -88,6 +94,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       const r = rawRoutine as { id?: string; name?: string; description?: string; exerciseIds?: unknown };
       if (typeof r.name !== 'string' || !r.name.trim() || r.name.length > 255) continue;
       const rUuid = toDatabaseUuid(r.id);
+      if (deletedRoutineDbIds.has(rUuid)) continue;
       const [existingRoutine] = await db.select({ userId: routines.userId }).from(routines).where(eq(routines.id, rUuid)).limit(1);
       if (existingRoutine && existingRoutine.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
       await db
@@ -111,16 +118,32 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
         });
     }
 
+    // 2b. Deletes are ownership-scoped and acknowledged only after the server
+    // actually removed the caller's routine. This prevents cross-user IDOR and
+    // lets offline tombstones remain pending when they cannot be applied.
+    for (let index = 0; index < deletedRoutineIds.length; index += 1) {
+      const rawId = deletedRoutineIds[index];
+      const [deleted] = await db.delete(routines).where(and(
+        eq(routines.id, toDatabaseUuid(rawId)),
+        eq(routines.userId, userId)
+      )).returning({ id: routines.id });
+      if (deleted) acknowledgedDeletedRoutineIds.push(rawId);
+    }
+
     // 3. Procesar y persistir sesiones de entrenamiento en lote
     for (const session of sessions) {
       const { id, routineId, routineName, startedAt, endedAt, notes, sets = {} } = session;
       const sessionUuid = toDatabaseUuid(id);
-      const routineUuid = routineId ? toDatabaseUuid(routineId) : null;
+      const requestedRoutineUuid = routineId ? toDatabaseUuid(routineId) : null;
       const [existingSession] = await db.select({ userId: workoutSessions.userId }).from(workoutSessions).where(eq(workoutSessions.id, sessionUuid)).limit(1);
       if (existingSession && existingSession.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
-      if (routineUuid) {
-        const [ownedRoutine] = await db.select({ id: routines.id }).from(routines).where(and(eq(routines.id, routineUuid), eq(routines.userId, userId))).limit(1);
-        if (!ownedRoutine) throw new ApiError(403, 'ROUTINE_NOT_OWNED');
+      let routineUuid: string | null = null;
+      if (requestedRoutineUuid) {
+        const [referencedRoutine] = await db.select({ userId: routines.userId }).from(routines).where(eq(routines.id, requestedRoutineUuid)).limit(1);
+        if (referencedRoutine?.userId && referencedRoutine.userId !== userId) throw new ApiError(403, 'ROUTINE_NOT_OWNED');
+        // A locally deleted routine may still be referenced by historical
+        // sessions. Preserve the session name but never revive the routine.
+        if (referencedRoutine?.userId === userId) routineUuid = requestedRoutineUuid;
       }
 
       // Calcular volumen total
@@ -252,6 +275,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       success: true,
       syncedCount: syncedSessionIds.length,
       syncedSessionIds,
+      deletedRoutineIds: acknowledgedDeletedRoutineIds,
       personalRecords: currentPrs,
       timestamp: new Date().toISOString(),
     });

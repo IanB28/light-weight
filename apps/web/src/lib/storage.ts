@@ -17,7 +17,8 @@ const STORAGE_KEYS = {
   TARGET_WEIGHT: 'lightweight_target_weight',
   PROFILE: 'lightweight_user_profile',
   WEEKLY_SCHEDULE: 'lightweight_weekly_schedule',
-  USER_INFO: 'lightweight_user_info'
+  USER_INFO: 'lightweight_user_info',
+  DELETED_ROUTINE_IDS: 'lightweight_deleted_routine_ids'
 };
 
 const PRIVATE_STORAGE_KEYS = Object.values(STORAGE_KEYS);
@@ -394,4 +395,34 @@ export function saveStoredRoutines(routines: Routine[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
   } catch {}
+}
+
+/** Pending routine deletes are scoped with the rest of a user's offline data. */
+export function getStoredDeletedRoutineIds(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_ROUTINE_IDS);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0))].slice(0, 250);
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredDeletedRoutineIds(ids: string[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.DELETED_ROUTINE_IDS, JSON.stringify([...new Set(ids.filter((id) => typeof id === 'string' && id.length > 0))].slice(0, 250)));
+  } catch {}
+}
+
+export function addStoredDeletedRoutineId(id: string): void {
+  if (!id) return;
+  saveStoredDeletedRoutineIds([...getStoredDeletedRoutineIds(), id]);
+}
+
+export function removeStoredDeletedRoutineIds(ids: string[]): void {
+  if (!ids.length) return;
+  const acknowledged = new Set(ids);
+  saveStoredDeletedRoutineIds(getStoredDeletedRoutineIds().filter((id) => !acknowledged.has(id)));
 }

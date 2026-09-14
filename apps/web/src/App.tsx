@@ -38,7 +38,7 @@ export function App() {
 
   useEffect(() => { initTheme(); }, []);
   useEffect(() => {
-    if (auth.status === 'loading' || auth.status === 'offline') return;
+    if (auth.status === 'loading' || auth.status === 'offline' || auth.status === 'error') return;
     const nextScope = auth.user?.id || 'anonymous';
     if (previousAuthScope.current === nextScope) return;
     previousAuthScope.current = nextScope;

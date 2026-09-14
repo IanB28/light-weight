@@ -66,5 +66,9 @@ CREATE TABLE IF NOT EXISTS "routine_shares" (
   CONSTRAINT "routine_shares_distinct_users_check" CHECK ("sender_id" <> "recipient_id"),
   CONSTRAINT "routine_shares_status_check" CHECK ("status" IN ('pending', 'imported', 'dismissed'))
 );
+
+-- Imported routines remain private copies, with a small immutable attribution
+-- snapshot so the recipient can see who shared them after sync/reload.
+ALTER TABLE "routines" ADD COLUMN IF NOT EXISTS "origin" jsonb;
 CREATE INDEX IF NOT EXISTS "routine_shares_recipient_idx" ON "routine_shares" ("recipient_id");
 CREATE INDEX IF NOT EXISTS "routine_shares_sender_idx" ON "routine_shares" ("sender_id");

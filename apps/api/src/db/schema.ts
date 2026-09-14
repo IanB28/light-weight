@@ -14,7 +14,7 @@ import {
   index
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import type { ExerciseLoadMechanism, ExerciseLoadMode, WorkoutSetType } from '@light-weight/domain';
+import type { ExerciseLoadMechanism, ExerciseLoadMode, Routine, WorkoutSetType } from '@light-weight/domain';
 
 // 1. Usuarios
 export const users = pgTable('users', {
@@ -99,6 +99,7 @@ export const routines = pgTable('routines', {
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   exerciseIds: jsonb('exercise_ids').$type<string[]>().default([]).notNull(),
+  origin: jsonb('origin').$type<Routine['origin']>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
