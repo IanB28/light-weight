@@ -1,9 +1,11 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "framework": "express",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm --filter @light-weight/domain build && pnpm --filter @light-weight/api build",
   "functions": {
-    "api/[...path].ts": {
+    "src/app.ts": {
       "maxDuration": 10
     }
   }

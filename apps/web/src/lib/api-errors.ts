@@ -1,5 +1,7 @@
+import { ApiBaseConfigurationError } from './api-base.js';
+
 export type ApiErrorCode =
-  | 'network' | 'aborted' | 'unauthorized' | 'forbidden' | 'not_found' | 'conflict'
+  | 'network' | 'aborted' | 'api_unconfigured' | 'unauthorized' | 'forbidden' | 'not_found' | 'conflict'
   | 'validation' | 'rate_limited' | 'server' | 'unknown'
   | 'auth_required' | 'invalid_credentials' | 'email_already_exists'
   | 'username_already_exists' | 'password_too_weak' | 'invalid_email'
@@ -37,6 +39,7 @@ export function mapApiError(error: unknown): ApiError {
     const code = error.serverCode ? SERVER_CODES[error.serverCode] : undefined;
     return code ? { code, status: error.status, retryable: error.status >= 500 || error.status === 429 } : mapHttpStatus(error.status);
   }
+  if (error instanceof ApiBaseConfigurationError) return { code: 'api_unconfigured', retryable: false };
   if (error instanceof DOMException && error.name === 'AbortError') return { code: 'aborted', retryable: true };
   if (error instanceof TypeError) return { code: 'network', retryable: true };
   return { code: 'unknown', retryable: true };

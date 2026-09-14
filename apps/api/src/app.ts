@@ -54,3 +54,8 @@ export function createApp(): Express {
   app.use(apiErrorHandler);
   return app;
 }
+
+// Vercel's Express runtime discovers a default-exported Express instance from
+// `src/app.ts` and forwards every request to this single serverless function.
+// Local tests and `src/server.ts` continue to use `createApp()` directly.
+export default createApp();

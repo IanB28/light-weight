@@ -28,6 +28,37 @@ test('/api/health is a minimal unauthenticated serverless health response', asyn
   });
 });
 
+test('nested auth routes accept the production web origin with credentialed CORS', async () => {
+  const previousOrigins = process.env.WEB_ORIGINS;
+  process.env.WEB_ORIGINS = 'https://uselightweight.me';
+  try {
+    await withServer(async (baseUrl) => {
+      const preflight = await fetch(`${baseUrl}/api/auth/register`, {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://uselightweight.me',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type'
+        }
+      });
+      assert.equal(preflight.status, 204);
+      assert.equal(preflight.headers.get('access-control-allow-origin'), 'https://uselightweight.me');
+      assert.equal(preflight.headers.get('access-control-allow-credentials'), 'true');
+
+      const register = await fetch(`${baseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { origin: 'https://uselightweight.me', 'content-type': 'application/json' },
+        body: JSON.stringify({ displayName: 'Ian', username: 'x', email: 'bad', password: 'weak' })
+      });
+      assert.equal(register.status, 422);
+      assert.equal(register.headers.get('access-control-allow-origin'), 'https://uselightweight.me');
+    });
+  } finally {
+    if (previousOrigins === undefined) delete process.env.WEB_ORIGINS;
+    else process.env.WEB_ORIGINS = previousOrigins;
+  }
+});
+
 test('register rejects malformed identity before persistence', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/auth/register`, {

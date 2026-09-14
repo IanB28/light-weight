@@ -5,9 +5,8 @@ import {
   getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds
 } from './storage.js';
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
+import { apiEndpoint } from './api-base.js';
 import { excludePendingRoutineTombstones } from './routine-tombstones.js';
-
-const API_BASE = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:4000';
 
 export interface SyncStatus {
   state: 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
@@ -54,7 +53,7 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
 
   pullInFlight = (async () => {
     try {
-      const data = await requestJson<PullResponse>(`${API_BASE}/api/sync/pull`);
+      const data = await requestJson<PullResponse>(apiEndpoint('/api/sync/pull'));
       if (data.user?.id && (data.user.name || data.user.displayName)) {
         saveStoredUserInfo({ id: data.user.id, name: data.user.displayName || data.user.name || '', email: data.user.email || '' });
         saveStoredProfile({
@@ -124,7 +123,7 @@ export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }
         deletedRoutineIds: getStoredDeletedRoutineIds(),
         bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() }))
       };
-      const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(`${API_BASE}/api/sync`, {
+      const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(apiEndpoint('/api/sync'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       }, 10000);
       const syncedCount = data.syncedCount || 0;

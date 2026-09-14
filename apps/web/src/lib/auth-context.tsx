@@ -2,8 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { AuthUser } from '@light-weight/domain';
 import { mapApiError, requestJson, setCsrfToken, type ApiError, type OperationResult } from './api-errors.js';
 import { resolveSessionRefreshFailure, type AuthStatus } from './auth-session-state.js';
+import { apiEndpoint } from './api-base.js';
 
-const API_BASE = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:4000';
 type AuthResult = OperationResult<AuthUser>;
 
 interface AuthContextValue {
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = useCallback(async () => {
     try {
-      const result = await requestJson<{ user: AuthUser; csrfToken?: string }>(`${API_BASE}/api/auth/me`);
+      const result = await requestJson<{ user: AuthUser; csrfToken?: string }>(apiEndpoint('/api/auth/me'));
       setCsrfToken(result.csrfToken); setUser(result.user); setStatus('authenticated'); setError(null);
     } catch (cause) {
       const next = mapApiError(cause);
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const submit = useCallback(async (path: string, body: unknown): Promise<AuthResult> => {
     try {
-      const result = await requestJson<{ user: AuthUser; csrfToken?: string }>(`${API_BASE}/api/auth/${path}`, {
+      const result = await requestJson<{ user: AuthUser; csrfToken?: string }>(apiEndpoint(`/api/auth/${path}`), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       }, 12_000);
       setCsrfToken(result.csrfToken); setUser(result.user); setStatus('authenticated'); setError(null);
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async (): Promise<OperationResult<void>> => {
     try {
-      await requestJson<void>(`${API_BASE}/api/auth/logout`, { method: 'POST' });
+      await requestJson<void>(apiEndpoint('/api/auth/logout'), { method: 'POST' });
       setCsrfToken(undefined); setUser(null); setStatus('anonymous'); setError(null);
       return { ok: true, data: undefined };
     } catch (cause) {
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(async (patch: Partial<Pick<AuthUser, 'displayName' | 'username' | 'birthDate' | 'gender' | 'avatarUrl'>>): Promise<AuthResult> => {
     try {
-      const result = await requestJson<{ user: AuthUser }>(`${API_BASE}/api/auth/profile`, {
+      const result = await requestJson<{ user: AuthUser }>(apiEndpoint('/api/auth/profile'), {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch)
       });
       setUser(result.user); setError(null); return { ok: true, data: result.user };
@@ -93,5 +93,3 @@ export function useAuth(): AuthContextValue {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
-
-export { API_BASE };
