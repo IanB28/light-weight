@@ -110,8 +110,8 @@ importers:
   .:
     devDependencies:
       typescript:
-        specifier: ^5.8.2
-        version: 5.9.3
+        specifier: 5.8.2
+        version: 5.8.2
 
   apps/api:
     dependencies:
@@ -153,8 +153,8 @@ importers:
         specifier: ^4.19.3
         version: 4.23.13
       typescript:
-        specifier: ^5.8.2
-        version: 5.9.3
+        specifier: 5.8.2
+        version: 5.8.2
 
   apps/web:
     dependencies:
@@ -193,8 +193,8 @@ importers:
         specifier: ^4.0.9
         version: 4.3.3
       typescript:
-        specifier: ^5.8.2
-        version: 5.9.3
+        specifier: 5.8.2
+        version: 5.8.2
       vite:
         specifier: ^6.2.0
         version: 6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.13)
@@ -1891,8 +1891,8 @@ packages:
     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
     engines: {node: '>= 0.6'}
 
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+  typescript@5.8.2:
+    resolution: {integrity: sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -3300,7 +3300,7 @@ snapshots:
       media-typer: 0.3.0
       mime-types: 2.1.35
 
-  typescript@5.9.3: {}
+  typescript@5.8.2: {}
 
   undici-types@6.21.0: {}
 

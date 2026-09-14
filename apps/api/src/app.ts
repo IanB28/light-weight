@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
+import helmetModule, { type HelmetOptions } from 'helmet';
+import type { RequestHandler } from 'express';
 import { estimateOneRm } from '@light-weight/domain';
 import { exerciseRouter } from './routes/exercises.js';
 import { syncRouter } from './routes/sync.js';
@@ -9,6 +10,14 @@ import { friendsRouter } from './routes/friends.js';
 import { routineSharesRouter } from './routes/routine-shares.js';
 import { apiErrorHandler, notFoundHandler } from './lib/api-error.js';
 import { configuredOrigins, requireTrustedOrigin } from './lib/request-security.js';
+
+/**
+ * Helmet publishes CommonJS declaration metadata alongside an ESM entrypoint.
+ * Under NodeNext TypeScript can expose the import as a module namespace even
+ * though Helmet's ESM default export is the callable middleware factory.
+ */
+type HelmetFactory = (options?: Readonly<HelmetOptions>) => RequestHandler;
+const helmet: HelmetFactory = helmetModule as unknown as HelmetFactory;
 
 export function createApp(): Express {
   const app = express();
