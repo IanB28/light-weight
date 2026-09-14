@@ -56,15 +56,19 @@ routineSharesRouter.post('/', requireCsrf, asyncRoute(async (req, res) => {
     eq(routines.id, routineId), eq(routines.userId, req.auth!.userId)
   )).limit(1);
   if (!routine) throw new ApiError(404, 'ROUTINE_NOT_OWNED');
-  // Custom exercises are private resources. Rejecting is safer than cloning a
-  // routine that refers to an exercise the recipient cannot access.
+  // A share only references catalog exercises which the server can prove are
+  // public. Local-only, private, custom and unknown IDs are all rejected:
+  // otherwise the recipient would import a broken routine.
   if (routine.exerciseIds.length) {
-    const custom = await db.select({ id: exercises.id }).from(exercises).where(and(
-      inArray(exercises.id, routine.exerciseIds),
-      eq(exercises.userId, req.auth!.userId),
-      eq(exercises.isCustom, true)
-    )).limit(1);
-    assertRoutineHasNoCustomExercises(custom.length > 0);
+    const uniqueIds = [...new Set(routine.exerciseIds)];
+    const resolved = await db.select({
+      id: exercises.id,
+      userId: exercises.userId,
+      isCustom: exercises.isCustom
+    }).from(exercises).where(inArray(exercises.id, uniqueIds));
+    const allPublic = resolved.length === uniqueIds.length
+      && resolved.every((exercise) => exercise.userId === null && !exercise.isCustom);
+    assertRoutineHasNoCustomExercises(!allPublic);
   }
   const [recipient] = await db.select({ id: users.id }).from(users).where(eq(users.id, recipientId)).limit(1);
   if (!recipient) throw new ApiError(404, 'USER_NOT_FOUND');

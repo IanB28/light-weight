@@ -13,7 +13,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:validate-domain-migration": "node scripts/validate-domain-migration.mjs",
     "db:validate-auth-migration": "node scripts/validate-auth-migration.mjs",
+    "db:validate-migrate-pipeline": "node scripts/validate-migrate-pipeline.mjs",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed-catalog": "tsx src/db/seed-catalog.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

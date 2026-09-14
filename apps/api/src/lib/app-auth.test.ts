@@ -20,6 +20,14 @@ test('/auth/me and logout reject anonymous requests without querying a client us
   });
 });
 
+test('/api/health is a minimal unauthenticated serverless health response', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/health`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { status: 'ok' });
+  });
+});
+
 test('register rejects malformed identity before persistence', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/auth/register`, {

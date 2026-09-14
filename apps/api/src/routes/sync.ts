@@ -118,16 +118,20 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
         });
     }
 
-    // 2b. Deletes are ownership-scoped and acknowledged only after the server
-    // actually removed the caller's routine. This prevents cross-user IDOR and
-    // lets offline tombstones remain pending when they cannot be applied.
+    // 2b. Deletes are ownership-scoped and idempotently acknowledged. A retry
+    // after a timed-out successful delete must clear its tombstone, while an
+    // existing routine belonging to another user remains a hard authorization
+    // failure.
     for (let index = 0; index < deletedRoutineIds.length; index += 1) {
       const rawId = deletedRoutineIds[index];
-      const [deleted] = await db.delete(routines).where(and(
-        eq(routines.id, toDatabaseUuid(rawId)),
-        eq(routines.userId, userId)
-      )).returning({ id: routines.id });
-      if (deleted) acknowledgedDeletedRoutineIds.push(rawId);
+      const databaseId = toDatabaseUuid(rawId);
+      const [existing] = await db.select({ userId: routines.userId }).from(routines)
+        .where(eq(routines.id, databaseId)).limit(1);
+      if (existing && existing.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
+      if (existing) {
+        await db.delete(routines).where(and(eq(routines.id, databaseId), eq(routines.userId, userId)));
+      }
+      acknowledgedDeletedRoutineIds.push(rawId);
     }
 
     // 3. Procesar y persistir sesiones de entrenamiento en lote

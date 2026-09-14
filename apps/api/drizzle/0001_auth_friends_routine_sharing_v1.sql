@@ -17,6 +17,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS "users_email_normalized_uidx" ON "users" (lowe
 CREATE UNIQUE INDEX IF NOT EXISTS "users_username_normalized_uidx" ON "users" (lower("username")) WHERE "username" IS NOT NULL;
 
 DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_username_unique') THEN
+    ALTER TABLE "users" ADD CONSTRAINT "users_username_unique" UNIQUE ("username");
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_gender_check') THEN
     ALTER TABLE "users" ADD CONSTRAINT "users_gender_check"
       CHECK ("gender" IS NULL OR "gender" IN ('male', 'female'));

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @light-weight/domain build && pnpm --filter @light-weight/api build",
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 10
+    }
+  }
+}

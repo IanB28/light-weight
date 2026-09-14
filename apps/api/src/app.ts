@@ -2,7 +2,6 @@ import express, { type Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { estimateOneRm } from '@light-weight/domain';
-import { testDbConnection } from './db/index.js';
 import { exerciseRouter } from './routes/exercises.js';
 import { syncRouter } from './routes/sync.js';
 import { authRouter } from './routes/auth.js';
@@ -31,15 +30,7 @@ export function createApp(): Express {
     return requireTrustedOrigin(req, res, next);
   });
 
-  app.get('/api/health', async (_req, res) => {
-    const dbStatus = await testDbConnection();
-    res.status(dbStatus.ok ? 200 : 503).json({
-      status: dbStatus.ok ? 'ok' : 'degraded',
-      app: 'light-weight-api',
-      database: dbStatus.ok ? 'connected' : 'error',
-      timestamp: new Date().toISOString()
-    });
-  });
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
   app.use('/api/auth', authRouter);
   app.use('/api/friends', friendsRouter);
   app.use('/api/routine-shares', routineSharesRouter);

@@ -21,13 +21,26 @@ if (!connectionString) {
 }
 
 export const sql = postgres(connectionString || '', {
-  max: 10,
-  idle_timeout: 20,
+  // Neon pooled URLs plus Vercel's short-lived functions should not create a
+  // large pool per instance. Local development keeps its existing headroom.
+  max: process.env.VERCEL ? 1 : 10,
+  idle_timeout: process.env.VERCEL ? 5 : 20,
   connect_timeout: 10,
+  prepare: process.env.VERCEL ? false : undefined,
   ssl: 'require',
 });
 
-export const db = drizzle(sql, { schema });
+export let db = drizzle(sql, { schema });
+
+/**
+ * Test-only seam for HTTP integration tests that run inside a rolled-back
+ * database transaction. Production code always retains the default client.
+ */
+export function replaceDatabaseForTesting(next: typeof db): () => void {
+  const previous = db;
+  db = next;
+  return () => { db = previous; };
+}
 
 export async function testDbConnection(): Promise<{ ok: boolean; message?: string }> {
   try {

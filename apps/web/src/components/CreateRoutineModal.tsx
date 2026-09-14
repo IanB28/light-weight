@@ -8,6 +8,7 @@ interface CreateRoutineModalProps {
   onClose: () => void;
   availableExercises: Exercise[];
   onSaveRoutine: (newRoutine: Routine) => void;
+  ownerId?: string;
 }
 
 export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
@@ -15,6 +16,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   onClose,
   availableExercises,
   onSaveRoutine,
+  ownerId,
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -40,7 +42,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
 
     const newRoutine: Routine = {
       id: 'rt-' + Date.now(),
-      userId: 'local-anonymous',
+      userId: ownerId || 'local-anonymous',
       name: name.trim(),
       description: description.trim() || undefined,
       exerciseIds: selectedExerciseIds,

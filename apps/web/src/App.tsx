@@ -156,6 +156,7 @@ export function App() {
         {currentTab === 'plan' && <PlanView
           routines={data.routines}
           exercises={data.exercises}
+          routineOwnerId={auth.user?.id || data.userInfo.id}
           weeklySchedule={data.weeklySchedule}
           onUpdateWeeklySchedule={data.updateWeeklySchedule}
           onSelectAndStartRoutine={startWorkout}

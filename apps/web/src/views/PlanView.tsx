@@ -22,6 +22,7 @@ interface PlanViewProps {
   activeWorkoutDuration?: string;
   onNavigateToWorkout?: () => void;
   onOpenSettings?: () => void;
+  routineOwnerId?: string;
 }
 
 const DAYS_LIST: WeekDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -29,7 +30,7 @@ const DAYS_LIST: WeekDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'fri
 export const PlanView: React.FC<PlanViewProps> = ({
   routines, exercises, weeklySchedule, onUpdateWeeklySchedule, onSelectAndStartRoutine,
   onSaveRoutine, onDeleteRoutine, isWorkoutActive = false, activeWorkoutDuration = '00:00',
-  onNavigateToWorkout, onOpenSettings
+  onNavigateToWorkout, onOpenSettings, routineOwnerId
 }) => {
   const { t } = useI18n();
   const dayLabel = (day: WeekDay, length: 'short' | 'full') => t(`weekday.${day}.${length}` as TranslationKey);
@@ -80,7 +81,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
         )}
       </section>
 
-      <CreateRoutineModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} availableExercises={exercises} onSaveRoutine={onSaveRoutine} />
+      <CreateRoutineModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} availableExercises={exercises} onSaveRoutine={onSaveRoutine} ownerId={routineOwnerId} />
       <RoutineDetailSheet routine={selectedRoutine} exercises={exercises} onClose={() => setSelectedRoutine(null)} onStart={onSelectAndStartRoutine} onDelete={onDeleteRoutine} />
     </div>
   );
