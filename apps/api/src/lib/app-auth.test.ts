@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
-import { createApp } from '../app.js';
+import defaultApp, { createApp } from '../app.js';
 
 async function withServer(run: (baseUrl: string) => Promise<void>) {
   const server = createApp().listen(0);
@@ -28,11 +28,17 @@ test('/api/health is a minimal unauthenticated serverless health response', asyn
   });
 });
 
-test('nested auth routes accept the production web origin with credentialed CORS', async () => {
+test('default Express export resolves production CORS origins at request time', async () => {
   const previousOrigins = process.env.WEB_ORIGINS;
-  process.env.WEB_ORIGINS = 'https://uselightweight.me';
+  process.env.WEB_ORIGINS = 'http://localhost:3000';
   try {
-    await withServer(async (baseUrl) => {
+    const server = defaultApp.listen(0);
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    try {
+      const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      // The default export was created before this change. A warm Vercel
+      // Function must still use the current origin configuration.
+      process.env.WEB_ORIGINS = 'https://uselightweight.me';
       const preflight = await fetch(`${baseUrl}/api/auth/register`, {
         method: 'OPTIONS',
         headers: {
@@ -52,11 +58,33 @@ test('nested auth routes accept the production web origin with credentialed CORS
       });
       assert.equal(register.status, 422);
       assert.equal(register.headers.get('access-control-allow-origin'), 'https://uselightweight.me');
-    });
+      assert.equal(register.headers.get('access-control-allow-credentials'), 'true');
+
+      const denied = await fetch(`${baseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { origin: 'https://untrusted.example', 'content-type': 'application/json' },
+        body: JSON.stringify({ displayName: 'Ian', username: 'x', email: 'bad', password: 'weak' })
+      });
+      assert.equal(denied.status, 403);
+      assert.equal(denied.headers.get('access-control-allow-origin'), null);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
   } finally {
     if (previousOrigins === undefined) delete process.env.WEB_ORIGINS;
     else process.env.WEB_ORIGINS = previousOrigins;
   }
+});
+
+test('malformed JSON is rejected as a safe client error', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: '{"displayName":'
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'INVALID_JSON' });
+  });
 });
 
 test('register rejects malformed identity before persistence', async () => {

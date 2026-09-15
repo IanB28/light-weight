@@ -23,9 +23,19 @@ export function notFoundHandler(_req: Request, res: Response) {
   res.status(404).json({ error: 'NOT_FOUND' });
 }
 
+function isMalformedJsonError(error: unknown): boolean {
+  if (!(error instanceof SyntaxError) || !error || typeof error !== 'object') return false;
+  const parserError = error as SyntaxError & { type?: unknown; status?: unknown };
+  return parserError.type === 'entity.parse.failed' && parserError.status === 400;
+}
+
 export function apiErrorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (error instanceof ApiError) {
     res.status(error.status).json({ error: error.code });
+    return;
+  }
+  if (isMalformedJsonError(error)) {
+    res.status(400).json({ error: 'INVALID_JSON' });
     return;
   }
   const failure = error as { name?: unknown; code?: unknown } | null;

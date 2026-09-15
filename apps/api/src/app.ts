@@ -21,12 +21,13 @@ const helmet: HelmetFactory = helmetModule as unknown as HelmetFactory;
 
 export function createApp(): Express {
   const app = express();
-  const origins = configuredOrigins();
   app.disable('x-powered-by');
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cors({
     origin(origin, callback) {
-      if (!origin || origins.has(origin)) return callback(null, true);
+      // Resolve this per request so CORS and requireTrustedOrigin share the
+      // current WEB_ORIGINS source of truth in a warm serverless instance.
+      if (!origin || configuredOrigins().has(origin)) return callback(null, true);
       callback(null, false);
     },
     credentials: true,
