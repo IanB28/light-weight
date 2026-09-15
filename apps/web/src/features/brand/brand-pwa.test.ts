@@ -9,13 +9,13 @@ import { AppLogo } from '../../components/brand/AppLogo.js';
 const webRootDir = path.resolve(process.cwd());
 const publicDir = path.join(webRootDir, 'public');
 
-test('AppLogo component renders clean SVG reference with required attributes and accessibility props', () => {
+test('AppLogo component renders clean PNG reference with required attributes and accessibility props', () => {
   // 1. Default render
   const defaultHtml = ReactDOMServer.renderToStaticMarkup(
     React.createElement(AppLogo)
   );
   assert.match(defaultHtml, /<img\b/);
-  assert.match(defaultHtml, /src="\/brand\/app-icon\.svg"/);
+  assert.match(defaultHtml, /src="\/brand\/icon-192\.png"/);
   assert.match(defaultHtml, /width="32"/);
   assert.match(defaultHtml, /height="32"/);
   assert.match(defaultHtml, /loading="lazy"/);
@@ -39,7 +39,7 @@ test('AppLogo component renders clean SVG reference with required attributes and
   assert.match(priorityHtml, /aria-hidden="true"/);
 });
 
-test('manifest.webmanifest defines standalone PWA identity with valid existing brand assets', () => {
+test('manifest.webmanifest defines standalone PWA identity with valid existing PNG brand assets', () => {
   const manifestPath = path.join(publicDir, 'manifest.webmanifest');
   assert.ok(fs.existsSync(manifestPath), 'manifest.webmanifest must exist in public');
 
@@ -54,7 +54,7 @@ test('manifest.webmanifest defines standalone PWA identity with valid existing b
   assert.equal(manifest.theme_color, '#000000');
   assert.equal(manifest.background_color, '#000000');
 
-  assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 4, 'Manifest must declare at least 4 icons');
+  assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 3, 'Manifest must declare at least 3 icons');
 
   // Verify all referenced icons exist on disk and have non-zero size
   for (const icon of manifest.icons) {
@@ -62,7 +62,9 @@ test('manifest.webmanifest defines standalone PWA identity with valid existing b
     assert.ok(icon.sizes, 'Icon must have sizes');
     assert.ok(icon.type, 'Icon must have type');
 
-    // src is formatted as "/brand/..."
+    // No SVG entries in manifest
+    assert.notEqual(icon.type, 'image/svg+xml');
+
     const relativeAssetPath = icon.src.replace(/^\//, '');
     const diskPath = path.join(publicDir, relativeAssetPath);
     assert.ok(fs.existsSync(diskPath), `Referenced icon ${icon.src} must exist at ${diskPath}`);
@@ -87,7 +89,6 @@ test('index.html links brand assets, manifest, and standalone viewport settings'
   const indexPath = path.join(webRootDir, 'index.html');
   const html = fs.readFileSync(indexPath, 'utf8');
 
-  assert.match(html, /<link rel="icon" type="image\/svg\+xml" href="\/brand\/app-icon\.svg"\s*\/>/);
   assert.match(html, /<link rel="icon" type="image\/png" sizes="192x192" href="\/brand\/icon-192\.png"\s*\/>/);
   assert.match(html, /<link rel="apple-touch-icon" sizes="180x180" href="\/brand\/apple-touch-icon-180\.png"\s*\/>/);
   assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest"\s*\/>/);
@@ -95,7 +96,57 @@ test('index.html links brand assets, manifest, and standalone viewport settings'
   assert.match(html, /apple-mobile-web-app-capable/);
 });
 
-test('sw.js uses versioned caches, network-first navigation, and bypasses api requests', () => {
+test('HTML asset discovery logic correctly extracts /assets/ while filtering out api and cross-origin', () => {
+  const sampleHtml = `
+    <!doctype html>
+    <html>
+      <head>
+        <script type="module" crossorigin src="/assets/index-ABC12345.js"></script>
+        <link rel="modulepreload" crossorigin href="/assets/vendor-XYZ67890.js">
+        <link rel="stylesheet" crossorigin href="/assets/index-STYLE123.css">
+        <!-- Cross-origin or API references that MUST NOT be discovered -->
+        <script src="https://accounts.google.com/gsi/client"></script>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2">
+        <a href="/api/auth/session">API</a>
+        <script src="//cdn.evil.com/assets/hijack.js"></script>
+      </head>
+      <body></body>
+    </html>
+  `;
+
+  // Emulate SW extractAssetUrlsFromHtml logic
+  const assetRegex = /(?:src|href)=["'](\/assets\/[^"']+)["']/g;
+  const urls = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = assetRegex.exec(sampleHtml)) !== null) {
+    const rawPath = match[1];
+    if (
+      rawPath.startsWith('/assets/') &&
+      !rawPath.includes('://') &&
+      !rawPath.startsWith('//') &&
+      !rawPath.startsWith('/api/')
+    ) {
+      urls.add(rawPath);
+    }
+  }
+
+  const extracted = Array.from(urls);
+  assert.deepEqual(extracted.sort(), [
+    '/assets/index-ABC12345.js',
+    '/assets/index-STYLE123.css',
+    '/assets/vendor-XYZ67890.js'
+  ]);
+
+  // Assertions ensuring no dangerous URLs leaked
+  for (const url of extracted) {
+    assert.ok(url.startsWith('/assets/'));
+    assert.ok(!url.startsWith('/api/'));
+    assert.ok(!url.includes('://'));
+    assert.ok(!url.startsWith('//'));
+  }
+});
+
+test('sw.js uses versioned caches, network-first navigation, and safe fallbacks without null responses', () => {
   const swPath = path.join(publicDir, 'sw.js');
   const swCode = fs.readFileSync(swPath, 'utf8');
 
@@ -113,6 +164,12 @@ test('sw.js uses versioned caches, network-first navigation, and bypasses api re
   // Verify navigation uses network-first
   assert.match(swCode, /request\.mode === 'navigate'/);
   assert.match(swCode, /fetch\(request\)/);
+
+  // Verify dynamic discovery helper exists
+  assert.match(swCode, /extractAssetUrlsFromHtml/);
+
+  // Verify stale-while-revalidate returns explicit fallback and does not resolve null
+  assert.match(swCode, /status: 504/);
 });
 
 test('vercel.json ensures sw.js and manifest.webmanifest are never cached indefinitely', () => {

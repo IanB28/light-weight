@@ -22,7 +22,7 @@ export const AppLogo: React.FC<AppLogoProps> = ({
 
   return (
     <img
-      src="/brand/app-icon.svg"
+      src="/brand/icon-192.png"
       alt={isDecorative ? '' : alt}
       aria-hidden={isDecorative ? 'true' : undefined}
       width={numericSize}
