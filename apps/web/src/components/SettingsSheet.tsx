@@ -21,7 +21,6 @@ import {
   WEIGHT_UNIT_PRESETS
 } from '../lib/weight-units.js';
 import { ProfileView } from '../features/profile/ProfileView.js';
-import { AuthPanel } from '../features/auth/AuthPanel.js';
 import { FriendsPanel } from '../features/friends/FriendsPanel.js';
 import { useAuth } from '../lib/auth-context.js';
 import { BottomSheet, Button, LoadingState, OptionPicker, SectionHeader, SegmentedControl } from './ui/index.js';
@@ -185,7 +184,7 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
           if (!result.ok) return t(`auth.error.${result.error.code}` as TranslationKey);
           onProfileChange({ ...nextProfile, displayName: result.data.displayName, username: result.data.username, birthDate: result.data.birthDate, gender: result.data.gender || nextProfile.gender, avatarUrl: result.data.avatarUrl });
         }}
-      /> : auth.status === 'offline' && userInfo.id !== 'local-anonymous' ? <div className="space-y-3"><p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p><ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={(nextProfile) => { onProfileChange(nextProfile); }} /></div> : <AuthPanel />)}
+      /> : auth.status === 'offline' && userInfo.id !== 'local-anonymous' ? <div className="space-y-3"><p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p><ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={(nextProfile) => { onProfileChange(nextProfile); }} /></div> : <p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.syncRequiresLogin')}</p>)}
 
       {panel === 'friends' && <FriendsPanel />}
 

@@ -20,6 +20,7 @@ import { switchStoredUserScope } from './lib/storage.js';
 import { AuthScreen } from './features/auth/AuthScreen.js';
 import { AuthLoadingScreen } from './features/auth/AuthLoadingScreen.js';
 import { UsernameOnboardingScreen } from './features/auth/UsernameOnboardingScreen.js';
+import { resolveAuthScreenTarget } from './features/auth/auth-routing.js';
 
 export function App() {
   const { preferences } = usePreferences();
@@ -90,15 +91,21 @@ export function App() {
     showFeedback(t('feedback.weightSaved'));
   };
 
-  if (auth.status === 'loading') {
+  const authTarget = resolveAuthScreenTarget({
+    status: auth.status,
+    isAuthenticated: auth.isAuthenticated,
+    user: auth.user
+  });
+
+  if (authTarget === 'loading') {
     return <AuthLoadingScreen />;
   }
 
-  if (!auth.isAuthenticated) {
+  if (authTarget === 'auth_screen') {
     return <AuthScreen />;
   }
 
-  if (auth.user && !auth.user.username) {
+  if (authTarget === 'onboarding' && auth.user) {
     return <UsernameOnboardingScreen user={auth.user} />;
   }
 

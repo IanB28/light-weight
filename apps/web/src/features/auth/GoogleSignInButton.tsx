@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../lib/i18n.js';
 
 declare global {
@@ -46,6 +46,11 @@ export function GoogleSignInButton({ onSuccess, onError, disabled }: GoogleSignI
   const { language } = useI18n();
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
   // Load Google Identity Services script dynamically and safely
   useEffect(() => {
     if (!clientId) return;
@@ -68,9 +73,9 @@ export function GoogleSignInButton({ onSuccess, onError, disabled }: GoogleSignI
     script.async = true;
     script.defer = true;
     script.onload = () => setGisLoaded(true);
-    script.onerror = () => onError('auth.googleNotConfigured');
+    script.onerror = () => onErrorRef.current('auth.googleNotConfigured');
     document.head.appendChild(script);
-  }, [clientId, onError]);
+  }, [clientId]);
 
   // Render official Google button when script and container are ready
   useEffect(() => {
@@ -83,9 +88,9 @@ export function GoogleSignInButton({ onSuccess, onError, disabled }: GoogleSignI
         client_id: clientId,
         callback: (response) => {
           if (response.credential) {
-            onSuccess(response.credential);
+            onSuccessRef.current(response.credential);
           } else {
-            onError('auth.error.google_auth_failed');
+            onErrorRef.current('auth.error.google_auth_failed');
           }
         },
         auto_select: false,
@@ -107,9 +112,9 @@ export function GoogleSignInButton({ onSuccess, onError, disabled }: GoogleSignI
         locale: language === 'es' ? 'es' : 'en'
       });
     } catch {
-      onError('auth.error.google_auth_failed');
+      onErrorRef.current('auth.error.google_auth_failed');
     }
-  }, [gisLoaded, clientId, language, onSuccess, onError]);
+  }, [gisLoaded, clientId, language]);
 
   if (!clientId) {
     return null;

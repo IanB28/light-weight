@@ -545,10 +545,22 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
+const defaultI18nFallback: I18nValue = {
+  language: 'es',
+  locale: 'es-ES',
+  setLanguage: () => {},
+  t: (key, variables) => {
+    let result = (dictionaries['es'] as Record<string, string>)[key] || key;
+    for (const [name, replacement] of Object.entries(variables || {})) {
+      result = result.replaceAll(`{{${name}}}`, String(replacement));
+    }
+    return result;
+  }
+};
+
 export function useI18n(): I18nValue {
   const value = useContext(I18nContext);
-  if (!value) throw new Error('useI18n must be used within I18nProvider');
-  return value;
+  return value || defaultI18nFallback;
 }
 
 export function useExerciseLabels() {

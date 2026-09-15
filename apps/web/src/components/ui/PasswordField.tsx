@@ -1,25 +1,40 @@
-﻿import React, { forwardRef, useId, useState } from 'react';
+import React, { forwardRef, useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@light-weight/ui';
 import { useI18n } from '../../lib/i18n.js';
 
+export function togglePasswordVisibility(current: boolean): boolean {
+  return !current;
+}
+
+export function resolvePasswordInputType(showPassword: boolean): 'password' | 'text' {
+  return showPassword ? 'text' : 'password';
+}
+
 export interface PasswordFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label: string;
   error?: string | null;
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
 }
 
 export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(function PasswordField(
-  { label, id, className, autoComplete = 'current-password', disabled, error, ...props },
+  { label, id, className, autoComplete = 'current-password', disabled, error, visible, onVisibleChange, ...props },
   ref
 ) {
   const generatedId = useId();
   const inputId = id || generatedId;
-  const [showPassword, setShowPassword] = useState(false);
+  const [internalVisible, setInternalVisible] = useState(false);
+  const isVisible = visible !== undefined ? visible : internalVisible;
   const { t } = useI18n();
 
   const toggleVisibility = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    setShowPassword((prev) => !prev);
+    const next = togglePasswordVisibility(isVisible);
+    if (visible === undefined) {
+      setInternalVisible(next);
+    }
+    onVisibleChange?.(next);
   };
 
   return (
@@ -29,7 +44,7 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
         <input
           ref={ref}
           id={inputId}
-          type={showPassword ? 'text' : 'password'}
+          type={resolvePasswordInputType(isVisible)}
           autoComplete={autoComplete}
           disabled={disabled}
           className={cn(
@@ -45,8 +60,8 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
           type="button"
           onClick={toggleVisibility}
           disabled={disabled}
-          aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-          title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+          aria-label={isVisible ? t('auth.hidePassword') : t('auth.showPassword')}
+          title={isVisible ? t('auth.hidePassword') : t('auth.showPassword')}
           tabIndex={0}
           className={cn(
             'absolute right-0 inset-y-0 flex size-11 items-center justify-center rounded-r-ui-lg text-text-muted transition-colors',
@@ -54,7 +69,7 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
             'disabled:pointer-events-none disabled:opacity-40'
           )}
         >
-          {showPassword ? (
+          {isVisible ? (
             <EyeOff className="size-4.5" aria-hidden="true" />
           ) : (
             <Eye className="size-4.5" aria-hidden="true" />

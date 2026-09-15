@@ -1,4 +1,4 @@
-﻿-- Auth Identities V1 (Federated & External Identity Provider accounts)
+-- Auth Identities V1 (Federated & External Identity Provider accounts)
 -- Additive migration: enables Google sign-in and future identity providers without storing provider credentials on users.
 
 CREATE TABLE IF NOT EXISTS "auth_identities" (

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Dumbbell, LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../../lib/auth-context.js';
 import { useI18n, type TranslationKey } from '../../lib/i18n.js';
@@ -47,7 +47,7 @@ export function AuthScreen() {
     }
   };
 
-  const handleGoogleSuccess = async (credential: string) => {
+  const handleGoogleSuccess = useCallback(async (credential: string) => {
     setSubmitting(true);
     setError(null);
 
@@ -64,11 +64,11 @@ export function AuthScreen() {
         setError(`auth.error.${errCode}` as TranslationKey);
       }
     }
-  };
+  }, [auth]);
 
-  const handleGoogleError = (errorKey: string) => {
+  const handleGoogleError = useCallback((errorKey: string) => {
     setError(errorKey as TranslationKey);
-  };
+  }, []);
 
   const hasGoogleClientId = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
