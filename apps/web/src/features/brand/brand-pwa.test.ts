@@ -165,8 +165,8 @@ test('sw.js uses versioned caches, network-first navigation, and safe fallbacks 
   const swCode = fs.readFileSync(swPath, 'utf8');
 
   // Verify cache versioning
-  assert.match(swCode, /const SHELL_CACHE = 'light-weight-shell-v2';/);
-  assert.match(swCode, /const ASSETS_CACHE = 'light-weight-assets-v2';/);
+  assert.match(swCode, /const SHELL_CACHE = 'light-weight-shell-v3';/);
+  assert.match(swCode, /const ASSETS_CACHE = 'light-weight-assets-v3';/);
 
   // Verify lifecycle handlers
   assert.match(swCode, /self\.skipWaiting\(\)/);
@@ -175,9 +175,14 @@ test('sw.js uses versioned caches, network-first navigation, and safe fallbacks 
   // Verify API bypass
   assert.match(swCode, /url\.pathname\.startsWith\('\/api\/'\)/);
 
-  // Verify navigation uses network-first
+  // Verify cross-origin bypass
+  assert.match(swCode, /url\.origin !== self\.location\.origin/);
+
+  // Verify navigation uses network-first with event.waitUntil background sync for deployment transitions
   assert.match(swCode, /request\.mode === 'navigate'/);
   assert.match(swCode, /fetch\(request\)/);
+  assert.match(swCode, /event\.waitUntil\(/);
+  assert.match(swCode, /syncAssetsFromHtml\(htmlText\)/);
 
   // Verify dynamic discovery helper exists
   assert.match(swCode, /extractAssetUrlsFromHtml/);

@@ -3,6 +3,7 @@ import type { AuthUser } from '@light-weight/domain';
 import { mapApiError, requestJson, setCsrfToken, type ApiError, type OperationResult } from './api-errors.js';
 import { resolveSessionRefreshFailure, type AuthStatus } from './auth-session-state.js';
 import { apiEndpoint } from './api-base.js';
+import { clearCachedAuthUser, getCachedAuthUser, setCachedAuthUser } from './auth-cache.js';
 
 type AuthResult = OperationResult<AuthUser>;
 
@@ -22,20 +23,29 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => getCachedAuthUser());
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [error, setError] = useState<ApiError | null>(null);
-  const userRef = useRef<AuthUser | null>(null);
+  const userRef = useRef<AuthUser | null>(user);
   useEffect(() => { userRef.current = user; }, [user]);
 
   const refreshSession = useCallback(async () => {
     try {
       const result = await requestJson<{ user: AuthUser; csrfToken?: string }>(apiEndpoint('/api/auth/me'));
-      setCsrfToken(result.csrfToken); setUser(result.user); setStatus('authenticated'); setError(null);
+      setCsrfToken(result.csrfToken);
+      setCachedAuthUser(result.user);
+      setUser(result.user);
+      setStatus('authenticated');
+      setError(null);
     } catch (cause) {
       const next = mapApiError(cause);
       const resolution = resolveSessionRefreshFailure(userRef.current, next);
-      setUser(resolution.user); setError(resolution.error); setStatus(resolution.status);
+      if (resolution.status === 'anonymous') {
+        clearCachedAuthUser();
+      }
+      setUser(resolution.user);
+      setError(resolution.error);
+      setStatus(resolution.status);
     }
   }, []);
 
@@ -51,7 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await requestJson<{ user: AuthUser; csrfToken?: string }>(apiEndpoint(`/api/auth/${path}`), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       }, 12_000);
-      setCsrfToken(result.csrfToken); setUser(result.user); setStatus('authenticated'); setError(null);
+      setCsrfToken(result.csrfToken);
+      setCachedAuthUser(result.user);
+      setUser(result.user);
+      setStatus('authenticated');
+      setError(null);
       return { ok: true, data: result.user };
     } catch (cause) {
       const next = mapApiError(cause); setError(next);
@@ -63,10 +77,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async (): Promise<OperationResult<void>> => {
     try {
       await requestJson<void>(apiEndpoint('/api/auth/logout'), { method: 'POST' });
-      setCsrfToken(undefined); setUser(null); setStatus('anonymous'); setError(null);
+      setCsrfToken(undefined);
+      clearCachedAuthUser();
+      setUser(null);
+      setStatus('anonymous');
+      setError(null);
       return { ok: true, data: undefined };
     } catch (cause) {
-      const next = mapApiError(cause); setError(next); return { ok: false, error: next };
+      setCsrfToken(undefined);
+      clearCachedAuthUser();
+      setUser(null);
+      setStatus('anonymous');
+      const next = mapApiError(cause);
+      setError(next);
+      return { ok: false, error: next };
     }
   }, []);
 
@@ -75,7 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await requestJson<{ user: AuthUser }>(apiEndpoint('/api/auth/profile'), {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch)
       });
-      setUser(result.user); setError(null); return { ok: true, data: result.user };
+      setCachedAuthUser(result.user);
+      setUser(result.user);
+      setError(null);
+      return { ok: true, data: result.user };
     } catch (cause) {
       const next = mapApiError(cause); setError(next); return { ok: false, error: next };
     }

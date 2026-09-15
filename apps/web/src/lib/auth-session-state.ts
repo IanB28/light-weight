@@ -16,7 +16,7 @@ export function resolveSessionRefreshFailure(
     return { user: null, status: 'anonymous', error: null };
   }
   if (error.code === 'network' || error.code === 'aborted') {
-    return { user: previousUser, status: 'offline', error };
+    return { user: previousUser, status: previousUser ? 'offline' : 'anonymous', error };
   }
   return { user: previousUser, status: 'error', error };
 }
