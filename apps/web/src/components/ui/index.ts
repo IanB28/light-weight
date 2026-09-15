@@ -6,3 +6,4 @@ export * from './FormControls.js';
 export * from './Disclosure.js';
 export * from './OptionPicker.js';
 export * from './SectionHeader.js';
+export * from './PasswordField.js';

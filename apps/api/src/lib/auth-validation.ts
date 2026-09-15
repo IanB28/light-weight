@@ -61,6 +61,7 @@ export function mapIdentityUniqueViolation(error: unknown): never {
     const constraint = candidate.constraint_name || candidate.constraint || '';
     if (constraint.includes('email')) throw new ApiError(409, 'EMAIL_ALREADY_EXISTS');
     if (constraint.includes('username')) throw new ApiError(409, 'USERNAME_ALREADY_EXISTS');
+    if (constraint.includes('provider_subject') || constraint.includes('auth_identities')) throw new ApiError(409, 'IDENTITY_ALREADY_EXISTS');
   }
   throw error;
 }

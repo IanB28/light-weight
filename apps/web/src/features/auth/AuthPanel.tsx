@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../../lib/auth-context.js';
 import { useI18n, type TranslationKey } from '../../lib/i18n.js';
-import { Button, SegmentedControl } from '../../components/ui/index.js';
+import { Button, PasswordField, SegmentedControl } from '../../components/ui/index.js';
 
 type Mode = 'login' | 'register';
 
@@ -45,8 +45,8 @@ export function AuthPanel() {
           <label className="block space-y-1.5 text-xs font-bold text-text-secondary"><span>{t('profile.username')}</span><input autoComplete="username" autoCapitalize="none" maxLength={30} value={username} onChange={(event) => setUsername(event.target.value)} className={fieldClass()} required /></label>
         </>}
         <label className="block space-y-1.5 text-xs font-bold text-text-secondary"><span>{t('auth.email')}</span><input type="email" autoComplete="email" maxLength={255} value={email} onChange={(event) => setEmail(event.target.value)} className={fieldClass()} required /></label>
-        <label className="block space-y-1.5 text-xs font-bold text-text-secondary"><span>{t('auth.password')}</span><input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={10} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} className={fieldClass()} required /></label>
-        {mode === 'register' && <label className="block space-y-1.5 text-xs font-bold text-text-secondary"><span>{t('auth.confirmPassword')}</span><input type="password" autoComplete="new-password" minLength={10} maxLength={128} value={confirm} onChange={(event) => setConfirm(event.target.value)} className={fieldClass()} required /></label>}
+        <PasswordField label={t('auth.password')} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={10} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} required />
+        {mode === 'register' && <PasswordField label={t('auth.confirmPassword')} autoComplete="new-password" minLength={10} maxLength={128} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />}
         {error && <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{t(error)}</p>}
         {auth.status === 'offline' && <p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p>}
         <Button type="submit" className="w-full" disabled={submitting}>

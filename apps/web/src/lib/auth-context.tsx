@@ -12,6 +12,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   error: ApiError | null;
   login: (email: string, password: string) => Promise<AuthResult>;
+  loginWithGoogle: (credential: string) => Promise<AuthResult>;
   register: (input: { displayName: string; username: string; email: string; password: string }) => Promise<AuthResult>;
   logout: () => Promise<OperationResult<void>>;
   refreshSession: () => Promise<void>;
@@ -83,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     user, status, isAuthenticated: user !== null && status !== 'anonymous' && status !== 'loading', error,
     login: (email, password) => submit('login', { email, password }),
+    loginWithGoogle: (credential) => submit('google', { credential }),
     register: (input) => submit('register', input), logout, refreshSession, updateProfile
   }), [error, logout, refreshSession, status, submit, updateProfile, user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

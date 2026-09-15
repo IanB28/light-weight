@@ -195,3 +195,15 @@ export const routineShares = pgTable('routine_shares', {
   check('routine_shares_distinct_users_check', sql`${table.senderId} <> ${table.recipientId}`),
   check('routine_shares_status_check', sql`${table.status} IN ('pending', 'imported', 'dismissed')`),
 ]);
+
+export const authIdentities = pgTable('auth_identities', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  provider: varchar('provider', { length: 32 }).notNull(),
+  providerSubject: text('provider_subject').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('auth_identities_provider_subject_uidx').on(table.provider, table.providerSubject),
+  index('auth_identities_user_id_idx').on(table.userId),
+  check('auth_identities_provider_check', sql`${table.provider} IN ('google')`)
+]);

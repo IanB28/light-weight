@@ -17,6 +17,9 @@ import { useRestTimer } from './features/workouts/useRestTimer.js';
 import type { MuscleGroup } from '@light-weight/domain';
 import { useAuth } from './lib/auth-context.js';
 import { switchStoredUserScope } from './lib/storage.js';
+import { AuthScreen } from './features/auth/AuthScreen.js';
+import { AuthLoadingScreen } from './features/auth/AuthLoadingScreen.js';
+import { UsernameOnboardingScreen } from './features/auth/UsernameOnboardingScreen.js';
 
 export function App() {
   const { preferences } = usePreferences();
@@ -86,6 +89,18 @@ export function App() {
     data.saveTargetWeight(weightKg);
     showFeedback(t('feedback.weightSaved'));
   };
+
+  if (auth.status === 'loading') {
+    return <AuthLoadingScreen />;
+  }
+
+  if (!auth.isAuthenticated) {
+    return <AuthScreen />;
+  }
+
+  if (auth.user && !auth.user.username) {
+    return <UsernameOnboardingScreen user={auth.user} />;
+  }
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-transparent font-sans text-text-primary selection:bg-accent selection:text-accent-fg">

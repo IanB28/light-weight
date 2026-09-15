@@ -10,12 +10,12 @@ export type ApiErrorCode =
   | 'routine_not_owned' | 'routine_share_not_found' | 'csrf_invalid'
   | 'cannot_share_with_self' | 'friend_request_not_found'
   | 'origin_not_allowed' | 'invalid_birth_date' | 'routine_has_custom_exercises'
-  | 'routine_share_dismissed';
+  | 'routine_share_dismissed' | 'account_linking_required' | 'google_auth_failed';
 
 export interface ApiError { code: ApiErrorCode; status?: number; retryable: boolean }
 export type OperationResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(readonly status: number, readonly serverCode?: string) { super(`HTTP ${status}`); }
 }
 
@@ -31,6 +31,9 @@ const SERVER_CODES: Record<string, ApiErrorCode> = {
   ROUTINE_SHARE_DISMISSED: 'routine_share_dismissed',
   CANNOT_SHARE_WITH_SELF: 'cannot_share_with_self', FRIEND_REQUEST_NOT_FOUND: 'friend_request_not_found',
   ORIGIN_NOT_ALLOWED: 'origin_not_allowed', INVALID_BIRTH_DATE: 'invalid_birth_date',
+  ACCOUNT_LINKING_REQUIRED: 'account_linking_required',
+  GOOGLE_AUTH_FAILED: 'google_auth_failed',
+  UNVERIFIED_EMAIL: 'google_auth_failed',
   CSRF_INVALID: 'csrf_invalid', RATE_LIMITED: 'rate_limited', FORBIDDEN: 'forbidden'
 };
 

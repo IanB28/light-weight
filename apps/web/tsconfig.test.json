@@ -24,7 +24,8 @@
     "src/features/workouts/initial-weight.ts",
     "src/features/workouts/initial-weight.test.ts",
     "src/features/stats/stats-selectors.ts",
-    "src/features/stats/stats-selectors.test.ts",
-    "src/lib/foundations.test.ts"
+    "src/lib/foundations.test.ts",
+    "src/lib/auth-session-state.ts",
+    "src/features/auth/auth-experience.test.ts"
   ]
 }

@@ -29,6 +29,19 @@ function memoryIdentityRepository(seed: IdentityRecord[] = []): IdentityReposito
       const created = identity({ ...input, id: `10000000-0000-4000-8000-${String(records.length + 1).padStart(12, '0')}` });
       records.push(created);
       return created;
+    },
+    async findIdentity() { return undefined; },
+    async createWithIdentity(input) {
+      const created = identity({
+        id: `10000000-0000-4000-8000-${String(records.length + 1).padStart(12, '0')}`,
+        email: input.email,
+        displayName: input.displayName,
+        avatarUrl: input.avatarUrl ?? null,
+        username: null,
+        passwordHash: null
+      });
+      records.push(created);
+      return created;
     }
   };
 }

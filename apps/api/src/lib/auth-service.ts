@@ -28,3 +28,35 @@ export async function authenticateIdentity(repository: IdentityRepository, rawIn
   if (!user || !matches) throw new ApiError(401, 'INVALID_CREDENTIALS');
   return user;
 }
+
+export interface GoogleAuthProfile {
+  sub: string;
+  email: string;
+  name?: string;
+  picture?: string;
+}
+
+export async function authenticateWithGoogle(
+  repository: IdentityRepository,
+  profile: GoogleAuthProfile
+): Promise<IdentityRecord> {
+  const existingByIdentity = await repository.findIdentity('google', profile.sub);
+  if (existingByIdentity) {
+    return existingByIdentity;
+  }
+
+  const existingByEmail = await repository.findByEmail(profile.email);
+  if (existingByEmail) {
+    throw new ApiError(409, 'ACCOUNT_LINKING_REQUIRED');
+  }
+
+  try {
+    return await repository.createWithIdentity({
+      email: profile.email,
+      displayName: profile.name || 'Atleta',
+      avatarUrl: profile.picture || null
+    }, 'google', profile.sub);
+  } catch (error) {
+    mapIdentityUniqueViolation(error);
+  }
+}

@@ -20,7 +20,8 @@ import {
 } from '../lib/auth-session.js';
 import { authRateLimit, requireTrustedOrigin } from '../lib/request-security.js';
 import { mapIdentityUniqueViolation, parseBirthDate } from '../lib/auth-validation.js';
-import { authenticateIdentity, registerIdentity } from '../lib/auth-service.js';
+import { authenticateIdentity, authenticateWithGoogle, registerIdentity } from '../lib/auth-service.js';
+import { verifyGoogleCredential } from '../lib/google-auth.js';
 import { identityRepository } from '../lib/identity-repository.js';
 
 export const authRouter: Router = Router();
@@ -48,6 +49,18 @@ authRouter.post('/login', requireTrustedOrigin, authRateLimit, asyncRoute(async 
   setSessionCookies(res, tokens.sessionToken, tokens.csrfToken);
   res.json({ user: toAuthUser(user), csrfToken: tokens.csrfToken });
 }));
+
+authRouter.post('/google', requireTrustedOrigin, authRateLimit, asyncRoute(async (req, res) => {
+  if (!isRecord(req.body) || typeof req.body.credential !== 'string') {
+    throw new ApiError(422, 'VALIDATION_ERROR');
+  }
+  const profile = await verifyGoogleCredential(req.body.credential);
+  const user = await authenticateWithGoogle(identityRepository, profile);
+  const tokens = await createAuthSession(user.id);
+  setSessionCookies(res, tokens.sessionToken, tokens.csrfToken);
+  res.json({ user: toAuthUser(user), csrfToken: tokens.csrfToken });
+}));
+
 
 authRouter.get('/me', requireAuth, asyncRoute(async (req, res) => {
   res.json({ user: req.auth!.user, csrfToken: await ensureCurrentCsrfToken(req, res) });
