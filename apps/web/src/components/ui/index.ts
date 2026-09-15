@@ -7,3 +7,4 @@ export * from './Disclosure.js';
 export * from './OptionPicker.js';
 export * from './SectionHeader.js';
 export * from './PasswordField.js';
+export * from '../brand/AppLogo.js';

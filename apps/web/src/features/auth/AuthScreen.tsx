@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import { Dumbbell, LogIn, UserPlus } from 'lucide-react';
+import { LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../../lib/auth-context.js';
 import { useI18n, type TranslationKey } from '../../lib/i18n.js';
-import { Button, PasswordField } from '../../components/ui/index.js';
+import { AppLogo, Button, PasswordField } from '../../components/ui/index.js';
 import { GoogleSignInButton } from './GoogleSignInButton.js';
 
 type AuthMode = 'login' | 'register';
@@ -73,7 +73,7 @@ export function AuthScreen() {
   const hasGoogleClientId = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-x-hidden p-4 sm:p-6 font-sans text-text-primary selection:bg-accent selection:text-accent-fg">
+    <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-x-hidden overflow-y-auto p-4 sm:p-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] font-sans text-text-primary selection:bg-accent selection:text-accent-fg">
       {/* Background orbs */}
       <div
         className="pointer-events-none fixed -top-24 left-1/2 -z-10 h-[28rem] w-[38rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700"
@@ -92,11 +92,11 @@ export function AuthScreen() {
         style={{ backgroundColor: 'var(--orb-brand, rgba(48, 209, 88, 0.08))' }}
       />
 
-      <main className="w-full max-w-md my-auto py-6">
+      <main className="w-full max-w-md my-auto py-4 sm:py-6">
         {/* Brand header */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl border border-accent/25 bg-accent/15 text-accent shadow-sm">
-            <Dumbbell className="size-6" aria-hidden="true" />
+          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl border border-accent/25 bg-surface-elevated shadow-card">
+            <AppLogo size={40} priority aria-hidden="true" />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-widest text-accent">
             Light Weight

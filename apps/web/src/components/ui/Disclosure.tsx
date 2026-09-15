@@ -105,5 +105,5 @@ export function Modal({ open, onClose, title, description, children, className }
 }
 
 export function BottomSheet(props: ModalProps) {
-  return <Modal {...props} className={cn('fixed bottom-0 left-0 right-0 max-h-[90dvh] max-w-none rounded-b-none rounded-t-ui-xl sm:static sm:max-w-md sm:rounded-ui-xl', props.className)} />;
+  return <Modal {...props} className={cn('fixed bottom-0 left-0 right-0 max-h-[90dvh] max-w-none rounded-b-none rounded-t-ui-xl pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:static sm:max-w-md sm:rounded-ui-xl sm:pb-5', props.className)} />;
 }

@@ -26,7 +26,7 @@ import { WorkoutFocusModal, WorkoutFocus } from '../components/WorkoutFocusModal
 import { DayDetailModal } from '../components/DayDetailModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
 import { MonthCalendarModal } from '../components/MonthCalendarModal.js';
-import { AppCard, Button, IconButton } from '../components/ui/index.js';
+import { AppCard, AppLogo, Button, IconButton } from '../components/ui/index.js';
 import { TranslationKey, useI18n } from '../lib/i18n.js';
 
 interface HomeViewProps {
@@ -202,6 +202,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* 1. Header Homogéneo con Título, Fecha y Saludo Dedicado */}
       <ViewHeader
         title="LightWeight"
+        leading={<AppLogo size={28} className="shrink-0" aria-hidden="true" />}
         subtitle={todayStr}
         greeting={
           <h2 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">

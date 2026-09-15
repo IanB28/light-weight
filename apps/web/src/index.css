@@ -125,7 +125,15 @@ html[data-theme="amethyst"] {
 
 html { min-height: 100%; background: var(--app-gradient) fixed; background-color: var(--app-bg); -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; scrollbar-color: var(--border-active) transparent; }
 body { min-height: 100dvh; margin: 0; background: transparent !important; color: var(--text-primary); }
+#root { min-height: 100dvh; display: flex; flex-direction: column; }
 button, [role="button"] { touch-action: manipulation; }
+
+@media (display-mode: standalone) {
+  html, body {
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 
 .glass-surface, .dark-glass-card {
   background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 94%, white 6%), var(--surface));

@@ -6,6 +6,7 @@ import { useI18n } from '../lib/i18n.js';
 
 export interface ViewHeaderProps {
   title: string;
+  leading?: React.ReactNode;
   subtitle?: string;
   greeting?: React.ReactNode;
   isWorkoutActive?: boolean;
@@ -16,6 +17,7 @@ export interface ViewHeaderProps {
 
 export const ViewHeader: React.FC<ViewHeaderProps> = ({
   title,
+  leading,
   subtitle,
   greeting,
   isWorkoutActive,
@@ -43,8 +45,9 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
   return (
     <header className="relative px-1 pb-1 pt-2">
       <div className="min-w-0 pr-[5.5rem]">
-        <h1 className="break-words text-[clamp(1.75rem,9vw,2.15rem)] font-extrabold leading-none tracking-tight text-text-primary">
-          {title}
+        <h1 className="flex items-center gap-2.5 break-words text-[clamp(1.75rem,9vw,2.15rem)] font-extrabold leading-none tracking-tight text-text-primary">
+          {leading}
+          <span className="truncate">{title}</span>
         </h1>
         {subtitle && <p className="mt-2 max-w-xs text-xs font-medium leading-relaxed text-text-muted">{subtitle}</p>}
       </div>

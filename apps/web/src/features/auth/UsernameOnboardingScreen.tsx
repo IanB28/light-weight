@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { UserCheck, Sparkles } from 'lucide-react';
 import { isValidUsername, normalizeUsername, type AuthUser } from '@light-weight/domain';
 import { useAuth } from '../../lib/auth-context.js';
@@ -43,7 +43,7 @@ export function UsernameOnboardingScreen({ user }: UsernameOnboardingScreenProps
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden p-4 sm:p-6 font-sans text-text-primary">
+    <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-x-hidden overflow-y-auto p-4 sm:p-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] font-sans text-text-primary">
       {/* Background orbs */}
       <div
         className="pointer-events-none fixed -top-24 left-1/2 -z-10 h-[26rem] w-[36rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700"
@@ -58,7 +58,7 @@ export function UsernameOnboardingScreen({ user }: UsernameOnboardingScreenProps
         style={{ backgroundColor: 'var(--orb-brand, rgba(48, 209, 88, 0.1))' }}
       />
 
-      <main className="w-full max-w-md">
+      <main className="w-full max-w-md my-auto py-4 sm:py-6">
         <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-6 sm:p-8 shadow-card">
           <div className="mb-6 text-center">
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl border border-accent/30 bg-accent/15 text-accent shadow-sm">

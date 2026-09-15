@@ -26,6 +26,8 @@
     "src/features/stats/stats-selectors.ts",
     "src/lib/foundations.test.ts",
     "src/lib/auth-session-state.ts",
-    "src/features/auth/auth-experience.test.ts"
+    "src/features/auth/auth-experience.test.ts",
+    "src/components/brand/AppLogo.tsx",
+    "src/features/brand/brand-pwa.test.ts"
   ]
 }
