@@ -18,7 +18,8 @@ export const AppLogo: React.FC<AppLogoProps> = ({
 }) => {
   const isDecorative = ariaHidden === true || ariaHidden === 'true';
   const numericSize = typeof size === 'number' ? size : undefined;
-  const style = numericSize ? { width: `${numericSize}px`, height: `${numericSize}px` } : undefined;
+  const hasSizingClass = Boolean(className && /(^|\s)(size-|w-|h-)/.test(className));
+  const style = numericSize && !hasSizingClass ? { width: `${numericSize}px`, height: `${numericSize}px` } : undefined;
 
   return (
     <img

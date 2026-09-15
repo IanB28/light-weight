@@ -280,9 +280,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         {/* La decisión principal del día vive dentro del calendario. */}
-        <div className="glass-subcard mt-1 space-y-3 rounded-ui-lg p-3.5">
+        <div className="glass-subcard mt-1 space-y-3 rounded-ui-lg border border-border-subtle/80 p-3.5 sm:p-4 shadow-xs">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-active text-accent shadow-sm">
+            <div
+              className={`flex size-10 shrink-0 items-center justify-center rounded-ui-md border shadow-xs ${
+                todayScheduledRoutine
+                  ? 'border-accent/25 bg-accent-soft text-accent'
+                  : 'border-border-subtle bg-surface-active text-text-muted'
+              }`}
+            >
               <Dumbbell className="size-5 stroke-[2.2]" />
             </div>
 
@@ -318,7 +324,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => setIsFocusModalOpen(true)}
-              className="w-full text-text-muted"
+              className="w-full text-text-muted hover:text-text-primary"
             >
               {t('home.trainOther')}
             </Button>

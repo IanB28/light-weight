@@ -59,7 +59,7 @@ export function UsernameOnboardingScreen({ user }: UsernameOnboardingScreenProps
       />
 
       <main className="w-full max-w-md my-auto py-4 sm:py-6">
-        <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-6 sm:p-8 shadow-card">
+        <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-6 sm:p-7 shadow-card">
           <div className="mb-6 text-center">
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl border border-accent/30 bg-accent/15 text-accent shadow-sm">
               <Sparkles className="size-6" aria-hidden="true" />

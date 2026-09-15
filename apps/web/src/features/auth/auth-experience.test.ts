@@ -11,6 +11,8 @@ import {
   resolvePasswordInputType,
   togglePasswordVisibility
 } from '../../components/ui/PasswordField.js';
+import { dictionaries } from '../../lib/i18n.js';
+import { ViewHeader } from '../../components/ViewHeader.js';
 
 test('resolveAuthScreenTarget correctly routes all auth states using real production function', () => {
   const fullUser: AuthUser = {
@@ -136,4 +138,27 @@ test('username onboarding validation and normalization invariants hold', () => {
   assert.equal(isValidUsername('ab'), false); // too short (<3)
   assert.equal(isValidUsername('user with space'), false);
   assert.equal(isValidUsername('invalid!chars#'), false);
+});
+
+test('auth.welcomeBack is simplified to "Bienvenido" (ES) and "Welcome" (EN)', () => {
+  assert.equal(dictionaries.es['auth.welcomeBack'], 'Bienvenido');
+  assert.equal(dictionaries.en['auth.welcomeBack'], 'Welcome');
+  assert.equal(dictionaries.es['auth.welcomeSubtitle'], 'Inicia sesión para continuar');
+  assert.equal(dictionaries.en['auth.welcomeSubtitle'], 'Sign in to continue');
+});
+
+test('ViewHeader renders clean flex layout without brittle absolute padding and supports touch target for settings', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(ViewHeader, {
+      title: 'LightWeight',
+      subtitle: 'Martes, 15 de septiembre',
+      onOpenSettings: () => {}
+    })
+  );
+
+  assert.ok(!html.includes('pr-[5.5rem]'), 'ViewHeader must not use hardcoded right padding');
+  assert.ok(html.includes('justify-between'), 'ViewHeader must use flex justify-between');
+  assert.ok(html.includes('gap-3'), 'ViewHeader must have proper gap');
+  assert.ok(html.includes('truncate'), 'Title must be truncatable cleanly');
+  assert.ok(html.includes('aria-label="Abrir ajustes"'), 'Settings button must have accessible label');
 });

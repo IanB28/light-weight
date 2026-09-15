@@ -44,16 +44,29 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
 
   return (
     <header className="relative px-1 pb-1 pt-2">
-      <div className="min-w-0 pr-[5.5rem]">
-        <h1 className="flex items-center gap-2.5 break-words text-[clamp(1.75rem,9vw,2.15rem)] font-extrabold leading-none tracking-tight text-text-primary">
-          {leading}
-          <span className="truncate">{title}</span>
-        </h1>
-        {subtitle && <p className="mt-2 max-w-xs text-xs font-medium leading-relaxed text-text-muted">{subtitle}</p>}
-      </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="flex items-center gap-3 text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary">
+            {leading}
+            <span className="truncate">{title}</span>
+          </h1>
+          {subtitle && <p className="mt-1.5 max-w-xs text-xs font-medium leading-relaxed text-text-muted">{subtitle}</p>}
+        </div>
 
-      <div className="absolute right-0 top-1 flex items-center gap-2">
-        {onOpenSettings && <IconButton variant="secondary" size="sm" aria-label={t('header.openSettings')} title={t('header.settingsTitle')} onClick={onOpenSettings}><Settings className="size-4" /></IconButton>}
+        {onOpenSettings && (
+          <div className="shrink-0 pt-0.5">
+            <IconButton
+              variant="secondary"
+              size="sm"
+              aria-label={t('header.openSettings')}
+              title={t('header.settingsTitle')}
+              onClick={onOpenSettings}
+              className="size-10 min-h-10"
+            >
+              <Settings className="size-4" />
+            </IconButton>
+          </div>
+        )}
       </div>
 
       {((isWorkoutActive && onNavigateToWorkout) || isOffline || syncStatus.state === 'error' || syncStatus.state === 'syncing') && (

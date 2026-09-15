@@ -37,6 +37,20 @@ test('AppLogo component renders clean PNG reference with required attributes and
   assert.match(priorityHtml, /loading="eager"/);
   assert.match(priorityHtml, /fetchPriority="high"/i);
   assert.match(priorityHtml, /aria-hidden="true"/);
+
+  // 4. Responsive sizing classes without inline style collision
+  const responsiveHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(AppLogo, {
+      size: 80,
+      priority: true,
+      'aria-hidden': 'true',
+      className: 'size-20 sm:size-24 object-contain filter drop-shadow-sm'
+    })
+  );
+  assert.match(responsiveHtml, /width="80"/);
+  assert.match(responsiveHtml, /height="80"/);
+  assert.match(responsiveHtml, /class="[^"]*size-20 sm:size-24 object-contain[^"]*"/);
+  assert.ok(!responsiveHtml.includes('style="width:80px;height:80px"'), 'Inline style must not override responsive CSS sizing classes');
 });
 
 test('manifest.webmanifest defines standalone PWA identity with valid existing PNG brand assets', () => {

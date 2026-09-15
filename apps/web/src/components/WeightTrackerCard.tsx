@@ -65,10 +65,10 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
   }, [sortedEntries, unit, units]);
 
   return (
-    <div className="p-5 dark-glass-card rounded-[28px] space-y-2 select-none transition-all hover:border-white/15">
+    <div className="glass-surface rounded-ui-xl border border-border-subtle p-5 space-y-2 select-none shadow-card transition-all hover:border-border-active">
       {/* Top row: Label | Target Button | + Registrar */}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-zinc-400 font-medium tracking-tight">{t('weight.title')}</span>
+        <span className="text-xs text-text-muted font-medium tracking-tight">{t('weight.title')}</span>
 
         <div className="flex items-center gap-2">
           {targetWeight !== null && (
@@ -101,13 +101,13 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
       {/* Main Stat: 78,7 kg  +  Date on the right */}
       <div className="flex items-baseline justify-between pt-0.5">
         <div className="flex items-baseline gap-1">
-          <span className="text-4xl font-extrabold text-white tracking-tight">
+          <span className="text-4xl font-extrabold text-text-primary tracking-tight">
             {latestWeightFormatted}
           </span>
-          <span className="text-base text-zinc-400 font-normal">{unit}</span>
+          <span className="text-base text-text-muted font-normal">{unit}</span>
         </div>
 
-        <span className="text-xs text-zinc-400 font-normal lowercase">
+        <span className="text-xs text-text-muted font-normal lowercase">
           {latestDateStr}
         </span>
       </div>
@@ -126,9 +126,9 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
       ) : (
         <div
           onClick={onOpenGoalModal}
-          className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium cursor-pointer hover:text-white pt-0.5"
+          className="flex items-center gap-1.5 text-xs text-text-muted font-medium cursor-pointer hover:text-text-primary pt-0.5"
         >
-          <Target className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+          <Target className="w-3.5 h-3.5 text-text-muted shrink-0" />
           <span>{t('weight.setGoal')}</span>
         </div>
       )}

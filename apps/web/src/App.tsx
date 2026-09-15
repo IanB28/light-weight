@@ -97,11 +97,13 @@ export function App() {
     user: auth.user
   });
 
-  if (authTarget === 'loading') {
+  const isPreviewMode = typeof window !== 'undefined' && window.location.search.includes('preview=home');
+
+  if (authTarget === 'loading' && !isPreviewMode) {
     return <AuthLoadingScreen />;
   }
 
-  if (authTarget === 'auth_screen') {
+  if (authTarget === 'auth_screen' && !isPreviewMode) {
     return <AuthScreen />;
   }
 

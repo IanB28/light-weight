@@ -95,8 +95,13 @@ export function AuthScreen() {
       <main className="w-full max-w-md my-auto py-4 sm:py-6">
         {/* Brand header */}
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl border border-accent/25 bg-surface-elevated shadow-card">
-            <AppLogo size={40} priority aria-hidden="true" />
+          <div className="mx-auto mb-3 flex justify-center">
+            <AppLogo
+              size={80}
+              priority
+              aria-hidden="true"
+              className="size-20 sm:size-24 object-contain filter drop-shadow-sm select-none"
+            />
           </div>
           <span className="text-[11px] font-bold uppercase tracking-widest text-accent">
             Light Weight
@@ -110,7 +115,7 @@ export function AuthScreen() {
         </div>
 
         {/* Card */}
-        <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-6 sm:p-8 shadow-card transition-all">
+        <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-6 sm:p-7 shadow-card transition-all">
           {/* Google Sign In */}
           {hasGoogleClientId && (
             <div className="space-y-4">
@@ -122,7 +127,7 @@ export function AuthScreen() {
 
               <div className="relative flex items-center justify-center">
                 <div className="w-full border-t border-border-subtle" />
-                <span className="relative bg-surface px-3 text-[11px] font-medium text-text-muted uppercase">
+                <span className="relative rounded-full border border-border-subtle bg-surface-elevated px-3 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-text-muted uppercase shadow-xs">
                   {t('auth.or')}
                 </span>
               </div>

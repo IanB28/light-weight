@@ -86,7 +86,7 @@ const ES = {
   'profile.invalidBirthDate': 'Introduce una fecha de nacimiento válida.',
   'profile.exerciseUnavailable': 'Ejercicio no disponible',
   'auth.mode': 'Acceso a cuenta', 'auth.login': 'Iniciar sesión', 'auth.register': 'Registrarme',
-  'auth.welcomeBack': 'Bienvenido de vuelta', 'auth.welcomeSubtitle': 'Inicia sesión para continuar',
+  'auth.welcomeBack': 'Bienvenido', 'auth.welcomeSubtitle': 'Inicia sesión para continuar',
   'auth.registerTitle': 'Crear cuenta', 'auth.registerSubtitle': 'Comienza a registrar tus entrenamientos',
   'auth.continueWithGoogle': 'Continuar con Google', 'auth.or': 'o',
   'auth.noAccount': '¿No tienes cuenta?', 'auth.hasAccount': '¿Ya tienes cuenta?',
@@ -332,7 +332,7 @@ const EN: Record<TranslationKey, string> = {
   'profile.saved': 'Profile updated.', 'profile.invalidUsername': 'Use 3–30 letters, numbers, periods, or underscores.',
   'profile.invalidBirthDate': 'Enter a valid birth date.', 'profile.exerciseUnavailable': 'Exercise unavailable',
   'auth.mode': 'Account access', 'auth.login': 'Log in', 'auth.register': 'Register',
-  'auth.welcomeBack': 'Welcome back', 'auth.welcomeSubtitle': 'Sign in to continue',
+  'auth.welcomeBack': 'Welcome', 'auth.welcomeSubtitle': 'Sign in to continue',
   'auth.registerTitle': 'Create account', 'auth.registerSubtitle': 'Start tracking your workouts',
   'auth.continueWithGoogle': 'Continue with Google', 'auth.or': 'or',
   'auth.noAccount': "Don't have an account?", 'auth.hasAccount': 'Already have an account?',
@@ -509,7 +509,7 @@ const EN: Record<TranslationKey, string> = {
   'error.unknown': 'We could not complete the operation. Your local data is still safe.'
 };
 
-const dictionaries: Record<Language, Record<TranslationKey, string>> = { es: ES, en: EN };
+export const dictionaries: Record<Language, Record<TranslationKey, string>> = { es: ES, en: EN };
 type Variables = Record<string, string | number>;
 
 interface I18nValue {

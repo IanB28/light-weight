@@ -18,8 +18,13 @@ export function AuthLoadingScreen() {
       />
 
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className="flex size-16 items-center justify-center rounded-2xl border border-accent/25 bg-surface-elevated shadow-card">
-          <AppLogo size={44} priority aria-hidden="true" />
+        <div className="flex justify-center">
+          <AppLogo
+            size={72}
+            priority
+            aria-hidden="true"
+            className="size-16 sm:size-20 object-contain filter drop-shadow-sm select-none"
+          />
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-text-muted">
           <LoaderCircle className="size-4 animate-spin text-accent" aria-hidden="true" />
