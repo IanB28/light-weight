@@ -105,15 +105,6 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave, onO
           <span>{t('profile.birthDate')}</span>
           <input type="date" value={draft.birthDate || ''} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setDraft((current) => ({ ...current, birthDate: event.target.value || undefined }))} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25" />
         </label>
-        <div className="space-y-1.5">
-          <span className="text-xs font-bold text-text-secondary">{t('profile.gender')}</span>
-          <SegmentedControl
-            value={draft.gender || ''}
-            label={t('profile.gender')}
-            options={[{ value: 'male', label: t('profile.male') }, { value: 'female', label: t('profile.female') }]}
-            onChange={(gender) => setDraft((current) => ({ ...current, gender: gender as 'male' | 'female' }))}
-          />
-        </div>
         {error && <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</p>}
         <div className="grid grid-cols-2 gap-2 pt-1">
           <Button type="button" variant="secondary" onClick={() => setMode('summary')}>{t('common.cancel')}</Button>

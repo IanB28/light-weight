@@ -118,10 +118,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   const currentGender: Gender | undefined = profile.gender;
 
-  const handleGenderChange = (newGender: Gender) => {
-    onSaveProfile({ gender: newGender });
-  };
-
   const [isBwModalOpen, setIsBwModalOpen] = useState(false);
   const currentBodyweightKg = useMemo(() => bodyweightEntries.at(-1)?.weightKg ?? null, [bodyweightEntries]);
 
@@ -134,7 +130,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   // Exercise lookup dictionary
   const statsSnapshot = useMemo(
-    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender || 'male'),
+    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender),
     [history, exercises, muscleWindow, currentBodyweightKg, currentGender]
   );
   const exercisesById = statsSnapshot.exercisesById;
@@ -244,11 +240,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   // Nivel de fuerza y ratio según el peso corporal del usuario
   const userStrengthEval = useMemo(() => {
-    if (!selectedCalcExercise || !currentBodyweightKg) return null;
+    if (!selectedCalcExercise || !currentBodyweightKg || !currentGender) return null;
     return evaluateRelativeStrength(
       selectedCalcExercise.primaryMuscle,
       estimate.average,
-      currentBodyweightKg || 0,
+      currentBodyweightKg,
       currentGender
     );
   }, [selectedCalcExercise, estimate.average, currentBodyweightKg, currentGender]);
@@ -405,34 +401,25 @@ export const StatsView: React.FC<StatsViewProps> = ({
           <div id={sectionPanelIds.muscles} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {/* Barra de Perfil Biométrico: Género y Peso Corporal */}
             <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
+              <span className="text-[10px] font-mono font-bold text-text-muted uppercase">
                 {t('stats.strengthStandards')}
               </span>
-              <div className="flex items-center gap-1 bg-zinc-900/90 border border-white/[0.08] p-0.5 rounded-xl text-xs font-mono">
-                <button
-                  type="button"
-                  onClick={() => handleGenderChange('male')}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    currentGender === 'male'
-                      ? 'bg-accent text-accent-fg shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {t('stats.male')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleGenderChange('female')}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    currentGender === 'female'
-                      ? 'bg-accent text-accent-fg shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {t('stats.female')}
-                </button>
-                <span className="text-zinc-700 px-1">|</span>
-                <span className="text-zinc-300 font-bold px-1.5">{currentBodyweightKg ? formatDisplayWeight(currentBodyweightKg, preferences.bodyweightUnits) : t('stats.noWeight')}</span>
+              <div className="flex items-center gap-1.5 bg-surface-input border border-border-subtle p-1 rounded-xl text-xs font-mono">
+                {currentGender ? (
+                  <span className="px-2.5 py-0.5 rounded-lg font-bold bg-accent-soft text-accent text-xs">
+                    {currentGender === 'male' ? t('stats.male') : t('stats.female')}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    className="px-2.5 py-0.5 rounded-lg font-bold text-xs bg-accent text-accent-fg hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                  >
+                    {t('stats.configureGender')}
+                  </button>
+                )}
+                <span className="text-border-subtle px-0.5">|</span>
+                <span className="text-text-secondary font-bold px-1.5">{currentBodyweightKg ? formatDisplayWeight(currentBodyweightKg, preferences.bodyweightUnits) : t('stats.noWeight')}</span>
               </div>
             </div>
 
@@ -450,10 +437,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                <Activity className="w-3.5 h-3.5" />
+                <Scale className="w-3.5 h-3.5" />
                 <span>{t('stats.balance')}</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => {
@@ -462,14 +448,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 }}
                 className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   muscleAnalysisMode === 'fatigue'
-                    ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                    ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                <Zap className="w-3.5 h-3.5" />
+                <Flame className="w-3.5 h-3.5" />
                 <span>{t('stats.fatigue')}</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => {
@@ -478,7 +463,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 }}
                 className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   muscleAnalysisMode === 'strength'
-                    ? 'bg-purple-500 text-white shadow-md shadow-purple-500/20'
+                    ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -487,26 +472,24 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </button>
             </div>
 
-            {/* Selector de Ventana de Tiempo (Segmented Control compacto) */}
+            {/* Filtros Contextuales según el Modo */}
             {muscleAnalysisMode === 'balance' && (
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase shrink-0">
-                  {t('stats.window')}
-                </span>
-                <div className="grid grid-cols-4 gap-1 text-xs bg-zinc-900/60 p-1 rounded-xl border border-white/[0.04]">
-                  {[
+              <div className="flex items-center justify-between px-1 text-xs">
+                <span className="text-zinc-500 font-mono text-[10px] uppercase font-bold">{t('stats.window')}</span>
+                <div className="flex items-center gap-1 bg-black/40 border border-white/[0.06] p-0.5 rounded-xl text-[11px] font-mono">
+                  {([
                     { days: 7, label: '7d', title: t('stats.last7Days') },
-                    { days: 30, label: '30d', title: t('stats.last30') },
                     { days: 90, label: '90d', title: t('stats.last90Days') },
                     { days: 0, label: t('stats.allTime'), title: t('stats.fullHistory') }
-                  ].map((opt) => (
+                  ] as const).map((opt) => (
                     <button
                       key={opt.days}
+                      type="button"
                       onClick={() => setMuscleWindow(opt.days)}
-                      className={`px-2.5 py-1 rounded-lg font-bold font-mono text-[11px] text-center transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                         muscleWindow === opt.days
-                          ? 'bg-zinc-800 text-white border border-white/[0.1] shadow-sm'
-                          : 'text-zinc-500 hover:text-zinc-300'
+                          ? 'bg-accent text-accent-fg shadow-sm'
+                          : 'text-zinc-400 hover:text-white'
                       }`}
                       title={opt.title}
                     >
@@ -524,7 +507,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               gender={currentGender}
               selectedMuscle={selectedMuscle}
               onSelectMuscle={setSelectedMuscle}
-              onSelectGender={handleGenderChange}
+              onConfigureGender={onOpenSettings}
             />
 
             {/* Subsección A: Músculos Rezagados como Lista Desplegable */}
@@ -1189,7 +1172,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             )}
 
             {/* 3. Tarjeta de Estándar Biométrico y Nivel de Fuerza (StrengthLevel) */}
-            {userStrengthEval && (
+            {userStrengthEval ? (
               <div className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="text-3xl shrink-0" title={userStrengthEval.tierLabelEs}>
@@ -1226,7 +1209,21 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   </div>
                 )}
               </div>
-            )}
+            ) : !currentGender && currentBodyweightKg && selectedCalcExercise ? (
+              <div className="p-3 rounded-2xl glass-subcard border border-border-subtle flex items-center justify-between gap-3 text-xs text-text-muted">
+                <div className="space-y-0.5 min-w-0">
+                  <p className="font-bold text-text-primary">{t('stats.strengthStandards')}</p>
+                  <p className="text-[11px] text-text-muted">{t('stats.genderRequiredForStandards')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="px-2.5 py-1.5 rounded-lg bg-accent text-accent-fg font-bold text-xs shrink-0 cursor-pointer hover:opacity-90 active:scale-95 transition-all"
+                >
+                  {t('stats.configureGender')}
+                </button>
+              </div>
+            ) : null}
 
             {/* 4. Inputs con Botones de Ajuste Rápido (+/- 2.5 kg, +/- 1 rep) */}
             <div className="grid grid-cols-2 gap-3">

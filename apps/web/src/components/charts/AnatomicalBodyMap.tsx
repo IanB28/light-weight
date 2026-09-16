@@ -36,6 +36,7 @@ interface AnatomicalBodyMapProps {
   gender?: Gender;
   selectedMuscle: MuscleGroup | null;
   onSelectMuscle: (muscle: MuscleGroup | null) => void;
+  onConfigureGender?: () => void;
   onSelectGender?: (gender: Gender) => void;
   className?: string;
 }
@@ -92,6 +93,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   gender,
   selectedMuscle,
   onSelectMuscle,
+  onConfigureGender,
   onSelectGender,
   className = ''
 }) => {
@@ -100,8 +102,8 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   if (!gender || (gender !== 'male' && gender !== 'female')) {
     return (
-      <div className={`p-6 flex flex-col items-center justify-center text-center rounded-3xl border border-border-subtle bg-gradient-to-b from-white/[0.07] to-white/[0.02] shadow-2xl relative overflow-hidden backdrop-blur-xl space-y-4 ${className}`}>
-        <div className="flex size-12 items-center justify-center rounded-full bg-accent/15 text-accent">
+      <div className={`p-6 flex flex-col items-center justify-center text-center rounded-ui-xl border border-border-subtle bg-surface shadow-card relative overflow-hidden space-y-4 ${className}`}>
+        <div className="flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent">
           <UserRound className="size-6" />
         </div>
         <div className="space-y-1">
@@ -112,24 +114,32 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             {t('stats.selectBodyMapDescription')}
           </p>
         </div>
-        {onSelectGender && (
-          <div className="flex items-center gap-2 p-1 bg-zinc-900/90 rounded-ui-lg border border-border-subtle">
+        {onConfigureGender ? (
+          <button
+            type="button"
+            onClick={onConfigureGender}
+            className="px-4 py-2 rounded-ui-md font-bold text-xs bg-accent text-accent-fg hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
+          >
+            {t('stats.configureGender')}
+          </button>
+        ) : onSelectGender ? (
+          <div className="flex items-center gap-2 p-1 bg-surface-input rounded-ui-lg border border-border-subtle">
             <button
               type="button"
               onClick={() => onSelectGender('male')}
-              className="px-4 py-2 rounded-ui-md font-bold text-xs bg-surface-input text-text-primary hover:bg-surface-active active:scale-95 transition-all cursor-pointer"
+              className="px-4 py-2 rounded-ui-md font-bold text-xs bg-surface text-text-primary hover:bg-surface-active active:scale-95 transition-all cursor-pointer"
             >
               {t('stats.male')}
             </button>
             <button
               type="button"
               onClick={() => onSelectGender('female')}
-              className="px-4 py-2 rounded-ui-md font-bold text-xs bg-surface-input text-text-primary hover:bg-surface-active active:scale-95 transition-all cursor-pointer"
+              className="px-4 py-2 rounded-ui-md font-bold text-xs bg-surface text-text-primary hover:bg-surface-active active:scale-95 transition-all cursor-pointer"
             >
               {t('stats.female')}
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     );
   }

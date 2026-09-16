@@ -24,7 +24,7 @@ export function selectExercisesWithHistory(history: WorkoutSession[], exercisesB
   return [...ids].map((id) => exercisesById[id] || { id, name: 'Ejercicio no disponible', category: 'other', primaryMuscle: 'chest' as MuscleGroup }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function selectMuscleAnalytics(history: WorkoutSession[], exercisesById: Record<string, Exercise>, windowDays: number, bodyweightKg: number | null, gender: Gender): { muscleAnalysis: ReturnType<typeof getNeglectedMuscles>; fatigueMap: ReturnType<typeof calculateMuscleFatigue>; fullMuscleAnalytics: Record<MuscleGroup, StatsMuscleAnalytics> } {
+export function selectMuscleAnalytics(history: WorkoutSession[], exercisesById: Record<string, Exercise>, windowDays: number, bodyweightKg: number | null, gender?: Gender): { muscleAnalysis: ReturnType<typeof getNeglectedMuscles>; fatigueMap: ReturnType<typeof calculateMuscleFatigue>; fullMuscleAnalytics: Record<MuscleGroup, StatsMuscleAnalytics> } {
   const muscleAnalysis = getNeglectedMuscles(history, exercisesById, windowDays);
   const fatigueMap = calculateMuscleFatigue(history, exercisesById);
   const workedMap = new Map(muscleAnalysis.worked.map((worked) => [worked.muscle, worked]));
@@ -48,7 +48,7 @@ export function selectMuscleAnalytics(history: WorkoutSession[], exercisesById: 
       fatigueScore: fatigue.fatigueScore, recoveryStatus: fatigue.status, recoveryPct: fatigue.recoveryPct,
       lastTrainedHoursAgo: fatigue.hoursSinceLastTrained, recentHardSetsCount: fatigue.recentHardSetsCount,
       topEst1RmKg: strength.top1Rm, topExerciseName: strength.exName,
-      strengthEvaluation: bodyweightKg && strength.top1Rm > 0 ? evaluateRelativeStrength(muscle, strength.top1Rm, bodyweightKg, gender) : undefined
+      strengthEvaluation: gender && bodyweightKg && strength.top1Rm > 0 ? evaluateRelativeStrength(muscle, strength.top1Rm, bodyweightKg, gender) : undefined
     };
   });
   return { muscleAnalysis, fatigueMap, fullMuscleAnalytics };
@@ -77,7 +77,7 @@ export function selectLastTopSet(history: WorkoutSession[], exerciseId: string) 
   return null;
 }
 
-export function selectStatsSnapshot(history: WorkoutSession[], exercises: Exercise[], windowDays: number, bodyweightKg: number | null, gender: Gender) {
+export function selectStatsSnapshot(history: WorkoutSession[], exercises: Exercise[], windowDays: number, bodyweightKg: number | null, gender?: Gender) {
   const exercisesById = buildExercisesById(exercises);
   return {
     exercisesById,

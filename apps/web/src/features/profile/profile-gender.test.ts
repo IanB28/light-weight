@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import { ALL_MUSCLE_GROUPS, type AuthUser, type Gender, type MuscleGroup } from '@light-weight/domain';
@@ -211,7 +213,7 @@ test('AnatomicalBodyMap: gender === "female" renders ONLY female SVG geometry an
   assert.ok(!html.includes('Selecciona tu mapa corporal'));
 });
 
-test('AnatomicalBodyMap: unset gender displays neutral prompt and does NOT render body SVGs', () => {
+test('AnatomicalBodyMap: unset gender displays neutral prompt with CTA and does NOT render body SVGs', () => {
   const analytics = createMockAnalytics();
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(
@@ -223,7 +225,7 @@ test('AnatomicalBodyMap: unset gender displays neutral prompt and does NOT rende
         gender: undefined,
         selectedMuscle: null,
         onSelectMuscle: () => {},
-        onSelectGender: () => {}
+        onConfigureGender: () => {}
       })
     )
   );
@@ -231,16 +233,20 @@ test('AnatomicalBodyMap: unset gender displays neutral prompt and does NOT rende
   // Must not render either male or female SVG body paths
   assert.ok(!html.includes('50 94 628 1248'), 'Male SVG viewBox must NOT be rendered when gender is unset');
   assert.ok(!html.includes('0 0 650 1450'), 'Female SVG viewBox must NOT be rendered when gender is unset');
-  // Must render the neutral prompt and buttons
+  // Must render the neutral prompt and CTA
   assert.ok(html.includes('Selecciona tu mapa corporal'));
-  assert.ok(html.includes('Hombre'));
-  assert.ok(html.includes('Mujer'));
+  assert.ok(html.includes('Configurar género'));
+
+  // Must NOT contain hardcoded non-semantic tokens
+  assert.ok(!html.includes('from-white/'), 'Must not contain hardcoded from-white/*');
+  assert.ok(!html.includes('bg-zinc-'), 'Must not contain hardcoded bg-zinc-* in neutral card');
+  assert.ok(!html.includes('border-white/'), 'Must not contain hardcoded border-white/* in neutral card');
 });
 
-test('ProfileView renders visible Gender section with Hombre and Mujer options', () => {
+test('ProfileView renders visible Gender section in summary and does NOT duplicate in edit mode', () => {
   const mockUserInfo = { id: 'u-1', name: 'Atleta', email: 'atleta@test.com' };
 
-  // 1. Profile with unset gender
+  // 1. Profile with unset gender in summary
   const unsetProfile: UserProfile = { displayName: 'Atleta' };
   const unsetHtml = ReactDOMServer.renderToStaticMarkup(
     React.createElement(
@@ -297,4 +303,60 @@ test('ProfileView renders visible Gender section with Hombre and Mujer options',
   assert.ok(femaleHtml.includes('Género'));
   assert.ok(femaleHtml.includes('Mujer'));
   assert.ok(!femaleHtml.includes('Sin especificar'));
+});
+
+test('Stats selectors: undefined gender does NOT evaluate relative strength as male', async () => {
+  const { selectMuscleAnalytics } = await import('../stats/stats-selectors.js');
+  const mockExercisesById = {
+    'ex-bench': {
+      id: 'ex-bench',
+      name: 'Press Banca',
+      category: 'barbell' as const,
+      primaryMuscle: 'chest' as const
+    }
+  };
+  const mockHistory = [
+    {
+      id: 'session-1',
+      userId: 'user-1',
+      startedAt: new Date().toISOString(),
+      sets: {
+        'ex-bench': [
+          { setIndex: 0, setType: 'working' as const, weightKg: 80, reps: 8, completed: true }
+        ]
+      }
+    }
+  ];
+
+  // 1. Without gender: muscleAnalysis and fatigueMap work, but strengthEvaluation is undefined
+  const analyticsUnset = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, undefined);
+  assert.ok(analyticsUnset.fullMuscleAnalytics.chest.sets > 0, 'Volume/sets must calculate normally without gender');
+  assert.equal(
+    analyticsUnset.fullMuscleAnalytics.chest.strengthEvaluation,
+    undefined,
+    'Relative strength standard MUST be undefined when gender is not specified'
+  );
+
+  // 2. With male gender: strengthEvaluation is computed
+  const analyticsMale = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, 'male');
+  assert.ok(analyticsMale.fullMuscleAnalytics.chest.strengthEvaluation, 'Male strength standard must be calculated');
+
+  // 3. With female gender: strengthEvaluation is computed differently
+  const analyticsFemale = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, 'female');
+  assert.ok(analyticsFemale.fullMuscleAnalytics.chest.strengthEvaluation, 'Female strength standard must be calculated');
+});
+
+test('Codebase verification: No silent gender || "male" fallback exists in StatsView or App', () => {
+  const statsViewContent = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/views/StatsView.tsx'),
+    'utf8'
+  );
+  assert.ok(
+    !statsViewContent.includes("currentGender || 'male'"),
+    "StatsView.tsx must NOT contain currentGender || 'male'"
+  );
+  assert.ok(
+    !statsViewContent.includes('currentGender || "male"'),
+    'StatsView.tsx must NOT contain currentGender || "male"'
+  );
 });
