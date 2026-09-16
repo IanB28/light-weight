@@ -14,7 +14,7 @@ import { useI18n } from './lib/i18n.js';
 import { useAppData } from './lib/useAppData.js';
 import { useWorkoutSession } from './features/workouts/useWorkoutSession.js';
 import { useRestTimer } from './features/workouts/useRestTimer.js';
-import type { MuscleGroup } from '@light-weight/domain';
+import { resolveBodyweightKgAtDate, type MuscleGroup } from '@light-weight/domain';
 import { useAuth } from './lib/auth-context.js';
 import { switchStoredUserScope, type UserProfile } from './lib/storage.js';
 import { AuthScreen } from './features/auth/AuthScreen.js';
@@ -36,7 +36,8 @@ export function App() {
     routines: data.routines,
     history: data.history,
     preferences,
-    userId: auth.user?.id || data.userInfo.id
+    userId: auth.user?.id || data.userInfo.id,
+    bodyweightEntries: data.bodyweightEntries
   });
   const restTimer = useRestTimer();
 
@@ -164,6 +165,7 @@ export function App() {
           exerciseSessions={workout.exerciseSessions}
           availableExercises={data.exercises}
           history={data.history}
+          currentBodyweightKg={resolveBodyweightKgAtDate(data.bodyweightEntries)}
           onToggleSet={workout.toggleSet}
           onUpdateSet={workout.updateSet}
           onAddSet={workout.addSet}

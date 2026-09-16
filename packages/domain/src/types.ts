@@ -28,7 +28,7 @@ export type ExerciseLoadMechanism =
   | 'bodyweight'
   | 'other';
 
-export type ExerciseLoadMode = 'total' | 'per_side' | 'per_hand' | 'added_weight';
+export type ExerciseLoadMode = 'total' | 'per_side' | 'per_hand' | 'added_weight' | 'assisted';
 export type ExercisePlateBaseKind = 'user_bar' | 'fixed' | 'none';
 
 export interface ExercisePlateBase {
@@ -43,8 +43,9 @@ export interface ExercisePlateBase {
  *
  * `total` stores the total exercise load. `per_side` stores the load handled by
  * one working side. `per_hand` stores the weight of each dumbbell/hand.
- * `added_weight` stores only external load added to body weight. Stored values
- * are never implicitly doubled based on unilateral wording.
+ * `added_weight` stores only external load added to body weight.
+ * `assisted` stores machine assistance / counterweight that is subtracted from body weight.
+ * Stored values are never implicitly doubled based on unilateral wording.
  */
 export interface ExerciseLoadingProfile {
   mechanism: ExerciseLoadMechanism;
@@ -55,6 +56,11 @@ export interface ExerciseLoadingProfile {
   includeBarWeight: boolean;
   /** Optional for legacy entries; the resolver supplies a semantic default. */
   plateBase?: ExercisePlateBase;
+  /**
+   * Explicit bodyweight contribution factor (e.g. 1.0 for pull-ups, chin-ups, dips).
+   * Undefined when biomechanical contribution is unknown or not reliably quantified.
+   */
+  bodyweightFactor?: number;
 }
 
 export interface Exercise {
@@ -130,3 +136,5 @@ export interface BestSetRecord {
 }
 
 export type ProgressionPolicy = 'off' | 'linear' | 'greyskull' | 'double' | 'time';
+
+export type { BodyweightEntry, BodyweightEntryLike } from './weight.js';

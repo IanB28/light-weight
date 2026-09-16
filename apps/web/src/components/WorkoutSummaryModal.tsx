@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trophy, Clock, Dumbbell, Flame, Check, Sparkles } from 'lucide-react';
-import { Exercise } from '@light-weight/domain';
+import type { Exercise, ExerciseLoadMode } from '@light-weight/domain';
 import { getTonnageEquivalences } from '../lib/tonnage.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { formatDisplayWeight } from '../lib/weight-units.js';
@@ -15,6 +15,7 @@ export interface CompletedWorkoutSummary {
     weightKg: number;
     reps: number;
     estimatedOneRm: number;
+    loadMode?: ExerciseLoadMode;
   }>;
 }
 
@@ -113,14 +114,24 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
               <span>¡Nuevos Récords Personales (PR)!</span>
             </div>
             <div className="space-y-1">
-              {summary.newRecords.map((rec, i) => (
-                <div key={i} className="flex items-center justify-between text-xs text-zinc-300">
-                  <span className="font-semibold text-white">{rec.exerciseName}</span>
-                  <span className="font-mono text-amber-400 font-bold">
-                    {formatDisplayWeight(rec.weightKg, preferences.units)} × {rec.reps} (1RM: ~{formatDisplayWeight(rec.estimatedOneRm, preferences.units)})
-                  </span>
-                </div>
-              ))}
+              {summary.newRecords.map((rec, i) => {
+                const loadPrefix = rec.loadMode === 'assisted'
+                  ? '-'
+                  : rec.loadMode === 'added_weight' && rec.weightKg > 0
+                    ? '+'
+                    : '';
+                const loadLabel = rec.loadMode === 'added_weight' && rec.weightKg === 0
+                  ? 'BW'
+                  : `${loadPrefix}${formatDisplayWeight(rec.weightKg, preferences.units)}`;
+                return (
+                  <div key={i} className="flex items-center justify-between text-xs text-zinc-300">
+                    <span className="font-semibold text-white">{rec.exerciseName}</span>
+                    <span className="font-mono text-amber-400 font-bold">
+                      {loadLabel} × {rec.reps} (1RM: ~{formatDisplayWeight(rec.estimatedOneRm, preferences.units)})
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

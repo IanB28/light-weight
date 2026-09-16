@@ -1,5 +1,5 @@
-import type { LoggedSet, MuscleGroup, ProgressionPolicy } from './types.js';
-import { shouldCountForVolume } from './setSemantics.js';
+import type { Exercise, ExerciseLoadMode, LoggedSet, MuscleGroup, ProgressionPolicy } from './types.js';
+import { calculateEffectiveLoadKg, shouldCountForVolume } from './setSemantics.js';
 
 export const DELOAD_FACTOR = 0.9;
 export const MAX_BODYWEIGHT_SETS = 6;
@@ -33,13 +33,29 @@ export function calculateDeload(currentWeightKg: number, stepKg: number = 2.5): 
   return Math.max(stepKg, next);
 }
 
+export interface VolumeCalculationOptions {
+  exercise?: Pick<Exercise, 'id' | 'category' | 'name' | 'instructions' | 'loading'>;
+  bodyweightKg?: number | null;
+  loadModeOverride?: ExerciseLoadMode;
+}
+
 /**
- * Calculates the total training volume (reps * weight) for completed working sets.
+ * Calculates the total training volume (reps * effectiveLoadKg) for completed working sets.
  */
-export function calculateVolume(sets: LoggedSet[]): number {
+export function calculateVolume(sets: LoggedSet[], options?: VolumeCalculationOptions): number {
   return sets
     .filter(shouldCountForVolume)
-    .reduce((total, s) => total + s.weightKg * s.reps, 0);
+    .reduce((total, s) => {
+      const effectiveWeight = options?.exercise
+        ? calculateEffectiveLoadKg({
+            exercise: options.exercise,
+            setWeightKg: s.weightKg,
+            bodyweightKg: options.bodyweightKg,
+            loadModeOverride: options.loadModeOverride
+          })
+        : Math.max(0, s.weightKg);
+      return total + effectiveWeight * s.reps;
+    }, 0);
 }
 
 /**

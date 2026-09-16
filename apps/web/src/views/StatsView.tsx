@@ -130,8 +130,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   // Exercise lookup dictionary
   const statsSnapshot = useMemo(
-    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender),
-    [history, exercises, muscleWindow, currentBodyweightKg, currentGender]
+    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries),
+    [history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries]
   );
   const exercisesById = statsSnapshot.exercisesById;
 
@@ -156,8 +156,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
     : exercisesWithHistory[0]?.id || 'ex-bench';
 
   const exerciseSeries = useMemo(() => {
-    return getExerciseProgressSeries(history, currentExerciseId);
-  }, [history, currentExerciseId]);
+    return getExerciseProgressSeries(history, currentExerciseId, {
+      exercise: exercisesById[currentExerciseId],
+      bodyweightEntries
+    });
+  }, [history, currentExerciseId, exercisesById, bodyweightEntries]);
 
   const exerciseChartPoints: ChartPoint[] = useMemo(() => {
     return exerciseSeries

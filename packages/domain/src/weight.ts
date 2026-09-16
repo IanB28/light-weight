@@ -75,3 +75,41 @@ export function decomposeLoadedBarWeight(
     isExact: exactCounts !== null
   };
 }
+
+export interface BodyweightEntryLike {
+  date: string;
+  weightKg: number;
+}
+
+export type BodyweightEntry = BodyweightEntryLike;
+
+/**
+ * Resolves the relevant bodyweight (in kg) at a specific workout date.
+ *
+ * Rules:
+ * - Active workout (no date provided): latest known valid bodyweight.
+ * - Historical session (date provided): latest valid bodyweight entry whose date <= workout date.
+ * - If no eligible historical entry exists: returns null (does NOT invent a fallback weight).
+ */
+export function resolveBodyweightKgAtDate(
+  entries: readonly BodyweightEntryLike[] | undefined | null,
+  workoutDate?: string | null
+): number | null {
+  if (!entries || entries.length === 0) return null;
+
+  const validEntries = entries.filter(
+    (e) => Number.isFinite(e.weightKg) && e.weightKg > 0 && typeof e.date === 'string'
+  );
+  if (validEntries.length === 0) return null;
+
+  if (!workoutDate) {
+    return validEntries[validEntries.length - 1].weightKg;
+  }
+
+  const targetDay = workoutDate.slice(0, 10);
+  const eligible = validEntries.filter((entry) => entry.date.slice(0, 10) <= targetDay);
+  if (eligible.length === 0) return null;
+
+  const sorted = [...eligible].sort((a, b) => a.date.slice(0, 10).localeCompare(b.date.slice(0, 10)));
+  return sorted[sorted.length - 1].weightKg;
+}

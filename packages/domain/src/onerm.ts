@@ -1,5 +1,11 @@
-import type { LoggedSet, OneRmEstimate, OneRmFormula, BestSetRecord } from './types.js';
-import { shouldCountForPersonalRecord } from './setSemantics.js';
+import type { Exercise, LoggedSet, OneRmEstimate, OneRmFormula, BestSetRecord } from './types.js';
+import { calculateEffectiveLoadKg, shouldCountForPersonalRecord } from './setSemantics.js';
+
+export interface SetOneRmOptions {
+  exercise?: Pick<Exercise, 'id' | 'category' | 'name' | 'instructions' | 'loading'> | null;
+  bodyweightKg?: number | null;
+  formula?: OneRmFormula | 'average';
+}
 
 /**
  * Above 12 reps, an estimate says more about work capacity/aerobic endurance than
@@ -65,6 +71,52 @@ export function calculateBrzycki(weightKg: number, reps: number): number {
 export function calculateLombardi(weightKg: number, reps: number): number {
   const est = estimate1RM(weightKg, reps, 'lombardi');
   return est ?? 0;
+}
+
+/**
+ * Calculates estimated 1RM for a single set using its mechanical effective load.
+ *
+ * Returns null if effective load is <= 0 or reps are outside valid estimation bounds (reps > 12).
+ */
+export function calculateSetOneRm(
+  set: Pick<LoggedSet, 'weightKg' | 'reps'>,
+  options?: SetOneRmOptions
+): number | null {
+  const effectiveLoad = options?.exercise
+    ? calculateEffectiveLoadKg({
+        exercise: options.exercise,
+        setWeightKg: set.weightKg,
+        bodyweightKg: options.bodyweightKg
+      })
+    : set.weightKg;
+
+  if (effectiveLoad <= 0) return null;
+  if (options?.formula === 'average') {
+    const est = estimateOneRm(effectiveLoad, set.reps);
+    return est.average > 0 ? est.average : null;
+  }
+  return estimate1RM(effectiveLoad, set.reps, options?.formula ?? DEFAULT_FORMULA);
+}
+
+/**
+ * Full estimate across all 3 formulas and average using effective mechanical load.
+ */
+export function estimateSetOneRm(
+  set: Pick<LoggedSet, 'weightKg' | 'reps'>,
+  options?: SetOneRmOptions
+): OneRmEstimate {
+  const effectiveLoad = options?.exercise
+    ? calculateEffectiveLoadKg({
+        exercise: options.exercise,
+        setWeightKg: set.weightKg,
+        bodyweightKg: options.bodyweightKg
+      })
+    : set.weightKg;
+
+  if (effectiveLoad <= 0) {
+    return { epley: 0, brzycki: 0, lombardi: 0, average: 0 };
+  }
+  return estimateOneRm(effectiveLoad, set.reps);
 }
 
 /**

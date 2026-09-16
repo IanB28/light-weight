@@ -1,7 +1,11 @@
 import {
-  estimate1RM,
-  shouldCountForPersonalRecord,
+  calculateSetOneRm,
+  isSetEligibleForPersonalRecord,
+  resolveBodyweightKgAtDate,
+  resolveExerciseLoadingProfile,
   shouldCountForVolume,
+  type BodyweightEntry,
+  type Exercise,
   type LoggedSet,
   type WorkoutSession
 } from '@light-weight/domain';
@@ -27,6 +31,11 @@ export interface WorkoutHistoryIndex {
   personalRecordsByExercise: Record<string, PersonalRecordInfo>;
 }
 
+export interface BuildWorkoutHistoryIndexOptions {
+  exercisesById?: Record<string, Exercise>;
+  bodyweightEntries?: BodyweightEntry[];
+}
+
 const emptyIndex = (): WorkoutHistoryIndex => ({
   sessionsByExercise: {},
   sessionsByDate: {},
@@ -38,7 +47,10 @@ const emptyIndex = (): WorkoutHistoryIndex => ({
  * Builds reusable history selectors once per history change. All returned data
  * uses canonical set semantics, keeping UI callers free of legacy warm-up checks.
  */
-export function buildWorkoutHistoryIndex(history: WorkoutSession[]): WorkoutHistoryIndex {
+export function buildWorkoutHistoryIndex(
+  history: WorkoutSession[],
+  options?: BuildWorkoutHistoryIndexOptions
+): WorkoutHistoryIndex {
   const index = emptyIndex();
   const newestFirst = [...history].sort(
     (left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt)
@@ -48,8 +60,13 @@ export function buildWorkoutHistoryIndex(history: WorkoutSession[]): WorkoutHist
     const dateKey = session.startedAt.slice(0, 10);
     (index.sessionsByDate[dateKey] ||= []).push(session);
 
+    const sessionBw = options?.bodyweightEntries
+      ? resolveBodyweightKgAtDate(options.bodyweightEntries, session.startedAt)
+      : null;
+
     for (const [exerciseId, sets] of Object.entries(session.sets)) {
       (index.sessionsByExercise[exerciseId] ||= []).push(session);
+      const exercise = options?.exercisesById?.[exerciseId];
 
       if (!index.latestPerformanceByExercise[exerciseId]) {
         const effectiveSets = sets.filter(shouldCountForVolume);
@@ -58,17 +75,24 @@ export function buildWorkoutHistoryIndex(history: WorkoutSession[]): WorkoutHist
             (best, set) => set.weightKg > best.weightKg ? set : best,
             effectiveSets[0]
           );
+          const loading = exercise ? resolveExerciseLoadingProfile(exercise).profile : undefined;
+          let summary = `${topSet.weightKg} kg × ${topSet.reps}`;
+          if (loading?.loadMode === 'assisted') {
+            summary = `-${topSet.weightKg} kg × ${topSet.reps}`;
+          } else if (loading?.loadMode === 'added_weight') {
+            summary = topSet.weightKg === 0 ? `BW × ${topSet.reps}` : `+${topSet.weightKg} kg × ${topSet.reps}`;
+          }
           index.latestPerformanceByExercise[exerciseId] = {
             lastDate: session.startedAt,
             sets: effectiveSets,
-            summary: `${topSet.weightKg} kg × ${topSet.reps}`
+            summary
           };
         }
       }
 
       for (const set of sets) {
-        if (!shouldCountForPersonalRecord(set)) continue;
-        const est1Rm = estimate1RM(set.weightKg, set.reps, 'epley');
+        if (!isSetEligibleForPersonalRecord({ set, exercise, bodyweightKg: sessionBw })) continue;
+        const est1Rm = calculateSetOneRm(set, { exercise, bodyweightKg: sessionBw, formula: 'epley' });
         if (est1Rm === null) continue;
         const existing = index.personalRecordsByExercise[exerciseId];
         if (!existing || est1Rm > existing.est1Rm) {
@@ -95,6 +119,9 @@ export function getLatestPerformance(
 }
 
 /** Compatibility selector for existing consumers during the storage split. */
-export function calculateAllPersonalRecords(history: WorkoutSession[]): Record<string, PersonalRecordInfo> {
-  return buildWorkoutHistoryIndex(history).personalRecordsByExercise;
+export function calculateAllPersonalRecords(
+  history: WorkoutSession[],
+  options?: BuildWorkoutHistoryIndexOptions
+): Record<string, PersonalRecordInfo> {
+  return buildWorkoutHistoryIndex(history, options).personalRecordsByExercise;
 }

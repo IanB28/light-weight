@@ -8,7 +8,7 @@ import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRE
 import { BottomSheet, Button } from '../../components/ui/index.js';
 import { WeightPlate } from './WeightPlate.js';
 
-export function KeyboardWeightInput({ valueKg, units, label, onChange }: { valueKg: number; units: UnitSystem; label: string; onChange: (weightKg: number) => void }) {
+export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }: { valueKg: number; units: UnitSystem; label: string; prefix?: string; onChange: (weightKg: number) => void }) {
   const displayValue = displayWeight(valueKg, units);
   const [draft, setDraft] = useState(displayValue === 0 ? '' : String(displayValue));
 
@@ -22,11 +22,49 @@ export function KeyboardWeightInput({ valueKg, units, label, onChange }: { value
     onChange(normalizeWeightKg(parseDisplayWeight(parsed, units)));
   };
 
-  return <input type="text" inputMode="decimal" value={draft} placeholder="0" onFocus={(event) => event.currentTarget.select()} onChange={(event) => setDraft(event.target.value.replace(/[^0-9.,]/g, ''))} onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit(); event.currentTarget.blur(); } }} aria-label={label} className="h-11 min-w-0 w-full rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 min-[390px]:w-16" />;
+  return (
+    <div className="relative flex min-w-0 w-full items-center justify-center">
+      {prefix && (
+        <span className="pointer-events-none absolute left-2 font-mono text-xs font-bold text-accent">
+          {prefix}
+        </span>
+      )}
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        placeholder={prefix ? `${prefix}0` : '0'}
+        onFocus={(event) => event.currentTarget.select()}
+        onChange={(event) => setDraft(event.target.value.replace(/[^0-9.,]/g, ''))}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commit();
+            event.currentTarget.blur();
+          }
+        }}
+        aria-label={label}
+        className={`h-11 min-w-0 w-full rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 min-[390px]:w-16 ${
+          prefix ? 'pl-5 pr-1' : ''
+        }`}
+      />
+    </div>
+  );
 }
 
-export function PlateWeightButton({ valueKg, units, label, onClick }: { valueKg: number; units: UnitSystem; label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-label={label} className="flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><Disc3 aria-hidden="true" className="size-3.5 shrink-0" /><span className="truncate">{displayWeight(valueKg, units)}</span></button>;
+export function PlateWeightButton({ valueKg, units, label, prefix, onClick }: { valueKg: number; units: UnitSystem; label: string; prefix?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      <Disc3 aria-hidden="true" className="size-3.5 shrink-0" />
+      <span className="truncate">{prefix ? `${prefix}${displayWeight(valueKg, units)}` : displayWeight(valueKg, units)}</span>
+    </button>
+  );
 }
 
 export function PlatePickerSheet({ open, onClose, valueKg, units, baseWeightKg, availablePlatesKg, includeBarWeight, allowBarToggle, loading, onApply }: { open: boolean; onClose: () => void; valueKg: number; units: UnitSystem; baseWeightKg: number; availablePlatesKg: number[]; includeBarWeight: boolean; allowBarToggle: boolean; loading: ExerciseLoadingProfile; onApply: (weightKg: number, includeBarWeight: boolean, baseWeightKg: number) => void }) {

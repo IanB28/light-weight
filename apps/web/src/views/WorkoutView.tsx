@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { Dumbbell, Plus } from 'lucide-react';
-import { DEFAULT_EXERCISE_LOADING_PROFILE, estimateOneRm, shouldCountForPersonalRecord, shouldCountForVolume, type Exercise, type LoggedSet, type MuscleGroup, type Routine, type WorkoutSetType } from '@light-weight/domain';
+import {
+  DEFAULT_EXERCISE_LOADING_PROFILE,
+  calculateEffectiveLoadKg,
+  calculateSetOneRm,
+  isSetEligibleForPersonalRecord,
+  shouldCountForVolume,
+  type Exercise,
+  type LoggedSet,
+  type MuscleGroup,
+  type Routine,
+  type WorkoutSetType
+} from '@light-weight/domain';
 import { AddExerciseModal } from '../components/AddExerciseModal.js';
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
 import { WorkoutSummaryModal, type CompletedWorkoutSummary } from '../components/WorkoutSummaryModal.js';
@@ -22,6 +33,7 @@ interface WorkoutViewProps {
   exerciseSessions: ActiveExerciseSession[];
   availableExercises: Exercise[];
   history: import('@light-weight/domain').WorkoutSession[];
+  currentBodyweightKg?: number | null;
   onToggleSet: (exerciseId: string, setIndex: number) => void;
   onUpdateSet: (exerciseId: string, setIndex: number, field: 'weightKg' | 'reps' | 'rir', value: number) => void;
   onAddSet: (exerciseId: string, setType?: WorkoutSetType) => void;
@@ -55,6 +67,7 @@ const isValidWorkoutSet = (set: LoggedSet) => Number.isFinite(set.weightKg) && s
 
 export const WorkoutView: React.FC<WorkoutViewProps> = ({
   isWorkoutActive, routines, routineName, sessionDuration, exerciseSessions, availableExercises, history,
+  currentBodyweightKg,
   onToggleSet, onUpdateSet, onAddSet, onRemoveSet, onAddExercise, onRemoveExercise, onCreateCustomExercise,
   onFinishWorkout, onCancelWorkout, onStartRestTimer, onStartRoutine, preferences, onUpdateWeightInputMode,
   onToggleAddedWeight, onUpdateBarInclusion, onUpdatePlateBaseWeight
@@ -68,16 +81,68 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   const displayRoutineName = routineName === 'Entrenamiento Libre' ? t('workout.freeWorkout') : routineName;
   const completedSetsCount = exerciseSessions.reduce((count, session) => count + session.sets.filter((set) => set.completed && isValidWorkoutSet(set)).length, 0);
   const totalSetsCount = exerciseSessions.reduce((count, session) => count + session.sets.length, 0);
-  const totalVolumeKg = exerciseSessions.reduce((total, session) => total + session.sets.filter(shouldCountForVolume).reduce((sum, set) => sum + Math.max(0, set.weightKg * set.reps), 0), 0);
+  const totalVolumeKg = exerciseSessions.reduce(
+    (total, session) =>
+      total +
+      session.sets
+        .filter(shouldCountForVolume)
+        .reduce(
+          (sum, set) =>
+            sum +
+            calculateEffectiveLoadKg({
+              exercise: session.exercise,
+              setWeightKg: set.weightKg,
+              bodyweightKg: currentBodyweightKg
+            }) *
+              set.reps,
+          0
+        ),
+    0
+  );
 
   const handleFinishClick = () => {
     if (completedSetsCount === 0) return;
     const newRecords: CompletedWorkoutSummary['newRecords'] = [];
     exerciseSessions.forEach((session) => {
-      const bestSet = session.sets.filter((set) => shouldCountForPersonalRecord(set) && isValidWorkoutSet(set)).reduce<LoggedSet | null>((best, set) => !best || estimateOneRm(set.weightKg, set.reps).average > estimateOneRm(best.weightKg, best.reps).average ? set : best, null);
+      const eligibleSets = session.sets.filter(
+        (set) =>
+          isValidWorkoutSet(set) &&
+          isSetEligibleForPersonalRecord({
+            set,
+            exercise: session.exercise,
+            bodyweightKg: currentBodyweightKg
+          })
+      );
+      const bestSet = eligibleSets.reduce<LoggedSet | null>((best, set) => {
+        if (!best) return set;
+        const current1Rm = calculateSetOneRm(set, {
+          exercise: session.exercise,
+          bodyweightKg: currentBodyweightKg,
+          formula: 'average'
+        }) ?? 0;
+        const best1Rm = calculateSetOneRm(best, {
+          exercise: session.exercise,
+          bodyweightKg: currentBodyweightKg,
+          formula: 'average'
+        }) ?? 0;
+        return current1Rm > best1Rm ? set : best;
+      }, null);
+
       if (bestSet) {
-        const estimatedOneRm = estimateOneRm(bestSet.weightKg, bestSet.reps).average;
-        if (estimatedOneRm > (session.bestEst1Rm || 0)) newRecords.push({ exerciseName: session.exercise.name, weightKg: bestSet.weightKg, reps: bestSet.reps, estimatedOneRm: Math.round(estimatedOneRm * 10) / 10 });
+        const estimatedOneRm = calculateSetOneRm(bestSet, {
+          exercise: session.exercise,
+          bodyweightKg: currentBodyweightKg,
+          formula: 'average'
+        }) ?? 0;
+        if (estimatedOneRm > (session.bestEst1Rm || 0)) {
+          newRecords.push({
+            exerciseName: session.exercise.name,
+            weightKg: bestSet.weightKg,
+            reps: bestSet.reps,
+            estimatedOneRm: Math.round(estimatedOneRm * 10) / 10,
+            loadMode: session.exercise.loading?.loadMode
+          });
+        }
       }
     });
     setSummaryData({ routineName: displayRoutineName, durationFormatted: sessionDuration, totalVolumeKg, totalCompletedSets: completedSetsCount, newRecords: newRecords.slice(0, 3) });

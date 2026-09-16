@@ -1,7 +1,9 @@
-import type { WorkoutSession, LoggedSet, MuscleGroup, Exercise } from './types.js';
+import type { WorkoutSession, LoggedSet, MuscleGroup, Exercise, BodyweightEntry } from './types.js';
 import { calculateVolume } from './progression.js';
-import { estimate1RM } from './onerm.js';
+import { calculateSetOneRm, estimate1RM } from './onerm.js';
 import { shouldCountForVolume } from './setSemantics.js';
+import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
+import { resolveBodyweightKgAtDate } from './weight.js';
 
 export interface MuscleVolumeDistribution {
   muscle: MuscleGroup;
@@ -33,12 +35,25 @@ export const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
   'core'
 ];
 
+export interface SessionVolumeOptions {
+  exercisesById?: Record<string, Exercise>;
+  bodyweightKg?: number | null;
+  bodyweightEntries?: BodyweightEntry[];
+}
+
 /**
  * Calculates the total tonnage (kg moved) for an entire workout session.
  */
-export function calculateSessionTotalVolume(session: WorkoutSession): number {
-  return Object.values(session.sets).reduce((acc, sets) => {
-    return acc + calculateVolume(sets);
+export function calculateSessionTotalVolume(
+  session: WorkoutSession,
+  options?: SessionVolumeOptions
+): number {
+  const sessionBw = options?.bodyweightEntries
+    ? resolveBodyweightKgAtDate(options.bodyweightEntries, session.startedAt)
+    : options?.bodyweightKg;
+  return Object.entries(session.sets).reduce((acc, [exerciseId, sets]) => {
+    const exercise = options?.exercisesById?.[exerciseId];
+    return acc + calculateVolume(sets, { exercise, bodyweightKg: sessionBw });
   }, 0);
 }
 
@@ -56,7 +71,8 @@ export function countSessionCompletedSets(session: WorkoutSession): number {
  */
 export function getPreviousPerformance(
   history: WorkoutSession[],
-  exerciseId: string
+  exerciseId: string,
+  options?: { exercise?: Exercise }
 ): { lastDate?: string; sets: LoggedSet[]; summary: string } | null {
   const sorted = [...history].sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
@@ -67,7 +83,15 @@ export function getPreviousPerformance(
     if (exerciseSets && exerciseSets.some(shouldCountForVolume)) {
       const completed = exerciseSets.filter(shouldCountForVolume);
       const topSet = completed.reduce((max, s) => (s.weightKg > max.weightKg ? s : max), completed[0]);
-      const summary = topSet ? `${topSet.weightKg} kg × ${topSet.reps}` : '';
+      const loading = options?.exercise ? resolveExerciseLoadingProfile(options.exercise).profile : undefined;
+      let summary = topSet ? `${topSet.weightKg} kg × ${topSet.reps}` : '';
+      if (topSet && loading) {
+        if (loading.loadMode === 'assisted') {
+          summary = `-${topSet.weightKg} kg × ${topSet.reps}`;
+        } else if (loading.loadMode === 'added_weight') {
+          summary = topSet.weightKg === 0 ? `BW × ${topSet.reps}` : `+${topSet.weightKg} kg × ${topSet.reps}`;
+        }
+      }
       return {
         lastDate: session.startedAt,
         sets: completed,
@@ -84,7 +108,12 @@ export function getPreviousPerformance(
  */
 export function getExerciseProgressSeries(
   history: WorkoutSession[],
-  exerciseId: string
+  exerciseId: string,
+  options?: {
+    exercise?: Exercise;
+    bodyweightKg?: number | null;
+    bodyweightEntries?: BodyweightEntry[];
+  }
 ): ExerciseProgressPoint[] {
   // Sort oldest to newest
   const sorted = [...history].sort(
@@ -105,10 +134,18 @@ export function getExerciseProgressSeries(
       completedSets[0]
     );
 
-    // Calculate best 1RM in session
+    const sessionBw = options?.bodyweightEntries
+      ? resolveBodyweightKgAtDate(options.bodyweightEntries, session.startedAt)
+      : options?.bodyweightKg;
+
+    // Calculate best 1RM in session using effective load
     let best1Rm: number | null = null;
     for (const s of completedSets) {
-      const est = estimate1RM(s.weightKg, s.reps, 'epley');
+      const est = calculateSetOneRm(s, {
+        exercise: options?.exercise,
+        bodyweightKg: sessionBw,
+        formula: 'epley'
+      });
       if (est !== null && (best1Rm === null || est > best1Rm)) {
         best1Rm = est;
       }
@@ -126,6 +163,14 @@ export function getExerciseProgressSeries(
     const t = new Date(session.startedAt).getTime();
     const d = session.startedAt.slice(0, 10);
 
+    const loading = options?.exercise ? resolveExerciseLoadingProfile(options.exercise).profile : undefined;
+    let label = `${topSet.weightKg} kg × ${topSet.reps}`;
+    if (loading?.loadMode === 'assisted') {
+      label = `-${topSet.weightKg} kg × ${topSet.reps}`;
+    } else if (loading?.loadMode === 'added_weight') {
+      label = topSet.weightKg === 0 ? `BW × ${topSet.reps}` : `+${topSet.weightKg} kg × ${topSet.reps}`;
+    }
+
     series.push({
       date: d,
       timestamp: t,
@@ -133,7 +178,7 @@ export function getExerciseProgressSeries(
       est1Rm: best1Rm,
       avgRir,
       sets: completedSets,
-      label: `${topSet.weightKg} kg × ${topSet.reps}`
+      label
     });
   }
 
@@ -147,7 +192,8 @@ export function getExerciseProgressSeries(
 export function getNeglectedMuscles(
   history: WorkoutSession[],
   exercisesById: Record<string, Exercise>,
-  daysWindow: number = 7
+  daysWindow: number = 7,
+  bodyweightOrOptions?: number | null | { bodyweightKg?: number | null; bodyweightEntries?: BodyweightEntry[] }
 ): {
   worked: { muscle: MuscleGroup; sets: number; volumeKg: number }[];
   neglected: MuscleGroup[];
@@ -157,7 +203,7 @@ export function getNeglectedMuscles(
     (s) => new Date(s.startedAt).getTime() >= cutoff
   );
 
-  const distribution = calculateMuscleVolumeDistribution(inWindowSessions, exercisesById);
+  const distribution = calculateMuscleVolumeDistribution(inWindowSessions, exercisesById, bodyweightOrOptions);
 
   const worked: { muscle: MuscleGroup; sets: number; volumeKg: number }[] = [];
   const neglected: MuscleGroup[] = [];
@@ -181,11 +227,16 @@ export function getNeglectedMuscles(
  */
 export function calculateMuscleVolumeDistribution(
   sessions: WorkoutSession[],
-  exercisesById: Record<string, Exercise>
+  exercisesById: Record<string, Exercise>,
+  bodyweightOrOptions?: number | null | { bodyweightKg?: number | null; bodyweightEntries?: BodyweightEntry[] }
 ): Record<MuscleGroup, { volumeKg: number; sets: number }> {
   const result = {} as Record<MuscleGroup, { volumeKg: number; sets: number }>;
+  const isOptions = typeof bodyweightOrOptions === 'object' && bodyweightOrOptions !== null;
+  const directBw = isOptions ? bodyweightOrOptions.bodyweightKg : bodyweightOrOptions;
+  const entries = isOptions ? bodyweightOrOptions.bodyweightEntries : undefined;
 
   for (const session of sessions) {
+    const sessionBw = entries ? resolveBodyweightKgAtDate(entries, session.startedAt) : directBw;
     for (const [exId, sets] of Object.entries(session.sets)) {
       const exercise = exercisesById[exId];
       if (!exercise) continue;
@@ -196,7 +247,7 @@ export function calculateMuscleVolumeDistribution(
       }
 
       const completed = sets.filter(shouldCountForVolume);
-      const vol = calculateVolume(completed);
+      const vol = calculateVolume(completed, { exercise, bodyweightKg: sessionBw });
 
       result[muscle].volumeKg += vol;
       result[muscle].sets += completed.length;

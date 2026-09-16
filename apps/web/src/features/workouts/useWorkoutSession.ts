@@ -43,6 +43,7 @@ export interface UseWorkoutSessionOptions {
   historyIndex?: WorkoutHistoryIndex;
   preferences: AppPreferences;
   userId?: string;
+  bodyweightEntries?: import('@light-weight/domain').BodyweightEntry[];
 }
 
 export interface WorkoutFinishResult {
@@ -84,11 +85,16 @@ export function useWorkoutSession({
   history,
   historyIndex: suppliedHistoryIndex,
   preferences,
-  userId = FALLBACK_USER_ID
+  userId = FALLBACK_USER_ID,
+  bodyweightEntries
 }: UseWorkoutSessionOptions) {
+  const exercisesById = useMemo(
+    () => Object.fromEntries(exercises.map((e) => [e.id, e])),
+    [exercises]
+  );
   const historyIndex = useMemo(
-    () => suppliedHistoryIndex || buildWorkoutHistoryIndex(history),
-    [history, suppliedHistoryIndex]
+    () => suppliedHistoryIndex || buildWorkoutHistoryIndex(history, { exercisesById, bodyweightEntries }),
+    [bodyweightEntries, exercisesById, history, suppliedHistoryIndex]
   );
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [activeRoutineName, setActiveRoutineName] = useState('Entrenamiento Libre');
@@ -118,9 +124,11 @@ export function useWorkoutSession({
         )
       : loading.loadMode === 'added_weight'
         ? 0
-        : loading.mechanism === 'dumbbell'
+        : loading.loadMode === 'assisted'
           ? 0
-          : 0;
+          : loading.mechanism === 'dumbbell'
+            ? 0
+            : 0;
     // Preserve a user's own valid last load; zero is the conservative semantic fallback.
     const defaultWeight = resolveInitialWeightKg(previousTopSet?.weightKg, semanticDefaultWeight);
     const initialSets = [
@@ -129,10 +137,39 @@ export function useWorkoutSession({
       { setIndex: 3, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: 1 }
     ];
 
+    const isAssisted = loading.loadMode === 'assisted';
+    const isAddedWeight = loading.loadMode === 'added_weight';
+
+    let prevRecordText: string | undefined;
+    if (previousTopSet) {
+      if (isAssisted) {
+        prevRecordText = `-${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}`;
+      } else if (isAddedWeight && previousTopSet.weightKg === 0) {
+        prevRecordText = `BW × ${previousTopSet.reps}`;
+      } else if (isAddedWeight) {
+        prevRecordText = `+${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}`;
+      } else {
+        prevRecordText = `${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}`;
+      }
+    }
+
+    let bestRecordText: string | undefined;
+    if (personalRecord) {
+      if (isAssisted) {
+        bestRecordText = `-${formatDisplayWeight(personalRecord.weightKg, preferences.units)} × ${personalRecord.reps}`;
+      } else if (isAddedWeight && personalRecord.weightKg === 0) {
+        bestRecordText = `BW × ${personalRecord.reps}`;
+      } else if (isAddedWeight) {
+        bestRecordText = `+${formatDisplayWeight(personalRecord.weightKg, preferences.units)} × ${personalRecord.reps}`;
+      } else {
+        bestRecordText = `${formatDisplayWeight(personalRecord.weightKg, preferences.units)} × ${personalRecord.reps}`;
+      }
+    }
+
     return {
       exercise: { ...exercise, loading },
-      previousRecord: previousTopSet ? `${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}` : undefined,
-      bestRecord: personalRecord ? `${formatDisplayWeight(personalRecord.weightKg, preferences.units)} × ${personalRecord.reps}` : undefined,
+      previousRecord: prevRecordText,
+      bestRecord: bestRecordText,
       bestEst1Rm: personalRecord?.est1Rm,
       targetRepRange: [6, 12],
       includeBarWeight: loading.includeBarWeight,
