@@ -175,14 +175,14 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
       </div>}
 
       {panel === 'profile' && (auth.status === 'loading' ? <LoadingState compact title={t('common.loading')} /> : auth.isAuthenticated && auth.user ? <ProfileView
-        profile={{ ...profile, displayName: auth.user.displayName, username: auth.user.username, birthDate: auth.user.birthDate, gender: auth.user.gender || profile.gender, avatarUrl: auth.user.avatarUrl }}
+        profile={{ ...profile, displayName: auth.user.displayName, username: auth.user.username, birthDate: auth.user.birthDate, gender: auth.user.gender ?? profile.gender, avatarUrl: auth.user.avatarUrl }}
         userInfo={{ id: auth.user.id, name: auth.user.displayName, email: auth.user.email }} history={history} exercises={exercises} isRemote
         onOpenFriends={() => setPanel('friends')}
         onLogout={() => { void auth.logout().then((result) => { if (result.ok) { switchStoredUserScope(null); window.location.reload(); } }); }}
         onSave={async (nextProfile) => {
           const result = await auth.updateProfile(nextProfile);
           if (!result.ok) return t(`auth.error.${result.error.code}` as TranslationKey);
-          onProfileChange({ ...nextProfile, displayName: result.data.displayName, username: result.data.username, birthDate: result.data.birthDate, gender: result.data.gender || nextProfile.gender, avatarUrl: result.data.avatarUrl });
+          onProfileChange({ ...nextProfile, displayName: result.data.displayName, username: result.data.username, birthDate: result.data.birthDate, gender: result.data.gender ?? nextProfile.gender, avatarUrl: result.data.avatarUrl });
         }}
       /> : auth.status === 'offline' && userInfo.id !== 'local-anonymous' ? <div className="space-y-3"><p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p><ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={(nextProfile) => { onProfileChange(nextProfile); }} /></div> : <p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.syncRequiresLogin')}</p>)}
 

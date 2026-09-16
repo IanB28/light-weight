@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav, type TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
 import { SettingsSheet } from './components/SettingsSheet.js';
@@ -16,7 +16,7 @@ import { useWorkoutSession } from './features/workouts/useWorkoutSession.js';
 import { useRestTimer } from './features/workouts/useRestTimer.js';
 import type { MuscleGroup } from '@light-weight/domain';
 import { useAuth } from './lib/auth-context.js';
-import { switchStoredUserScope } from './lib/storage.js';
+import { switchStoredUserScope, type UserProfile } from './lib/storage.js';
 import { AuthScreen } from './features/auth/AuthScreen.js';
 import { AuthLoadingScreen } from './features/auth/AuthLoadingScreen.js';
 import { UsernameOnboardingScreen } from './features/auth/UsernameOnboardingScreen.js';
@@ -90,6 +90,28 @@ export function App() {
     data.saveTargetWeight(weightKg);
     showFeedback(t('feedback.weightSaved'));
   };
+
+  const effectiveProfile = useMemo<UserProfile>(() => ({
+    ...data.profile,
+    displayName: auth.user?.displayName || data.profile.displayName,
+    gender: auth.user?.gender ?? data.profile.gender,
+    birthDate: auth.user?.birthDate ?? data.profile.birthDate,
+    avatarUrl: auth.user?.avatarUrl ?? data.profile.avatarUrl
+  }), [data.profile, auth.user]);
+
+  const handleSaveProfile = useCallback(async (patch: Partial<UserProfile>) => {
+    const nextProfile: UserProfile = { ...effectiveProfile, ...patch };
+    data.saveProfile(nextProfile);
+    if (auth.isAuthenticated && auth.user) {
+      void auth.updateProfile({
+        displayName: patch.displayName ?? auth.user.displayName,
+        gender: patch.gender !== undefined ? patch.gender : auth.user.gender,
+        birthDate: patch.birthDate !== undefined ? patch.birthDate : auth.user.birthDate,
+        avatarUrl: patch.avatarUrl !== undefined ? patch.avatarUrl : auth.user.avatarUrl
+      });
+    }
+    showFeedback(t('feedback.profileSaved'));
+  }, [effectiveProfile, data, auth, showFeedback, t]);
 
   const authTarget = resolveAuthScreenTarget({
     status: auth.status,
@@ -167,12 +189,12 @@ export function App() {
           activeWorkoutDuration={workout.duration}
           onNavigateToWorkout={() => setCurrentTab('workout')}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          profile={data.profile}
+          profile={effectiveProfile}
           bodyweightEntries={data.bodyweightEntries}
           targetWeight={data.targetWeight}
           onSaveBodyweight={data.saveBodyweight}
           onSaveTargetWeight={data.saveTargetWeight}
-          onSaveProfile={(patch) => data.saveProfile({ ...data.profile, ...patch })}
+          onSaveProfile={handleSaveProfile}
         />}
 
         {currentTab === 'plan' && <PlanView
@@ -217,7 +239,7 @@ export function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onDataRestored={data.reloadFromStorage}
-        profile={data.profile}
+        profile={effectiveProfile}
         userInfo={data.userInfo}
         history={data.history}
         exercises={data.exercises}

@@ -28,6 +28,18 @@
     "src/lib/auth-session-state.ts",
     "src/features/auth/auth-experience.test.ts",
     "src/components/brand/AppLogo.tsx",
-    "src/features/brand/brand-pwa.test.ts"
+    "src/features/brand/brand-pwa.test.ts",
+    "src/lib/storage.ts",
+    "src/lib/weight-units.ts",
+    "src/lib/exercise-names.ts",
+    "src/lib/preferences-context.tsx",
+    "src/lib/i18n.tsx",
+    "src/lib/body-paths.ts",
+    "src/lib/auth-cache.ts",
+    "src/components/ui/**/*.ts",
+    "src/components/ui/**/*.tsx",
+    "src/components/charts/AnatomicalBodyMap.tsx",
+    "src/features/profile/ProfileView.tsx",
+    "src/features/profile/profile-gender.test.ts"
   ]
 }

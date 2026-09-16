@@ -108,10 +108,10 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave, onO
         <div className="space-y-1.5">
           <span className="text-xs font-bold text-text-secondary">{t('profile.gender')}</span>
           <SegmentedControl
-            value={draft.gender}
+            value={draft.gender || ''}
             label={t('profile.gender')}
             options={[{ value: 'male', label: t('profile.male') }, { value: 'female', label: t('profile.female') }]}
-            onChange={(gender) => setDraft((current) => ({ ...current, gender }))}
+            onChange={(gender) => setDraft((current) => ({ ...current, gender: gender as 'male' | 'female' }))}
           />
         </div>
         {error && <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</p>}
@@ -144,6 +144,42 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave, onO
           {onLogout && <Button variant="ghost" size="sm" onClick={onLogout}>{t('auth.logout')}</Button>}
         </div>}
       </div>
+
+      {/* Apartado de Género */}
+      <section className="space-y-2 rounded-ui-xl border border-border-subtle bg-surface p-3.5" aria-labelledby="profile-gender-section">
+        <div className="flex items-center justify-between">
+          <h4 id="profile-gender-section" className="text-xs font-bold uppercase tracking-wider text-text-muted">
+            {t('profile.gender')}
+          </h4>
+          {profile.gender ? (
+            <span className="text-xs font-mono font-bold text-accent">
+              {profile.gender === 'male' ? t('profile.male') : t('profile.female')}
+            </span>
+          ) : (
+            <span className="text-xs font-mono font-bold text-amber-400">
+              {t('profile.genderUnset')}
+            </span>
+          )}
+        </div>
+
+        <SegmentedControl
+          value={profile.gender || ''}
+          label={t('profile.gender')}
+          options={[
+            { value: 'male', label: t('profile.male') },
+            { value: 'female', label: t('profile.female') }
+          ]}
+          onChange={(gender) => {
+            void onSave({ ...profile, gender: gender as 'male' | 'female' });
+          }}
+        />
+
+        {!profile.gender && (
+          <p className="text-[11px] text-text-muted">
+            {t('profile.genderPrompt')}
+          </p>
+        )}
+      </section>
 
       <AppCard compact className="grid grid-cols-3 divide-x divide-border-subtle text-center">
         {[

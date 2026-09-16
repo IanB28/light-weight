@@ -9,7 +9,7 @@ import { browserStorageAdapter, type StorageAdapter } from './storage-adapter.js
 export { calculateAllPersonalRecords } from './workout-history-index.js';
 export type { PersonalRecordInfo } from './workout-history-index.js';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   HISTORY: 'lightweight_workouts_history',
   ACTIVE_WORKOUT: 'lightweight_active_workout',
   ROUTINES: 'lightweight_routines',
@@ -130,15 +130,14 @@ export interface UserProfile {
   username?: string;
   birthDate?: string;
   avatarUrl?: string;
-  gender: 'male' | 'female';
+  gender?: 'male' | 'female';
 }
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
-  displayName: 'Atleta',
-  gender: 'male'
+  displayName: 'Atleta'
 };
 
-function parseUserProfile(value: unknown): UserProfile {
+export function parseUserProfile(value: unknown): UserProfile {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_USER_PROFILE };
   const profile = value as Partial<UserProfile>;
   const username = typeof profile.username === 'string'
@@ -147,11 +146,12 @@ function parseUserProfile(value: unknown): UserProfile {
   const avatarUrl = typeof profile.avatarUrl === 'string' && /^https?:\/\//i.test(profile.avatarUrl)
     ? profile.avatarUrl
     : undefined;
+  const validGender = profile.gender === 'male' || profile.gender === 'female' ? profile.gender : undefined;
   return {
     displayName: typeof profile.displayName === 'string' && profile.displayName.trim()
       ? profile.displayName.trim().slice(0, 100)
       : DEFAULT_USER_PROFILE.displayName,
-    gender: profile.gender === 'female' ? 'female' : 'male',
+    ...(validGender ? { gender: validGender } : {}),
     ...(username ? { username: username.slice(0, 30) } : {}),
     ...(typeof profile.birthDate === 'string' ? { birthDate: profile.birthDate } : {}),
     ...(avatarUrl ? { avatarUrl } : {})

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, UserRound } from 'lucide-react';
 import {
   MuscleGroup,
   StrengthTier,
@@ -8,6 +8,7 @@ import {
 } from '@light-weight/domain';
 import BODY_PATHS, { BodyViewData } from '../../lib/body-paths.js';
 import { usePreferences } from '../../lib/preferences-context.js';
+import { useI18n } from '../../lib/i18n.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 
 export type AnalysisMode = 'balance' | 'fatigue' | 'strength';
@@ -35,6 +36,7 @@ interface AnatomicalBodyMapProps {
   gender?: Gender;
   selectedMuscle: MuscleGroup | null;
   onSelectMuscle: (muscle: MuscleGroup | null) => void;
+  onSelectGender?: (gender: Gender) => void;
   className?: string;
 }
 
@@ -87,14 +89,53 @@ export const SPANISH_MUSCLE_NAMES: Record<MuscleGroup, string> = {
 export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   data,
   mode,
-  gender = 'male',
+  gender,
   selectedMuscle,
   onSelectMuscle,
+  onSelectGender,
   className = ''
 }) => {
   const { preferences } = usePreferences();
+  const { t } = useI18n();
+
+  if (!gender || (gender !== 'male' && gender !== 'female')) {
+    return (
+      <div className={`p-6 flex flex-col items-center justify-center text-center rounded-3xl border border-border-subtle bg-gradient-to-b from-white/[0.07] to-white/[0.02] shadow-2xl relative overflow-hidden backdrop-blur-xl space-y-4 ${className}`}>
+        <div className="flex size-12 items-center justify-center rounded-full bg-accent/15 text-accent">
+          <UserRound className="size-6" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-extrabold text-text-primary">
+            {t('stats.selectBodyMapTitle')}
+          </h3>
+          <p className="text-xs text-text-muted max-w-xs leading-relaxed">
+            {t('stats.selectBodyMapDescription')}
+          </p>
+        </div>
+        {onSelectGender && (
+          <div className="flex items-center gap-2 p-1 bg-zinc-900/90 rounded-ui-lg border border-border-subtle">
+            <button
+              type="button"
+              onClick={() => onSelectGender('male')}
+              className="px-4 py-2 rounded-ui-md font-bold text-xs bg-surface-input text-text-primary hover:bg-surface-active active:scale-95 transition-all cursor-pointer"
+            >
+              {t('stats.male')}
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectGender('female')}
+              className="px-4 py-2 rounded-ui-md font-bold text-xs bg-surface-input text-text-primary hover:bg-surface-active active:scale-95 transition-all cursor-pointer"
+            >
+              {t('stats.female')}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
-  const genderPaths = BODY_PATHS[gender] || BODY_PATHS.male;
+  const genderPaths = BODY_PATHS[gender];
 
   // Compute maximum volume for balance normalization
   const maxSets = Math.max(1, ...Object.values(data).map((d) => d.sets));

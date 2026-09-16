@@ -116,7 +116,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
     setOpenSection((current) => current === sectionId ? null : sectionId);
   };
 
-  const currentGender: Gender = profile.gender;
+  const currentGender: Gender | undefined = profile.gender;
 
   const handleGenderChange = (newGender: Gender) => {
     onSaveProfile({ gender: newGender });
@@ -134,7 +134,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   // Exercise lookup dictionary
   const statsSnapshot = useMemo(
-    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender),
+    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender || 'male'),
     [history, exercises, muscleWindow, currentBodyweightKg, currentGender]
   );
   const exercisesById = statsSnapshot.exercisesById;
@@ -524,6 +524,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               gender={currentGender}
               selectedMuscle={selectedMuscle}
               onSelectMuscle={setSelectedMuscle}
+              onSelectGender={handleGenderChange}
             />
 
             {/* Subsección A: Músculos Rezagados como Lista Desplegable */}
