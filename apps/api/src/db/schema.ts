@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   numeric,
+  doublePrecision,
   jsonb,
   uuid,
   check,
@@ -83,11 +84,13 @@ export const exercises = pgTable('exercises', {
   supportsPlates: boolean('supports_plates'),
   supportsExternalLoad: boolean('supports_external_load'),
   includeBarWeight: boolean('include_bar_weight'),
+  bodyweightFactor: doublePrecision('bodyweight_factor'),
   isCustom: boolean('is_custom').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, () => [
   check('exercises_load_mechanism_check', sql`load_mechanism IS NULL OR load_mechanism IN ('barbell', 'dumbbell', 'plate_loaded', 'selectorized', 'cable', 'bodyweight', 'other')`),
-  check('exercises_load_mode_check', sql`load_mode IS NULL OR load_mode IN ('total', 'per_side', 'per_hand', 'added_weight')`)
+  check('exercises_load_mode_check', sql`load_mode IS NULL OR load_mode IN ('total', 'per_side', 'per_hand', 'added_weight', 'assisted')`),
+  check('exercises_bodyweight_factor_check', sql`bodyweight_factor IS NULL OR (bodyweight_factor > 0 AND bodyweight_factor <= 1)`)
 ]);
 
 // 5. Rutinas guardadas

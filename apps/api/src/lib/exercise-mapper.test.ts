@@ -8,6 +8,7 @@ function row(overrides: Partial<ExerciseRow>): ExerciseRow {
     id: 'legacy-smith', userId: null, name: 'Smith machine bench press', primaryMuscle: 'chest',
     secondaryMuscles: [], category: 'machine', loadMechanism: 'plate_loaded', loadMode: 'total',
     supportsKeyboard: true, supportsPlates: true, supportsExternalLoad: true, includeBarWeight: false,
+    bodyweightFactor: null,
     isCustom: false, createdAt: new Date('2026-01-01T00:00:00Z'), ...overrides
   };
 }
@@ -23,4 +24,61 @@ test('DB Smith row round-trip reconstructs fixed/selectable 20/22 lb base', () =
 test('curated Smith id survives a generic DB loading profile', () => {
   const mapped = toDomainExercise(row({ id: 'ex-0748', name: 'Bench press machine' }));
   assert.equal(mapped.loading?.plateBase?.label, 'smith');
+});
+
+test('toDomainExercise preserves explicit bodyweightFactor and assisted loadMode from DB row', () => {
+  const mapped = toDomainExercise(row({
+    id: 'custom-assisted-dip',
+    name: 'Custom Assisted Dip',
+    category: 'bodyweight',
+    loadMechanism: 'bodyweight',
+    loadMode: 'assisted',
+    bodyweightFactor: 1,
+    isCustom: true
+  }));
+  assert.equal(mapped.loading?.mechanism, 'bodyweight');
+  assert.equal(mapped.loading?.loadMode, 'assisted');
+  assert.equal(mapped.loading?.bodyweightFactor, 1);
+  assert.equal(mapped.loading?.supportsExternalLoad, true);
+});
+
+test('toDomainExercise preserves added_weight with factor = 1 in round-trip', () => {
+  const mapped = toDomainExercise(row({
+    id: 'custom-weighted-pullup',
+    name: 'Weighted Pullup Custom',
+    category: 'bodyweight',
+    loadMechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: 1,
+    isCustom: true
+  }));
+  assert.equal(mapped.loading?.mechanism, 'bodyweight');
+  assert.equal(mapped.loading?.loadMode, 'added_weight');
+  assert.equal(mapped.loading?.bodyweightFactor, 1);
+});
+
+test('toDomainExercise handles general bodyweightFactor (e.g. 0.5)', () => {
+  const mapped = toDomainExercise(row({
+    id: 'custom-pushup-partial',
+    name: 'Pushup Partial 0.5',
+    category: 'bodyweight',
+    loadMechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: 0.5,
+    isCustom: true
+  }));
+  assert.equal(mapped.loading?.bodyweightFactor, 0.5);
+});
+
+test('toDomainExercise sets bodyweightFactor to undefined when DB column is null', () => {
+  const mapped = toDomainExercise(row({
+    id: 'custom-generic-movement',
+    name: 'Generic Movement',
+    category: 'bodyweight',
+    loadMechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: null,
+    isCustom: true
+  }));
+  assert.equal(mapped.loading?.bodyweightFactor, undefined);
 });

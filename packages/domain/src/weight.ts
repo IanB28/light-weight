@@ -102,14 +102,15 @@ export function resolveBodyweightKgAtDate(
   );
   if (validEntries.length === 0) return null;
 
+  const sorted = [...validEntries].sort((a, b) => a.date.slice(0, 10).localeCompare(b.date.slice(0, 10)));
+
   if (!workoutDate) {
-    return validEntries[validEntries.length - 1].weightKg;
+    return sorted[sorted.length - 1].weightKg;
   }
 
   const targetDay = workoutDate.slice(0, 10);
-  const eligible = validEntries.filter((entry) => entry.date.slice(0, 10) <= targetDay);
+  const eligible = sorted.filter((entry) => entry.date.slice(0, 10) <= targetDay);
   if (eligible.length === 0) return null;
 
-  const sorted = [...eligible].sort((a, b) => a.date.slice(0, 10).localeCompare(b.date.slice(0, 10)));
-  return sorted[sorted.length - 1].weightKg;
+  return eligible[eligible.length - 1].weightKg;
 }

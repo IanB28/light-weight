@@ -226,6 +226,70 @@ test('Test G: Bodyweight exercise without validated bodyweightFactor does NOT as
   assert.equal(effectiveWeighted, 10);
 });
 
+test('General bodyweightFactor (0 < factor <= 1) scales bodyweight contribution correctly', () => {
+  const customPartialBw = exercise({
+    id: 'custom-partial',
+    name: 'Partial Bodyweight Movement',
+    category: 'bodyweight',
+    loading: {
+      mechanism: 'bodyweight',
+      loadMode: 'added_weight',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false,
+      bodyweightFactor: 0.5
+    }
+  });
+
+  // BW 100kg, factor = 0.5, external = 10 -> effective = 60kg
+  const effectiveWeighted = calculateEffectiveLoadKg({
+    exercise: customPartialBw,
+    setWeightKg: 10,
+    bodyweightKg: 100
+  });
+  assert.equal(effectiveWeighted, 60);
+
+  // Missing bodyweight with added weight returns external load
+  const effectiveNoBw = calculateEffectiveLoadKg({
+    exercise: customPartialBw,
+    setWeightKg: 10,
+    bodyweightKg: null
+  });
+  assert.equal(effectiveNoBw, 10);
+
+  // Assisted with factor 0.5: BW 100kg * 0.5 - assistance 10 -> effective = 40kg
+  const customAssistedPartial = exercise({
+    id: 'custom-assisted-partial',
+    name: 'Partial Assisted Movement',
+    category: 'bodyweight',
+    loading: {
+      mechanism: 'bodyweight',
+      loadMode: 'assisted',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false,
+      bodyweightFactor: 0.5
+    }
+  });
+
+  const effectiveAssisted = calculateEffectiveLoadKg({
+    exercise: customAssistedPartial,
+    setWeightKg: 10,
+    bodyweightKg: 100
+  });
+  assert.equal(effectiveAssisted, 40);
+
+  // Assisted without bodyweight returns 0 (never positive load)
+  const effectiveAssistedNoBw = calculateEffectiveLoadKg({
+    exercise: customAssistedPartial,
+    setWeightKg: 10,
+    bodyweightKg: null
+  });
+  assert.equal(effectiveAssistedNoBw, 0);
+});
+
 test('Test H: Historical bodyweight resolution', () => {
   const entries = [
     { date: '2024-01-15', weightKg: 56 },
@@ -243,6 +307,22 @@ test('Test H: Historical bodyweight resolution', () => {
   // Workout before any recorded bodyweight -> null (does not invent one)
   const bwOld = resolveBodyweightKgAtDate(entries, '2023-11-01');
   assert.equal(bwOld, null);
+});
+
+test('Historical and active bodyweight resolution handles unsorted entries', () => {
+  const unsortedEntries = [
+    { date: '2026-09-10', weightKg: 60 },
+    { date: '2026-09-15', weightKg: 62 },
+    { date: '2026-09-12', weightKg: 61 }
+  ];
+
+  // Active workout (no date provided) -> correctly finds latest chronological entry (62 kg)
+  const current = resolveBodyweightKgAtDate(unsortedEntries);
+  assert.equal(current, 62);
+
+  // Historical workout at 2026-09-13 -> correctly finds 2026-09-12 entry (61 kg)
+  const historical = resolveBodyweightKgAtDate(unsortedEntries, '2026-09-13');
+  assert.equal(historical, 61);
 });
 
 test('Test I: PR eligibility is context-aware', () => {

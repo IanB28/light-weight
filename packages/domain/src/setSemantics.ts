@@ -95,7 +95,7 @@ export function calculateEffectiveLoadKg({
   const rawWeight = Number.isFinite(setWeightKg) ? setWeightKg : 0;
   const factor = profile.bodyweightFactor;
 
-  if (factor === 1) {
+  if (typeof factor === 'number' && Number.isFinite(factor) && factor > 0 && factor <= 1) {
     const validBw = (typeof bodyweightKg === 'number' && Number.isFinite(bodyweightKg) && bodyweightKg > 0)
       ? bodyweightKg
       : null;
@@ -103,16 +103,16 @@ export function calculateEffectiveLoadKg({
     if (mode === 'assisted') {
       const assistanceKg = Math.max(0, Math.abs(rawWeight));
       if (validBw !== null) {
-        return Math.max(0, validBw - assistanceKg);
+        return Math.max(0, (validBw * factor) - assistanceKg);
       }
       // Rule E: Assistance without known bodyweight must NEVER be treated as positive load
       return 0;
     }
 
-    // Default for bodyweightFactor === 1 is added_weight:
+    // Default for bodyweightFactor is added_weight:
     const externalLoadKg = Math.max(0, rawWeight);
     if (validBw !== null) {
-      return validBw + externalLoadKg;
+      return (validBw * factor) + externalLoadKg;
     }
     return externalLoadKg;
   }
@@ -146,14 +146,14 @@ export function isSetEligibleForPersonalRecord({
   }
 
   const profile = exercise.loading ?? resolveExerciseLoadingProfile(exercise).profile;
-  const isFullBodyweight = profile.bodyweightFactor === 1;
+  const isBodyweight = typeof profile.bodyweightFactor === 'number' && profile.bodyweightFactor > 0 && profile.bodyweightFactor <= 1;
   const effectiveLoad = calculateEffectiveLoadKg({
     exercise,
     setWeightKg: set.weightKg,
     bodyweightKg
   });
 
-  if (isFullBodyweight) {
+  if (isBodyweight) {
     return effectiveLoad > 0;
   }
 

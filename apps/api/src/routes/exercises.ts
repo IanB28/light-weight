@@ -24,7 +24,10 @@ export function toDomainExercise(row: ExerciseRow): Exercise {
     supportsKeyboard: row.supportsKeyboard,
     supportsPlates: row.supportsPlates,
     supportsExternalLoad: row.supportsExternalLoad,
-    includeBarWeight: row.includeBarWeight
+    includeBarWeight: row.includeBarWeight,
+    bodyweightFactor: typeof row.bodyweightFactor === 'number' && Number.isFinite(row.bodyweightFactor)
+      ? row.bodyweightFactor
+      : undefined
   };
   const base: Exercise = {
     id: row.id,
@@ -69,6 +72,9 @@ exerciseRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) =
     supportsPlates: profile.supportsPlates,
     supportsExternalLoad: profile.supportsExternalLoad,
     includeBarWeight: profile.includeBarWeight,
+    bodyweightFactor: typeof profile.bodyweightFactor === 'number' && Number.isFinite(profile.bodyweightFactor)
+      ? profile.bodyweightFactor
+      : null,
     isCustom: true
   }).returning();
   res.status(201).json({ exercise: toDomainExercise(inserted) });
