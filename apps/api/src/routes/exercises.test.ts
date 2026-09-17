@@ -164,24 +164,110 @@ test('POST /api/exercises: rejects invalid loading profile with 422', async () =
   const restoreDb = replaceDatabaseForTesting(mockDb as unknown as typeof db);
   try {
     await withServer(async (baseUrl) => {
-      const res = await fetch(`${baseUrl}/api/exercises`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          cookie: `lw_session=${sessionToken}`,
-          'x-csrf-token': csrfToken
-        },
-        body: JSON.stringify({
-          name: 'Invalid Loading Ex',
-          category: 'other',
-          primaryMuscle: 'core',
-          loading: { mechanism: 'invalid_mech', loadMode: 'invalid_mode' }
-        })
-      });
+      const postExercise = async (loading: any) => {
+        return fetch(`${baseUrl}/api/exercises`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            cookie: `lw_session=${sessionToken}`,
+            'x-csrf-token': csrfToken
+          },
+          body: JSON.stringify({
+            name: 'Validation Test Exercise',
+            category: 'bodyweight',
+            primaryMuscle: 'back',
+            loading
+          })
+        });
+      };
 
-      assert.equal(res.status, 422);
-      const data = (await res.json()) as any;
-      assert.equal(data.error, 'INVALID_EXERCISE_LOADING_PROFILE');
+      const baseLoading = {
+        supportsKeyboard: true,
+        supportsPlates: false,
+        supportsExternalLoad: true,
+        includeBarWeight: false
+      };
+
+      // Unknown mechanism/mode
+      const resGeneric = await postExercise({ mechanism: 'invalid_mech', loadMode: 'invalid_mode' });
+      assert.equal(resGeneric.status, 422);
+      assert.equal(((await resGeneric.json()) as any).error, 'INVALID_EXERCISE_LOADING_PROFILE');
+
+      // assisted + factor undefined -> 422
+      const resAssistedNoFactor = await postExercise({
+        ...baseLoading,
+        mechanism: 'bodyweight',
+        loadMode: 'assisted'
+      });
+      assert.equal(resAssistedNoFactor.status, 422);
+
+      // assisted + mechanism barbell + factor 1 -> 422
+      const resAssistedBarbell = await postExercise({
+        ...baseLoading,
+        mechanism: 'barbell',
+        loadMode: 'assisted',
+        bodyweightFactor: 1
+      });
+      assert.equal(resAssistedBarbell.status, 422);
+
+      // barbell + factor defined -> 422
+      const resBarbellFactor = await postExercise({
+        ...baseLoading,
+        mechanism: 'barbell',
+        loadMode: 'total',
+        bodyweightFactor: 0.5
+      });
+      assert.equal(resBarbellFactor.status, 422);
+
+      // factor 0 -> 422
+      const resFactor0 = await postExercise({
+        ...baseLoading,
+        mechanism: 'bodyweight',
+        loadMode: 'added_weight',
+        bodyweightFactor: 0
+      });
+      assert.equal(resFactor0.status, 422);
+
+      // factor -0.5 -> 422
+      const resFactorNeg = await postExercise({
+        ...baseLoading,
+        mechanism: 'bodyweight',
+        loadMode: 'added_weight',
+        bodyweightFactor: -0.5
+      });
+      assert.equal(resFactorNeg.status, 422);
+
+      // factor 1.1 -> 422
+      const resFactorHigh = await postExercise({
+        ...baseLoading,
+        mechanism: 'bodyweight',
+        loadMode: 'added_weight',
+        bodyweightFactor: 1.1
+      });
+      assert.equal(resFactorHigh.status, 422);
+
+      // bodyweight generic + factor undefined -> valid (201)
+      const resGenericBw = await postExercise({
+        ...baseLoading,
+        mechanism: 'bodyweight',
+        loadMode: 'added_weight'
+      });
+      assert.equal(resGenericBw.status, 201);
+      const dataGenericBw = (await resGenericBw.json()) as any;
+      assert.equal(dataGenericBw.exercise.loading.mechanism, 'bodyweight');
+      assert.equal(dataGenericBw.exercise.loading.bodyweightFactor, undefined);
+
+      // factor 0.5 + bodyweight -> valid (201)
+      const resFactorHalf = await postExercise({
+        ...baseLoading,
+        mechanism: 'bodyweight',
+        loadMode: 'added_weight',
+        bodyweightFactor: 0.5
+      });
+      assert.equal(resFactorHalf.status, 201);
+      const dataFactorHalf = (await resFactorHalf.json()) as any;
+      assert.equal(dataFactorHalf.exercise.loading.mechanism, 'bodyweight');
+      assert.equal(dataFactorHalf.exercise.loading.bodyweightFactor, 0.5);
     });
   } finally {
     restoreDb();

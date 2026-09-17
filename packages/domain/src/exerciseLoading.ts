@@ -125,13 +125,34 @@ const LOAD_MODES = new Set<ExerciseLoadMode>(['total', 'per_side', 'per_hand', '
 export function isExerciseLoadingProfile(value: unknown): value is ExerciseLoadingProfile {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const candidate = value as Partial<ExerciseLoadingProfile>;
-  return LOAD_MECHANISMS.has(candidate.mechanism as ExerciseLoadMechanism)
+  const hasBaseFields = LOAD_MECHANISMS.has(candidate.mechanism as ExerciseLoadMechanism)
     && LOAD_MODES.has(candidate.loadMode as ExerciseLoadMode)
     && typeof candidate.supportsKeyboard === 'boolean'
     && typeof candidate.supportsPlates === 'boolean'
     && typeof candidate.supportsExternalLoad === 'boolean'
-    && typeof candidate.includeBarWeight === 'boolean'
-    && (candidate.bodyweightFactor === undefined || (typeof candidate.bodyweightFactor === 'number' && Number.isFinite(candidate.bodyweightFactor)));
+    && typeof candidate.includeBarWeight === 'boolean';
+
+  if (!hasBaseFields) return false;
+
+  const factor = candidate.bodyweightFactor;
+  const isFactorValid = factor === undefined
+    || (typeof factor === 'number' && Number.isFinite(factor) && factor > 0 && factor <= 1);
+
+  if (!isFactorValid) return false;
+
+  // Explicit bodyweightFactor is only valid for bodyweight mechanism
+  if (factor !== undefined && candidate.mechanism !== 'bodyweight') {
+    return false;
+  }
+
+  // Assisted loadMode represents assistance to bodyweight and requires explicit bodyweightFactor
+  if (candidate.loadMode === 'assisted') {
+    if (candidate.mechanism !== 'bodyweight' || factor === undefined) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 const UNILATERAL_NAME_PATTERN = /\b(?:unilateral|one[ -]?(?:arm|hand|leg|foot)|single[ -]?(?:arm|hand|leg|foot)|alternat(?:e|ed|ing)|un[ -]?brazo|una[ -]?(?:mano|pierna)|altern(?:o|a|ado|ada))\b/i;

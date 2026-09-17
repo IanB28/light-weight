@@ -90,7 +90,8 @@ export const exercises = pgTable('exercises', {
 }, () => [
   check('exercises_load_mechanism_check', sql`load_mechanism IS NULL OR load_mechanism IN ('barbell', 'dumbbell', 'plate_loaded', 'selectorized', 'cable', 'bodyweight', 'other')`),
   check('exercises_load_mode_check', sql`load_mode IS NULL OR load_mode IN ('total', 'per_side', 'per_hand', 'added_weight', 'assisted')`),
-  check('exercises_bodyweight_factor_check', sql`bodyweight_factor IS NULL OR (bodyweight_factor > 0 AND bodyweight_factor <= 1)`)
+  check('exercises_bodyweight_factor_check', sql`bodyweight_factor IS NULL OR (load_mechanism = 'bodyweight' AND bodyweight_factor > 0 AND bodyweight_factor <= 1)`),
+  check('exercises_assisted_mode_check', sql`load_mode IS NULL OR load_mode <> 'assisted' OR (load_mechanism = 'bodyweight' AND bodyweight_factor IS NOT NULL)`)
 ]);
 
 // 5. Rutinas guardadas

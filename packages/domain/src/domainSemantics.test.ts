@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
+  isExerciseLoadingProfile,
   resolveExerciseLoadingProfile,
   resolvePlateBaseWeightKg
 } from './exerciseLoading.js';
@@ -81,6 +82,103 @@ test('loading resolver distinguishes common mechanisms and stable load modes', (
   assert.equal(unknown.source, 'default');
   assert.equal(unknown.profile.mechanism, DEFAULT_EXERCISE_LOADING_PROFILE.mechanism);
   assert.equal(unknown.profile.plateBase?.kind, 'none');
+});
+
+test('isExerciseLoadingProfile validates factor ranges, mechanism coherence, and assisted requirements', () => {
+  const baseProfile = {
+    supportsKeyboard: true,
+    supportsPlates: false,
+    supportsExternalLoad: true,
+    includeBarWeight: false
+  };
+
+  // factor 0 -> invalid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: 0
+  }), false);
+
+  // factor -0.5 -> invalid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: -0.5
+  }), false);
+
+  // factor 1.1 -> invalid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: 1.1
+  }), false);
+
+  // factor 0.5 -> valid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: 0.5
+  }), true);
+
+  // assisted + factor undefined -> invalid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'assisted',
+    bodyweightFactor: undefined
+  }), false);
+
+  // assisted + mechanism barbell + factor 1 -> invalid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'barbell',
+    loadMode: 'assisted',
+    bodyweightFactor: 1
+  }), false);
+
+  // assisted + bodyweight + factor 1 -> valid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'assisted',
+    bodyweightFactor: 1
+  }), true);
+
+  // added_weight + bodyweight + factor 1 -> valid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: 1
+  }), true);
+
+  // bodyweight generic + factor undefined -> valid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: undefined
+  }), true);
+
+  // barbell + factor defined -> invalid (bodyweightFactor requires bodyweight mechanism)
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'barbell',
+    loadMode: 'total',
+    bodyweightFactor: 0.5
+  }), false);
+
+  // selectorized + assisted -> invalid
+  assert.equal(isExerciseLoadingProfile({
+    ...baseProfile,
+    mechanism: 'selectorized',
+    loadMode: 'assisted',
+    bodyweightFactor: 1
+  }), false);
 });
 
 test('Smith machines use their fixed 20 lb base, not the user barbell preference', () => {

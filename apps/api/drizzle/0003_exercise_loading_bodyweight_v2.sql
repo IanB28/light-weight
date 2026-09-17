@@ -8,8 +8,14 @@ DO $$ BEGIN
   ALTER TABLE "exercises" ADD CONSTRAINT "exercises_load_mode_check"
     CHECK ("load_mode" IS NULL OR "load_mode" IN ('total', 'per_side', 'per_hand', 'added_weight', 'assisted'));
 
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'exercises_bodyweight_factor_check') THEN
-    ALTER TABLE "exercises" ADD CONSTRAINT "exercises_bodyweight_factor_check"
-      CHECK ("bodyweight_factor" IS NULL OR ("bodyweight_factor" > 0 AND "bodyweight_factor" <= 1));
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'exercises_bodyweight_factor_check') THEN
+    ALTER TABLE "exercises" DROP CONSTRAINT "exercises_bodyweight_factor_check";
+  END IF;
+  ALTER TABLE "exercises" ADD CONSTRAINT "exercises_bodyweight_factor_check"
+    CHECK ("bodyweight_factor" IS NULL OR ("load_mechanism" = 'bodyweight' AND "bodyweight_factor" > 0 AND "bodyweight_factor" <= 1));
+
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'exercises_assisted_mode_check') THEN
+    ALTER TABLE "exercises" ADD CONSTRAINT "exercises_assisted_mode_check"
+      CHECK ("load_mode" IS NULL OR "load_mode" <> 'assisted' OR ("load_mechanism" = 'bodyweight' AND "bodyweight_factor" IS NOT NULL));
   END IF;
 END $$;
