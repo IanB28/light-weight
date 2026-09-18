@@ -5,7 +5,8 @@ import {
   getStoredBodyweight, getStoredHistory, getStoredProfile, getStoredRoutines,
   getStoredTargetWeight, getStoredWeeklySchedule, saveStoredBodyweight,
   saveStoredHistory, saveStoredProfile, saveStoredRoutines, saveStoredTargetWeight,
-  saveStoredWeeklySchedule, switchStoredUserScope, UserInfo, UserProfile
+  saveStoredWeeklySchedule, switchStoredUserScope, UserInfo, UserProfile,
+  type BodyweightEntry
 } from '../lib/storage.js';
 import { syncWithCloud } from '../lib/sync.js';
 import { AccentColorId, ACCENT_PRESETS, applyTheme, GlassTheme, GLASS_THEMES, getStoredThemeSettings, ThemeSettings } from '../lib/theme.js';
@@ -34,6 +35,8 @@ interface SettingsSheetProps {
   history: WorkoutSession[];
   exercises: Exercise[];
   onProfileChange: (profile: UserProfile) => void;
+  bodyweightKg?: number | null;
+  bodyweightEntries?: BodyweightEntry[];
 }
 
 type SettingsPanel = 'root' | 'profile' | 'friends' | 'training' | 'appearance' | 'theme' | 'accent' | 'language' | 'data';
@@ -50,7 +53,18 @@ function SettingsRow({ icon, label, value, onClick, disabled }: { icon: React.Re
   );
 }
 
-export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userInfo, history, exercises, onProfileChange }: SettingsSheetProps) {
+export function SettingsSheet({
+  isOpen,
+  onClose,
+  onDataRestored,
+  profile,
+  userInfo,
+  history,
+  exercises,
+  onProfileChange,
+  bodyweightKg,
+  bodyweightEntries
+}: SettingsSheetProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [panel, setPanel] = useState<SettingsPanel>('root');
   const [status, setStatus] = useState<StatusMessage>(null);
@@ -176,7 +190,13 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
 
       {panel === 'profile' && (auth.status === 'loading' ? <LoadingState compact title={t('common.loading')} /> : auth.isAuthenticated && auth.user ? <ProfileView
         profile={{ ...profile, displayName: auth.user.displayName, username: auth.user.username, birthDate: auth.user.birthDate, gender: auth.user.gender ?? profile.gender, avatarUrl: auth.user.avatarUrl }}
-        userInfo={{ id: auth.user.id, name: auth.user.displayName, email: auth.user.email }} history={history} exercises={exercises} isRemote
+        userInfo={{ id: auth.user.id, name: auth.user.displayName, email: auth.user.email }}
+        history={history}
+        exercises={exercises}
+        isRemote
+        bodyweightKg={bodyweightKg}
+        bodyweightEntries={bodyweightEntries}
+        onOpenSettings={() => setPanel('training')}
         onOpenFriends={() => setPanel('friends')}
         onLogout={() => { void auth.logout().then((result) => { if (result.ok) { switchStoredUserScope(null); window.location.reload(); } }); }}
         onSave={async (nextProfile) => {
@@ -184,7 +204,7 @@ export function SettingsSheet({ isOpen, onClose, onDataRestored, profile, userIn
           if (!result.ok) return t(`auth.error.${result.error.code}` as TranslationKey);
           onProfileChange({ ...nextProfile, displayName: result.data.displayName, username: result.data.username, birthDate: result.data.birthDate, gender: result.data.gender ?? nextProfile.gender, avatarUrl: result.data.avatarUrl });
         }}
-      /> : auth.status === 'offline' && userInfo.id !== 'local-anonymous' ? <div className="space-y-3"><p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p><ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} onSave={(nextProfile) => { onProfileChange(nextProfile); }} /></div> : <p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.syncRequiresLogin')}</p>)}
+      /> : auth.status === 'offline' && userInfo.id !== 'local-anonymous' ? <div className="space-y-3"><p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p><ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} bodyweightKg={bodyweightKg} bodyweightEntries={bodyweightEntries} onOpenSettings={() => setPanel('training')} onSave={(nextProfile) => { onProfileChange(nextProfile); }} /></div> : <p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.syncRequiresLogin')}</p>)}
 
       {panel === 'friends' && <FriendsPanel />}
 

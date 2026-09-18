@@ -246,6 +246,8 @@ export function App() {
         history={data.history}
         exercises={data.exercises}
         onProfileChange={(profile) => { data.saveProfile(profile); showFeedback(t('feedback.profileSaved')); }}
+        bodyweightKg={data.bodyweightEntries[0]?.weightKg ?? null}
+        bodyweightEntries={data.bodyweightEntries}
       />
     </div>
   );

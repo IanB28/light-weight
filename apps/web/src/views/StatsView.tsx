@@ -50,6 +50,8 @@ import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 import { selectLastTopSet, selectStatsSnapshot } from '../features/stats/stats-selectors.js';
+import { StrengthRankBadge } from '../components/StrengthRankBadge.js';
+import { getStrengthRankColor } from '../lib/strength-rank-visuals.js';
 
 interface StatsViewProps {
   history?: WorkoutSession[];
@@ -634,9 +636,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                           {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
-                            <span className="text-base shrink-0" title={item.strengthEvaluation.tierLabelEs}>
-                              {item.strengthEvaluation.emoji}
-                            </span>
+                            <StrengthRankBadge rank={item.strengthEvaluation.rank} size="sm" />
                           )}
 
                           {muscleAnalysisMode !== 'strength' && (
@@ -662,9 +662,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                             {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
                               <span
                                 className="text-[10px] font-mono font-bold block truncate"
-                                style={{ color: item.strengthEvaluation.color }}
+                                style={{ color: getStrengthRankColor(item.strengthEvaluation.rank) }}
                               >
-                                {item.strengthEvaluation.tierLabelEs} • {item.strengthEvaluation.currentRatio}× BW
+                                {t(`ranks.${item.strengthEvaluation.rank}`)} • {item.strengthEvaluation.currentRatio.toFixed(2)}× BW
                               </span>
                             )}
                           </div>
@@ -711,11 +711,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                               <span className="text-white font-bold block">
                                 {item.topEst1RmKg > 0 ? formatDisplayWeight(item.topEst1RmKg, preferences.units) : t('stats.noData')}
                               </span>
-                              {item.strengthEvaluation?.nextTier && item.strengthEvaluation.kgToNextTier !== null ? (
+                              {item.strengthEvaluation?.nextRank && item.strengthEvaluation.kgToNextRank !== null ? (
                                 <span className="text-purple-400 text-[10px] block truncate">
-                                  +{formatDisplayWeight(item.strengthEvaluation.kgToNextTier, preferences.units)} → {item.strengthEvaluation.nextTierLabelEs}
+                                  +{formatDisplayWeight(item.strengthEvaluation.kgToNextRank, preferences.units)} → {t(`ranks.${item.strengthEvaluation.nextRank}`)}
                                 </span>
-                              ) : item.strengthEvaluation?.tier === 'elite' ? (
+                              ) : item.strengthEvaluation?.rank === 'dios' ? (
                                 <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
                                   <span>{t('stats.maxRank')}</span>
                                   <Sparkles className="w-3.5 h-3.5 text-accent inline" />
@@ -1178,23 +1178,21 @@ export const StatsView: React.FC<StatsViewProps> = ({
             {userStrengthEval ? (
               <div className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-3xl shrink-0" title={userStrengthEval.tierLabelEs}>
-                    {userStrengthEval.emoji}
-                  </span>
+                  <StrengthRankBadge rank={userStrengthEval.rank} size="md" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-white">
-                        {userStrengthEval.tierLabelEs}
+                        {t(`ranks.${userStrengthEval.rank}`)}
                       </span>
                       <span
                         className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border"
                         style={{
-                          backgroundColor: `${userStrengthEval.color}20`,
-                          borderColor: `${userStrengthEval.color}40`,
-                          color: userStrengthEval.color
+                          backgroundColor: `${getStrengthRankColor(userStrengthEval.rank)}20`,
+                          borderColor: `${getStrengthRankColor(userStrengthEval.rank)}40`,
+                          color: getStrengthRankColor(userStrengthEval.rank)
                         }}
                       >
-                        {t('stats.bodyweightRatio', { ratio: userStrengthEval.currentRatio })}
+                        {t('stats.bodyweightRatio', { ratio: userStrengthEval.currentRatio.toFixed(2) })}
                       </span>
                     </div>
                     <span className="text-[11px] text-zinc-400 font-mono block mt-0.5">
@@ -1203,11 +1201,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   </div>
                 </div>
 
-                {userStrengthEval.nextTier && userStrengthEval.kgToNextTier !== null && (
+                {userStrengthEval.nextRank && userStrengthEval.kgToNextRank !== null && (
                   <div className="text-right font-mono shrink-0">
                     <span className="text-[10px] text-zinc-500 block">{t('stats.nextLevel')}</span>
                     <span className="text-xs font-bold text-accent">
-                      +{formatDisplayWeight(userStrengthEval.kgToNextTier, preferences.units)}
+                      +{formatDisplayWeight(userStrengthEval.kgToNextRank, preferences.units)}
                     </span>
                   </div>
                 )}

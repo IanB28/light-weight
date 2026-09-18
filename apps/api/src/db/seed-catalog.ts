@@ -22,9 +22,10 @@ export function mapRawCatalogExerciseToDb(raw: RawDatasetExercise) {
     supportsPlates: loading.supportsPlates,
     supportsExternalLoad: loading.supportsExternalLoad,
     includeBarWeight: loading.includeBarWeight,
-    bodyweightFactor: typeof loading.bodyweightFactor === 'number' && Number.isFinite(loading.bodyweightFactor)
-      ? loading.bodyweightFactor
-      : null,
+    bodyweightFactor:
+      typeof loading.bodyweightFactor === 'number'
+        ? loading.bodyweightFactor
+        : null,
     isCustom: false
   };
 }

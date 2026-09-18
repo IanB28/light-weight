@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { kilogramsToPounds, resolveExerciseLoadingProfile } from '@light-weight/domain';
+import { calculateEffectiveLoadKg, kilogramsToPounds, resolveExerciseLoadingProfile } from '@light-weight/domain';
 import { toDomainExercise, type ExerciseRow } from '../routes/exercises.js';
 
 function row(overrides: Partial<ExerciseRow>): ExerciseRow {
@@ -138,4 +138,43 @@ test('seed-catalog mapRawCatalogExerciseToDb preserves bodyweightFactor for assi
     eq: 'barbell'
   });
   assert.equal(bench.bodyweightFactor, null);
+});
+
+test('legacy DB row with bodyweightFactor = null for curated weighted pull-up (ex-0841) is restored to 1 and evaluates at 90kg effective load', () => {
+  const legacyRow = row({
+    id: 'ex-0841',
+    name: 'Weighted pull-up',
+    category: 'bodyweight',
+    loadMechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: null,
+    isCustom: false
+  });
+
+  const domainExercise = toDomainExercise(legacyRow);
+  assert.equal(domainExercise.loading?.bodyweightFactor, 1);
+
+  const effectiveLoad = calculateEffectiveLoadKg({
+    exercise: domainExercise,
+    setWeightKg: 20,
+    bodyweightKg: 70
+  });
+  assert.equal(effectiveLoad, 90);
+
+  // Generic push-up safety: uncurated bodyweight movement without factor must not invent BW
+  const pushUpRow = row({
+    id: 'ex-pushup',
+    name: 'Push-up',
+    category: 'bodyweight',
+    loadMechanism: 'bodyweight',
+    loadMode: 'added_weight',
+    bodyweightFactor: null,
+    isCustom: false
+  });
+  const pushUpDomain = toDomainExercise(pushUpRow);
+  assert.equal(pushUpDomain.loading?.bodyweightFactor, undefined);
+  assert.equal(
+    calculateEffectiveLoadKg({ exercise: pushUpDomain, setWeightKg: 20, bodyweightKg: 70 }),
+    20
+  );
 });

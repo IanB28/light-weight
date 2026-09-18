@@ -2,7 +2,7 @@ import React from 'react';
 import { Sparkles, UserRound } from 'lucide-react';
 import {
   MuscleGroup,
-  StrengthTier,
+  StrengthRank,
   StrengthEvaluation,
   Gender
 } from '@light-weight/domain';
@@ -10,6 +10,10 @@ import BODY_PATHS, { BodyViewData } from '../../lib/body-paths.js';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { useI18n } from '../../lib/i18n.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
+import {
+  STRENGTH_RANK_VISUALS,
+  getStrengthRankVisual
+} from '../../lib/strength-rank-visuals.js';
 
 export type AnalysisMode = 'balance' | 'fatigue' | 'strength';
 
@@ -38,6 +42,7 @@ interface AnatomicalBodyMapProps {
   onSelectMuscle: (muscle: MuscleGroup | null) => void;
   onConfigureGender?: () => void;
   onSelectGender?: (gender: Gender) => void;
+  strengthPresentation?: 'summary' | 'profile';
   className?: string;
 }
 
@@ -95,22 +100,24 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   onSelectMuscle,
   onConfigureGender,
   onSelectGender,
+  strengthPresentation = 'summary',
   className = ''
 }) => {
   const { preferences } = usePreferences();
   const { t } = useI18n();
 
-  if (!gender || (gender !== 'male' && gender !== 'female')) {
+  // Guard clause: If user hasn't set gender, display an informative state prompting selection
+  if (!gender) {
     return (
-      <div className={`p-6 flex flex-col items-center justify-center text-center rounded-ui-xl border border-border-subtle bg-surface shadow-card relative overflow-hidden space-y-4 ${className}`}>
-        <div className="flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent">
-          <UserRound className="size-6" />
+      <div className={`p-6 rounded-3xl bg-surface border border-border-subtle flex flex-col items-center justify-center text-center space-y-3 ${className}`}>
+        <div className="w-12 h-12 rounded-full bg-accent-soft border border-accent/20 flex items-center justify-center text-accent">
+          <UserRound className="w-6 h-6" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-sm font-extrabold text-text-primary">
+          <h3 className="font-bold text-sm text-text-primary">
             {t('stats.selectBodyMapTitle')}
           </h3>
-          <p className="text-xs text-text-muted max-w-xs leading-relaxed">
+          <p className="text-xs text-text-secondary max-w-xs">
             {t('stats.selectBodyMapDescription')}
           </p>
         </div>
@@ -123,7 +130,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             {t('stats.configureGender')}
           </button>
         ) : onSelectGender ? (
-          <div className="flex items-center gap-2 p-1 bg-surface-input rounded-ui-lg border border-border-subtle">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={() => onSelectGender('male')}
@@ -200,20 +207,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       if (!item.strengthEvaluation || item.topEst1RmKg === 0) {
         return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
       }
-      const tier = item.strengthEvaluation.tier;
-      switch (tier) {
-        case 'elite':
-          return { fill: '#A855F7', stroke: '#E9D5FF', strokeWidth: 1.2 };
-        case 'advanced':
-          return { fill: '#F59E0B', stroke: '#FDE68A', strokeWidth: 1.1 };
-        case 'intermediate':
-          return { fill: '#10B981', stroke: '#A7F3D0', strokeWidth: 1.0 };
-        case 'novice':
-          return { fill: '#38BDF8', stroke: '#BAE6FD', strokeWidth: 0.9 };
-        case 'beginner':
-        default:
-          return { fill: 'rgba(255, 255, 255, 0.22)', stroke: 'rgba(255, 255, 255, 0.35)', strokeWidth: 0.8 };
+      const visual = getStrengthRankVisual(item.strengthEvaluation.rank);
+      if (visual.rank === 'semidios') {
+        return { fill: visual.fill, stroke: visual.accent, strokeWidth: 1.2 };
       }
+      if (visual.rank === 'dios') {
+        return { fill: visual.fill, stroke: visual.accent, strokeWidth: 1.2 };
+      }
+      return { fill: visual.fill, stroke: visual.stroke, strokeWidth: 1.0 };
     }
 
     return { fill: 'rgba(255, 255, 255, 0.07)', stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 0.8 };
@@ -247,19 +248,59 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           const muscle = SVG_TO_MUSCLE_GROUP[key];
           if (!muscle) return null;
 
+          const item = data[muscle];
           const { fill, stroke, strokeWidth } = getMuscleColor(muscle);
           const isSelected = selectedMuscle === muscle;
+          const isStrengthMode = mode === 'strength';
+          const rankVisual = isStrengthMode && item?.strengthEvaluation ? getStrengthRankVisual(item.strengthEvaluation.rank) : null;
+
+          let renderedFill = fill;
+          let renderedStroke = stroke;
+          let renderedStrokeWidth = strokeWidth;
+          let renderedFilter: string | undefined = undefined;
+
+          if (isStrengthMode && rankVisual) {
+            if (isSelected) {
+              renderedFill = rankVisual.fill;
+              if (rankVisual.rank === 'dios') {
+                renderedStroke = '#FFD700';
+                renderedStrokeWidth = 3.5;
+                renderedFilter = 'drop-shadow(0 0 10px #FFD700) drop-shadow(0 0 18px rgba(255, 215, 0, 0.85))';
+              } else if (rankVisual.rank === 'semidios') {
+                renderedStroke = '#FFD700';
+                renderedStrokeWidth = 3.5;
+                renderedFilter = 'drop-shadow(0 0 10px #FFD700) drop-shadow(0 0 16px rgba(184, 134, 11, 0.85))';
+              } else {
+                renderedStroke = rankVisual.accent || '#FFFFFF';
+                renderedStrokeWidth = 3.5;
+                renderedFilter = `drop-shadow(0 0 8px ${rankVisual.accent}) drop-shadow(0 0 14px ${rankVisual.glow || rankVisual.fill})`;
+              }
+            } else {
+              if (rankVisual.rank === 'semidios') {
+                renderedFilter = 'drop-shadow(0 0 6px rgba(184, 134, 11, 0.45))';
+              } else if (rankVisual.rank === 'dios') {
+                renderedFilter = 'drop-shadow(0 0 6px rgba(255, 255, 255, 0.50)) drop-shadow(0 0 10px rgba(255, 215, 0, 0.35))';
+              } else if (rankVisual.filterDropShadow) {
+                renderedFilter = rankVisual.filterDropShadow;
+              }
+            }
+          } else if (isSelected) {
+            renderedFill = '#FFFFFF';
+            renderedStroke = '#FFFFFF';
+            renderedStrokeWidth = 4;
+            renderedFilter = 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.9))';
+          }
 
           return paths.map((d, i) => (
             <path
               key={`muscle-${key}-${i}`}
               d={d}
-              fill={isSelected ? '#FFFFFF' : fill}
-              stroke={isSelected ? '#FFFFFF' : stroke}
-              strokeWidth={isSelected ? 4 : strokeWidth}
+              fill={renderedFill}
+              stroke={renderedStroke}
+              strokeWidth={renderedStrokeWidth}
               className="cursor-pointer transition-colors duration-150 active:opacity-80"
               style={{
-                filter: isSelected ? 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.9))' : undefined
+                filter: renderedFilter
               }}
               onClick={() => onSelectMuscle(selectedMuscle === muscle ? null : muscle)}
             >
@@ -327,58 +368,51 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       )}
 
       {mode === 'strength' && (
-        <div className="flex items-center justify-between p-2 px-3 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono shadow-sm">
-          <div className="flex items-center gap-1 text-zinc-400" title="Principiante">
-            <span className="w-2 h-2 rounded-full bg-zinc-400 shrink-0" />
-            <span>Princ.</span>
-          </div>
-          <div className="flex items-center gap-1 text-sky-400" title="Novicio">
-            <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
-            <span>Nov.</span>
-          </div>
-          <div className="flex items-center gap-1 text-emerald-400" title="Intermedio">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-            <span>Inter.</span>
-          </div>
-          <div className="flex items-center gap-1 text-amber-400" title="Avanzado">
-            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-            <span>Avanz.</span>
-          </div>
-          <div className="flex items-center gap-1 text-purple-400 font-bold" title="Élite">
-            <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_6px_rgba(168,85,247,0.5)] shrink-0" />
-            <span>Élite</span>
-          </div>
+        <div className="grid grid-cols-3 gap-1.5 p-2 px-3 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono shadow-sm">
+          {(Object.keys(STRENGTH_RANK_VISUALS) as StrengthRank[]).map((r) => {
+            const v = STRENGTH_RANK_VISUALS[r];
+            return (
+              <div key={r} className="flex items-center gap-1.5 text-zinc-300 min-w-0" title={t(`ranks.${r}`)}>
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0 border"
+                  style={{
+                    backgroundColor: v.fill,
+                    borderColor: v.accent
+                  }}
+                />
+                <span className="truncate">{t(`ranks.${r}`)}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Selected Muscle Detail Card with Gamification Badges */}
-      {selectedData ? (
+      {/* Selected Muscle Detail Card (Suppressed when strengthPresentation === 'profile' to let Profile render its own dedicated panel) */}
+      {strengthPresentation !== 'profile' && selectedData ? (
         <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {selectedData.strengthEvaluation && (
-                <span className="text-lg" title={selectedData.strengthEvaluation.tierLabelEs}>
-                  {selectedData.strengthEvaluation.emoji}
-                </span>
-              )}
               <div>
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm font-extrabold text-white">
                     {selectedData.nameEs}
                   </h4>
-                  {selectedData.strengthEvaluation && (
-                    <span
-                      className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
-                      style={{
-                        backgroundColor: `${selectedData.strengthEvaluation.color}20`,
-                        color: selectedData.strengthEvaluation.color,
-                        border: `1px solid ${selectedData.strengthEvaluation.color}40`
-                      }}
-                    >
-                      {selectedData.strengthEvaluation.tierLabelEs}
-                    </span>
-                  )}
+                  {selectedData.strengthEvaluation && (() => {
+                    const visual = getStrengthRankVisual(selectedData.strengthEvaluation.rank);
+                    return (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+                        style={{
+                          backgroundColor: visual.glow,
+                          color: visual.stroke,
+                          border: `1px solid ${visual.stroke}80`
+                        }}
+                      >
+                        {t(`ranks.${selectedData.strengthEvaluation.rank}`)}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -430,9 +464,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             {/* Metric 3: Strength & Relative Ratio */}
             <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
               <span className="text-[10px] text-zinc-500 block uppercase">Fuerza Relativa</span>
-              <span className="text-sm font-bold text-purple-400 block">
+              <span className="text-sm font-bold text-accent block">
                 {selectedData.topEst1RmKg > 0
-                  ? `${selectedData.strengthEvaluation?.currentRatio}× BW`
+                  ? `${selectedData.strengthEvaluation?.currentRatio.toFixed(2)}× BW`
                   : '—'}
               </span>
               <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[90px] mx-auto" title={selectedData.topExerciseName}>
@@ -441,18 +475,18 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             </div>
           </div>
 
-          {/* Gamification Progress Bar toward Next Tier */}
-          {selectedData.strengthEvaluation && selectedData.strengthEvaluation.nextTier && (
+          {/* Gamification Progress Bar toward Next Rank */}
+          {selectedData.strengthEvaluation && selectedData.strengthEvaluation.nextRank && (
             <div className="p-3 rounded-2xl bg-black/50 border border-white/[0.06] space-y-1.5 font-mono">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-zinc-400 text-[11px] flex items-center gap-1">
                   Siguiente Rango:
                   <strong className="text-white">
-                    {selectedData.strengthEvaluation.nextTierLabelEs}
+                    {t(`ranks.${selectedData.strengthEvaluation.nextRank}`)}
                   </strong>
                 </span>
-                <span className="text-purple-400 font-bold text-[11px]">
-                  Faltan +{formatDisplayWeight(selectedData.strengthEvaluation.kgToNextTier ?? 0, preferences.units)}
+                <span className="text-accent font-bold text-[11px]">
+                  Faltan ≈ +{formatDisplayWeight(selectedData.strengthEvaluation.kgToNextRank ?? 0, preferences.units)}
                 </span>
               </div>
 
@@ -460,7 +494,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-gradient-to-r from-sky-500 via-accent to-purple-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${selectedData.strengthEvaluation.progressPctToNextTier}%` }}
+                  style={{ width: `${selectedData.strengthEvaluation.progressPctToNextRank}%` }}
                 />
               </div>
 
@@ -471,18 +505,18 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             </div>
           )}
 
-          {selectedData.strengthEvaluation && selectedData.strengthEvaluation.tier === 'elite' && (
-            <div className="p-2.5 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-center font-mono text-xs text-purple-300 flex items-center justify-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-purple-300 shrink-0" />
-              <span>¡Rango Élite desbloqueado! Te encuentras en el 1% superior de fuerza para este grupo muscular.</span>
+          {selectedData.strengthEvaluation && selectedData.strengthEvaluation.rank === 'dios' && (
+            <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-center font-mono text-xs text-amber-300 flex items-center justify-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>Rango Dios alcanzado (Rango máximo de fuerza).</span>
             </div>
           )}
         </div>
-      ) : (
+      ) : strengthPresentation !== 'profile' && !selectedData ? (
         <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
           Toca cualquier grupo muscular en el cuerpo para ver su analítica, fatiga e insignias de fuerza.
         </p>
-      )}
+      ) : null}
     </div>
   );
 };

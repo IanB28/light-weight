@@ -24,6 +24,8 @@
     "src/features/workouts/initial-weight.ts",
     "src/features/workouts/initial-weight.test.ts",
     "src/features/stats/stats-selectors.ts",
+    "src/features/stats/stats-selectors.test.ts",
+    "src/lib/strength-rank-visuals.ts",
     "src/lib/foundations.test.ts",
     "src/lib/auth-session-state.ts",
     "src/features/auth/auth-experience.test.ts",
@@ -38,8 +40,11 @@
     "src/lib/auth-cache.ts",
     "src/components/ui/**/*.ts",
     "src/components/ui/**/*.tsx",
+    "src/components/StrengthRankBadge.tsx",
     "src/components/charts/AnatomicalBodyMap.tsx",
+    "src/features/profile/ProfileStrengthSection.tsx",
     "src/features/profile/ProfileView.tsx",
-    "src/features/profile/profile-gender.test.ts"
+    "src/features/profile/profile-gender.test.ts",
+    "src/features/profile/profile-strength.test.ts"
   ]
 }

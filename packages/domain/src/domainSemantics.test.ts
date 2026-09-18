@@ -481,3 +481,83 @@ test('Test J: 1RM calculations for weighted bodyweight use effective load', () =
   const est1Rm = calculateSetOneRm(set, { exercise: pullUp, bodyweightKg: 70 });
   assert.equal(est1Rm, 105);
 });
+
+test('Test K: Legacy database hydration restores bodyweightFactor for full-bodyweight movements', () => {
+  // Legacy DB row where loading profile was saved before bodyweightFactor was persisted
+  const legacyPullUp = exercise({
+    id: 'ex-0841',
+    name: 'Weighted pull-up',
+    category: 'bodyweight',
+    loading: {
+      mechanism: 'bodyweight',
+      loadMode: 'added_weight',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+      // bodyweightFactor omitted / undefined
+    }
+  });
+
+  const resolved = resolveExerciseLoadingProfile(legacyPullUp);
+  assert.equal(resolved.source, 'explicit');
+  assert.equal(resolved.profile.bodyweightFactor, 1);
+
+  // When calculating effective load, 70kg BW + 20kg added load = 90kg
+  const effectiveLoad = calculateEffectiveLoadKg({
+    exercise: legacyPullUp,
+    setWeightKg: 20,
+    bodyweightKg: 70
+  });
+  assert.equal(effectiveLoad, 90);
+
+  // 1RM calculation uses 90kg, NOT 20kg
+  const set1Rm = calculateSetOneRm(
+    { weightKg: 20, reps: 5 },
+    { exercise: legacyPullUp, bodyweightKg: 70 }
+  );
+  assert.equal(set1Rm, 105);
+
+  // Legacy push-up without factor must NOT be generalized to 1.0
+  const legacyPushUp = exercise({
+    id: 'pushup',
+    name: 'Push-up',
+    category: 'bodyweight',
+    loading: {
+      mechanism: 'bodyweight',
+      loadMode: 'added_weight',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  });
+  const resolvedPushUp = resolveExerciseLoadingProfile(legacyPushUp);
+  assert.equal(resolvedPushUp.profile.bodyweightFactor, undefined);
+  assert.equal(
+    calculateEffectiveLoadKg({ exercise: legacyPushUp, setWeightKg: 20, bodyweightKg: 70 }),
+    20
+  );
+
+  // Explicit factor is preserved without being overwritten
+  const customExercise = exercise({
+    id: 'custom-dip',
+    name: 'Custom Dip',
+    category: 'bodyweight',
+    loading: {
+      mechanism: 'bodyweight',
+      loadMode: 'added_weight',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false,
+      bodyweightFactor: 0.85
+    }
+  });
+  const resolvedCustom = resolveExerciseLoadingProfile(customExercise);
+  assert.equal(resolvedCustom.profile.bodyweightFactor, 0.85);
+  assert.equal(
+    calculateEffectiveLoadKg({ exercise: customExercise, setWeightKg: 20, bodyweightKg: 100 }),
+    105 // (100 * 0.85) + 20 = 85 + 20 = 105
+  );
+});

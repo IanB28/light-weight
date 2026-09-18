@@ -5,7 +5,8 @@ import {
   calculateSessionTotalVolume,
   calculateWeeklyStreak,
   Exercise,
-  WorkoutSession
+  WorkoutSession,
+  BodyweightEntry
 } from '@light-weight/domain';
 import {
   calculateAllPersonalRecords,
@@ -17,6 +18,7 @@ import { resolveExerciseName } from '../../lib/exercise-names.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { AppCard, Button, EmptyState, SegmentedControl } from '../../components/ui/index.js';
+import { ProfileStrengthSection } from './ProfileStrengthSection.js';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -27,11 +29,26 @@ interface ProfileViewProps {
   onOpenFriends?: () => void;
   onLogout?: () => void;
   isRemote?: boolean;
+  bodyweightKg?: number | null;
+  bodyweightEntries?: BodyweightEntry[];
+  onOpenSettings?: () => void;
 }
 
 type ProfileMode = 'summary' | 'edit';
 
-export function ProfileView({ profile, userInfo, history, exercises, onSave, onOpenFriends, onLogout, isRemote = false }: ProfileViewProps) {
+export function ProfileView({
+  profile,
+  userInfo,
+  history,
+  exercises,
+  onSave,
+  onOpenFriends,
+  onLogout,
+  isRemote = false,
+  bodyweightKg,
+  bodyweightEntries,
+  onOpenSettings
+}: ProfileViewProps) {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
   const [mode, setMode] = useState<ProfileMode>('summary');
@@ -179,6 +196,15 @@ export function ProfileView({ profile, userInfo, history, exercises, onSave, onO
           [summary.streak, t('profile.weeks')]
         ].map(([value, label]) => <div key={String(label)} className="min-w-0 px-1.5"><p className="truncate font-mono text-base font-extrabold text-text-primary">{value}</p><p className="mt-0.5 text-[10px] leading-tight text-text-muted">{label}</p></div>)}
       </AppCard>
+
+      <ProfileStrengthSection
+        history={history}
+        exercises={exercises}
+        bodyweightKg={bodyweightKg}
+        gender={profile.gender}
+        bodyweightEntries={bodyweightEntries}
+        onOpenSettings={onOpenSettings}
+      />
 
       <section className="space-y-2" aria-labelledby="profile-records">
         <h4 id="profile-records" className="flex items-center gap-2 text-sm font-extrabold text-text-primary"><Award aria-hidden="true" className="size-4 text-accent" />{t('profile.records')}</h4>

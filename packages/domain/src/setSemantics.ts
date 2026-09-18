@@ -90,7 +90,7 @@ export function calculateEffectiveLoadKg({
   bodyweightKg,
   loadModeOverride
 }: EffectiveLoadOptions): number {
-  const profile = exercise.loading ?? resolveExerciseLoadingProfile(exercise).profile;
+  const profile = resolveExerciseLoadingProfile(exercise).profile;
   const mode = loadModeOverride ?? profile.loadMode;
   const rawWeight = Number.isFinite(setWeightKg) ? setWeightKg : 0;
   const factor = profile.bodyweightFactor;
@@ -145,7 +145,7 @@ export function isSetEligibleForPersonalRecord({
     return shouldCountForPersonalRecord(set);
   }
 
-  const profile = exercise.loading ?? resolveExerciseLoadingProfile(exercise).profile;
+  const profile = resolveExerciseLoadingProfile(exercise).profile;
   const isBodyweight = typeof profile.bodyweightFactor === 'number' && profile.bodyweightFactor > 0 && profile.bodyweightFactor <= 1;
   const effectiveLoad = calculateEffectiveLoadKg({
     exercise,

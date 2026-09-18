@@ -1,41 +1,89 @@
 import { MuscleGroup } from './types.js';
 
-export type StrengthTier = 'beginner' | 'novice' | 'intermediate' | 'advanced' | 'elite';
+export type StrengthRank =
+  | 'novato'
+  | 'principiante'
+  | 'gladiador'
+  | 'elite'
+  | 'maestro'
+  | 'leyenda'
+  | 'inmortal'
+  | 'semidios'
+  | 'dios';
+
+export type StrengthRankIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+export const STRENGTH_RANKS: readonly StrengthRank[] = [
+  'novato',
+  'principiante',
+  'gladiador',
+  'elite',
+  'maestro',
+  'leyenda',
+  'inmortal',
+  'semidios',
+  'dios'
+] as const;
+
 export type Gender = 'male' | 'female';
 
-export interface TierInfo {
-  tier: StrengthTier;
-  labelEs: string;
-  emoji: string;
-  color: string;
-  minRatio: number;
+export interface StrengthStandardAnchors {
+  novice: number;
+  intermediate: number;
+  advanced: number;
+  elite: number;
 }
 
 export interface StrengthEvaluation {
-  tier: StrengthTier;
-  tierLabelEs: string;
-  emoji: string;
-  color: string;
+  version: 2;
+  rank: StrengthRank;
+  rankIndex: StrengthRankIndex;
+  strengthScore: number;
   currentRatio: number;
   oneRmKg: number;
-  nextTier: StrengthTier | null;
-  nextTierLabelEs: string | null;
+  bodyweightKg: number;
+  nextRank: StrengthRank | null;
   targetRatio: number | null;
   targetOneRmKg: number | null;
-  kgToNextTier: number | null;
-  progressPctToNextTier: number; // 0 to 100
+  kgToNextRank: number | null;
+  progressPctToNextRank: number;
 }
 
+export interface OverallStrengthEvaluation {
+  version: 1;
+  overallScore: number;
+  rank: StrengthRank;
+  rankIndex: StrengthRankIndex;
+  nextRank: StrengthRank | null;
+  progressPctToNextRank: number;
+  ratedMuscleCount: number;
+  totalMuscleCount: number;
+  coveragePct: number;
+  isComplete: boolean;
+}
+
+export const TOTAL_STRENGTH_MUSCLE_GROUPS = 11;
+
+export const ALL_STRENGTH_MUSCLE_GROUPS: readonly MuscleGroup[] = [
+  'chest',
+  'back',
+  'shoulders',
+  'biceps',
+  'triceps',
+  'forearms',
+  'quadriceps',
+  'hamstrings',
+  'glutes',
+  'calves',
+  'core'
+] as const;
+
 /**
- * Standard 1RM to Bodyweight ratio thresholds inspired by StrengthLevel / ExRx standards.
- * Tiers:
- * - Beginner: Below Novice threshold
- * - Novice: Baseline trained lifter (~6 months regular training)
- * - Intermediate: Consistent lifter (~1-2 years solid progression)
- * - Advanced: Serious strength athlete (~3-5 years dedicated training)
- * - Elite: Top tier / competitive standard (>5 years peak training)
+ * Standard 1RM to Bodyweight ratio anchors inspired by StrengthLevel / ExRx standards.
+ * Keyed by: Gender x MuscleGroup
+ * Anchors: novice (N), intermediate (I), advanced (A), elite (E)
  */
-export const STRENGTH_STANDARDS: Record<Gender, Record<MuscleGroup, Record<'novice' | 'intermediate' | 'advanced' | 'elite', number>>> = {
+export const STRENGTH_STANDARDS: Record<Gender, Record<MuscleGroup, StrengthStandardAnchors>> = {
   male: {
     chest: { novice: 0.85, intermediate: 1.25, advanced: 1.65, elite: 2.05 },
     quadriceps: { novice: 1.15, intermediate: 1.60, advanced: 2.10, elite: 2.60 },
@@ -64,91 +112,226 @@ export const STRENGTH_STANDARDS: Record<Gender, Record<MuscleGroup, Record<'novi
   }
 };
 
-export const TIER_METADATA: Record<StrengthTier, { labelEs: string; emoji: string; color: string }> = {
-  beginner: { labelEs: 'Principiante', emoji: '🥉', color: '#71717A' },
-  novice: { labelEs: 'Novicio', emoji: '🥈', color: '#38BDF8' },
-  intermediate: { labelEs: 'Intermedio', emoji: '🥇', color: '#10B981' },
-  advanced: { labelEs: 'Avanzado', emoji: '🏆', color: '#F59E0B' },
-  elite: { labelEs: 'Élite', emoji: '💎', color: '#A855F7' }
-};
+/**
+ * Derives the nine Light Weight product rank thresholds from the four standard anchors.
+ *
+ * T1 Novato: 0
+ * T2 Principiante: N
+ * T3 Gladiador: N + ((I - N) / 2)
+ * T4 Élite: I
+ * T5 Maestro: I + ((A - I) / 2)
+ * T6 Leyenda: A
+ * T7 Inmortal: A + ((E - A) / 2)
+ * T8 Semidiós: E
+ * T9 Dios: E + ((E - A) / 2)
+ */
+export function deriveStrengthRankThresholds(
+  anchors: StrengthStandardAnchors
+): Record<StrengthRank, number> {
+  const N = anchors.novice;
+  const I = anchors.intermediate;
+  const A = anchors.advanced;
+  const E = anchors.elite;
+
+  return {
+    novato: 0,
+    principiante: N,
+    gladiador: Math.round((N + (I - N) / 2) * 10000) / 10000,
+    elite: I,
+    maestro: Math.round((I + (A - I) / 2) * 10000) / 10000,
+    leyenda: A,
+    inmortal: Math.round((A + (E - A) / 2) * 10000) / 10000,
+    semidios: E,
+    dios: Math.round((E + (E - A) / 2) * 10000) / 10000
+  };
+}
 
 /**
  * Evaluates a lifter's relative strength on a given muscle group compared to
- * their bodyweight and biological gender.
+ * their bodyweight and biological gender using Light Weight's nine-rank system.
  */
 export function evaluateRelativeStrength(
   muscle: MuscleGroup,
   oneRmKg: number,
   bodyweightKg: number,
-  gender: Gender = 'male'
-): StrengthEvaluation {
-  const safeBw = Math.max(30, bodyweightKg);
-  const ratio = Math.round((oneRmKg / safeBw) * 100) / 100;
-  const thresholds = STRENGTH_STANDARDS[gender][muscle] || STRENGTH_STANDARDS.male[muscle];
-
-  let tier: StrengthTier = 'beginner';
-  let nextTier: StrengthTier | null = 'novice';
-  let prevThreshold = 0;
-  let nextThreshold = thresholds.novice;
-
-  if (ratio >= thresholds.elite) {
-    tier = 'elite';
-    nextTier = null;
-    prevThreshold = thresholds.advanced;
-    nextThreshold = thresholds.elite;
-  } else if (ratio >= thresholds.advanced) {
-    tier = 'advanced';
-    nextTier = 'elite';
-    prevThreshold = thresholds.advanced;
-    nextThreshold = thresholds.elite;
-  } else if (ratio >= thresholds.intermediate) {
-    tier = 'intermediate';
-    nextTier = 'advanced';
-    prevThreshold = thresholds.intermediate;
-    nextThreshold = thresholds.advanced;
-  } else if (ratio >= thresholds.novice) {
-    tier = 'novice';
-    nextTier = 'intermediate';
-    prevThreshold = thresholds.novice;
-    nextTierThreshold: thresholds.intermediate;
-    nextThreshold = thresholds.intermediate;
-  } else {
-    tier = 'beginner';
-    nextTier = 'novice';
-    prevThreshold = 0;
-    nextThreshold = thresholds.novice;
+  gender?: Gender
+): StrengthEvaluation | undefined {
+  if (!gender || (gender !== 'male' && gender !== 'female')) {
+    return undefined;
+  }
+  if (!Number.isFinite(bodyweightKg) || bodyweightKg <= 0) {
+    return undefined;
+  }
+  if (!Number.isFinite(oneRmKg) || oneRmKg <= 0) {
+    return undefined;
   }
 
-  const meta = TIER_METADATA[tier];
-  const nextMeta = nextTier ? TIER_METADATA[nextTier] : null;
+  const safeBw = Math.max(30, bodyweightKg);
+  // Calculate unrounded internal ratio:
+  const ratio = oneRmKg / safeBw;
 
+  const anchors = STRENGTH_STANDARDS[gender]?.[muscle] ?? STRENGTH_STANDARDS.male[muscle];
+  const thresholds = deriveStrengthRankThresholds(anchors);
+
+  let rank: StrengthRank;
+  let rankIndex: StrengthRankIndex;
+  let nextRank: StrengthRank | null;
+  let currentThreshold: number;
+  let nextThreshold: number | null;
+
+  if (ratio >= thresholds.dios) {
+    rank = 'dios';
+    rankIndex = 9;
+    nextRank = null;
+    currentThreshold = thresholds.dios;
+    nextThreshold = null;
+  } else if (ratio >= thresholds.semidios) {
+    rank = 'semidios';
+    rankIndex = 8;
+    nextRank = 'dios';
+    currentThreshold = thresholds.semidios;
+    nextThreshold = thresholds.dios;
+  } else if (ratio >= thresholds.inmortal) {
+    rank = 'inmortal';
+    rankIndex = 7;
+    nextRank = 'semidios';
+    currentThreshold = thresholds.inmortal;
+    nextThreshold = thresholds.semidios;
+  } else if (ratio >= thresholds.leyenda) {
+    rank = 'leyenda';
+    rankIndex = 6;
+    nextRank = 'inmortal';
+    currentThreshold = thresholds.leyenda;
+    nextThreshold = thresholds.inmortal;
+  } else if (ratio >= thresholds.maestro) {
+    rank = 'maestro';
+    rankIndex = 5;
+    nextRank = 'leyenda';
+    currentThreshold = thresholds.maestro;
+    nextThreshold = thresholds.leyenda;
+  } else if (ratio >= thresholds.elite) {
+    rank = 'elite';
+    rankIndex = 4;
+    nextRank = 'maestro';
+    currentThreshold = thresholds.elite;
+    nextThreshold = thresholds.maestro;
+  } else if (ratio >= thresholds.gladiador) {
+    rank = 'gladiador';
+    rankIndex = 3;
+    nextRank = 'elite';
+    currentThreshold = thresholds.gladiador;
+    nextThreshold = thresholds.elite;
+  } else if (ratio >= thresholds.principiante) {
+    rank = 'principiante';
+    rankIndex = 2;
+    nextRank = 'gladiador';
+    currentThreshold = thresholds.principiante;
+    nextThreshold = thresholds.gladiador;
+  } else {
+    rank = 'novato';
+    rankIndex = 1;
+    nextRank = 'principiante';
+    currentThreshold = thresholds.novato;
+    nextThreshold = thresholds.principiante;
+  }
+
+  let strengthScore: number;
+  let progressPctToNextRank: number;
   let targetRatio: number | null = null;
   let targetOneRmKg: number | null = null;
-  let kgToNextTier: number | null = null;
-  let progressPctToNextTier = 100;
+  let kgToNextRank: number | null = null;
 
-  if (nextTier && nextThreshold) {
+  if (rank === 'dios' || nextThreshold === null) {
+    strengthScore = 9.0;
+    progressPctToNextRank = 100;
+  } else {
+    const span = nextThreshold - currentThreshold;
+    const fraction = span > 0
+      ? Math.min(1, Math.max(0, (ratio - currentThreshold) / span))
+      : 1;
+
+    strengthScore = Math.min(9.0, Math.max(1.0, rankIndex + fraction));
+    progressPctToNextRank = Math.min(100, Math.max(0, Math.round(fraction * 100)));
+
     targetRatio = nextThreshold;
     targetOneRmKg = Math.round(nextThreshold * safeBw * 10) / 10;
-    kgToNextTier = Math.max(0, Math.round((targetOneRmKg - oneRmKg) * 10) / 10);
-    const span = nextThreshold - prevThreshold;
-    progressPctToNextTier = span > 0
-      ? Math.min(100, Math.max(0, Math.round(((ratio - prevThreshold) / span) * 100)))
-      : 100;
+    kgToNextRank = Math.max(0, Math.round((targetOneRmKg - oneRmKg) * 10) / 10);
   }
 
   return {
-    tier,
-    tierLabelEs: meta.labelEs,
-    emoji: meta.emoji,
-    color: meta.color,
+    version: 2,
+    rank,
+    rankIndex,
+    strengthScore,
     currentRatio: ratio,
     oneRmKg,
-    nextTier,
-    nextTierLabelEs: nextMeta?.labelEs || null,
+    bodyweightKg,
+    nextRank,
     targetRatio,
     targetOneRmKg,
-    kgToNextTier,
-    progressPctToNextTier
+    kgToNextRank,
+    progressPctToNextRank
+  };
+}
+
+/**
+ * Calculates the Overall Strength evaluation by taking the arithmetic mean of
+ * strengthScore across all rated muscles.
+ *
+ * Rules:
+ * - 0 rated muscles -> returns null
+ * - 1-10 rated muscles -> provisional (isComplete = false)
+ * - 11 rated muscles -> complete (isComplete = true)
+ * - Unrated muscles are excluded from the mean (NOT treated as Novato)
+ */
+export function calculateOverallStrength(
+  evaluations: Partial<Record<MuscleGroup, StrengthEvaluation | undefined>>
+): OverallStrengthEvaluation | null {
+  const rated = Object.values(evaluations).filter(
+    (ev): ev is StrengthEvaluation => ev !== undefined && ev !== null && ev.version === 2
+  );
+
+  const ratedMuscleCount = rated.length;
+  if (ratedMuscleCount === 0) {
+    return null;
+  }
+
+  const totalMuscleCount = TOTAL_STRENGTH_MUSCLE_GROUPS;
+  const coveragePct = Math.round((ratedMuscleCount / totalMuscleCount) * 100);
+  const isComplete = ratedMuscleCount === totalMuscleCount;
+
+  const scoreSum = rated.reduce((acc, ev) => acc + ev.strengthScore, 0);
+  const rawMean = scoreSum / ratedMuscleCount;
+  const overallScore = Math.min(9.0, Math.max(1.0, rawMean));
+
+  let rank: StrengthRank;
+  let rankIndex: StrengthRankIndex;
+  let nextRank: StrengthRank | null;
+  let progressPctToNextRank: number;
+
+  if (overallScore >= 9.0) {
+    rank = 'dios';
+    rankIndex = 9;
+    nextRank = null;
+    progressPctToNextRank = 100;
+  } else {
+    rankIndex = Math.min(8, Math.max(1, Math.floor(overallScore))) as StrengthRankIndex;
+    rank = STRENGTH_RANKS[rankIndex - 1];
+    nextRank = STRENGTH_RANKS[rankIndex];
+    const fraction = overallScore - rankIndex;
+    progressPctToNextRank = Math.min(100, Math.max(0, Math.round(fraction * 100)));
+  }
+
+  return {
+    version: 1,
+    overallScore,
+    rank,
+    rankIndex,
+    nextRank,
+    progressPctToNextRank,
+    ratedMuscleCount,
+    totalMuscleCount,
+    coveragePct,
+    isComplete
   };
 }

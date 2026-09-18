@@ -214,11 +214,14 @@ export function resolveExerciseLoadingProfile(
 ): ResolvedExerciseLoadingProfile {
   const override = EXERCISE_LOADING_OVERRIDES[exercise.id];
   if (isExerciseLoadingProfile(exercise.loading)) {
-    // Database rows predate plate-base metadata. Keep explicit mechanics but restore
-    // curated equipment semantics when the metadata was not persisted.
-    const fallbackPlateBase = resolveFallbackProfile(exercise, options.legacyEquipment)?.plateBase;
-    const plateBase = exercise.loading.plateBase ?? override?.plateBase ?? fallbackPlateBase;
-    return { profile: cloneProfile({ ...exercise.loading, plateBase }), source: 'explicit' };
+    // Database rows predate plate-base and bodyweight-factor metadata. Keep explicit mechanics
+    // but restore curated equipment/loading semantics when the metadata was not persisted.
+    const fallback = resolveFallbackProfile(exercise, options.legacyEquipment);
+    const plateBase = exercise.loading.plateBase ?? override?.plateBase ?? fallback?.plateBase;
+    const bodyweightFactor = exercise.loading.mechanism === 'bodyweight'
+      ? (exercise.loading.bodyweightFactor ?? override?.bodyweightFactor ?? fallback?.bodyweightFactor)
+      : undefined;
+    return { profile: cloneProfile({ ...exercise.loading, plateBase, bodyweightFactor }), source: 'explicit' };
   }
 
   if (override) return { profile: cloneProfile(override), source: 'override' };

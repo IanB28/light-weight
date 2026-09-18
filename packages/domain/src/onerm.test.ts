@@ -202,24 +202,27 @@ test('calculateMuscleFatigue physiological model with RIR and time decay', () =>
 });
 
 test('evaluateRelativeStrength StrengthLevel gamification and gender standards', () => {
-  // Male with 80kg BW benching 100kg -> ratio 1.25 -> Novice/Intermediate boundary (Intermediate: 1.25)
+  // Male with 80kg BW benching 100kg -> ratio 1.25 -> Élite (threshold: 1.25)
   const maleEval = evaluateRelativeStrength('chest', 100, 80, 'male');
-  assert.equal(maleEval.tier, 'intermediate');
+  assert.ok(maleEval);
+  assert.equal(maleEval.rank, 'elite');
   assert.equal(maleEval.currentRatio, 1.25);
-  assert.equal(maleEval.nextTier, 'advanced');
-  assert.ok(maleEval.kgToNextTier !== null && maleEval.kgToNextTier > 0);
+  assert.equal(maleEval.nextRank, 'maestro');
+  assert.ok(maleEval.kgToNextRank !== null && maleEval.kgToNextRank > 0);
 
-  // Female with 60kg BW benching 45kg -> ratio 0.75 -> Intermediate (Female intermediate: 0.75)
+  // Female with 60kg BW benching 45kg -> ratio 0.75 -> Élite (Female intermediate anchor: 0.75)
   const femaleEval = evaluateRelativeStrength('chest', 45, 60, 'female');
-  assert.equal(femaleEval.tier, 'intermediate');
+  assert.ok(femaleEval);
+  assert.equal(femaleEval.rank, 'elite');
   assert.equal(femaleEval.currentRatio, 0.75);
-  assert.equal(femaleEval.nextTier, 'advanced');
+  assert.equal(femaleEval.nextRank, 'maestro');
 
-  // Elite lifter: Male 80kg benching 170kg -> ratio 2.125 >= 2.05 (Elite)
-  const eliteEval = evaluateRelativeStrength('chest', 170, 80, 'male');
-  assert.equal(eliteEval.tier, 'elite');
-  assert.equal(eliteEval.nextTier, null);
-  assert.equal(eliteEval.emoji, '💎');
+  // Dios lifter: Male 80kg benching 190kg -> ratio 2.375 >= 2.25 (Dios)
+  const diosEval = evaluateRelativeStrength('chest', 190, 80, 'male');
+  assert.ok(diosEval);
+  assert.equal(diosEval.rank, 'dios');
+  assert.equal(diosEval.nextRank, null);
+  assert.equal(diosEval.progressPctToNextRank, 100);
 });
 
 test('calculateWeeklyStreak and weekKey calculation', () => {
