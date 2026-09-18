@@ -28,20 +28,22 @@ async function main() {
   const csvHeaders = [
     'id',
     'name',
-    'raw_body_part',
-    'raw_target',
-    'raw_secondaries',
-    'raw_equipment',
-    'current_category',
-    'current_primary_muscle',
-    'current_secondaries',
-    'load_mechanism',
-    'load_mode',
-    'bodyweight_factor',
-    'plate_base_kind',
-    'movement_family',
-    'complexity',
-    'machine_resistance_class',
+    'rawBodyPart',
+    'rawEquipment',
+    'rawTarget',
+    'rawMuscleMetadata',
+    'rawSecondaryMuscles',
+    'currentCategory',
+    'currentPrimaryMuscle',
+    'currentSecondaryMuscles',
+    'currentLoadMechanism',
+    'currentLoadMode',
+    'currentBodyweightFactor',
+    'currentPlateBaseKind',
+    'inferredMovementFamily',
+    'inferredComplexity',
+    'inferredMachineResistanceClass',
+    'highestSeverity',
     'flags'
   ];
 
@@ -60,9 +62,10 @@ async function main() {
       escapeCsv(r.id),
       escapeCsv(r.name),
       escapeCsv(r.raw.bodyPart),
-      escapeCsv(r.raw.target),
-      escapeCsv(r.raw.secondaryMuscles.join('; ')),
       escapeCsv(r.raw.equipment),
+      escapeCsv(r.raw.target),
+      escapeCsv(r.raw.muscleMetadata),
+      escapeCsv(r.raw.secondaryMuscles.join('; ')),
       escapeCsv(r.current.equipmentCategory),
       escapeCsv(r.current.primaryMuscle),
       escapeCsv(r.current.secondaryMuscles.join('; ')),
@@ -73,6 +76,7 @@ async function main() {
       escapeCsv(r.inferred.movementFamily),
       escapeCsv(r.inferred.complexity),
       escapeCsv(r.inferred.machineResistanceClass),
+      escapeCsv(r.highestSeverity ?? 'none'),
       escapeCsv(r.flags.join('; '))
     ];
     csvRows.push(row.join(','));
@@ -87,6 +91,7 @@ async function main() {
     id: r.id,
     name: r.name,
     rawTarget: r.raw.target,
+    rawMuscleMetadata: r.raw.muscleMetadata,
     rawSecondaries: r.raw.secondaryMuscles,
     rawEquipment: r.raw.equipment,
     currentPrimary: r.current.primaryMuscle,
@@ -120,9 +125,15 @@ async function main() {
   console.log(`Isolation candidates: ${summary.byComplexity.isolation}`);
   console.log(`Unknown complexity: ${summary.byComplexity.unknown}`);
   console.log(`Machine resistance candidates: ${summary.machineResistanceCandidates.length}`);
+  console.log(`Known current machine base: ${summary.byMachineResistanceClass.known_current}`);
   console.log(`Plate-loaded candidates: ${summary.plateLoadedCandidates.length}`);
   console.log(`Assisted bodyweight candidates: ${summary.bodyweightAssistedCandidates.length}`);
   console.log(`Total flag instances: ${Object.values(summary.byFlag).reduce((a, b) => a + b, 0)}`);
+
+  console.log('\n=== SEVERITY BREAKDOWN ===');
+  for (const [sev, count] of Object.entries(summary.bySeverity)) {
+    console.log(`  ${sev}: ${count}`);
+  }
 
   console.log('\n=== TOP FLAGS ===');
   const sortedFlags = Object.entries(summary.byFlag).sort((a, b) => b[1] - a[1]);

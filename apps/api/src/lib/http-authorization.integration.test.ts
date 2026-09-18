@@ -26,7 +26,14 @@ test('HTTP authorization enforces ownership, recipient-only imports and idempote
     t.skip('DATABASE_URL is not configured');
     return;
   }
-  const sql = postgres(connectionString, { max: 1, ssl: 'require' });
+  const sql = postgres(connectionString, { max: 1, ssl: 'require', connect_timeout: 2 });
+  try {
+    await sql`SELECT 1`;
+  } catch (error) {
+    await sql.end({ timeout: 1 }).catch(() => {});
+    t.skip(`DATABASE_URL is unreachable or rejected credentials: ${(error as Error).message}`);
+    return;
+  }
   const rollback = new Error('HTTP_AUTHORIZATION_TEST_ROLLBACK');
   const a = '71000000-0000-4000-8000-000000000001';
   const b = '71000000-0000-4000-8000-000000000002';

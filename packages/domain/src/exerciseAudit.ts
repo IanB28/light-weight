@@ -61,12 +61,21 @@ export type MachineResistanceClass =
   | 'known_current'
   | 'unknown';
 
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low';
+
+export interface AuditFinding {
+  flag: string;
+  severity: FindingSeverity;
+  description: string;
+}
+
 export interface ExerciseAuditRecord {
   id: string;
   name: string;
   raw: {
     bodyPart: string;
     target: string;
+    muscleMetadata: string;
     secondaryMuscles: string[];
     equipment: string;
   };
@@ -85,6 +94,8 @@ export interface ExerciseAuditRecord {
     machineResistanceClass: MachineResistanceClass;
   };
   flags: string[];
+  findings: AuditFinding[];
+  highestSeverity?: FindingSeverity;
 }
 
 export interface CatalogAuditSummary {
@@ -97,6 +108,8 @@ export interface CatalogAuditSummary {
   byLoadMode: Record<ExerciseLoadMode, number>;
   byComplexity: Record<ExerciseComplexity, number>;
   byMovementFamily: Record<MovementFamily, number>;
+  byMachineResistanceClass: Record<MachineResistanceClass, number>;
+  bySeverity: Record<FindingSeverity, number>;
   byFlag: Record<string, number>;
   flaggedExerciseIds: Record<string, string[]>;
   machineResistanceCandidates: string[];
@@ -104,11 +117,22 @@ export interface CatalogAuditSummary {
   bodyweightAssistedCandidates: string[];
 }
 
-export function inferMovementFamily(name = '', target = '', category: ExerciseCategory = 'other'): MovementFamily {
+export function inferMovementFamily(
+  name = '',
+  target = '',
+  _category: ExerciseCategory = 'other'
+): MovementFamily {
   const n = name.toLowerCase();
   const tg = target.toLowerCase();
 
-  // Specific lower body variations first
+  // 1. Calf movements MUST be prioritized before leg press so that
+  // "Sled calf press on leg press" is classified by movement performed (calf_raise),
+  // not by the platform machine (leg press).
+  if (/\bcalf(?:\s+raise|\s+press)?\b/i.test(n) || tg.includes('calves')) {
+    return 'calf_raise';
+  }
+
+  // 2. Specific lower body compound variations
   if (/\bleg\s+press\b/i.test(n) || /\bsquat\s+press\b/i.test(n)) return 'leg_press';
   if (/\bhack\s+squat\b/i.test(n)) return 'hack_squat';
   if (/\bpendulum\s+squat\b/i.test(n)) return 'pendulum_squat';
@@ -116,46 +140,59 @@ export function inferMovementFamily(name = '', target = '', category: ExerciseCa
   if (/\blunge\b/i.test(n)) return 'lunge';
   if (/\bstep[ -]?up\b/i.test(n)) return 'step_up';
 
-  // Deadlift variants
-  if (/\b(?:romanian|rdl|stiff[ -]leg(?:ged)?|straight[ -]leg)\s+(?:deadlift|lift)\b/i.test(n)) return 'romanian_deadlift';
+  // 3. Deadlift variants
+  if (/\b(?:romanian|rdl|stiff[ -]leg(?:ged)?|straight[ -]leg)\s+(?:deadlift|lift)\b/i.test(n)) {
+    return 'romanian_deadlift';
+  }
   if (/\bdeadlift\b/i.test(n)) return 'deadlift';
 
-  // Hip thrust & glute drive
+  // 4. Hip thrust & glute drive
   if (/\b(?:hip\s+thrust|glute\s+bridge|glute\s+drive)\b/i.test(n)) return 'hip_thrust';
 
-  // Squat general
+  // 5. Squat general
   if (/\b(?:squat|v-squat|super\s+squat|belt\s+squat)\b/i.test(n)) return 'squat';
 
-  // Knee flexion / extension / calves
+  // 6. Knee flexion / extension
   if (/\b(?:leg|knee)\s+extension\b/i.test(n)) return 'knee_extension';
   if (/\b(?:leg|knee|hamstring)\s+curl\b/i.test(n)) return 'knee_flexion';
-  if (/\bcalf(?:\s+raise|\s+press)?\b/i.test(n) || tg.includes('calves')) return 'calf_raise';
 
-  // Upper push: Angle specific presses
+  // 7. Upper push: Angle specific presses
   if (/\bincline\s+(?:bench\s+)?(?:press|chest\s+press)\b/i.test(n)) return 'incline_press';
   if (/\bdecline\s+(?:bench\s+)?(?:press|chest\s+press)\b/i.test(n)) return 'decline_press';
-  if (/\b(?:overhead\s+press|shoulder\s+press|military\s+press|push\s+press|strict\s+press|arnold\s+press|pike\s+press|seated\s+front\s+press)\b/i.test(n)) return 'vertical_press';
-  if (/\b(?:bench\s+press|chest\s+press|push[ -]?ups?)\b/i.test(n) || (/\bpress\b/i.test(n) && tg.includes('pectorals'))) return 'bench_press';
-  if (/\b(?:fly|flye?s?|pec\s+deck|pec\s+fly|cable\s+crossover)\b/i.test(n) && !/\breverse\s+fly\b/i.test(n)) return 'fly';
+  if (/\b(?:overhead\s+press|shoulder\s+press|military\s+press|push\s+press|strict\s+press|arnold\s+press|pike\s+press|seated\s+front\s+press)\b/i.test(n)) {
+    return 'vertical_press';
+  }
+  if (/\b(?:bench\s+press|chest\s+press|push[ -]?ups?)\b/i.test(n) || (/\bpress\b/i.test(n) && tg.includes('pectorals'))) {
+    return 'bench_press';
+  }
+  if (/\b(?:fly|flye?s?|pec\s+deck|pec\s+fly|cable\s+crossover)\b/i.test(n) && !/\breverse\s+fly\b/i.test(n)) {
+    return 'fly';
+  }
 
-  // Upper pull
+  // 8. Upper pull
   if (/\bchin[ -]?ups?\b/i.test(n)) return 'chin_up';
   if (/\bpull[ -]?ups?\b/i.test(n)) return 'pull_up';
   if (/\b(?:lat\s+)?pull[ -]?down\b/i.test(n)) return 'pulldown';
   if (/\brow(?:ing)?\b/i.test(n)) return 'row';
 
-  // Shoulders isolation
+  // 9. Shoulders isolation
   if (/\blateral\s+raise\b/i.test(n)) return 'lateral_raise';
   if (/\b(?:rear\s+delt|face\s+pull|reverse\s+fly)\b/i.test(n)) return 'rear_delt';
   if (/\bfront\s+raise\b/i.test(n)) return 'front_raise';
 
-  // Arms
-  if (/\b(?:biceps?\s+)?curl\b/i.test(n) || (tg.includes('biceps') && /\bcurl\b/i.test(n))) return 'elbow_flexion';
-  if (/\b(?:triceps?\s+)?(?:extension|pushdown|kickback|skull\s*crusher|french\s+press|dip|dips)\b/i.test(n)) return 'elbow_extension';
+  // 10. Arms
+  if (/\b(?:biceps?\s+)?curl\b/i.test(n) || (tg.includes('biceps') && /\bcurl\b/i.test(n))) {
+    return 'elbow_flexion';
+  }
+  if (/\b(?:triceps?\s+)?(?:extension|pushdown|kickback|skull\s*crusher|french\s+press|dip|dips)\b/i.test(n)) {
+    return 'elbow_extension';
+  }
 
-  // Other / Core / Carry
+  // 11. Other / Core / Carry
   if (/\b(?:farmer'?s?\s+walk|carry)\b/i.test(n)) return 'carry';
-  if (tg.includes('abs') || tg.includes('waist') || /\b(?:crunch|plank|sit[ -]?up|leg\s+raise|ab\s+wheel|v-up)\b/i.test(n)) return 'core';
+  if (tg.includes('abs') || tg.includes('waist') || /\b(?:crunch|plank|sit[ -]?up|leg\s+raise|ab\s+wheel|v-up)\b/i.test(n)) {
+    return 'core';
+  }
 
   return 'other';
 }
@@ -193,7 +230,7 @@ export function inferMachineResistanceClass(
   raw: RawDatasetExercise,
   loading: ExerciseLoadingProfile
 ): MachineResistanceClass {
-  // Known current with fixed tare base (e.g. Smith machine)
+  // 1. Known current: explicitly modeled fixed plate tare base (e.g. Smith machine with 20/22 lb base)
   if (loading.plateBase?.kind === 'fixed') {
     return 'known_current';
   }
@@ -201,26 +238,43 @@ export function inferMachineResistanceClass(
   const eq = (raw.eq || '').toLowerCase();
   const n = (raw.n || '').toLowerCase();
 
-  // Distinct from selectorized stack machines: sled / plate loaded machines with inherent carriage mass
-  const isSledOrPlateLoaded = loading.mechanism === 'plate_loaded'
-    || eq.includes('sled')
+  // 2. Pure free weights, bodyweight, cable, band, etc. can NEVER have inherent machine resistance.
+  const nonMachineEquipments = new Set([
+    'barbell', 'olympic barbell', 'ez barbell', 'trap bar',
+    'dumbbell', 'body weight', 'cable', 'band', 'resistance band',
+    'kettlebell', 'medicine ball', 'stability ball', 'bosu ball',
+    'rope', 'roller', 'wheel roller', 'hammer', 'tire'
+  ]);
+  if (nonMachineEquipments.has(eq) && loading.mechanism !== 'plate_loaded') {
+    return 'none_expected';
+  }
+
+  if (loading.mechanism === 'barbell' || loading.mechanism === 'dumbbell' || loading.mechanism === 'bodyweight' || loading.mechanism === 'cable') {
+    return 'none_expected';
+  }
+
+  // 3. Inherent resistance candidate:
+  // Requires MACHINE CONTEXT + physical sled / carriage movement mass before plates are added.
+  // Note: leverage machines without sled carriages are candidates for plate-loaded vs selectorized,
+  // but do NOT qualify as inherent resistance candidates without physical carriage evidence.
+  const isMachineContext = eq.includes('sled machine')
     || eq.includes('plate loaded')
     || eq.includes('plate-loaded')
-    || /\b(?:sled|45°?\s+leg\s+press|hack\s+squat|pendulum|squat\s+press|v-squat|super\s+squat|glute\s+drive|belt\s+squat)\b/i.test(n);
+    || (loading.mechanism === 'plate_loaded' && (eq.includes('machine') || eq.includes('sled')));
 
-  if (isSledOrPlateLoaded) {
+  const isSledOrCarriage = eq.includes('sled machine')
+    || /\b(?:sled|45°?\s+leg\s+press|hack\s+squat|pendulum|super\s+squat|v-squat)\b/i.test(n);
+
+  if (isMachineContext && isSledOrCarriage && loading.mechanism === 'plate_loaded') {
     return 'inherent_resistance_candidate';
   }
 
-  // Pure bodyweight, dumbbells, barbells, or pure selectorized stacks without sled
-  if (loading.mechanism === 'barbell' || loading.mechanism === 'dumbbell' || loading.mechanism === 'bodyweight') {
+  // Standard selectorized stack machines without sled
+  if (loading.mechanism === 'selectorized') {
     return 'none_expected';
   }
 
-  if (loading.mechanism === 'selectorized' && !isSledOrPlateLoaded) {
-    return 'none_expected';
-  }
-
+  // If equipment is machine or leverage machine without sled carriage
   if (eq.includes('machine') || eq.includes('leverage')) {
     return 'unknown';
   }
@@ -228,119 +282,262 @@ export function inferMachineResistanceClass(
   return 'none_expected';
 }
 
-export function detectAuditFlags(
+function getCanonicalMuscleForMg(mg = ''): MuscleGroup | null {
+  const s = (mg || '').toLowerCase().trim();
+  if (s.includes('quad')) return 'quadriceps';
+  if (s.includes('glute')) return 'glutes';
+  if (s.includes('hamstring')) return 'hamstrings';
+  if (s.includes('bicep')) return 'biceps';
+  if (s.includes('tricep')) return 'triceps';
+  if (s.includes('chest') || s.includes('pectoral')) return 'chest';
+  if (s.includes('delt') || s.includes('shoulder') || s.includes('rotator')) return 'shoulders';
+  if (s.includes('lat') || s.includes('back') || s.includes('rhomboid') || s.includes('trap')) return 'back';
+  if (s.includes('calf') || s.includes('calves') || s.includes('soleus') || s.includes('ankle')) return 'calves';
+  if (s.includes('forearm') || s.includes('wrist') || s.includes('hand')) return 'forearms';
+  if (s.includes('ab') || s.includes('core') || s.includes('oblique') || s.includes('hip flexor') || s.includes('lower back')) return 'core';
+  return null;
+}
+
+export function detectAuditFindings(
   raw: RawDatasetExercise,
   current: ExerciseAuditRecord['current'],
   inferred: ExerciseAuditRecord['inferred']
-): string[] {
-  const flags: string[] = [];
+): AuditFinding[] {
+  const findings: AuditFinding[] = [];
   const rawEq = (raw.eq || '').toLowerCase();
-  const rawTg = (raw.tg || '').toLowerCase();
+  const rawTg = (raw.tg || '').trim().toLowerCase();
+  const rawMg = (raw.mg || '').trim().toLowerCase();
   const rawBp = (raw.bp || '').toLowerCase();
   const name = (raw.n || '').toLowerCase();
 
   // 1. Unmapped equipment
   if (!rawEq || current.equipmentCategory === 'other') {
-    flags.push('UNMAPPED_EQUIPMENT');
+    findings.push({
+      flag: 'UNMAPPED_EQUIPMENT',
+      severity: 'low',
+      description: `Raw equipment "${raw.eq || 'none'}" was not recognized as a primary category and mapped to "other".`
+    });
   }
 
-  // 2 & 3. Unmapped target / fallback to core
+  // 2 & 3. Unmapped target & Fallback to core
   const recognizedTargetTerms = [
     'biceps', 'triceps', 'lats', 'upper back', 'spine', 'pectorals', 'delts',
     'quads', 'hamstrings', 'glutes', 'calves', 'forearms', 'abs'
   ];
   const hasRecognizedTarget = recognizedTargetTerms.some((term) => rawTg.includes(term));
   if (!hasRecognizedTarget && rawBp !== 'waist') {
-    flags.push('UNMAPPED_TARGET');
+    findings.push({
+      flag: 'UNMAPPED_TARGET',
+      severity: 'high',
+      description: `Raw target "${raw.tg}" is not directly covered in canonical muscle groups.`
+    });
     if (current.primaryMuscle === 'core') {
-      flags.push('TARGET_FALLBACK_TO_CORE');
+      findings.push({
+        flag: 'TARGET_FALLBACK_TO_CORE',
+        severity: 'high',
+        description: `Unmapped target "${raw.tg}" silently fell back to "core". Semantic loss.`
+      });
     }
   }
 
-  // 4 & 7. Compound with no secondaries / single muscle metadata
+  // 4 & 5. Compound metadata: single muscle metadata & no secondaries
   if (inferred.complexity === 'compound') {
     if (current.secondaryMuscles.length === 0) {
-      flags.push('COMPOUND_WITH_NO_SECONDARIES');
-      flags.push('COMPOUND_SINGLE_MUSCLE_METADATA');
+      findings.push({
+        flag: 'COMPOUND_WITH_NO_SECONDARIES',
+        severity: 'medium',
+        description: 'Multi-joint compound movement has 0 secondary muscles mapped.'
+      });
+      findings.push({
+        flag: 'COMPOUND_SINGLE_MUSCLE_METADATA',
+        severity: 'medium',
+        description: 'Multi-joint compound movement has single-muscle metadata.'
+      });
     } else if (current.secondaryMuscles.length === 1 && current.secondaryMuscles[0] === 'core' && current.primaryMuscle !== 'core') {
-      flags.push('COMPOUND_SINGLE_MUSCLE_METADATA');
+      findings.push({
+        flag: 'COMPOUND_SINGLE_MUSCLE_METADATA',
+        severity: 'medium',
+        description: 'Multi-joint compound movement secondaries collapsed to generic fallback "core".'
+      });
     }
   }
 
-  // 5 & 6. Lower body compound with glutes only or quadriceps only
+  // 6 & 7. Lower body compound single primary attribution
+  // NOTE: "ONLY" denotes that the current production model attributes primary volume exclusively
+  // to that muscle group in primary-muscle-dependent metrics, NOT that the movement physically recruits only one muscle.
   const lowerBodyCompounds = new Set<MovementFamily>([
     'squat', 'leg_press', 'hack_squat', 'pendulum_squat', 'split_squat', 'lunge', 'step_up'
   ]);
   if (lowerBodyCompounds.has(inferred.movementFamily)) {
     if (current.primaryMuscle === 'glutes') {
-      flags.push('LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY');
+      findings.push({
+        flag: 'LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY',
+        severity: 'low',
+        description: "Lower body compound attributed strictly to 'glutes' in primary-muscle dependent metrics."
+      });
     }
     if (current.primaryMuscle === 'quadriceps') {
-      flags.push('LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY');
+      findings.push({
+        flag: 'LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY',
+        severity: 'low',
+        description: "Lower body compound attributed strictly to 'quadriceps' in primary-muscle dependent metrics."
+      });
     }
   }
 
-  // 8. Secondary duplicates primary in raw
+  // 8. RAW secondary duplicates target
+  const rawSmList = (raw.sm || []).map((s) => s.trim().toLowerCase());
+  const hasRawSecondaryDuplicatingTarget = rawSmList.some((s) => s === rawTg);
+  if (hasRawSecondaryDuplicatingTarget) {
+    findings.push({
+      flag: 'RAW_SECONDARY_DUPLICATES_TARGET',
+      severity: 'medium',
+      description: `Raw secondary muscles array explicitly contains raw target "${raw.tg}". Dataset duplication.`
+    });
+  }
+
+  // 9. Canonical muscle collapse
+  // When different raw secondary terms map to the same canonical MuscleGroup as primaryMuscle
   const rawSecondaryMusclesMapped = (raw.sm || []).map((m) => mapDatasetBodypartToMuscle('', m));
-  if (rawSecondaryMusclesMapped.includes(current.primaryMuscle)) {
-    flags.push('SECONDARY_DUPLICATES_PRIMARY');
+  const hasCanonicalCollapse = rawSmList.some((s, idx) => {
+    return s !== rawTg && rawSecondaryMusclesMapped[idx] === current.primaryMuscle;
+  });
+  if (hasCanonicalCollapse) {
+    findings.push({
+      flag: 'CANONICAL_MUSCLE_COLLAPSE',
+      severity: inferred.complexity === 'compound' ? 'high' : 'medium',
+      description: 'Distinct raw target and secondary muscles collapsed into the same canonical MuscleGroup.'
+    });
   }
 
-  // 9. Plate loaded without base resistance metadata
+  // 10. Audit mg against tg
+  if (rawMg && rawMg !== rawTg) {
+    findings.push({
+      flag: 'RAW_MG_DIFFERS_FROM_TARGET',
+      severity: 'medium',
+      description: `Raw muscle metadata (mg: "${raw.mg}") differs from raw target (tg: "${raw.tg}").`
+    });
+
+    // Check if concept in mg is represented in canonical muscles
+    const canonicalMg = getCanonicalMuscleForMg(raw.mg);
+    const allCanonicalMuscles = [current.primaryMuscle, ...current.secondaryMuscles];
+    if (canonicalMg && !allCanonicalMuscles.includes(canonicalMg)) {
+      findings.push({
+        flag: 'RAW_MG_NOT_REPRESENTED_IN_CANONICAL_MUSCLES',
+        severity: 'medium',
+        description: `Concept in raw.mg ("${raw.mg}") is absent from canonical primary and secondary muscles.`
+      });
+    }
+  }
+
+  // 11. Plate loaded without base resistance metadata
   if (current.loadMechanism === 'plate_loaded' && current.plateBaseKind !== 'fixed' && current.plateBaseKind !== 'user_bar') {
-    flags.push('PLATE_LOADED_NO_BASE_RESISTANCE_METADATA');
+    findings.push({
+      flag: 'PLATE_LOADED_NO_BASE_RESISTANCE_METADATA',
+      severity: 'high',
+      description: 'Plate-loaded machine lacks explicit tare base resistance metadata.'
+    });
   }
 
-  // 10. Possible plate loaded machine resolved as selectorized
+  // 12. Possible plate loaded machine resolved as selectorized
   const appearsPlateLoaded = rawEq.includes('sled')
     || rawEq.includes('plate loaded')
     || rawEq.includes('plate-loaded')
     || rawEq.includes('leverage')
     || /\b(?:sled|45°?\s+leg\s+press|hack\s+squat|pendulum|super\s+squat|v-squat|leverage)\b/i.test(name);
   if (appearsPlateLoaded && current.loadMechanism === 'selectorized') {
-    flags.push('POSSIBLE_PLATE_LOADED_MACHINE');
+    findings.push({
+      flag: 'POSSIBLE_PLATE_LOADED_MACHINE',
+      severity: 'medium',
+      description: 'Machine could be plate-loaded but was resolved as selectorized stack.'
+    });
   }
 
-  // 11. Inherent machine resistance candidate
+  // 13. Inherent machine resistance candidate
   if (inferred.machineResistanceClass === 'inherent_resistance_candidate') {
-    flags.push('POSSIBLE_INHERENT_MACHINE_RESISTANCE');
+    findings.push({
+      flag: 'POSSIBLE_INHERENT_MACHINE_RESISTANCE',
+      severity: 'medium',
+      description: 'Machine has movable sled/carriage mass candidate for inherent initial resistance.'
+    });
   }
 
-  // 12. Smith without fixed base
+  // 14. Smith without fixed base
   if ((rawEq.includes('smith') || name.includes('smith')) && current.plateBaseKind !== 'fixed') {
-    flags.push('SMITH_WITHOUT_FIXED_BASE');
+    findings.push({
+      flag: 'SMITH_WITHOUT_FIXED_BASE',
+      severity: 'high',
+      description: 'Smith machine resolved without fixed base tare resistance.'
+    });
   }
 
-  // 13. Machine category with unknown load mechanism
+  // 15. Machine category with unknown load mechanism
   if (current.equipmentCategory === 'machine' && current.loadMechanism === 'other') {
-    flags.push('MACHINE_UNKNOWN_LOAD_MECHANISM');
+    findings.push({
+      flag: 'MACHINE_UNKNOWN_LOAD_MECHANISM',
+      severity: 'high',
+      description: 'Machine category resolved with unknown load mechanism.'
+    });
   }
 
-  // 14. Sled resolved non-plate loaded
+  // 16. Sled resolved non-plate loaded
   if ((rawEq.includes('sled') || name.includes('sled')) && current.loadMechanism !== 'plate_loaded') {
-    flags.push('SLED_RESOLVED_NON_PLATE_LOADED');
+    findings.push({
+      flag: 'SLED_RESOLVED_NON_PLATE_LOADED',
+      severity: 'high',
+      description: 'Sled machine exercise resolved as non-plate-loaded.'
+    });
   }
 
-  // 15. Leverage / lever resolved selectorized only
+  // 17. Leverage / lever resolved selectorized only
   if ((rawEq.includes('leverage') || name.includes('leverage') || name.includes('lever ')) && current.loadMechanism === 'selectorized') {
-    flags.push('LEVER_RESOLVED_SELECTOR_ONLY');
+    findings.push({
+      flag: 'LEVER_RESOLVED_SELECTOR_ONLY',
+      severity: 'medium',
+      description: 'Leverage machine resolved only as selectorized stack.'
+    });
   }
 
-  // 16. Assisted metadata inconsistent
+  // 18. Assisted metadata inconsistent
   if (rawEq.includes('assisted') || name.includes('assisted')) {
     if (current.loadMode !== 'assisted' || current.bodyweightFactor === undefined) {
-      flags.push('ASSISTED_METADATA_INCONSISTENT');
+      findings.push({
+        flag: 'ASSISTED_METADATA_INCONSISTENT',
+        severity: 'high',
+        description: 'Assisted exercise metadata is inconsistent with domain model.'
+      });
     }
   }
 
-  // 17. Bodyweight metadata inconsistent
+  // 19. Bodyweight metadata inconsistent
   if (current.equipmentCategory === 'bodyweight') {
     if (current.loadMechanism !== 'bodyweight' || (current.loadMode === 'assisted' && current.bodyweightFactor === undefined)) {
-      flags.push('BODYWEIGHT_METADATA_INCONSISTENT');
+      findings.push({
+        flag: 'BODYWEIGHT_METADATA_INCONSISTENT',
+        severity: 'high',
+        description: 'Bodyweight category exercise has inconsistent mechanism or factor.'
+      });
     }
   }
 
-  return Array.from(new Set(flags));
+  return findings;
+}
+
+export function detectAuditFlags(
+  raw: RawDatasetExercise,
+  current: ExerciseAuditRecord['current'],
+  inferred: ExerciseAuditRecord['inferred']
+): string[] {
+  const findings = detectAuditFindings(raw, current, inferred);
+  return Array.from(new Set(findings.map((f) => f.flag)));
+}
+
+function deriveHighestSeverity(findings: AuditFinding[]): FindingSeverity | undefined {
+  if (findings.length === 0) return undefined;
+  if (findings.some((f) => f.severity === 'critical')) return 'critical';
+  if (findings.some((f) => f.severity === 'high')) return 'high';
+  if (findings.some((f) => f.severity === 'medium')) return 'medium';
+  return 'low';
 }
 
 export function auditExercise(raw: RawDatasetExercise): ExerciseAuditRecord {
@@ -383,7 +580,9 @@ export function auditExercise(raw: RawDatasetExercise): ExerciseAuditRecord {
     plateBaseKind: loading.plateBase?.kind
   };
 
-  const flags = detectAuditFlags(raw, current, inferred);
+  const findings = detectAuditFindings(raw, current, inferred);
+  const flags = Array.from(new Set(findings.map((f) => f.flag)));
+  const highestSeverity = deriveHighestSeverity(findings);
 
   return {
     id: `ex-${raw.id}`,
@@ -391,12 +590,15 @@ export function auditExercise(raw: RawDatasetExercise): ExerciseAuditRecord {
     raw: {
       bodyPart: raw.bp || '',
       target: raw.tg || '',
+      muscleMetadata: raw.mg || '',
       secondaryMuscles: raw.sm || [],
       equipment: raw.eq || ''
     },
     current,
     inferred,
-    flags
+    flags,
+    findings,
+    highestSeverity
   };
 }
 
@@ -416,6 +618,13 @@ export function auditExerciseCatalog(rawDataset: RawDatasetExercise[]): {
     byLoadMode: {} as Record<ExerciseLoadMode, number>,
     byComplexity: { compound: 0, isolation: 0, unknown: 0 },
     byMovementFamily: {} as Record<MovementFamily, number>,
+    byMachineResistanceClass: {
+      none_expected: 0,
+      inherent_resistance_candidate: 0,
+      known_current: 0,
+      unknown: 0
+    },
+    bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
     byFlag: {},
     flaggedExerciseIds: {},
     machineResistanceCandidates: [],
@@ -455,6 +664,16 @@ export function auditExerciseCatalog(rawDataset: RawDatasetExercise[]): {
     // Movement family
     summary.byMovementFamily[record.inferred.movementFamily] =
       (summary.byMovementFamily[record.inferred.movementFamily] || 0) + 1;
+
+    // Machine resistance class
+    summary.byMachineResistanceClass[record.inferred.machineResistanceClass] =
+      (summary.byMachineResistanceClass[record.inferred.machineResistanceClass] || 0) + 1;
+
+    // Severity
+    if (record.highestSeverity) {
+      summary.bySeverity[record.highestSeverity] =
+        (summary.bySeverity[record.highestSeverity] || 0) + 1;
+    }
 
     // Flags
     for (const flag of record.flags) {

@@ -108,6 +108,28 @@ test('seed-catalog mapRawCatalogExerciseToDb preserves bodyweightFactor for assi
   assert.equal(weighted.loadMode, 'added_weight');
   assert.equal(weighted.bodyweightFactor, 1);
 
+  const standardPullUp = mapRawCatalogExerciseToDb({
+    id: '0652',
+    n: 'pull-up',
+    bp: 'back',
+    tg: 'lats',
+    eq: 'body weight'
+  });
+  assert.equal(standardPullUp.loadMechanism, 'bodyweight');
+  assert.equal(standardPullUp.loadMode, 'added_weight');
+  assert.equal(standardPullUp.bodyweightFactor, 1);
+
+  const pushUp = mapRawCatalogExerciseToDb({
+    id: '0662',
+    n: 'push-up',
+    bp: 'chest',
+    tg: 'pectorals',
+    eq: 'body weight'
+  });
+  assert.equal(pushUp.loadMechanism, 'bodyweight');
+  assert.equal(pushUp.loadMode, 'added_weight');
+  assert.equal(pushUp.bodyweightFactor, null);
+
   const bench = mapRawCatalogExerciseToDb({
     id: 'bench',
     n: 'barbell bench press',
