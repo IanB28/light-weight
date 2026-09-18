@@ -13,3 +13,4 @@ export * from './exerciseCatalogMapping.js';
 export * from './exerciseAudit.js';
 export * from './muscleTaxonomy.js';
 export * from './exerciseSemantics.js';
+export * from './trainingCredit.js';
