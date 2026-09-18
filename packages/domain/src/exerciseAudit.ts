@@ -21,43 +21,8 @@ import {
   type MuscleTermResolutionKind
 } from './muscleTaxonomy.js';
 
-export type MovementFamily =
-  // Lower body
-  | 'squat'
-  | 'leg_press'
-  | 'hack_squat'
-  | 'pendulum_squat'
-  | 'split_squat'
-  | 'lunge'
-  | 'step_up'
-  | 'deadlift'
-  | 'romanian_deadlift'
-  | 'hip_thrust'
-  | 'knee_extension'
-  | 'knee_flexion'
-  | 'calf_raise'
-  // Upper push
-  | 'bench_press'
-  | 'incline_press'
-  | 'decline_press'
-  | 'vertical_press'
-  | 'fly'
-  // Upper pull
-  | 'row'
-  | 'pulldown'
-  | 'pull_up'
-  | 'chin_up'
-  // Arms
-  | 'elbow_flexion'
-  | 'elbow_extension'
-  // Shoulders
-  | 'lateral_raise'
-  | 'rear_delt'
-  | 'front_raise'
-  // Other
-  | 'core'
-  | 'carry'
-  | 'other';
+export { type MovementFamily } from './exerciseSemantics.js';
+import type { MovementFamily } from './exerciseSemantics.js';
 
 export type ExerciseComplexity = 'compound' | 'isolation' | 'unknown';
 

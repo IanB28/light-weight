@@ -43,6 +43,7 @@ export type MuscleEntityId =
   | 'quadriceps'
   | 'hamstrings'
   | 'adductors'
+  | 'adductor_magnus'
   // Lower legs
   | 'gastrocnemius'
   | 'soleus'
@@ -137,6 +138,7 @@ export const MUSCLE_ENTITY_METADATA: Readonly<Record<MuscleEntityId, MuscleEntit
   quadriceps: { region: 'upper_legs', legacyGroup: 'quadriceps', standardName: 'Quadriceps' },
   hamstrings: { region: 'upper_legs', legacyGroup: 'hamstrings', standardName: 'Hamstrings' },
   adductors: { region: 'upper_legs', legacyGroup: undefined, standardName: 'Adductors' },
+  adductor_magnus: { region: 'upper_legs', legacyGroup: undefined, standardName: 'Adductor Magnus' },
 
   gastrocnemius: { region: 'lower_legs', legacyGroup: 'calves', standardName: 'Gastrocnemius' },
   soleus: { region: 'lower_legs', legacyGroup: 'calves', standardName: 'Soleus' },
@@ -167,6 +169,7 @@ const EXACT_TERM_MAP: Readonly<Record<string, InternalTermMatch>> = Object.freez
   // Adductors (NEVER quadriceps, NEVER core!)
   adductors: { kind: 'anatomical', entity: 'adductors', confidence: 'high' },
   adductor: { kind: 'anatomical', entity: 'adductors', confidence: 'high' },
+  'adductor magnus': { kind: 'anatomical', entity: 'adductor_magnus', confidence: 'high' },
 
   // Chest / Pectorals
   pectorals: { kind: 'anatomical', entity: 'pectoralis_major', confidence: 'high' },

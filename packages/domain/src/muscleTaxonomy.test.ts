@@ -113,7 +113,21 @@ test('6. Adductors are preserved and NEVER resolved to quadriceps or core', () =
   assert.equal(adductors.entity, 'adductors');
   assert.equal(adductors.region, 'upper_legs');
   assert.notEqual(adductors.entity, 'quadriceps');
+  assert.notEqual(adductors.entity, 'adductor_magnus', 'General adductors must NOT auto-resolve to adductor_magnus');
   assert.equal(adductors.legacyGroup, undefined, 'Legacy cannot represent adductors; must be undefined, not core or quads');
+});
+
+test('6b. Adductor magnus resolves specifically to adductor_magnus entity', () => {
+  const am = resolveMuscleTerm('adductor magnus');
+  assert.equal(am.kind, 'anatomical');
+  assert.equal(am.entity, 'adductor_magnus');
+  assert.equal(am.region, 'upper_legs');
+  assert.equal(am.legacyGroup, undefined);
+
+  // Invariant: 'adductors' still resolves to 'adductors', NOT 'adductor_magnus'
+  const general = resolveMuscleTerm('adductors');
+  assert.equal(general.entity, 'adductors');
+  assert.notEqual(general.entity, 'adductor_magnus');
 });
 
 test('7. Serratus anterior is preserved and NEVER resolved to core', () => {
