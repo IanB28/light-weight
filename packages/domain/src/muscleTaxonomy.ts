@@ -78,6 +78,24 @@ export type FunctionalMuscleGroup =
   | 'ankle_stabilizers'
   | 'grip_muscles';
 
+export const FUNCTIONAL_MUSCLE_GROUPS = [
+  'hip_flexors',
+  'hip_abductors',
+  'rotator_cuff',
+  'ankle_stabilizers',
+  'grip_muscles'
+] as const;
+
+const FUNCTIONAL_MUSCLE_GROUPS_SET = new Set<string>(FUNCTIONAL_MUSCLE_GROUPS);
+
+/**
+ * Type guard to validate whether an unknown value is a valid FunctionalMuscleGroup.
+ * Backed by an immutable internal set to prevent external mutation.
+ */
+export function isFunctionalMuscleGroup(value: unknown): value is FunctionalMuscleGroup {
+  return typeof value === 'string' && FUNCTIONAL_MUSCLE_GROUPS_SET.has(value);
+}
+
 export type MuscleTermResolutionKind =
   | 'anatomical'
   | 'functional'
