@@ -1,0 +1,3956 @@
+{
+  "totalExercises": 1324,
+  "byRawEquipment": {
+    "body weight": 325,
+    "cable": 157,
+    "leverage machine": 81,
+    "assisted": 15,
+    "medicine ball": 13,
+    "stability ball": 28,
+    "band": 54,
+    "barbell": 154,
+    "rope": 10,
+    "dumbbell": 294,
+    "ez barbell": 23,
+    "sled machine": 15,
+    "upper body ergometer": 1,
+    "kettlebell": 41,
+    "olympic barbell": 2,
+    "weighted": 36,
+    "bosu ball": 3,
+    "resistance band": 7,
+    "roller": 8,
+    "skierg machine": 1,
+    "hammer": 1,
+    "smith machine": 48,
+    "wheel roller": 2,
+    "stationary bike": 1,
+    "tire": 1,
+    "trap bar": 1,
+    "elliptical machine": 1,
+    "stepmill machine": 1
+  },
+  "byCurrentCategory": {
+    "bodyweight": 340,
+    "cable": 157,
+    "machine": 147,
+    "other": 207,
+    "barbell": 179,
+    "dumbbell": 294
+  },
+  "byRawTarget": {
+    "abs": 169,
+    "quads": 44,
+    "lats": 81,
+    "calves": 59,
+    "pectorals": 158,
+    "glutes": 144,
+    "hamstrings": 28,
+    "adductors": 6,
+    "triceps": 141,
+    "cardiovascular system": 29,
+    "spine": 19,
+    "upper back": 88,
+    "biceps": 151,
+    "delts": 143,
+    "forearms": 37,
+    "traps": 15,
+    "serratus anterior": 5,
+    "abductors": 5,
+    "levator scapulae": 2
+  },
+  "byCurrentPrimaryMuscle": {
+    "core": 200,
+    "quadriceps": 55,
+    "back": 203,
+    "calves": 59,
+    "chest": 163,
+    "glutes": 144,
+    "hamstrings": 28,
+    "triceps": 141,
+    "biceps": 151,
+    "shoulders": 143,
+    "forearms": 37
+  },
+  "byLoadMechanism": {
+    "bodyweight": 353,
+    "cable": 157,
+    "other": 202,
+    "barbell": 179,
+    "selectorized": 76,
+    "dumbbell": 294,
+    "plate_loaded": 63
+  },
+  "byLoadMode": {
+    "added_weight": 344,
+    "per_side": 49,
+    "assisted": 9,
+    "total": 628,
+    "per_hand": 294
+  },
+  "byComplexity": {
+    "compound": 471,
+    "isolation": 461,
+    "unknown": 392
+  },
+  "byMovementFamily": {
+    "core": 167,
+    "other": 295,
+    "pulldown": 26,
+    "calf_raise": 57,
+    "pull_up": 21,
+    "bench_press": 104,
+    "elbow_extension": 115,
+    "chin_up": 8,
+    "elbow_flexion": 163,
+    "lateral_raise": 19,
+    "front_raise": 12,
+    "split_squat": 10,
+    "row": 93,
+    "rear_delt": 12,
+    "vertical_press": 34,
+    "squat": 59,
+    "step_up": 4,
+    "romanian_deadlift": 8,
+    "deadlift": 11,
+    "decline_press": 8,
+    "hip_thrust": 5,
+    "hack_squat": 4,
+    "incline_press": 12,
+    "lunge": 21,
+    "knee_flexion": 12,
+    "fly": 30,
+    "carry": 2,
+    "leg_press": 10,
+    "knee_extension": 2
+  },
+  "byFlag": {
+    "SECONDARY_DUPLICATES_PRIMARY": 199,
+    "ASSISTED_METADATA_INCONSISTENT": 21,
+    "UNMAPPED_EQUIPMENT": 207,
+    "UNMAPPED_TARGET": 62,
+    "COMPOUND_SINGLE_MUSCLE_METADATA": 48,
+    "TARGET_FALLBACK_TO_CORE": 31,
+    "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY": 28,
+    "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY": 67,
+    "POSSIBLE_INHERENT_MACHINE_RESISTANCE": 16,
+    "POSSIBLE_PLATE_LOADED_MACHINE": 73,
+    "LEVER_RESOLVED_SELECTOR_ONLY": 73,
+    "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA": 15,
+    "SLED_RESOLVED_NON_PLATE_LOADED": 1
+  },
+  "flaggedExerciseIds": {
+    "SECONDARY_DUPLICATES_PRIMARY": [
+      "ex-0001",
+      "ex-0002",
+      "ex-0003",
+      "ex-0006",
+      "ex-2355",
+      "ex-2333",
+      "ex-3204",
+      "ex-0011",
+      "ex-0010",
+      "ex-0012",
+      "ex-0013",
+      "ex-0014",
+      "ex-1714",
+      "ex-1758",
+      "ex-3220",
+      "ex-3672",
+      "ex-0969",
+      "ex-0971",
+      "ex-0972",
+      "ex-0979",
+      "ex-0981",
+      "ex-0985",
+      "ex-1002",
+      "ex-0992",
+      "ex-0994",
+      "ex-1011",
+      "ex-1005",
+      "ex-1007",
+      "ex-1014",
+      "ex-1015",
+      "ex-0071",
+      "ex-0084",
+      "ex-0083",
+      "ex-0094",
+      "ex-0096",
+      "ex-2799",
+      "ex-2800",
+      "ex-0103",
+      "ex-0112",
+      "ex-3360",
+      "ex-3544",
+      "ex-0138",
+      "ex-2466",
+      "ex-1160",
+      "ex-0870",
+      "ex-0174",
+      "ex-0175",
+      "ex-0873",
+      "ex-0210",
+      "ex-0211",
+      "ex-0212",
+      "ex-2399",
+      "ex-0222",
+      "ex-0221",
+      "ex-0223",
+      "ex-0226",
+      "ex-0874",
+      "ex-0230",
+      "ex-0242",
+      "ex-0243",
+      "ex-0862",
+      "ex-2963",
+      "ex-0260",
+      "ex-1468",
+      "ex-0262",
+      "ex-0267",
+      "ex-0271",
+      "ex-0272",
+      "ex-0274",
+      "ex-3016",
+      "ex-2331",
+      "ex-0276",
+      "ex-0277",
+      "ex-0282",
+      "ex-1201",
+      "ex-0407",
+      "ex-0443",
+      "ex-3303",
+      "ex-0456",
+      "ex-0457",
+      "ex-2429",
+      "ex-3301",
+      "ex-3296",
+      "ex-0464",
+      "ex-3315",
+      "ex-3299",
+      "ex-0469",
+      "ex-3221",
+      "ex-3202",
+      "ex-1764",
+      "ex-0472",
+      "ex-1761",
+      "ex-0473",
+      "ex-0474",
+      "ex-0475",
+      "ex-0476",
+      "ex-3636",
+      "ex-1471",
+      "ex-3698",
+      "ex-0491",
+      "ex-0495",
+      "ex-0501",
+      "ex-3224",
+      "ex-0507",
+      "ex-0508",
+      "ex-2612",
+      "ex-0517",
+      "ex-0524",
+      "ex-0530",
+      "ex-0532",
+      "ex-0554",
+      "ex-3640",
+      "ex-3239",
+      "ex-3419",
+      "ex-0562",
+      "ex-3300",
+      "ex-0570",
+      "ex-0583",
+      "ex-1452",
+      "ex-0595",
+      "ex-3760",
+      "ex-0600",
+      "ex-1688",
+      "ex-2312",
+      "ex-0620",
+      "ex-0865",
+      "ex-0630",
+      "ex-1403",
+      "ex-0634",
+      "ex-1495",
+      "ex-0635",
+      "ex-0640",
+      "ex-0641",
+      "ex-3147",
+      "ex-1687",
+      "ex-3119",
+      "ex-3665",
+      "ex-3203",
+      "ex-1707",
+      "ex-0650",
+      "ex-3638",
+      "ex-0664",
+      "ex-3201",
+      "ex-0872",
+      "ex-3663",
+      "ex-2204",
+      "ex-2206",
+      "ex-0685",
+      "ex-0684",
+      "ex-0687",
+      "ex-3219",
+      "ex-0689",
+      "ex-0691",
+      "ex-3222",
+      "ex-3656",
+      "ex-3699",
+      "ex-0705",
+      "ex-0709",
+      "ex-0716",
+      "ex-3213",
+      "ex-0735",
+      "ex-3679",
+      "ex-3361",
+      "ex-3671",
+      "ex-1496",
+      "ex-0777",
+      "ex-2329",
+      "ex-2297",
+      "ex-0796",
+      "ex-3223",
+      "ex-2138",
+      "ex-0798",
+      "ex-3314",
+      "ex-3298",
+      "ex-0805",
+      "ex-0807",
+      "ex-3318",
+      "ex-0871",
+      "ex-2802",
+      "ex-2801",
+      "ex-3420",
+      "ex-0826",
+      "ex-2141",
+      "ex-3655",
+      "ex-3666",
+      "ex-2311",
+      "ex-0832",
+      "ex-3670",
+      "ex-2135",
+      "ex-0866",
+      "ex-0840",
+      "ex-0846",
+      "ex-0845",
+      "ex-2371",
+      "ex-0849",
+      "ex-0850",
+      "ex-0857",
+      "ex-3637",
+      "ex-0858"
+    ],
+    "ASSISTED_METADATA_INCONSISTENT": [
+      "ex-0011",
+      "ex-0010",
+      "ex-1708",
+      "ex-1709",
+      "ex-1710",
+      "ex-0012",
+      "ex-0013",
+      "ex-0014",
+      "ex-0016",
+      "ex-1713",
+      "ex-1714",
+      "ex-1716",
+      "ex-1712",
+      "ex-1758",
+      "ex-0018",
+      "ex-0971",
+      "ex-1259",
+      "ex-3235",
+      "ex-0697",
+      "ex-1766",
+      "ex-0696"
+    ],
+    "UNMAPPED_EQUIPMENT": [
+      "ex-0014",
+      "ex-1314",
+      "ex-0968",
+      "ex-0969",
+      "ex-0970",
+      "ex-0971",
+      "ex-1254",
+      "ex-0980",
+      "ex-0972",
+      "ex-0974",
+      "ex-0975",
+      "ex-0976",
+      "ex-3117",
+      "ex-3116",
+      "ex-0977",
+      "ex-0978",
+      "ex-1408",
+      "ex-0979",
+      "ex-0981",
+      "ex-0983",
+      "ex-0985",
+      "ex-0984",
+      "ex-1002",
+      "ex-0986",
+      "ex-0987",
+      "ex-0988",
+      "ex-0989",
+      "ex-0990",
+      "ex-0991",
+      "ex-0992",
+      "ex-0993",
+      "ex-0994",
+      "ex-0996",
+      "ex-1011",
+      "ex-0997",
+      "ex-1018",
+      "ex-0998",
+      "ex-0999",
+      "ex-1000",
+      "ex-1001",
+      "ex-1004",
+      "ex-1003",
+      "ex-1005",
+      "ex-1022",
+      "ex-1007",
+      "ex-1008",
+      "ex-1009",
+      "ex-1023",
+      "ex-1010",
+      "ex-1012",
+      "ex-1369",
+      "ex-1013",
+      "ex-1014",
+      "ex-1015",
+      "ex-1016",
+      "ex-1017",
+      "ex-0128",
+      "ex-1378",
+      "ex-1272",
+      "ex-0271",
+      "ex-0272",
+      "ex-1332",
+      "ex-1333",
+      "ex-1334",
+      "ex-1335",
+      "ex-1336",
+      "ex-1744",
+      "ex-1559",
+      "ex-1338",
+      "ex-1339",
+      "ex-1341",
+      "ex-1342",
+      "ex-1416",
+      "ex-1417",
+      "ex-1296",
+      "ex-1343",
+      "ex-1560",
+      "ex-1745",
+      "ex-2139",
+      "ex-1564",
+      "ex-2612",
+      "ex-0517",
+      "ex-0518",
+      "ex-0520",
+      "ex-0519",
+      "ex-0521",
+      "ex-0522",
+      "ex-0523",
+      "ex-0524",
+      "ex-0525",
+      "ex-0526",
+      "ex-0527",
+      "ex-0528",
+      "ex-0529",
+      "ex-0530",
+      "ex-0531",
+      "ex-0532",
+      "ex-0533",
+      "ex-0534",
+      "ex-0535",
+      "ex-0536",
+      "ex-0537",
+      "ex-1298",
+      "ex-0538",
+      "ex-0539",
+      "ex-0540",
+      "ex-0541",
+      "ex-0542",
+      "ex-0543",
+      "ex-0544",
+      "ex-0545",
+      "ex-0546",
+      "ex-1438",
+      "ex-0547",
+      "ex-0548",
+      "ex-0549",
+      "ex-0550",
+      "ex-0551",
+      "ex-0552",
+      "ex-0553",
+      "ex-1345",
+      "ex-0554",
+      "ex-0609",
+      "ex-1353",
+      "ex-1302",
+      "ex-1303",
+      "ex-1304",
+      "ex-1305",
+      "ex-1312",
+      "ex-1701",
+      "ex-1354",
+      "ex-1750",
+      "ex-2328",
+      "ex-0640",
+      "ex-0641",
+      "ex-1388",
+      "ex-1389",
+      "ex-1707",
+      "ex-0650",
+      "ex-1307",
+      "ex-0653",
+      "ex-0655",
+      "ex-0656",
+      "ex-0663",
+      "ex-1582",
+      "ex-3236",
+      "ex-3007",
+      "ex-3123",
+      "ex-3124",
+      "ex-3006",
+      "ex-3122",
+      "ex-3144",
+      "ex-0675",
+      "ex-2208",
+      "ex-2204",
+      "ex-2205",
+      "ex-2202",
+      "ex-2206",
+      "ex-2203",
+      "ex-2209",
+      "ex-2207",
+      "ex-0680",
+      "ex-1496",
+      "ex-1705",
+      "ex-2297",
+      "ex-1599",
+      "ex-0796",
+      "ex-2138",
+      "ex-2459",
+      "ex-0811",
+      "ex-0830",
+      "ex-2987",
+      "ex-3643",
+      "ex-0832",
+      "ex-3670",
+      "ex-0833",
+      "ex-1310",
+      "ex-2135",
+      "ex-0834",
+      "ex-0866",
+      "ex-0835",
+      "ex-3641",
+      "ex-3644",
+      "ex-3286",
+      "ex-3312",
+      "ex-3290",
+      "ex-0840",
+      "ex-0841",
+      "ex-0844",
+      "ex-0846",
+      "ex-0845",
+      "ex-2371",
+      "ex-0847",
+      "ex-0849",
+      "ex-0850",
+      "ex-0851",
+      "ex-0852",
+      "ex-0853",
+      "ex-0854",
+      "ex-3313",
+      "ex-3642",
+      "ex-0856",
+      "ex-1754",
+      "ex-1755",
+      "ex-1767",
+      "ex-0857",
+      "ex-0859"
+    ],
+    "UNMAPPED_TARGET": [
+      "ex-1712",
+      "ex-3220",
+      "ex-3672",
+      "ex-1018",
+      "ex-0050",
+      "ex-0095",
+      "ex-3360",
+      "ex-1160",
+      "ex-1494",
+      "ex-0168",
+      "ex-0220",
+      "ex-2331",
+      "ex-1201",
+      "ex-0305",
+      "ex-0304",
+      "ex-0328",
+      "ex-0329",
+      "ex-0406",
+      "ex-3221",
+      "ex-3636",
+      "ex-3011",
+      "ex-0501",
+      "ex-3224",
+      "ex-2612",
+      "ex-0548",
+      "ex-0580",
+      "ex-1439",
+      "ex-0597",
+      "ex-0598",
+      "ex-0604",
+      "ex-0630",
+      "ex-1403",
+      "ex-3638",
+      "ex-3006",
+      "ex-0685",
+      "ex-0684",
+      "ex-3012",
+      "ex-3021",
+      "ex-0688",
+      "ex-3219",
+      "ex-3222",
+      "ex-3656",
+      "ex-1774",
+      "ex-0710",
+      "ex-3667",
+      "ex-1775",
+      "ex-0716",
+      "ex-3361",
+      "ex-3671",
+      "ex-0746",
+      "ex-0759",
+      "ex-0767",
+      "ex-3223",
+      "ex-2138",
+      "ex-0798",
+      "ex-1427",
+      "ex-3318",
+      "ex-2141",
+      "ex-3655",
+      "ex-3666",
+      "ex-2311",
+      "ex-3637"
+    ],
+    "COMPOUND_SINGLE_MUSCLE_METADATA": [
+      "ex-0019",
+      "ex-0975",
+      "ex-0030",
+      "ex-1719",
+      "ex-0052",
+      "ex-2187",
+      "ex-0129",
+      "ex-1399",
+      "ex-0259",
+      "ex-2398",
+      "ex-0283",
+      "ex-1732",
+      "ex-0352",
+      "ex-1623",
+      "ex-3547",
+      "ex-1743",
+      "ex-3287",
+      "ex-1744",
+      "ex-0450",
+      "ex-2432",
+      "ex-0471",
+      "ex-3289",
+      "ex-0490",
+      "ex-0521",
+      "ex-0591",
+      "ex-1451",
+      "ex-1701",
+      "ex-2328",
+      "ex-0639",
+      "ex-0660",
+      "ex-1467",
+      "ex-0672",
+      "ex-0677",
+      "ex-3012",
+      "ex-0717",
+      "ex-0751",
+      "ex-1625",
+      "ex-0778",
+      "ex-0803",
+      "ex-1753",
+      "ex-0814",
+      "ex-0812",
+      "ex-0813",
+      "ex-0815",
+      "ex-0830",
+      "ex-1754",
+      "ex-1755",
+      "ex-1767"
+    ],
+    "TARGET_FALLBACK_TO_CORE": [
+      "ex-3220",
+      "ex-3672",
+      "ex-3360",
+      "ex-1160",
+      "ex-2331",
+      "ex-1201",
+      "ex-3221",
+      "ex-3636",
+      "ex-0501",
+      "ex-3224",
+      "ex-2612",
+      "ex-0630",
+      "ex-1403",
+      "ex-3638",
+      "ex-0685",
+      "ex-0684",
+      "ex-3219",
+      "ex-3222",
+      "ex-3656",
+      "ex-0716",
+      "ex-3361",
+      "ex-3671",
+      "ex-3223",
+      "ex-2138",
+      "ex-0798",
+      "ex-3318",
+      "ex-2141",
+      "ex-3655",
+      "ex-3666",
+      "ex-2311",
+      "ex-3637"
+    ],
+    "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY": [
+      "ex-0987",
+      "ex-1001",
+      "ex-0024",
+      "ex-0026",
+      "ex-0068",
+      "ex-0069",
+      "ex-0098",
+      "ex-0097",
+      "ex-0099",
+      "ex-2810",
+      "ex-0102",
+      "ex-2798",
+      "ex-0124",
+      "ex-1760",
+      "ex-0410",
+      "ex-2796",
+      "ex-2812",
+      "ex-2803",
+      "ex-2287",
+      "ex-1489",
+      "ex-0750",
+      "ex-0768",
+      "ex-0786",
+      "ex-1705",
+      "ex-1685",
+      "ex-1686",
+      "ex-0809",
+      "ex-0851"
+    ],
+    "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY": [
+      "ex-1004",
+      "ex-1003",
+      "ex-1008",
+      "ex-0029",
+      "ex-0039",
+      "ex-0042",
+      "ex-0043",
+      "ex-1461",
+      "ex-1462",
+      "ex-1545",
+      "ex-0046",
+      "ex-1436",
+      "ex-0051",
+      "ex-0053",
+      "ex-1410",
+      "ex-1435",
+      "ex-0054",
+      "ex-0063",
+      "ex-0078",
+      "ex-0077",
+      "ex-0101",
+      "ex-0114",
+      "ex-0127",
+      "ex-3543",
+      "ex-3769",
+      "ex-0291",
+      "ex-3635",
+      "ex-0336",
+      "ex-0371",
+      "ex-0381",
+      "ex-0411",
+      "ex-0413",
+      "ex-0431",
+      "ex-3470",
+      "ex-3194",
+      "ex-0514",
+      "ex-0513",
+      "ex-0533",
+      "ex-0534",
+      "ex-0536",
+      "ex-0544",
+      "ex-0551",
+      "ex-1420",
+      "ex-2611",
+      "ex-3582",
+      "ex-1476",
+      "ex-3132",
+      "ex-1759",
+      "ex-1425",
+      "ex-0739",
+      "ex-1464",
+      "ex-1463",
+      "ex-0741",
+      "ex-0743",
+      "ex-0744",
+      "ex-1433",
+      "ex-3281",
+      "ex-0755",
+      "ex-0760",
+      "ex-1434",
+      "ex-0769",
+      "ex-0770",
+      "ex-3142",
+      "ex-1460",
+      "ex-3644",
+      "ex-0852",
+      "ex-3642"
+    ],
+    "POSSIBLE_INHERENT_MACHINE_RESISTANCE": [
+      "ex-0046",
+      "ex-1383",
+      "ex-1384",
+      "ex-1425",
+      "ex-0738",
+      "ex-0739",
+      "ex-1464",
+      "ex-1463",
+      "ex-0740",
+      "ex-1391",
+      "ex-0741",
+      "ex-0742",
+      "ex-0743",
+      "ex-2334",
+      "ex-0744",
+      "ex-1392"
+    ],
+    "POSSIBLE_PLATE_LOADED_MACHINE": [
+      "ex-2331",
+      "ex-2287",
+      "ex-0571",
+      "ex-0573",
+      "ex-3200",
+      "ex-0575",
+      "ex-2289",
+      "ex-0577",
+      "ex-0576",
+      "ex-0578",
+      "ex-1300",
+      "ex-1253",
+      "ex-0579",
+      "ex-0580",
+      "ex-1439",
+      "ex-2288",
+      "ex-1615",
+      "ex-0581",
+      "ex-2286",
+      "ex-2611",
+      "ex-1299",
+      "ex-1479",
+      "ex-0582",
+      "ex-0583",
+      "ex-0584",
+      "ex-0585",
+      "ex-0586",
+      "ex-3195",
+      "ex-0587",
+      "ex-0588",
+      "ex-1356",
+      "ex-1347",
+      "ex-0590",
+      "ex-0591",
+      "ex-0592",
+      "ex-1614",
+      "ex-2285",
+      "ex-2736",
+      "ex-1616",
+      "ex-1348",
+      "ex-0593",
+      "ex-1349",
+      "ex-2315",
+      "ex-2335",
+      "ex-0594",
+      "ex-1452",
+      "ex-0595",
+      "ex-3760",
+      "ex-1451",
+      "ex-0596",
+      "ex-3759",
+      "ex-0597",
+      "ex-0598",
+      "ex-0599",
+      "ex-0600",
+      "ex-0602",
+      "ex-0601",
+      "ex-1350",
+      "ex-1385",
+      "ex-0603",
+      "ex-0869",
+      "ex-2318",
+      "ex-0604",
+      "ex-0605",
+      "ex-3758",
+      "ex-0606",
+      "ex-1351",
+      "ex-0607",
+      "ex-1313",
+      "ex-1301",
+      "ex-0673",
+      "ex-0798",
+      "ex-3666"
+    ],
+    "LEVER_RESOLVED_SELECTOR_ONLY": [
+      "ex-2331",
+      "ex-2287",
+      "ex-0571",
+      "ex-0573",
+      "ex-3200",
+      "ex-0575",
+      "ex-2289",
+      "ex-0577",
+      "ex-0576",
+      "ex-0578",
+      "ex-1300",
+      "ex-1253",
+      "ex-0579",
+      "ex-0580",
+      "ex-1439",
+      "ex-2288",
+      "ex-1615",
+      "ex-0581",
+      "ex-2286",
+      "ex-2611",
+      "ex-1299",
+      "ex-1479",
+      "ex-0582",
+      "ex-0583",
+      "ex-0584",
+      "ex-0585",
+      "ex-0586",
+      "ex-3195",
+      "ex-0587",
+      "ex-0588",
+      "ex-1356",
+      "ex-1347",
+      "ex-0590",
+      "ex-0591",
+      "ex-0592",
+      "ex-1614",
+      "ex-2285",
+      "ex-2736",
+      "ex-1616",
+      "ex-1348",
+      "ex-0593",
+      "ex-1349",
+      "ex-2315",
+      "ex-2335",
+      "ex-0594",
+      "ex-1452",
+      "ex-0595",
+      "ex-3760",
+      "ex-1451",
+      "ex-0596",
+      "ex-3759",
+      "ex-0597",
+      "ex-0598",
+      "ex-0599",
+      "ex-0600",
+      "ex-0602",
+      "ex-0601",
+      "ex-1350",
+      "ex-1385",
+      "ex-0603",
+      "ex-0869",
+      "ex-2318",
+      "ex-0604",
+      "ex-0605",
+      "ex-3758",
+      "ex-0606",
+      "ex-1351",
+      "ex-0607",
+      "ex-1313",
+      "ex-1301",
+      "ex-0673",
+      "ex-0798",
+      "ex-3666"
+    ],
+    "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA": [
+      "ex-1383",
+      "ex-1384",
+      "ex-1425",
+      "ex-0738",
+      "ex-0739",
+      "ex-1464",
+      "ex-1463",
+      "ex-0740",
+      "ex-1391",
+      "ex-0741",
+      "ex-0742",
+      "ex-0743",
+      "ex-2334",
+      "ex-0744",
+      "ex-1392"
+    ],
+    "SLED_RESOLVED_NON_PLATE_LOADED": [
+      "ex-1496"
+    ]
+  },
+  "machineResistanceCandidates": [
+    "ex-0046",
+    "ex-1383",
+    "ex-1384",
+    "ex-1425",
+    "ex-0738",
+    "ex-0739",
+    "ex-1464",
+    "ex-1463",
+    "ex-0740",
+    "ex-1391",
+    "ex-0741",
+    "ex-0742",
+    "ex-0743",
+    "ex-2334",
+    "ex-0744",
+    "ex-1392"
+  ],
+  "plateLoadedCandidates": [
+    "ex-1383",
+    "ex-1384",
+    "ex-1425",
+    "ex-0738",
+    "ex-0739",
+    "ex-1464",
+    "ex-1463",
+    "ex-0740",
+    "ex-1391",
+    "ex-0741",
+    "ex-0742",
+    "ex-0743",
+    "ex-2334",
+    "ex-0744",
+    "ex-1392",
+    "ex-0746",
+    "ex-0747",
+    "ex-0748",
+    "ex-0749",
+    "ex-1359",
+    "ex-0750",
+    "ex-0751",
+    "ex-0752",
+    "ex-0753",
+    "ex-0754",
+    "ex-1433",
+    "ex-3281",
+    "ex-0755",
+    "ex-0756",
+    "ex-0757",
+    "ex-0758",
+    "ex-0759",
+    "ex-0760",
+    "ex-1434",
+    "ex-1683",
+    "ex-1625",
+    "ex-1752",
+    "ex-1626",
+    "ex-0761",
+    "ex-1360",
+    "ex-1393",
+    "ex-0762",
+    "ex-0763",
+    "ex-1394",
+    "ex-1361",
+    "ex-0764",
+    "ex-1395",
+    "ex-0765",
+    "ex-1426",
+    "ex-0766",
+    "ex-0767",
+    "ex-0768",
+    "ex-0769",
+    "ex-0770",
+    "ex-0771",
+    "ex-0772",
+    "ex-0773",
+    "ex-0774",
+    "ex-3142",
+    "ex-1396",
+    "ex-0775",
+    "ex-1308",
+    "ex-1309"
+  ],
+  "bodyweightAssistedCandidates": [
+    "ex-0009",
+    "ex-0015",
+    "ex-0017",
+    "ex-1431",
+    "ex-1432",
+    "ex-0019",
+    "ex-2364",
+    "ex-0970",
+    "ex-0572"
+  ],
+  "priorityFamilies": {
+    "leg_press": [
+      {
+        "id": "ex-2287",
+        "name": "Lever alternate leg press",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "hamstrings",
+          "glutes"
+        ],
+        "rawEquipment": "leverage machine",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "hamstrings",
+          "glutes"
+        ],
+        "currentMechanism": "selectorized",
+        "movementFamily": "leg_press",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY",
+          "POSSIBLE_PLATE_LOADED_MACHINE",
+          "LEVER_RESOLVED_SELECTOR_ONLY"
+        ]
+      },
+      {
+        "id": "ex-2611",
+        "name": "Lever horizontal one leg press",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "leverage machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "selectorized",
+        "movementFamily": "leg_press",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "POSSIBLE_PLATE_LOADED_MACHINE",
+          "LEVER_RESOLVED_SELECTOR_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1385",
+        "name": "Lever seated squat calf raise on leg press machine",
+        "rawTarget": "calves",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "glutes"
+        ],
+        "rawEquipment": "leverage machine",
+        "currentPrimary": "calves",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "glutes"
+        ],
+        "currentMechanism": "selectorized",
+        "movementFamily": "leg_press",
+        "flags": [
+          "POSSIBLE_PLATE_LOADED_MACHINE",
+          "LEVER_RESOLVED_SELECTOR_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1425",
+        "name": "Sled 45 degrees one leg press",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "leg_press",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-0739",
+        "name": "Sled 45в° leg press",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "leg_press",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-1464",
+        "name": "Sled 45в° leg press (back pov)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "leg_press",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-1463",
+        "name": "Sled 45° leg press (side pov)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "leg_press",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-1391",
+        "name": "Sled calf press on leg press",
+        "rawTarget": "calves",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "calves",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "leg_press",
+        "flags": [
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-1392",
+        "name": "Sled one leg calf press on leg press",
+        "rawTarget": "calves",
+        "rawSecondaries": [
+          "hamstrings",
+          "glutes"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "calves",
+        "currentSecondaries": [
+          "hamstrings",
+          "glutes"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "leg_press",
+        "flags": [
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-0760",
+        "name": "Smith leg press",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "leg_press",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      }
+    ],
+    "hack_squat": [
+      {
+        "id": "ex-0046",
+        "name": "Barbell hack squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "hack_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-0741",
+        "name": "Sled closer hack squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "hack_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-0743",
+        "name": "Sled hack squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "hack_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-0755",
+        "name": "Smith hack squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "hack_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      }
+    ],
+    "squat": [
+      {
+        "id": "ex-1004",
+        "name": "Band squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1003",
+        "name": "Band squat row",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps",
+          "back"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0024",
+        "name": "Barbell bench front squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "hamstrings",
+          "glutes",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "hamstrings",
+          "glutes",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0026",
+        "name": "Barbell bench squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0029",
+        "name": "Barbell clean-grip front squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0039",
+        "name": "Barbell front chest squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0042",
+        "name": "Barbell front squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0043",
+        "name": "Barbell full squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1461",
+        "name": "Barbell full squat (back pov)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1462",
+        "name": "Barbell full squat (side pov)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1545",
+        "name": "Barbell full zercher squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1436",
+        "name": "Barbell high bar squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0051",
+        "name": "Barbell jefferson squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0053",
+        "name": "Barbell jump squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1435",
+        "name": "Barbell low bar squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0063",
+        "name": "Barbell narrow stance squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0068",
+        "name": "Barbell one leg squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0069",
+        "name": "Barbell overhead squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0101",
+        "name": "Barbell speed squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0102",
+        "name": "Barbell squat (on knees)",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0124",
+        "name": "Barbell wide squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0127",
+        "name": "Barbell zercher squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3543",
+        "name": "Bodyweight drop jump squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1717",
+        "name": "Cable squat row (with rope attachment)",
+        "rawTarget": "lats",
+        "rawSecondaries": [
+          "biceps",
+          "rhomboids",
+          "rear deltoids"
+        ],
+        "rawEquipment": "cable",
+        "currentPrimary": "back",
+        "currentSecondaries": [
+          "biceps",
+          "core"
+        ],
+        "currentMechanism": "cable",
+        "movementFamily": "squat",
+        "flags": []
+      },
+      {
+        "id": "ex-3769",
+        "name": "Curtsey squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0291",
+        "name": "Dumbbell bench squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1655",
+        "name": "Dumbbell biceps curl squat",
+        "rawTarget": "biceps",
+        "rawSecondaries": [
+          "forearms"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "biceps",
+        "currentSecondaries": [
+          "forearms"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "squat",
+        "flags": []
+      },
+      {
+        "id": "ex-1760",
+        "name": "Dumbbell goblet squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0371",
+        "name": "Dumbbell plyo squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0411",
+        "name": "Dumbbell single leg squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0413",
+        "name": "Dumbbell squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-2803",
+        "name": "Dumbbell supported squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3194",
+        "name": "Frankenstein squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0514",
+        "name": "Jump squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0513",
+        "name": "Jump squat v. 2",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0533",
+        "name": "Kettlebell front squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "kettlebell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0534",
+        "name": "Kettlebell goblet squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "kettlebell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0544",
+        "name": "Kettlebell pistol squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "kettlebell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0551",
+        "name": "Kettlebell turkish get up (squat style)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "core"
+        ],
+        "rawEquipment": "kettlebell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1420",
+        "name": "Kneeling jump squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1476",
+        "name": "One leg squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3119",
+        "name": "Potty squat",
+        "rawTarget": "abs",
+        "rawSecondaries": [
+          "quadriceps",
+          "glutes"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "core",
+        "currentSecondaries": [
+          "glutes"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "SECONDARY_DUPLICATES_PRIMARY"
+        ]
+      },
+      {
+        "id": "ex-3132",
+        "name": "Potty squat with support",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3222",
+        "name": "Semi squat jump (male)",
+        "rawTarget": "cardiovascular system",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "core",
+        "currentSecondaries": [
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_TARGET",
+          "TARGET_FALLBACK_TO_CORE",
+          "SECONDARY_DUPLICATES_PRIMARY"
+        ]
+      },
+      {
+        "id": "ex-1759",
+        "name": "Single leg squat (pistol) male",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1489",
+        "name": "Sissy squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "calves",
+          "glutes"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "calves",
+          "glutes"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0744",
+        "name": "Sled lying squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "sled machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY",
+          "PLATE_LOADED_NO_BASE_RESISTANCE_METADATA",
+          "POSSIBLE_INHERENT_MACHINE_RESISTANCE"
+        ]
+      },
+      {
+        "id": "ex-0750",
+        "name": "Smith chair squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1433",
+        "name": "Smith front squat (clean grip)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3281",
+        "name": "Smith full squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1434",
+        "name": "Smith low bar squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0770",
+        "name": "Smith squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3142",
+        "name": "Smith sumo squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0786",
+        "name": "Squat jerk",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1705",
+        "name": "Squat on bosu ball",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "bosu ball",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1685",
+        "name": "Squat to overhead reach",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "core"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1686",
+        "name": "Squat to overhead reach with twist",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "core"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0851",
+        "name": "Weighted sissy squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "weighted",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0852",
+        "name": "Weighted squat",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "weighted",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      }
+    ],
+    "deadlift_rdl": [
+      {
+        "id": "ex-1009",
+        "name": "Band stiff leg deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "romanian_deadlift",
+        "flags": [
+          "UNMAPPED_EQUIPMENT"
+        ]
+      },
+      {
+        "id": "ex-1023",
+        "name": "Band straight back stiff leg deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "romanian_deadlift",
+        "flags": [
+          "UNMAPPED_EQUIPMENT"
+        ]
+      },
+      {
+        "id": "ex-1010",
+        "name": "Band straight leg deadlift",
+        "rawTarget": "spine",
+        "rawSecondaries": [
+          "hamstrings",
+          "glutes"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "back",
+        "currentSecondaries": [
+          "hamstrings",
+          "glutes"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "romanian_deadlift",
+        "flags": [
+          "UNMAPPED_EQUIPMENT"
+        ]
+      },
+      {
+        "id": "ex-0032",
+        "name": "Barbell deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0066",
+        "name": "Barbell one arm side deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps",
+          "lower back"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0085",
+        "name": "Barbell romanian deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "romanian_deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-1756",
+        "name": "Barbell single leg deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0116",
+        "name": "Barbell straight leg deadlift",
+        "rawTarget": "hamstrings",
+        "rawSecondaries": [
+          "glutes",
+          "lower back"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "hamstrings",
+        "currentSecondaries": [
+          "glutes",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "romanian_deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0117",
+        "name": "Barbell sumo deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps",
+          "lower back"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0157",
+        "name": "Cable deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps",
+          "lower back"
+        ],
+        "rawEquipment": "cable",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "cable",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0300",
+        "name": "Dumbbell deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-1459",
+        "name": "Dumbbell romanian deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "romanian_deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-1757",
+        "name": "Dumbbell single leg deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-2805",
+        "name": "Dumbbell single leg deadlift with stepbox support",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0432",
+        "name": "Dumbbell stiff leg deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "romanian_deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0434",
+        "name": "Dumbbell straight leg deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "romanian_deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0578",
+        "name": "Lever deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps"
+        ],
+        "rawEquipment": "leverage machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "selectorized",
+        "movementFamily": "deadlift",
+        "flags": [
+          "POSSIBLE_PLATE_LOADED_MACHINE",
+          "LEVER_RESOLVED_SELECTOR_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0752",
+        "name": "Smith deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps",
+          "lower back"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "deadlift",
+        "flags": []
+      },
+      {
+        "id": "ex-0811",
+        "name": "Trap bar deadlift",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps",
+          "lower back"
+        ],
+        "rawEquipment": "trap bar",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "deadlift",
+        "flags": [
+          "UNMAPPED_EQUIPMENT"
+        ]
+      }
+    ],
+    "lunge_split_squat": [
+      {
+        "id": "ex-0987",
+        "name": "Band one arm single leg split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "split_squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1001",
+        "name": "Band single leg split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "split_squat",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1008",
+        "name": "Band step-up",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "band",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "step_up",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1410",
+        "name": "Barbell lateral lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0054",
+        "name": "Barbell lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0078",
+        "name": "Barbell rear lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0077",
+        "name": "Barbell rear lunge v. 2",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0098",
+        "name": "Barbell side split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0097",
+        "name": "Barbell side split squat v. 2",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0099",
+        "name": "Barbell single leg split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-2810",
+        "name": "Barbell split squat v. 2",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-2798",
+        "name": "Barbell squat jump step rear lunge",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0114",
+        "name": "Barbell step-up",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "step_up",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1651",
+        "name": "Dumbbell bicep curl lunge with bowling motion",
+        "rawTarget": "biceps",
+        "rawSecondaries": [
+          "forearms",
+          "shoulders"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "biceps",
+        "currentSecondaries": [
+          "forearms",
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "lunge",
+        "flags": []
+      },
+      {
+        "id": "ex-3635",
+        "name": "Dumbbell contralateral forward lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1732",
+        "name": "Dumbbell forward lunge triceps extension",
+        "rawTarget": "triceps",
+        "rawSecondaries": [
+          "shoulders",
+          "core"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "triceps",
+        "currentSecondaries": [
+          "core"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "COMPOUND_SINGLE_MUSCLE_METADATA"
+        ]
+      },
+      {
+        "id": "ex-0336",
+        "name": "Dumbbell lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1658",
+        "name": "Dumbbell lunge with bicep curl",
+        "rawTarget": "biceps",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "biceps",
+        "currentSecondaries": [
+          "core",
+          "hamstrings"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "lunge",
+        "flags": []
+      },
+      {
+        "id": "ex-0381",
+        "name": "Dumbbell rear lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0410",
+        "name": "Dumbbell single leg split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1684",
+        "name": "Dumbbell step up single leg balance with bicep curl",
+        "rawTarget": "biceps",
+        "rawSecondaries": [
+          "quadriceps",
+          "glutes",
+          "hamstrings"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "biceps",
+        "currentSecondaries": [
+          "core",
+          "glutes",
+          "hamstrings"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "step_up",
+        "flags": []
+      },
+      {
+        "id": "ex-0431",
+        "name": "Dumbbell step-up",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "step_up",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-2796",
+        "name": "Dumbbell step-up lunge",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-2812",
+        "name": "Dumbbell step-up split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "dumbbell",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "dumbbell",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3470",
+        "name": "Forward lunge (male)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0536",
+        "name": "Kettlebell lunge pass through",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "kettlebell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "lunge",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3582",
+        "name": "Lunge with jump",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-1688",
+        "name": "Lunge with twist",
+        "rawTarget": "abs",
+        "rawSecondaries": [
+          "quadriceps",
+          "glutes",
+          "hamstrings"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "core",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "lunge",
+        "flags": [
+          "SECONDARY_DUPLICATES_PRIMARY"
+        ]
+      },
+      {
+        "id": "ex-0768",
+        "name": "Smith single leg split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0769",
+        "name": "Smith sprint lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "smith machine",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "plate_loaded",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-0809",
+        "name": "Suspended split squat",
+        "rawTarget": "quads",
+        "rawSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "quadriceps",
+        "currentSecondaries": [
+          "glutes",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "split_squat",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_QUADRICEPS_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3655",
+        "name": "Walking high knees lunge",
+        "rawTarget": "cardiovascular system",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "glutes",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "core",
+        "currentSecondaries": [
+          "hamstrings",
+          "glutes",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "lunge",
+        "flags": [
+          "UNMAPPED_TARGET",
+          "TARGET_FALLBACK_TO_CORE",
+          "SECONDARY_DUPLICATES_PRIMARY"
+        ]
+      },
+      {
+        "id": "ex-1460",
+        "name": "Walking lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "lunge",
+        "flags": [
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3644",
+        "name": "Weighted lunge with swing",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "weighted",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "lunge",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      },
+      {
+        "id": "ex-3642",
+        "name": "Weighted stretch lunge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "quadriceps",
+          "hamstrings",
+          "calves"
+        ],
+        "rawEquipment": "weighted",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "core",
+          "hamstrings",
+          "calves"
+        ],
+        "currentMechanism": "other",
+        "movementFamily": "lunge",
+        "flags": [
+          "UNMAPPED_EQUIPMENT",
+          "LOWER_BODY_COMPOUND_PRIMARY_GLUTES_ONLY"
+        ]
+      }
+    ],
+    "hip_thrust": [
+      {
+        "id": "ex-1409",
+        "name": "Barbell glute bridge",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "lower back"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "hip_thrust",
+        "flags": []
+      },
+      {
+        "id": "ex-3562",
+        "name": "Barbell glute bridge two legs on bench (male)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "rawEquipment": "barbell",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "barbell",
+        "movementFamily": "hip_thrust",
+        "flags": []
+      },
+      {
+        "id": "ex-3561",
+        "name": "Glute bridge march",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "quadriceps"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "hip_thrust",
+        "flags": []
+      },
+      {
+        "id": "ex-3523",
+        "name": "Glute bridge two legs on bench (male)",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "hip_thrust",
+        "flags": []
+      },
+      {
+        "id": "ex-3013",
+        "name": "Low glute bridge on floor",
+        "rawTarget": "glutes",
+        "rawSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "rawEquipment": "body weight",
+        "currentPrimary": "glutes",
+        "currentSecondaries": [
+          "hamstrings",
+          "core"
+        ],
+        "currentMechanism": "bodyweight",
+        "movementFamily": "hip_thrust",
+        "flags": []
+      }
+    ]
+  }
+}

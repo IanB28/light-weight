@@ -6,7 +6,8 @@
     "build": "pnpm --recursive run build",
     "dev": "pnpm --recursive --parallel run dev",
     "test": "pnpm --recursive run test",
-    "lint": "pnpm --recursive run lint"
+    "lint": "pnpm --recursive run lint",
+    "audit:exercises": "node scripts/audit-exercises.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3"

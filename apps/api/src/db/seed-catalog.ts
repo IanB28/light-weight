@@ -1,78 +1,38 @@
 import { db } from './index.js';
 import { exercises } from './schema.js';
-import { resolveExerciseLoadingProfile, type Exercise, type ExerciseCategory, type MuscleGroup } from '@light-weight/domain';
+import {
+  mapDatasetExerciseToDomain,
+  type RawDatasetExercise
+} from '@light-weight/domain';
 // @ts-ignore
 import { EXDB } from '../../../web/src/lib/exercises-data.js';
 
-function mapBodypartToMuscle(bp: string, tg: string): MuscleGroup {
-  const t = (tg || '').toLowerCase();
-  const b = (bp || '').toLowerCase();
-
-  if (t.includes('biceps')) return 'biceps';
-  if (t.includes('triceps')) return 'triceps';
-  if (t.includes('lats') || t.includes('upper back') || t.includes('spine')) return 'back';
-  if (t.includes('pectorals')) return 'chest';
-  if (t.includes('delts')) return 'shoulders';
-  if (t.includes('quads')) return 'quadriceps';
-  if (t.includes('hamstrings')) return 'hamstrings';
-  if (t.includes('glutes')) return 'glutes';
-  if (t.includes('calves')) return 'calves';
-  if (t.includes('forearms')) return 'forearms';
-  if (t.includes('abs') || b === 'waist') return 'core';
-
-  if (b === 'chest') return 'chest';
-  if (b === 'back') return 'back';
-  if (b === 'shoulders') return 'shoulders';
-  if (b === 'upper arms') return 'biceps';
-  if (b === 'lower arms') return 'forearms';
-  if (b === 'upper legs') return 'quadriceps';
-  if (b === 'lower legs') return 'calves';
-  if (b === 'waist') return 'core';
-
-  return 'core';
-}
-
-function mapEquipmentToCategory(eq: string): ExerciseCategory {
-  const e = (eq || '').toLowerCase();
-  if (e.includes('barbell') || e.includes('olympic')) return 'barbell';
-  if (e.includes('dumbbell')) return 'dumbbell';
-  if (e.includes('cable')) return 'cable';
-  if (e.includes('body weight') || e.includes('assisted')) return 'bodyweight';
-  if (e.includes('machine') || e.includes('leverage') || e.includes('smith')) return 'machine';
-  return 'other';
+export function mapRawCatalogExerciseToDb(raw: RawDatasetExercise) {
+  const exercise = mapDatasetExerciseToDomain(raw);
+  const loading = exercise.loading!;
+  return {
+    id: exercise.id,
+    name: exercise.name,
+    primaryMuscle: exercise.primaryMuscle,
+    secondaryMuscles: exercise.secondaryMuscles ?? [],
+    category: exercise.category,
+    loadMechanism: loading.mechanism,
+    loadMode: loading.loadMode,
+    supportsKeyboard: loading.supportsKeyboard,
+    supportsPlates: loading.supportsPlates,
+    supportsExternalLoad: loading.supportsExternalLoad,
+    includeBarWeight: loading.includeBarWeight,
+    bodyweightFactor: typeof loading.bodyweightFactor === 'number' && Number.isFinite(loading.bodyweightFactor)
+      ? loading.bodyweightFactor
+      : null,
+    isCustom: false
+  };
 }
 
 async function seedCatalog() {
   console.log(`Starting to seed ${EXDB.length} exercises into Neon PostgreSQL...`);
 
-  const mapped = EXDB.map((raw: any) => {
-    const primaryMuscle = mapBodypartToMuscle(raw.bp, raw.tg);
-    const category = mapEquipmentToCategory(raw.eq);
-    const secondary = Array.isArray(raw.sm)
-      ? raw.sm.map((s: string) => mapBodypartToMuscle('', s)).filter((m: string) => m !== primaryMuscle)
-      : [];
-
-    const exercise: Exercise = {
-      id: `ex-${raw.id}`,
-      name: raw.n
-        ? raw.n.charAt(0).toUpperCase() + raw.n.slice(1)
-        : 'Ejercicio',
-      primaryMuscle,
-      category,
-      secondaryMuscles: Array.from(new Set(secondary)),
-      isCustom: false,
-    };
-    const loading = resolveExerciseLoadingProfile(exercise, { legacyEquipment: raw.eq }).profile;
-    return {
-      ...exercise,
-      loadMechanism: loading.mechanism,
-      loadMode: loading.loadMode,
-      supportsKeyboard: loading.supportsKeyboard,
-      supportsPlates: loading.supportsPlates,
-      supportsExternalLoad: loading.supportsExternalLoad,
-      includeBarWeight: loading.includeBarWeight
-    };
-  });
+  const mapped = (EXDB as RawDatasetExercise[]).map(mapRawCatalogExerciseToDb);
 
   // Batch insert in chunks of 100
   const CHUNK_SIZE = 100;
@@ -87,7 +47,8 @@ async function seedCatalog() {
           supportsKeyboard: exercise.supportsKeyboard,
           supportsPlates: exercise.supportsPlates,
           supportsExternalLoad: exercise.supportsExternalLoad,
-          includeBarWeight: exercise.includeBarWeight
+          includeBarWeight: exercise.includeBarWeight,
+          bodyweightFactor: exercise.bodyweightFactor
         }
       });
     }
@@ -98,7 +59,9 @@ async function seedCatalog() {
   process.exit(0);
 }
 
-seedCatalog().catch((err) => {
-  console.error('❌ Failed to seed catalog:', err);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.SKIP_SEED_EXECUTION && process.argv[1]?.includes('seed-catalog')) {
+  seedCatalog().catch((err) => {
+    console.error('❌ Failed to seed catalog:', err);
+    process.exit(1);
+  });
+}

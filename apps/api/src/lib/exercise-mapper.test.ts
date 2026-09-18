@@ -82,3 +82,38 @@ test('toDomainExercise sets bodyweightFactor to undefined when DB column is null
   }));
   assert.equal(mapped.loading?.bodyweightFactor, undefined);
 });
+
+test('seed-catalog mapRawCatalogExerciseToDb preserves bodyweightFactor for assisted and weighted bodyweight', async () => {
+  const { mapRawCatalogExerciseToDb } = await import('../db/seed-catalog.js');
+
+  const assisted = mapRawCatalogExerciseToDb({
+    id: '0017',
+    n: 'assisted pull-up',
+    bp: 'back',
+    tg: 'lats',
+    eq: 'assisted'
+  });
+  assert.equal(assisted.loadMechanism, 'bodyweight');
+  assert.equal(assisted.loadMode, 'assisted');
+  assert.equal(assisted.bodyweightFactor, 1);
+
+  const weighted = mapRawCatalogExerciseToDb({
+    id: '0841',
+    n: 'weighted pull-up',
+    bp: 'back',
+    tg: 'lats',
+    eq: 'body weight'
+  });
+  assert.equal(weighted.loadMechanism, 'bodyweight');
+  assert.equal(weighted.loadMode, 'added_weight');
+  assert.equal(weighted.bodyweightFactor, 1);
+
+  const bench = mapRawCatalogExerciseToDb({
+    id: 'bench',
+    n: 'barbell bench press',
+    bp: 'chest',
+    tg: 'pectorals',
+    eq: 'barbell'
+  });
+  assert.equal(bench.bodyweightFactor, null);
+});
