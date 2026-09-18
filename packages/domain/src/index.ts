@@ -11,3 +11,4 @@ export * from './setSemantics.js';
 export * from './identity.js';
 export * from './exerciseCatalogMapping.js';
 export * from './exerciseAudit.js';
+export * from './muscleTaxonomy.js';

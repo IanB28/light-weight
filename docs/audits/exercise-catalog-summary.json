@@ -2871,6 +2871,70 @@
     "ex-0970",
     "ex-0572"
   ],
+  "v2Taxonomy": {
+    "targetsByResolutionKind": {
+      "anatomical": 800,
+      "functional": 5,
+      "regional": 490,
+      "unknown": 29
+    },
+    "allTermsByResolutionKind": {
+      "anatomical": 2681,
+      "functional": 164,
+      "regional": 2355,
+      "unknown": 29
+    },
+    "byResolutionKind": {
+      "anatomical": 2681,
+      "functional": 164,
+      "regional": 2355,
+      "unknown": 29
+    },
+    "byEntity": {
+      "rectus_abdominis": 170,
+      "obliques": 139,
+      "quadriceps": 315,
+      "hamstrings": 444,
+      "latissimus_dorsi": 90,
+      "biceps_brachii": 509,
+      "rhomboids": 56,
+      "pectoralis_major": 161,
+      "triceps_brachii": 570,
+      "adductors": 6,
+      "posterior_deltoid": 20,
+      "trapezius": 163,
+      "serratus_anterior": 5,
+      "brachialis": 14,
+      "wrist_flexors": 4,
+      "wrist_extensors": 3,
+      "soleus": 8,
+      "levator_scapulae": 2,
+      "sternocleidomastoid": 2
+    },
+    "byRegion": {
+      "core": 414,
+      "lower_back": 77,
+      "upper_legs": 767,
+      "glutes": 351,
+      "back": 465,
+      "arms": 1093,
+      "lower_legs": 256,
+      "forearms": 493,
+      "chest": 310,
+      "shoulders": 806,
+      "neck": 4
+    },
+    "byFunctionalGroup": {
+      "hip_flexors": 143,
+      "ankle_stabilizers": 5,
+      "rotator_cuff": 10,
+      "grip_muscles": 1,
+      "hip_abductors": 5
+    },
+    "unknownRawTerms": [
+      "cardiovascular system"
+    ]
+  },
   "priorityFamilies": {
     "leg_press": [
       {

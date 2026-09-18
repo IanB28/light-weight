@@ -14,6 +14,12 @@ import {
   type RawDatasetExercise
 } from './exerciseCatalogMapping.js';
 import { resolveExerciseLoadingProfile, isAssistedBodyweightMovement } from './exerciseLoading.js';
+import {
+  resolveMuscleTerm,
+  resolveAllMuscleTerms,
+  type MuscleTermResolution,
+  type MuscleTermResolutionKind
+} from './muscleTaxonomy.js';
 
 export type MovementFamily =
   // Lower body
@@ -93,6 +99,11 @@ export interface ExerciseAuditRecord {
     complexity: ExerciseComplexity;
     machineResistanceClass: MachineResistanceClass;
   };
+  v2: {
+    target: MuscleTermResolution;
+    muscleMetadata?: MuscleTermResolution;
+    secondaryMuscles: MuscleTermResolution[];
+  };
   flags: string[];
   findings: AuditFinding[];
   highestSeverity?: FindingSeverity;
@@ -115,6 +126,15 @@ export interface CatalogAuditSummary {
   machineResistanceCandidates: string[];
   plateLoadedCandidates: string[];
   bodyweightAssistedCandidates: string[];
+  v2Taxonomy: {
+    targetsByResolutionKind: Record<MuscleTermResolutionKind, number>;
+    allTermsByResolutionKind: Record<MuscleTermResolutionKind, number>;
+    byResolutionKind: Record<MuscleTermResolutionKind, number>;
+    byEntity: Record<string, number>;
+    byRegion: Record<string, number>;
+    byFunctionalGroup: Record<string, number>;
+    unknownRawTerms: string[];
+  };
 }
 
 export function inferMovementFamily(
@@ -588,6 +608,12 @@ export function auditExercise(raw: RawDatasetExercise): ExerciseAuditRecord {
   const flags = Array.from(new Set(findings.map((f) => f.flag)));
   const highestSeverity = deriveHighestSeverity(findings);
 
+  const v2 = {
+    target: resolveMuscleTerm(raw.tg || ''),
+    muscleMetadata: raw.mg ? resolveMuscleTerm(raw.mg) : undefined,
+    secondaryMuscles: resolveAllMuscleTerms(raw.sm || [])
+  };
+
   return {
     id: `ex-${raw.id}`,
     name: raw.n ? raw.n.charAt(0).toUpperCase() + raw.n.slice(1) : 'Ejercicio',
@@ -600,6 +626,7 @@ export function auditExercise(raw: RawDatasetExercise): ExerciseAuditRecord {
     },
     current,
     inferred,
+    v2,
     flags,
     findings,
     highestSeverity
@@ -633,7 +660,16 @@ export function auditExerciseCatalog(rawDataset: RawDatasetExercise[]): {
     flaggedExerciseIds: {},
     machineResistanceCandidates: [],
     plateLoadedCandidates: [],
-    bodyweightAssistedCandidates: []
+    bodyweightAssistedCandidates: [],
+    v2Taxonomy: {
+      targetsByResolutionKind: { anatomical: 0, functional: 0, regional: 0, unknown: 0 },
+      allTermsByResolutionKind: { anatomical: 0, functional: 0, regional: 0, unknown: 0 },
+      byResolutionKind: { anatomical: 0, functional: 0, regional: 0, unknown: 0 },
+      byEntity: {},
+      byRegion: {},
+      byFunctionalGroup: {},
+      unknownRawTerms: []
+    }
   };
 
   for (const record of records) {
@@ -697,6 +733,40 @@ export function auditExerciseCatalog(rawDataset: RawDatasetExercise[]): {
     }
     if (record.current.loadMode === 'assisted') {
       summary.bodyweightAssistedCandidates.push(record.id);
+    }
+
+    // v2 Taxonomy aggregation
+    const targetV2 = record.v2.target;
+    summary.v2Taxonomy.targetsByResolutionKind[targetV2.kind] =
+      (summary.v2Taxonomy.targetsByResolutionKind[targetV2.kind] || 0) + 1;
+
+    const allV2Terms = [
+      record.v2.target,
+      ...(record.v2.muscleMetadata ? [record.v2.muscleMetadata] : []),
+      ...record.v2.secondaryMuscles
+    ];
+
+    for (const term of allV2Terms) {
+      summary.v2Taxonomy.byResolutionKind[term.kind] =
+        (summary.v2Taxonomy.byResolutionKind[term.kind] || 0) + 1;
+      summary.v2Taxonomy.allTermsByResolutionKind[term.kind] =
+        (summary.v2Taxonomy.allTermsByResolutionKind[term.kind] || 0) + 1;
+
+      if (term.entity) {
+        summary.v2Taxonomy.byEntity[term.entity] =
+          (summary.v2Taxonomy.byEntity[term.entity] || 0) + 1;
+      }
+      if (term.region) {
+        summary.v2Taxonomy.byRegion[term.region] =
+          (summary.v2Taxonomy.byRegion[term.region] || 0) + 1;
+      }
+      if (term.functionalGroup) {
+        summary.v2Taxonomy.byFunctionalGroup[term.functionalGroup] =
+          (summary.v2Taxonomy.byFunctionalGroup[term.functionalGroup] || 0) + 1;
+      }
+      if (term.kind === 'unknown' && !summary.v2Taxonomy.unknownRawTerms.includes(term.raw)) {
+        summary.v2Taxonomy.unknownRawTerms.push(term.raw);
+      }
     }
   }
 

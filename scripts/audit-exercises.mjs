@@ -44,7 +44,11 @@ async function main() {
     'inferredComplexity',
     'inferredMachineResistanceClass',
     'highestSeverity',
-    'flags'
+    'flags',
+    'v2TargetKind',
+    'v2TargetResolved',
+    'v2TargetRegion',
+    'v2SecondaryResolved'
   ];
 
   const escapeCsv = (val) => {
@@ -77,7 +81,11 @@ async function main() {
       escapeCsv(r.inferred.complexity),
       escapeCsv(r.inferred.machineResistanceClass),
       escapeCsv(r.highestSeverity ?? 'none'),
-      escapeCsv(r.flags.join('; '))
+      escapeCsv(r.flags.join('; ')),
+      escapeCsv(r.v2?.target?.kind ?? ''),
+      escapeCsv(r.v2?.target?.entity || r.v2?.target?.functionalGroup || r.v2?.target?.region || ''),
+      escapeCsv(r.v2?.target?.region ?? ''),
+      escapeCsv(r.v2?.secondaryMuscles?.map((s) => s.entity || s.functionalGroup || s.region || s.raw).join('; ') ?? '')
     ];
     csvRows.push(row.join(','));
   }
@@ -139,6 +147,22 @@ async function main() {
   const sortedFlags = Object.entries(summary.byFlag).sort((a, b) => b[1] - a[1]);
   for (const [flag, count] of sortedFlags.slice(0, 20)) {
     console.log(`  ${flag}: ${count}`);
+  }
+
+  if (summary.v2Taxonomy) {
+    console.log('\n=== V2 MUSCLE TAXONOMY STATS ===');
+    console.log('Target breakdown by kind:');
+    for (const [kind, count] of Object.entries(summary.v2Taxonomy.targetsByResolutionKind || {})) {
+      console.log(`  ${kind}: ${count}`);
+    }
+    console.log('All muscle terms breakdown by kind:');
+    for (const [kind, count] of Object.entries(summary.v2Taxonomy.allTermsByResolutionKind || {})) {
+      console.log(`  ${kind}: ${count}`);
+    }
+    console.log(`Unique entities referenced: ${Object.keys(summary.v2Taxonomy.byEntity || {}).length}`);
+    console.log(`Unique regions referenced: ${Object.keys(summary.v2Taxonomy.byRegion || {}).length}`);
+    console.log(`Unique functional groups referenced: ${Object.keys(summary.v2Taxonomy.byFunctionalGroup || {}).length}`);
+    console.log(`Unknown raw terms (${summary.v2Taxonomy.unknownRawTerms?.length || 0}): ${summary.v2Taxonomy.unknownRawTerms?.join(', ') || 'none'}`);
   }
 }
 
