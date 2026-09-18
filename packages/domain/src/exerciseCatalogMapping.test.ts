@@ -11,6 +11,7 @@ import {
 import {
   auditExercise,
   auditExerciseCatalog,
+  detectAuditFindings,
   inferMovementFamily,
   inferComplexity,
   inferMachineResistanceClass
@@ -275,4 +276,108 @@ test('14. No machine resistance candidate receives invented kilos from auditor',
     assert.equal((candidate.inferred as Record<string, unknown>).weightKg, undefined);
     assert.equal((candidate.inferred as Record<string, unknown>).tareKg, undefined);
   }
+});
+
+test('15. (Req A) Exercise with raw mg != tg has RAW_MG_DIFFERS_FROM_TARGET as info and highestSeverity undefined', () => {
+  const cleanExerciseWithDifferentMg: RawDatasetExercise = {
+    id: 'test-info-mg',
+    n: 'Barbell Biceps Curl',
+    bp: 'upper arms',
+    tg: 'biceps',
+    mg: 'biceps brachii',
+    eq: 'barbell',
+    sm: []
+  };
+  const record = auditExercise(cleanExerciseWithDifferentMg);
+  assert.ok(record.flags.includes('RAW_MG_DIFFERS_FROM_TARGET'), 'Must include RAW_MG_DIFFERS_FROM_TARGET');
+  const mgFinding = record.findings.find((f) => f.flag === 'RAW_MG_DIFFERS_FROM_TARGET');
+  assert.ok(mgFinding);
+  assert.equal(mgFinding.severity, 'info', 'RAW_MG_DIFFERS_FROM_TARGET must have severity = info');
+  assert.equal(record.highestSeverity, undefined, 'highestSeverity must be undefined when only info findings exist');
+});
+
+test('16. (Req B & C) Correctly resolved assisted pull-up, triceps dip, and chest dip do NOT receive ASSISTED_METADATA_INCONSISTENT', () => {
+  // Assisted pull-up (ex-0017)
+  const ex0017 = EXDB.find((e) => String(e.id) === '0017');
+  assert.ok(ex0017);
+  const record0017 = auditExercise(ex0017);
+  assert.equal(record0017.current.loadMechanism, 'bodyweight');
+  assert.equal(record0017.current.loadMode, 'assisted');
+  assert.equal(record0017.current.bodyweightFactor, 1);
+  assert.equal(record0017.flags.includes('ASSISTED_METADATA_INCONSISTENT'), false, 'ex-0017 must not be flagged');
+
+  // Assisted triceps dip (kneeling) (ex-0019)
+  const ex0019 = EXDB.find((e) => String(e.id) === '0019');
+  assert.ok(ex0019);
+  const record0019 = auditExercise(ex0019);
+  assert.equal(record0019.current.loadMechanism, 'bodyweight');
+  assert.equal(record0019.current.loadMode, 'assisted');
+  assert.equal(record0019.current.bodyweightFactor, 1);
+  assert.equal(record0019.flags.includes('ASSISTED_METADATA_INCONSISTENT'), false, 'ex-0019 must not be flagged');
+
+  // Assisted chest dip (kneeling) (ex-0009)
+  const ex0009 = EXDB.find((e) => String(e.id) === '0009');
+  assert.ok(ex0009);
+  const record0009 = auditExercise(ex0009);
+  assert.equal(record0009.current.loadMechanism, 'bodyweight');
+  assert.equal(record0009.current.loadMode, 'assisted');
+  assert.equal(record0009.current.bodyweightFactor, 1);
+  assert.equal(record0009.flags.includes('ASSISTED_METADATA_INCONSISTENT'), false, 'ex-0009 must not be flagged');
+});
+
+test('17. (Req D & E) Assisted stretches do NOT receive ASSISTED_METADATA_INCONSISTENT', () => {
+  // Assisted lying calves stretch (ex-1708)
+  const ex1708 = EXDB.find((e) => String(e.id) === '1708');
+  assert.ok(ex1708);
+  const record1708 = auditExercise(ex1708);
+  assert.equal(record1708.flags.includes('ASSISTED_METADATA_INCONSISTENT'), false, 'ex-1708 must not be flagged');
+
+  // Assisted lying glutes stretch (ex-1709)
+  const ex1709 = EXDB.find((e) => String(e.id) === '1709');
+  assert.ok(ex1709);
+  const record1709 = auditExercise(ex1709);
+  assert.equal(record1709.flags.includes('ASSISTED_METADATA_INCONSISTENT'), false, 'ex-1709 must not be flagged');
+});
+
+test('18. (Req F) Synthetic counterweighted movement with corrupted profile triggers ASSISTED_METADATA_INCONSISTENT', () => {
+  const syntheticRaw: RawDatasetExercise = {
+    id: 'synth-assisted',
+    n: 'Assisted Chin-Up',
+    bp: 'back',
+    tg: 'lats',
+    eq: 'leverage machine',
+    sm: ['biceps']
+  };
+  const corruptedCurrent = {
+    equipmentCategory: 'machine' as const,
+    primaryMuscle: 'back' as const,
+    secondaryMuscles: ['biceps' as const],
+    loadMechanism: 'selectorized' as const, // Corrupted: should be bodyweight with assisted mode
+    loadMode: 'total' as const,
+    bodyweightFactor: undefined
+  };
+  const inferred = {
+    movementFamily: 'chin_up' as const,
+    complexity: 'compound' as const,
+    machineResistanceClass: 'none_expected' as const
+  };
+  const findings = detectAuditFindings(syntheticRaw, corruptedCurrent, inferred);
+  const assistedFinding = findings.find((f: { flag: string }) => f.flag === 'ASSISTED_METADATA_INCONSISTENT');
+  assert.ok(assistedFinding, 'Must trigger ASSISTED_METADATA_INCONSISTENT for corrupted assisted movement');
+  assert.equal(assistedFinding.severity, 'high');
+});
+
+test('19. Catalog audit summary invariants: 0 assisted inconsistencies, 15 inherent, 48 smith, info count = 1322', () => {
+  const { summary } = auditExerciseCatalog(EXDB);
+  assert.equal(summary.bySeverity.critical, 0);
+  assert.equal(summary.bySeverity.info, 1322);
+  assert.equal(summary.byFlag['ASSISTED_METADATA_INCONSISTENT'] || 0, 0, 'Catalog must have 0 ASSISTED_METADATA_INCONSISTENT');
+  assert.equal(summary.machineResistanceCandidates.length, 15);
+  assert.equal(summary.byMachineResistanceClass.known_current, 48);
+  assert.equal(summary.byFlag['CANONICAL_MUSCLE_COLLAPSE'], 197);
+  assert.equal(summary.byFlag['RAW_MG_NOT_REPRESENTED_IN_CANONICAL_MUSCLES'], 451);
+
+  // Barbell hack squat must NOT be inherent resistance candidate
+  const hackSquat = auditExercise(EXDB.find((e) => String(e.id) === '0046')!);
+  assert.equal(hackSquat.inferred.machineResistanceClass, 'none_expected');
 });

@@ -132,15 +132,15 @@
   },
   "bySeverity": {
     "critical": 0,
-    "high": 101,
-    "medium": 1223,
-    "low": 0
+    "high": 114,
+    "medium": 854,
+    "low": 302,
+    "info": 1322
   },
   "byFlag": {
     "CANONICAL_MUSCLE_COLLAPSE": 197,
     "RAW_MG_DIFFERS_FROM_TARGET": 1322,
     "RAW_MG_NOT_REPRESENTED_IN_CANONICAL_MUSCLES": 451,
-    "ASSISTED_METADATA_INCONSISTENT": 21,
     "UNMAPPED_EQUIPMENT": 207,
     "UNMAPPED_TARGET": 62,
     "COMPOUND_SINGLE_MUSCLE_METADATA": 48,
@@ -2130,29 +2130,6 @@
       "ex-0857",
       "ex-3637",
       "ex-0858"
-    ],
-    "ASSISTED_METADATA_INCONSISTENT": [
-      "ex-0011",
-      "ex-0010",
-      "ex-1708",
-      "ex-1709",
-      "ex-1710",
-      "ex-0012",
-      "ex-0013",
-      "ex-0014",
-      "ex-0016",
-      "ex-1713",
-      "ex-1714",
-      "ex-1716",
-      "ex-1712",
-      "ex-1758",
-      "ex-0018",
-      "ex-0971",
-      "ex-1259",
-      "ex-3235",
-      "ex-0697",
-      "ex-1766",
-      "ex-0696"
     ],
     "UNMAPPED_EQUIPMENT": [
       "ex-0014",

@@ -166,8 +166,14 @@ export function isLegacyUnilateralExercise(
     || UNILATERAL_INSTRUCTION_PATTERN.test((exercise.instructions || []).join(' '));
 }
 
-const FULL_BODYWEIGHT_NAME_PATTERN = /\b(?:pull[ -]?ups?|chin[ -]?ups?|chest dip|triceps? dip|muscle[ -]?ups?|dominadas?|fondos?(?:\s+en\s+paralelas)?)\b/i;
-const ASSISTED_NAME_PATTERN = /\b(?:assisted|asistid[oa]s?)\b/i;
+export const FULL_BODYWEIGHT_NAME_PATTERN = /\b(?:pull[ -]?ups?|chin[ -]?ups?|chest dip|triceps? dip|muscle[ -]?ups?|dominadas?|fondos?(?:\s+en\s+paralelas)?)\b/i;
+export const ASSISTED_NAME_PATTERN = /\b(?:assisted|asistid[oa]s?)\b/i;
+
+export function isAssistedBodyweightMovement(name = '', equipment = ''): boolean {
+  const isAssisted = equipment.toLowerCase().includes('assisted') || ASSISTED_NAME_PATTERN.test(name);
+  const isFullBodyweight = FULL_BODYWEIGHT_NAME_PATTERN.test(name);
+  return isAssisted && isFullBodyweight;
+}
 
 function resolveFallbackProfile(
   exercise: Pick<Exercise, 'category' | 'name' | 'instructions'>,

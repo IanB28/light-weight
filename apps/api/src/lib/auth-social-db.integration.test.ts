@@ -20,14 +20,7 @@ test('authorization guards and idempotent routine import hold inside a rolled-ba
     t.skip('DATABASE_URL is not configured');
     return;
   }
-  const sql = postgres(connectionString, { max: 1, ssl: 'require', connect_timeout: 2 });
-  try {
-    await sql`SELECT 1`;
-  } catch (error) {
-    await sql.end({ timeout: 1 }).catch(() => {});
-    t.skip(`DATABASE_URL is unreachable or rejected credentials: ${(error as Error).message}`);
-    return;
-  }
+  const sql = postgres(connectionString, { max: 1, ssl: 'require' });
   const rollback = new Error('AUTH_SOCIAL_TEST_ROLLBACK');
   const a = '10000000-0000-4000-8000-000000000001';
   const b = '10000000-0000-4000-8000-000000000002';

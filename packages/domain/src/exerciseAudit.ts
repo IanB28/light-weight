@@ -13,7 +13,7 @@ import {
   mapDatasetSecondaryMuscles,
   type RawDatasetExercise
 } from './exerciseCatalogMapping.js';
-import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
+import { resolveExerciseLoadingProfile, isAssistedBodyweightMovement } from './exerciseLoading.js';
 
 export type MovementFamily =
   // Lower body
@@ -61,7 +61,7 @@ export type MachineResistanceClass =
   | 'known_current'
   | 'unknown';
 
-export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 export interface AuditFinding {
   flag: string;
@@ -414,7 +414,7 @@ export function detectAuditFindings(
   if (rawMg && rawMg !== rawTg) {
     findings.push({
       flag: 'RAW_MG_DIFFERS_FROM_TARGET',
-      severity: 'medium',
+      severity: 'info',
       description: `Raw muscle metadata (mg: "${raw.mg}") differs from raw target (tg: "${raw.tg}").`
     });
 
@@ -499,12 +499,15 @@ export function detectAuditFindings(
   }
 
   // 18. Assisted metadata inconsistent
-  if (rawEq.includes('assisted') || name.includes('assisted')) {
-    if (current.loadMode !== 'assisted' || current.bodyweightFactor === undefined) {
+  const isAssistedLoadMovement = current.loadMode === 'assisted'
+    || isAssistedBodyweightMovement(name, rawEq);
+
+  if (isAssistedLoadMovement) {
+    if (current.loadMode !== 'assisted' || current.loadMechanism !== 'bodyweight' || current.bodyweightFactor === undefined) {
       findings.push({
         flag: 'ASSISTED_METADATA_INCONSISTENT',
         severity: 'high',
-        description: 'Assisted exercise metadata is inconsistent with domain model.'
+        description: 'Assisted exercise metadata is inconsistent with domain model (expected bodyweight mechanism with assisted load mode and explicit factor).'
       });
     }
   }
@@ -532,12 +535,13 @@ export function detectAuditFlags(
   return Array.from(new Set(findings.map((f) => f.flag)));
 }
 
-function deriveHighestSeverity(findings: AuditFinding[]): FindingSeverity | undefined {
+export function deriveHighestSeverity(findings: AuditFinding[]): FindingSeverity | undefined {
   if (findings.length === 0) return undefined;
   if (findings.some((f) => f.severity === 'critical')) return 'critical';
   if (findings.some((f) => f.severity === 'high')) return 'high';
   if (findings.some((f) => f.severity === 'medium')) return 'medium';
-  return 'low';
+  if (findings.some((f) => f.severity === 'low')) return 'low';
+  return undefined;
 }
 
 export function auditExercise(raw: RawDatasetExercise): ExerciseAuditRecord {
@@ -624,7 +628,7 @@ export function auditExerciseCatalog(rawDataset: RawDatasetExercise[]): {
       known_current: 0,
       unknown: 0
     },
-    bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+    bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
     byFlag: {},
     flaggedExerciseIds: {},
     machineResistanceCandidates: [],
@@ -669,10 +673,10 @@ export function auditExerciseCatalog(rawDataset: RawDatasetExercise[]): {
     summary.byMachineResistanceClass[record.inferred.machineResistanceClass] =
       (summary.byMachineResistanceClass[record.inferred.machineResistanceClass] || 0) + 1;
 
-    // Severity
-    if (record.highestSeverity) {
-      summary.bySeverity[record.highestSeverity] =
-        (summary.bySeverity[record.highestSeverity] || 0) + 1;
+    // Severity breakdown (by finding severity)
+    for (const finding of record.findings) {
+      summary.bySeverity[finding.severity] =
+        (summary.bySeverity[finding.severity] || 0) + 1;
     }
 
     // Flags
