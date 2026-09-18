@@ -53,13 +53,14 @@ export interface WorkoutFinishResult {
 
 const FALLBACK_USER_ID = 'local-anonymous';
 
-function normalizeActiveExerciseSession(session: ActiveExerciseSession): ActiveExerciseSession {
+export function normalizeActiveExerciseSession(session: ActiveExerciseSession): ActiveExerciseSession {
   const legacySession = session as ActiveExerciseSession & { weightInputMode?: WeightInputMode };
   const { weightInputMode: _legacyWeightInputMode, ...restoredSession } = legacySession;
   const loading = resolveExerciseLoadingProfile(restoredSession.exercise).profile;
   const normalized = {
     ...restoredSession,
     exercise: { ...restoredSession.exercise, loading },
+    skipped: restoredSession.skipped === true,
     sets: restoredSession.sets.map((set) => normalizeLoggedSet(set))
   };
   return loading.loadMode === 'added_weight'
@@ -77,6 +78,130 @@ function normalizeActiveExerciseSession(session: ActiveExerciseSession): ActiveE
 function createWorkoutId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
+}
+
+export function buildRoutineExerciseSessions(
+  routine: Routine,
+  exercisesById: Record<string, Exercise>,
+  sessionCreator: (exercise: Exercise) => ActiveExerciseSession
+): ActiveExerciseSession[] {
+  return routine.exerciseIds
+    .map((id) => exercisesById[id])
+    .filter((exercise): exercise is Exercise => Boolean(exercise))
+    .map(sessionCreator);
+}
+
+export function skipExerciseInSessions(sessions: ActiveExerciseSession[], exerciseId: string): ActiveExerciseSession[] {
+  return sessions.map((session) => {
+    if (session.exercise.id !== exerciseId) return session;
+    const hasCompletedSets = session.sets.some(
+      (set) => set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0
+    );
+    if (hasCompletedSets) {
+      // Once one valid set has been completed, the exercise is performed and CANNOT be skipped
+      return session;
+    }
+    return { ...session, skipped: true };
+  });
+}
+
+export function resumeExerciseInSessions(sessions: ActiveExerciseSession[], exerciseId: string): ActiveExerciseSession[] {
+  return sessions.map((session) => (
+    session.exercise.id === exerciseId
+      ? { ...session, skipped: false }
+      : session
+  ));
+}
+
+export function updateSetInSessions(
+  sessions: ActiveExerciseSession[],
+  exerciseId: string,
+  setIndex: number,
+  field: 'weightKg' | 'reps' | 'rir',
+  value: number
+): ActiveExerciseSession[] {
+  const finite = Number.isFinite(value) ? value : 0;
+  const normalized = field === 'weightKg'
+    ? Math.max(0, finite)
+    : field === 'reps'
+      ? Math.max(0, Math.round(finite))
+      : Math.min(5, Math.max(0, Math.round(finite)));
+  return sessions.map((session) => (
+    session.exercise.id !== exerciseId || session.skipped ? session : {
+      ...session,
+      sets: session.sets.map((set) => set.setIndex === setIndex ? { ...set, [field]: normalized } : set)
+    }
+  ));
+}
+
+export function toggleSetInSessions(
+  sessions: ActiveExerciseSession[],
+  exerciseId: string,
+  setIndex: number
+): { sessions: ActiveExerciseSession[]; completed: boolean } {
+  let completed = false;
+  const nextSessions = sessions.map((session) => {
+    if (session.exercise.id !== exerciseId || session.skipped) return session;
+    return {
+      ...session,
+      sets: session.sets.map((set) => {
+        if (set.setIndex !== setIndex) return set;
+        const valid = Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0;
+        if (!set.completed && !valid) return set;
+        completed = !set.completed;
+        return { ...set, completed };
+      })
+    };
+  });
+  return { sessions: nextSessions, completed };
+}
+
+export function addSetToSessions(
+  sessions: ActiveExerciseSession[],
+  exerciseId: string,
+  setType: WorkoutSetType = 'working'
+): ActiveExerciseSession[] {
+  return sessions.map((session) => {
+    if (session.exercise.id !== exerciseId || session.skipped) return session;
+    const lastSet = session.sets[session.sets.length - 1];
+    return {
+      ...session,
+      sets: [...session.sets, {
+        setIndex: session.sets.length + 1,
+        weightKg: lastSet?.weightKg ?? 50,
+        reps: lastSet?.reps ?? 8,
+        completed: false,
+        setType,
+        isWarmup: setType === 'warmup',
+        rir: lastSet?.rir ?? 2
+      }]
+    };
+  });
+}
+
+export function removeSetFromSessions(
+  sessions: ActiveExerciseSession[],
+  exerciseId: string
+): ActiveExerciseSession[] {
+  return sessions.map((session) => (
+    session.exercise.id !== exerciseId || session.skipped || session.sets.length <= 1
+      ? session
+      : { ...session, sets: session.sets.slice(0, -1) }
+  ));
+}
+
+export function serializeWorkoutSets(exerciseSessions: ActiveExerciseSession[]): Record<string, LoggedSet[]> {
+  const sets: Record<string, LoggedSet[]> = {};
+  for (const session of exerciseSessions) {
+    if (session.skipped) {
+      continue;
+    }
+    sets[session.exercise.id] = session.sets.map((set) => normalizeLoggedSet({
+      ...set,
+      completed: set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0
+    }));
+  }
+  return sets;
 }
 
 export function useWorkoutSession({
@@ -174,6 +299,7 @@ export function useWorkoutSession({
       targetRepRange: [6, 12],
       includeBarWeight: loading.includeBarWeight,
       plateBaseWeightKg: resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg),
+      skipped: false,
       sets: initialSets
     };
   };
@@ -262,7 +388,9 @@ export function useWorkoutSession({
     const routine = routineId ? routines.find((item) => item.id === routineId) : undefined;
     if (routine) {
       setActiveRoutineName(routine.name);
-      setExerciseSessions(exercises.filter((exercise) => routine.exerciseIds.includes(exercise.id)).map(createExerciseSession));
+      setExerciseSessions(
+        buildRoutineExerciseSessions(routine, exercisesById, createExerciseSession)
+      );
       return;
     }
     setActiveRoutineName(sessionName || 'Entrenamiento Libre');
@@ -297,96 +425,71 @@ export function useWorkoutSession({
     setExerciseSessions((current) => current.filter((item) => item.exercise.id !== exerciseId));
   };
 
+  const skipExercise = (exerciseId: string) => {
+    setExerciseSessions((current) => skipExerciseInSessions(current, exerciseId));
+  };
+
+  const resumeExercise = (exerciseId: string) => {
+    setExerciseSessions((current) => resumeExerciseInSessions(current, exerciseId));
+  };
+
   const updateSet = (exerciseId: string, setIndex: number, field: 'weightKg' | 'reps' | 'rir', value: number) => {
-    const finite = Number.isFinite(value) ? value : 0;
-    const normalized = field === 'weightKg'
-      ? Math.max(0, finite)
-      : field === 'reps'
-        ? Math.max(0, Math.round(finite))
-        : Math.min(5, Math.max(0, Math.round(finite)));
-    setExerciseSessions((current) => current.map((session) => session.exercise.id !== exerciseId ? session : {
-      ...session,
-      sets: session.sets.map((set) => set.setIndex === setIndex ? { ...set, [field]: normalized } : set)
-    }));
+    setExerciseSessions((current) => updateSetInSessions(current, exerciseId, setIndex, field, value));
   };
 
   const toggleSet = (exerciseId: string, setIndex: number) => {
     let completed = false;
-    setExerciseSessions((current) => current.map((session) => session.exercise.id !== exerciseId ? session : {
-      ...session,
-      sets: session.sets.map((set) => {
-        if (set.setIndex !== setIndex) return set;
-        const valid = Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0;
-        if (!set.completed && !valid) return set;
-        completed = !set.completed;
-        return { ...set, completed };
-      })
-    }));
+    setExerciseSessions((current) => {
+      const res = toggleSetInSessions(current, exerciseId, setIndex);
+      completed = res.completed;
+      return res.sessions;
+    });
     return completed;
   };
 
   const addSet = (exerciseId: string, setType: WorkoutSetType = 'working') => {
-    setExerciseSessions((current) => current.map((session) => {
-      if (session.exercise.id !== exerciseId) return session;
-      const lastSet = session.sets[session.sets.length - 1];
-      return {
-        ...session,
-        sets: [...session.sets, {
-          setIndex: session.sets.length + 1,
-          weightKg: lastSet?.weightKg ?? 50,
-          reps: lastSet?.reps ?? 8,
-          completed: false,
-          setType,
-          isWarmup: setType === 'warmup',
-          rir: lastSet?.rir ?? 2
-        }]
-      };
-    }));
+    setExerciseSessions((current) => addSetToSessions(current, exerciseId, setType));
   };
 
   const removeSet = (exerciseId: string) => {
-    setExerciseSessions((current) => current.map((session) => (
-      session.exercise.id !== exerciseId || session.sets.length <= 1
-        ? session
-        : { ...session, sets: session.sets.slice(0, -1) }
-    )));
+    setExerciseSessions((current) => removeSetFromSessions(current, exerciseId));
   };
 
   const updateWeightInputMode = (exerciseId: string, weightInputModeOverride: WeightInputMode) => {
     setExerciseSessions((current) => current.map((session) => (
-      session.exercise.id === exerciseId ? { ...session, weightInputModeOverride } : session
+      session.exercise.id === exerciseId && !session.skipped ? { ...session, weightInputModeOverride } : session
     )));
   };
 
   const toggleAddedWeight = (exerciseId: string, enabled: boolean) => {
-    setExerciseSessions((current) => current.map((session) => session.exercise.id !== exerciseId ? session : {
-      ...session,
-      usesAddedWeight: enabled,
-      sets: enabled ? session.sets : session.sets.map((set) => ({ ...set, weightKg: 0 }))
-    }));
+    setExerciseSessions((current) => {
+      if (current.some((s) => s.exercise.id === exerciseId && s.skipped)) return current;
+      return current.map((session) => {
+        if (session.exercise.id !== exerciseId) return session;
+        return {
+          ...session,
+          usesAddedWeight: enabled,
+          sets: enabled ? session.sets : session.sets.map((set) => ({ ...set, weightKg: 0 }))
+        };
+      });
+    });
   };
 
   const updateBarInclusion = (exerciseId: string, includeBarWeight: boolean) => {
     setExerciseSessions((current) => current.map((session) => (
-      session.exercise.id === exerciseId ? { ...session, includeBarWeight } : session
+      session.exercise.id === exerciseId && !session.skipped ? { ...session, includeBarWeight } : session
     )));
   };
 
   const updatePlateBaseWeight = (exerciseId: string, plateBaseWeightKg: number) => {
     setExerciseSessions((current) => current.map((session) => (
-      session.exercise.id === exerciseId ? { ...session, plateBaseWeightKg } : session
+      session.exercise.id === exerciseId && !session.skipped ? { ...session, plateBaseWeightKg } : session
     )));
   };
 
   const finish = (): WorkoutFinishResult | null => {
     if (!isWorkoutActive) return null;
-    const sets: Record<string, LoggedSet[]> = {};
-    for (const session of exerciseSessions) {
-      sets[session.exercise.id] = session.sets.map((set) => normalizeLoggedSet({
-        ...set,
-        completed: set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0
-      }));
-    }
+    const sets = serializeWorkoutSets(exerciseSessions);
     const session: WorkoutSession = {
       id: createWorkoutId(),
       userId,
@@ -432,6 +535,8 @@ export function useWorkoutSession({
     startWithExercise,
     addExercise,
     removeExercise,
+    skipExercise,
+    resumeExercise,
     updateSet,
     toggleSet,
     addSet,

@@ -172,6 +172,8 @@ export function App() {
           onRemoveSet={workout.removeSet}
           onAddExercise={workout.addExercise}
           onRemoveExercise={workout.removeExercise}
+          onSkipExercise={workout.skipExercise}
+          onResumeExercise={workout.resumeExercise}
           onCreateCustomExercise={createCustomExercise}
           onFinishWorkout={finishWorkout}
           onCancelWorkout={cancelWorkout}

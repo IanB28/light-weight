@@ -45,6 +45,27 @@
     "src/features/profile/ProfileStrengthSection.tsx",
     "src/features/profile/ProfileView.tsx",
     "src/features/profile/profile-gender.test.ts",
-    "src/features/profile/profile-strength.test.ts"
+    "src/features/profile/profile-strength.test.ts",
+    "src/lib/exercises.ts",
+    "src/lib/exercise-filters.ts",
+    "src/lib/wakelock.ts",
+    "src/lib/tonnage.ts",
+    "src/components/ExerciseCatalogCard.tsx",
+    "src/components/ExerciseFilterControls.tsx",
+    "src/components/ExerciseMediaModal.tsx",
+    "src/components/AddExerciseModal.tsx",
+    "src/components/WorkoutSummaryModal.tsx",
+    "src/components/ViewHeader.tsx",
+    "src/components/CreateRoutineModal.tsx",
+    "src/views/LibraryView.tsx",
+    "src/views/WorkoutView.tsx",
+    "src/features/routines/routine-creation.test.ts",
+    "src/features/workouts/types.ts",
+    "src/features/workouts/WeightPlate.tsx",
+    "src/features/workouts/WeightEntry.tsx",
+    "src/features/workouts/WorkoutSessionComponents.tsx",
+    "src/features/workouts/useWorkoutSession.ts",
+    "src/features/workouts/workout-session-skip.test.ts",
+    "src/features/workouts/routine-startup-order.test.ts"
   ]
 }

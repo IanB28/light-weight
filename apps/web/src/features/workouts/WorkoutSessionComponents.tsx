@@ -1,6 +1,6 @@
 import type { ExerciseLoadingProfile, LoggedSet, WorkoutSetType } from '@light-weight/domain';
 import { normalizeWorkoutSetType, poundsToKilograms, resolveExerciseLoadingProfile, resolvePlateBaseWeightKg } from '@light-weight/domain';
-import { Check, Disc3, Dumbbell, Eye, Trash2, X } from 'lucide-react';
+import { Check, Disc3, Dumbbell, Eye, SkipForward, Trash2, X } from 'lucide-react';
 import { Button, IconButton, OptionPicker } from '../../components/ui/index.js';
 import { getExerciseImgUrl } from '../../lib/exercises.js';
 import { useExerciseLabels, useI18n } from '../../lib/i18n.js';
@@ -134,6 +134,9 @@ interface ExerciseSessionCardProps {
   preferences: AppPreferences;
   onViewTechnique: (session: ActiveExerciseSession['exercise']) => void;
   onRemoveExercise: (exerciseId: string) => void;
+  onSkipExercise?: (exerciseId: string) => void;
+  onResumeExercise?: (exerciseId: string) => void;
+  onAddReplacement?: (targetExercise: ActiveExerciseSession['exercise']) => void;
   onUpdateSet: SetRowProps['onUpdateSet'];
   onToggleSet: SetRowProps['onToggleSet'];
   onStartRestTimer: SetRowProps['onStartRestTimer'];
@@ -144,15 +147,187 @@ interface ExerciseSessionCardProps {
   onToggleAddedWeight: SetTableProps['onToggleAddedWeight'];
 }
 
-export function ExerciseSessionCard({ session, exerciseIndex, totalExercises, preferences, onViewTechnique, onRemoveExercise, onUpdateSet, onToggleSet, onStartRestTimer, onOpenPlates, onAddSet, onRemoveSet, onUpdateWeightInputMode, onToggleAddedWeight }: ExerciseSessionCardProps) {
+export function ExerciseSessionCard({
+  session,
+  exerciseIndex,
+  totalExercises,
+  preferences,
+  onViewTechnique,
+  onRemoveExercise,
+  onSkipExercise,
+  onResumeExercise,
+  onAddReplacement,
+  onUpdateSet,
+  onToggleSet,
+  onStartRestTimer,
+  onOpenPlates,
+  onAddSet,
+  onRemoveSet,
+  onUpdateWeightInputMode,
+  onToggleAddedWeight
+}: ExerciseSessionCardProps) {
   const { t } = useI18n();
   const { muscleLabel, equipmentLabel } = useExerciseLabels();
-  const { exercise, previousRecord, bestRecord } = session;
+  const { exercise, previousRecord, bestRecord, skipped } = session;
   const imgUrl = getExerciseImgUrl(exercise);
-  return <div className="space-y-3 pt-2">
-    <div className="flex items-start gap-3"><button type="button" onClick={() => onViewTechnique(exercise)} aria-label={t('workout.viewTechnique', { name: exercise.name })} className="group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" title={t('workout.viewTechnique', { name: exercise.name })}>{imgUrl ? <img src={imgUrl} alt="" loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" /> : <Dumbbell className="size-6 text-text-muted stroke-[1.8]" />}<div aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-app/30 opacity-0 transition-opacity group-hover:opacity-100"><Eye className="size-4 text-accent" /></div></button>
-      <div className="min-w-0 flex-1 space-y-1"><div className="flex min-h-10 items-center justify-between gap-2"><span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}</span><IconButton variant="ghost" size="sm" onClick={() => onRemoveExercise(exercise.id)} aria-label={t('workout.removeExercise', { name: exercise.name })} className="text-text-muted hover:text-danger" title={t('workout.removeExercise', { name: exercise.name })}><Trash2 className="size-4" /></IconButton></div><h3 className="truncate text-lg font-extrabold leading-tight tracking-tight text-text-primary">{exercise.name}</h3><div className="flex min-w-0 items-center justify-between gap-3 pt-0.5 text-xs"><span className="min-w-0 truncate capitalize text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}</span>{bestRecord && <span className="shrink-0 font-semibold text-amber-400">PR {bestRecord}</span>}</div>{previousRecord && <p className="pt-0.5 font-mono text-[11px] leading-relaxed text-text-muted"><span className="font-semibold text-text-secondary">{t('workout.previous')}</span> {previousRecord}</p>}</div>
+  const hasCompletedSets = session.sets.some((set) => set.completed && isValidWorkoutSet(set));
+
+  if (skipped) {
+    return (
+      <div className="space-y-3 pt-2 opacity-80" data-testid={`skipped-card-${exercise.id}`}>
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => onViewTechnique(exercise)}
+            aria-label={t('workout.viewTechnique', { name: exercise.name })}
+            className="group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            title={t('workout.viewTechnique', { name: exercise.name })}
+          >
+            {imgUrl ? (
+              <img src={imgUrl} alt="" loading="lazy" className="h-full w-full object-cover grayscale transition-transform group-hover:scale-105" />
+            ) : (
+              <Dumbbell className="size-6 text-text-muted stroke-[1.8]" />
+            )}
+            <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-app/30 opacity-0 transition-opacity group-hover:opacity-100">
+              <Eye className="size-4 text-accent" />
+            </div>
+          </button>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex min-h-10 items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+              </span>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemoveExercise(exercise.id)}
+                aria-label={t('workout.removeExercise', { name: exercise.name })}
+                className="text-text-muted hover:text-danger"
+                title={t('workout.removeExercise', { name: exercise.name })}
+              >
+                <Trash2 className="size-4" />
+              </IconButton>
+            </div>
+            <h3 className="truncate text-lg font-extrabold leading-tight tracking-tight text-text-secondary">
+              {exercise.name}
+            </h3>
+            <div className="flex min-w-0 items-center justify-between gap-3 pt-0.5 text-xs">
+              <span className="min-w-0 truncate capitalize text-text-muted">
+                {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
+              </span>
+              {bestRecord && <span className="shrink-0 font-semibold text-text-muted">PR {bestRecord}</span>}
+            </div>
+          </div>
+        </div>
+        <div className="glass-surface flex flex-col gap-3 rounded-ui-xl border border-dashed border-border-subtle p-3.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-text-muted">
+            <SkipForward className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
+            <span className="text-xs font-semibold text-text-muted">{t('workout.skipped')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {onResumeExercise && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onResumeExercise(exercise.id)}
+                className="text-xs font-bold"
+              >
+                {t('workout.resumeExercise')}
+              </Button>
+            )}
+            {onAddReplacement && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onAddReplacement(exercise)}
+                className="text-xs font-bold"
+              >
+                {t('workout.addReplacement')}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 pt-2">
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => onViewTechnique(exercise)}
+          aria-label={t('workout.viewTechnique', { name: exercise.name })}
+          className="group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          title={t('workout.viewTechnique', { name: exercise.name })}
+        >
+          {imgUrl ? (
+            <img src={imgUrl} alt="" loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+          ) : (
+            <Dumbbell className="size-6 text-text-muted stroke-[1.8]" />
+          )}
+          <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-app/30 opacity-0 transition-opacity group-hover:opacity-100">
+            <Eye className="size-4 text-accent" />
+          </div>
+        </button>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex min-h-10 items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+              {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+            </span>
+            <div className="flex items-center gap-1">
+              {onSkipExercise && !hasCompletedSets && (
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSkipExercise(exercise.id)}
+                  aria-label={t('workout.skipExerciseNamed', { name: exercise.name })}
+                  className="text-text-muted hover:text-text-primary"
+                  title={t('workout.skipExercise')}
+                >
+                  <SkipForward className="size-4" />
+                </IconButton>
+              )}
+              <IconButton
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemoveExercise(exercise.id)}
+                aria-label={t('workout.removeExercise', { name: exercise.name })}
+                className="text-text-muted hover:text-danger"
+                title={t('workout.removeExercise', { name: exercise.name })}
+              >
+                <Trash2 className="size-4" />
+              </IconButton>
+            </div>
+          </div>
+          <h3 className="truncate text-lg font-extrabold leading-tight tracking-tight text-text-primary">
+            {exercise.name}
+          </h3>
+          <div className="flex min-w-0 items-center justify-between gap-3 pt-0.5 text-xs">
+            <span className="min-w-0 truncate capitalize text-text-muted">
+              {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
+            </span>
+            {bestRecord && <span className="shrink-0 font-semibold text-amber-400">PR {bestRecord}</span>}
+          </div>
+          {previousRecord && (
+            <p className="pt-0.5 font-mono text-[11px] leading-relaxed text-text-muted">
+              <span className="font-semibold text-text-secondary">{t('workout.previous')}</span> {previousRecord}
+            </p>
+          )}
+        </div>
+      </div>
+      <SetTable
+        session={session}
+        preferences={preferences}
+        onUpdateSet={onUpdateSet}
+        onToggleSet={onToggleSet}
+        onStartRestTimer={onStartRestTimer}
+        onOpenPlates={onOpenPlates}
+        onAddSet={onAddSet}
+        onRemoveSet={onRemoveSet}
+        onUpdateWeightInputMode={onUpdateWeightInputMode}
+        onToggleAddedWeight={onToggleAddedWeight}
+      />
     </div>
-    <SetTable session={session} preferences={preferences} onUpdateSet={onUpdateSet} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={onOpenPlates} onAddSet={onAddSet} onRemoveSet={onRemoveSet} onUpdateWeightInputMode={onUpdateWeightInputMode} onToggleAddedWeight={onToggleAddedWeight} />
-  </div>;
+  );
 }

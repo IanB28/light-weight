@@ -15,6 +15,8 @@ import { AppCard, BottomSheet, Button, EmptyState, ErrorState, LoadingState, Sea
 import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 
+import { ExerciseCatalogCard, ExerciseCatalogRow } from '../components/ExerciseCatalogCard.js';
+
 interface LibraryViewProps {
   exercises?: Exercise[];
   isWorkoutActive?: boolean;
@@ -28,7 +30,11 @@ interface LibraryViewProps {
   history?: WorkoutSession[];
 }
 
-type ViewMode = 'list' | 'grid';
+export type ViewMode = 'list' | 'grid';
+
+export function resolveExerciseViewMode(saved: string | null): ViewMode {
+  return saved === 'list' ? 'list' : 'grid';
+}
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
   exercises = [],
@@ -45,8 +51,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const { t } = useI18n();
   const { muscleLabel, equipmentLabel } = useExerciseLabels();
   const viewOptions = [
-    { value: 'list', label: t('library.list'), icon: <List className="size-3.5" aria-hidden="true" /> },
-    { value: 'grid', label: t('library.grid'), icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> }
+    { value: 'grid', label: t('library.grid'), icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> },
+    { value: 'list', label: t('library.list'), icon: <List className="size-3.5" aria-hidden="true" /> }
   ] satisfies { value: ViewMode; label: string; icon: React.ReactNode }[];
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<ExerciseMuscleFilter>('all');
@@ -56,13 +62,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [selectedMediaExercise, setSelectedMediaExercise] = useState<Exercise | null>(null);
   const [visibleCount, setVisibleCount] = useState(60);
 
-  // Modo de visualización: 'list' (iOS Health) o 'grid' (recuadros)
+  // Modo de visualización: 'grid' (predeterminado) o 'list'
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
       const saved = localStorage.getItem('lightweight_exercise_view_mode');
-      return saved === 'grid' ? 'grid' : 'list';
+      return resolveExerciseViewMode(saved);
     } catch {
-      return 'list';
+      return 'grid';
     }
   });
 
@@ -189,177 +195,32 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       ) : viewMode === 'list' ? (
         /* MODO LISTA: Estilo iOS Health agrupado con divisores sutiles */
         <div className="glass-surface divide-y divide-border-subtle overflow-hidden rounded-ui-xl border border-border-subtle shadow-card">
-          {catalogExercises.slice(0, visibleCount).map((ex) => {
-            const isAdded = addedIds[ex.id];
-            const imgUrl = getExerciseImgUrl(ex);
-
-            return (
-              <div
-                key={ex.id}
-                className="group flex items-center justify-between px-3.5 py-3 transition-colors hover:bg-surface-active"
-              >
-                {/* Thumbnail 44x44 + Nombre */}
-                <button type="button" onClick={() => setSelectedMediaExercise(ex)} aria-label={t('library.viewTechnique', { name: ex.name })} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-ui-md pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                  <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-sm transition-colors group-hover:border-border-active">
-                    {imgUrl ? (
-                      <img
-                        src={imgUrl}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      />
-                    ) : (
-                      <Dumbbell className="size-5 stroke-[1.8] text-text-muted" />
-                    )}
-                    <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-app/30 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Eye className="size-3.5 text-accent" />
-                    </div>
-                  </div>
-
-                  <div className="min-w-0">
-                    <span className="block truncate text-sm font-bold tracking-tight text-text-primary transition-colors group-hover:text-accent">
-                      {ex.name}
-                    </span>
-                    <span className="mt-0.5 block truncate font-mono text-[11px] capitalize text-text-muted">
-                      {muscleLabel(ex.primaryMuscle)} • {equipmentLabel(ex.category)}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Botón de Pesa (Dumbbell) + Chevron iOS */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAction(ex);
-                    }}
-                    title={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
-                    aria-label={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
-                    aria-live="polite"
-                    className={`flex min-h-10 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-[transform,background-color,color] duration-150 active:scale-[0.96] ${
-                      isAdded
-                        ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
-                        : isWorkoutActive
-                        ? 'bg-accent/15 text-accent border border-accent/30 hover:bg-accent hover:text-accent-fg'
-                        : 'bg-accent text-accent-fg hover:brightness-110 shadow-sm'
-                    }`}
-                  >
-                    {isAdded ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>{t('library.added')}</span>
-                      </>
-                    ) : isWorkoutActive ? (
-                      <>
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>{t('library.add')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Dumbbell className="w-3.5 h-3.5" />
-                        <span>{t('library.train')}</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div aria-hidden="true" className="flex size-4 items-center justify-center text-text-muted transition-colors group-hover:text-text-secondary">
-                    <ChevronRight className="size-4" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {catalogExercises.slice(0, visibleCount).map((ex) => (
+            <ExerciseCatalogRow
+              key={ex.id}
+              exercise={ex}
+              mode="library"
+              isAdded={Boolean(addedIds[ex.id])}
+              isWorkoutActive={isWorkoutActive}
+              onViewTechnique={(exercise) => setSelectedMediaExercise(exercise)}
+              onAction={handleAction}
+            />
+          ))}
         </div>
       ) : (
         /* MODO RECUADROS: Cuadrícula responsive de tarjetas */
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
-          {catalogExercises.slice(0, visibleCount).map((ex) => {
-            const isAdded = addedIds[ex.id];
-            const imgUrl = getExerciseImgUrl(ex);
-
-            return (
-              <div
-                key={ex.id}
-                className="glass-surface group flex min-w-0 flex-col justify-between rounded-[22px] border border-border-subtle p-3 shadow-card transition-colors hover:border-border-active"
-              >
-                <button type="button" onClick={() => setSelectedMediaExercise(ex)} aria-label={t('library.viewTechnique', { name: ex.name })} className="min-w-0 rounded-ui-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                  {/* Caja de Imagen Cuadrada */}
-                  <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input transition-colors group-hover:border-border-active">
-                    {imgUrl ? (
-                      <img
-                        src={imgUrl}
-                        alt=""
-                        loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                    ) : (
-                      <Dumbbell className="size-8 stroke-[1.6] text-text-muted" />
-                    )}
-
-                    {/* Tag de Músculo Flotante */}
-                    <span className="absolute left-2 top-2 max-w-[80%] truncate rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-semibold capitalize text-text-secondary shadow-sm">
-                      {muscleLabel(ex.primaryMuscle)}
-                    </span>
-
-                    {/* Overlay de Hover para ver técnica */}
-                    <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center gap-1 bg-app/45 text-xs font-medium text-text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                      <Eye className="size-3.5 text-accent" />
-                      <span>{t('workout.viewTechnique', { name: ex.name })}</span>
-                    </div>
-                  </div>
-
-                  {/* Datos del Ejercicio */}
-                  <div className="mt-2.5 min-w-0">
-                    <span className="line-clamp-2 text-xs font-bold leading-snug tracking-tight text-text-primary transition-colors group-hover:text-accent">
-                      {ex.name}
-                    </span>
-                    <span className="mt-1 block truncate font-mono text-[10px] capitalize text-text-muted">
-                      {equipmentLabel(ex.category)}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Botón de Pesa (Dumbbell) al Pie */}
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAction(ex);
-                    }}
-                    title={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
-                    aria-label={isWorkoutActive ? t('library.addActive', { name: ex.name }) : t('library.trainWith', { name: ex.name })}
-                    aria-live="polite"
-                    className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-ui-md px-2 text-xs font-bold transition-[transform,background-color,color] duration-150 active:scale-[0.96] ${
-                      isAdded
-                        ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
-                        : isWorkoutActive
-                        ? 'bg-accent/15 text-accent border border-accent/30 hover:bg-accent hover:text-accent-fg'
-                        : 'bg-accent text-accent-fg hover:brightness-110 shadow-sm'
-                    }`}
-                  >
-                    {isAdded ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>{t('library.added')}</span>
-                      </>
-                    ) : isWorkoutActive ? (
-                      <>
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>{t('library.add')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Dumbbell className="w-3.5 h-3.5" />
-                        <span>{t('library.train')}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {catalogExercises.slice(0, visibleCount).map((ex) => (
+            <ExerciseCatalogCard
+              key={ex.id}
+              exercise={ex}
+              mode="library"
+              isAdded={Boolean(addedIds[ex.id])}
+              isWorkoutActive={isWorkoutActive}
+              onViewTechnique={(exercise) => setSelectedMediaExercise(exercise)}
+              onAction={handleAction}
+            />
+          ))}
         </div>
       )}
 

@@ -55,9 +55,9 @@ export function matchesExerciseFilters(
     EQUIPMENT_LABELS[exercise.category]
   ].join(' '));
 
-  return (
+  return Boolean(
     (normalizedQuery.length === 0 || searchableText.includes(normalizedQuery)) &&
-    (muscle === 'all' || exercise.primaryMuscle === muscle || exercise.secondaryMuscles?.includes(muscle)) &&
+    (muscle === 'all' || exercise.primaryMuscle === muscle || Boolean(exercise.secondaryMuscles?.includes(muscle))) &&
     (equipment === 'all' || exercise.category === equipment)
   );
 }
