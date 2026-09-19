@@ -4,6 +4,7 @@ import { Exercise } from '@light-weight/domain';
 import { getExerciseGifUrl, getExerciseImgUrl } from '../lib/exercises.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { BottomSheet, Button } from './ui/index.js';
+import { ExerciseAnatomyMap } from './charts/ExerciseAnatomyMap.js';
 
 interface ExerciseMediaModalProps {
   exercise: Exercise | null;
@@ -43,10 +44,7 @@ export const ExerciseMediaModal: React.FC<ExerciseMediaModalProps> = ({ exercise
 
       <p className="text-xs text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}{exercise.targetMuscle ? ` · ${t('exercise.target')}: ${exercise.targetMuscle}` : ''}</p>
 
-      {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && <section className="space-y-1.5">
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">{t('exercise.secondaryMuscles')}</h4>
-        <p className="text-xs text-text-muted">{exercise.secondaryMuscles.map(muscleLabel).join(' · ')}</p>
-      </section>}
+      <ExerciseAnatomyMap exercise={exercise} />
 
       {exercise.instructions && exercise.instructions.length > 0 && <section className="space-y-2 pt-1">
         <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-secondary"><Sparkles aria-hidden="true" className="size-3.5 text-warning" />{t('exercise.steps')}</h4>
