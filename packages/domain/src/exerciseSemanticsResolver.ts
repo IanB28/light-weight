@@ -7,6 +7,8 @@ import type {
   SemanticEvidenceStatus
 } from './exerciseSemantics.js';
 import { EXERCISE_SEMANTICS_REGISTRY } from './exerciseSemantics.js';
+import { MUSCLE_ENTITY_METADATA } from './muscleTaxonomy.js';
+import { ALL_STRENGTH_MUSCLE_GROUPS } from './strengthStandards.js';
 
 /**
  * Resolved target of an exercise muscle contribution.
@@ -65,7 +67,7 @@ export const EXERCISE_ID_TO_SEMANTICS_KEY: Readonly<Record<string, string>> = Ob
 export function resolveExerciseSemantics(
   exercise: Pick<Exercise, 'id' | 'name' | 'primaryMuscle' | 'secondaryMuscles'>
 ): ResolvedExerciseSemantics {
-  const profileKey = EXERCISE_ID_TO_SEMANTICS_KEY[exercise.id];
+  const profileKey = EXERCISE_ID_TO_SEMANTICS_KEY[exercise.id] ?? (EXERCISE_SEMANTICS_REGISTRY[exercise.id] ? exercise.id : undefined);
 
   if (profileKey && EXERCISE_SEMANTICS_REGISTRY[profileKey]) {
     const profile = EXERCISE_SEMANTICS_REGISTRY[profileKey];
@@ -117,4 +119,101 @@ export function resolveExerciseSemantics(
     source: 'legacy',
     contributions: Object.freeze(contributions)
   });
+}
+
+/**
+ * Resolves the single canonical prime muscle contribution for an exercise.
+ * If the exercise has no prime contribution, returns null.
+ */
+export function resolveExercisePrimeContribution(
+  exercise: Pick<Exercise, 'id' | 'name' | 'primaryMuscle' | 'secondaryMuscles'>
+): ResolvedExerciseContribution | null {
+  const resolved = resolveExerciseSemantics(exercise);
+  const primes = resolved.contributions.filter((c) => c.role === 'prime');
+  if (primes.length === 0) {
+    return null;
+  }
+  return primes[0];
+}
+
+/**
+ * Resolves the target of the canonical prime muscle contribution for an exercise.
+ */
+export function resolveExercisePrimeTarget(
+  exercise: Pick<Exercise, 'id' | 'name' | 'primaryMuscle' | 'secondaryMuscles'>
+): ResolvedExerciseContributionTarget | null {
+  const prime = resolveExercisePrimeContribution(exercise);
+  return prime ? prime.target : null;
+}
+
+const SUPPORTED_STRENGTH_MUSCLES = new Set<MuscleGroup>(ALL_STRENGTH_MUSCLE_GROUPS);
+
+/**
+ * Explicit whitelist of canonical prime targets mapped to a supported Strength MuscleGroup.
+ *
+ * This whitelist answers:
+ * "Which Strength group does the canonical prime belong to?"
+ * It does NOT answer:
+ * "Which benchmark standard is scientifically valid for this exercise?"
+ *
+ * CRITICAL ARCHITECTURAL BOUNDARY:
+ * Anatomical proximity or SVG visual projection (e.g. adductor_magnus -> quadriceps,
+ * tibialis_anterior -> calves, serratus_anterior -> core, erector_spinae -> back,
+ * rotator_cuff -> shoulders) must NOT automatically authorize a Strength evaluation.
+ * Targets not in this whitelist resolve strictly to null (unrated).
+ */
+export const STRENGTH_SUPPORTED_PRIME_TARGETS: Readonly<Record<string, MuscleGroup>> = Object.freeze({
+  pectoralis_major: 'chest',
+  anterior_deltoid: 'shoulders',
+  posterior_deltoid: 'shoulders',
+  latissimus_dorsi: 'back',
+  quadriceps: 'quadriceps',
+  hamstrings: 'hamstrings',
+  gluteus_maximus: 'glutes'
+});
+
+/**
+ * Internal helper: maps an extracted canonical prime target to a supported Strength MuscleGroup.
+ * Kept internal and non-authoritative: external callers MUST provide an Exercise to ensure
+ * prime extraction cannot be bypassed.
+ */
+function mapPrimeTargetToStrengthGroup(target: ResolvedExerciseContributionTarget): MuscleGroup | null {
+  // 1. Explicit Strength-supported prime whitelist for curated anatomical profiles
+  if (target.kind === 'anatomical') {
+    return STRENGTH_SUPPORTED_PRIME_TARGETS[target.entity] ?? null;
+  }
+
+  // 2. Legacy uncurated exercises retain primaryMuscle fallback as compatibility behavior (attribution only)
+  if (target.kind === 'legacy') {
+    if (SUPPORTED_STRENGTH_MUSCLES.has(target.group)) {
+      return target.group;
+    }
+    return null;
+  }
+
+  // 3. Functional and regional prime targets do not have approved discrete Strength standards
+  return null;
+}
+
+/**
+ * Pure domain adapter: maps the canonical prime contribution of an exercise
+ * to a supported Strength standard MuscleGroup.
+ *
+ * Invariants:
+ * - Accepts EXERCISE ONLY (naked targets cannot bypass canonical prime resolution).
+ * - Strength observations are attributed ONLY to the canonical prime contribution.
+ * - Co-prime and secondary contributions are NEVER mapped as the exercise's Strength target.
+ * - For curated v2 profiles, resolves strictly via STRENGTH_SUPPORTED_PRIME_TARGETS.
+ * - Targets not in the whitelist (e.g. adductor_magnus, tibialis_anterior, functional groups)
+ *   resolve strictly to null (never collapsed to broad groups through anatomical proximity).
+ * - For uncurated exercises, falls back conservatively to legacy primaryMuscle if supported (attribution only).
+ */
+export function resolveExerciseStrengthTarget(
+  exercise: Pick<Exercise, 'id' | 'name' | 'primaryMuscle' | 'secondaryMuscles'>
+): MuscleGroup | null {
+  const primeTarget = resolveExercisePrimeTarget(exercise);
+  if (!primeTarget) {
+    return null;
+  }
+  return mapPrimeTargetToStrengthGroup(primeTarget);
 }

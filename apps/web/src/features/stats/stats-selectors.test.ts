@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { Exercise, WorkoutSession, BodyweightEntry, LoggedSet } from '@light-weight/domain';
+import {
+  type Exercise,
+  type WorkoutSession,
+  type BodyweightEntry,
+  type LoggedSet
+} from '@light-weight/domain';
 import { selectStrengthSnapshot, buildExercisesById } from './stats-selectors.js';
 
 function s(weightKg: number, reps: number, options: Partial<LoggedSet> = {}): LoggedSet {
@@ -607,4 +612,353 @@ test('18. weighted bodyweight exercise evaluates against effective load, not ext
   // Ratio is ~104 / 70 = 1.486× BW (Principiante: >= 1.35; without effective load it would be 0.33× Novato)
   assert.ok(backEval.strengthEvaluation.currentRatio > 1.4);
   assert.equal(backEval.strengthEvaluation.rank, 'principiante');
+});
+
+test('19. Strength Prime A: Curated exercise follows canonical prime over conflicting legacy primaryMuscle', () => {
+  // ex-0025 is Barbell Bench Press in production catalog.
+  // Canonical prime in Semantics v2 is pectoralis_major -> chest.
+  // We deliberately set legacy primaryMuscle to 'triceps' in the fixture.
+  const conflictingBench: Exercise = {
+    id: 'ex-0025',
+    name: 'Barbell Bench Press',
+    category: 'barbell',
+    primaryMuscle: 'triceps', // CONFLICTING deliberately
+    secondaryMuscles: ['shoulders'],
+    loading: {
+      mechanism: 'barbell',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: true
+    }
+  };
+
+  const catalog = buildExercisesById([conflictingBench]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'ex-0025': [s(100, 8)] // e1RM ~126.7kg
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  // Strength MUST be attributed to chest (canonical prime), NOT triceps (conflicting legacy field)
+  const chest = snapshot.muscles.chest;
+  assert.ok(chest.strengthEvaluation, 'Chest must receive the Strength observation from Bench Press');
+  assert.equal(chest.strengthEvaluation?.rank, 'maestro');
+  assert.equal(chest.topExerciseId, 'ex-0025');
+
+  // Triceps must NOT receive the Strength observation despite the legacy primaryMuscle field
+  const triceps = snapshot.muscles.triceps;
+  assert.equal(triceps.strengthEvaluation, undefined, 'Triceps must NOT receive the Strength observation');
+  assert.equal(triceps.topEst1RmKg, 0);
+});
+
+test('20. Strength Prime B: Co-prime contribution does not inherit Strength Rank', () => {
+  // Curated Bench Press (ex-0025) has triceps_brachii as co_prime.
+  // One heavy bench press set must NOT independently increase triceps Strength Rank.
+  const standardBench: Exercise = {
+    id: 'ex-0025',
+    name: 'Barbell Bench Press',
+    category: 'barbell',
+    primaryMuscle: 'chest',
+    secondaryMuscles: ['triceps', 'shoulders'],
+    loading: {
+      mechanism: 'barbell',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: true
+    }
+  };
+
+  const catalog = buildExercisesById([standardBench]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'ex-0025': [s(140, 1)] // 140kg 1RM on bench
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  // Chest gets rated
+  assert.ok(snapshot.muscles.chest.strengthEvaluation);
+
+  // Triceps (co_prime) must NOT inherit Strength
+  assert.equal(snapshot.muscles.triceps.strengthEvaluation, undefined);
+  assert.equal(snapshot.muscles.triceps.topEst1RmKg, 0);
+});
+
+test('21. Strength Prime C: Legacy fallback for uncurated exercise maps primaryMuscle to prime', () => {
+  // Uncurated exercise with no Semantics v2 profile
+  const uncuratedPress: Exercise = {
+    id: 'ex-custom-press',
+    name: 'Custom Hammer Chest Press',
+    category: 'machine',
+    primaryMuscle: 'chest',
+    loading: {
+      mechanism: 'plate_loaded',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+
+  const catalog = buildExercisesById([uncuratedPress]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'ex-custom-press': [s(100, 10)] // 100 x 10 -> e1RM ~133.3kg
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  // Falls back safely to chest
+  assert.ok(snapshot.muscles.chest.strengthEvaluation);
+  assert.equal(snapshot.muscles.chest.topExerciseId, 'ex-custom-press');
+  assert.equal(snapshot.muscles.chest.strengthEvaluation?.rank, 'maestro');
+});
+
+test('22. Strength Prime D: Secondary muscle does not receive the exercise Strength observation', () => {
+  // Bench press has anterior_deltoid as secondary.
+  // Deltoids / shoulders must not receive the strength evaluation.
+  const bench: Exercise = {
+    id: 'ex-0025',
+    name: 'Barbell Bench Press',
+    category: 'barbell',
+    primaryMuscle: 'chest',
+    secondaryMuscles: ['shoulders'],
+    loading: {
+      mechanism: 'barbell',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: true
+    }
+  };
+
+  const catalog = buildExercisesById([bench]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'ex-0025': [s(100, 5)]
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  assert.equal(snapshot.muscles.shoulders.strengthEvaluation, undefined);
+  assert.equal(snapshot.muscles.shoulders.topEst1RmKg, 0);
+});
+
+test('23. Strength Prime E: Overall Strength formula consumes only rated muscles and remains mathematically unchanged', () => {
+  // 2 rated muscles: Bench (chest, 100kg x 1 -> 100kg / 80kg = 1.25 -> Élite 4.00)
+  // and Squat (quadriceps, 128kg x 1 -> 128kg / 80kg = 1.60 -> Élite 4.00)
+  const bench: Exercise = {
+    id: 'ex-0025',
+    name: 'Barbell Bench Press',
+    category: 'barbell',
+    primaryMuscle: 'chest',
+    loading: {
+      mechanism: 'barbell',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: true
+    }
+  };
+  const squat: Exercise = {
+    id: 'ex-0043',
+    name: 'Barbell Full Squat',
+    category: 'barbell',
+    primaryMuscle: 'quadriceps',
+    loading: {
+      mechanism: 'barbell',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: true
+    }
+  };
+
+  const catalog = buildExercisesById([bench, squat]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'ex-0025': [s(100, 1)],
+        'ex-0043': [s(128, 1)]
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  assert.ok(snapshot.overall);
+  assert.equal(snapshot.overall.ratedMuscleCount, 2);
+  assert.equal(snapshot.overall.overallScore, 4.00);
+  assert.equal(snapshot.overall.rank, 'elite');
+  assert.equal(snapshot.overall.isComplete, false);
+});
+
+test('24. selectStrengthSnapshot uses resolveExerciseStrengthTarget directly without eligibility gating', () => {
+  // Curated high_flared_row has prime posterior_deltoid which resolves to target shoulders.
+  // selectStrengthSnapshot uses resolveExerciseStrengthTarget directly:
+  // no eligibility gating prevents evaluation.
+  const highFlaredRow: Exercise = {
+    id: 'high_flared_row',
+    name: 'High Flared Row',
+    category: 'machine',
+    primaryMuscle: 'back',
+    secondaryMuscles: ['shoulders'],
+    loading: {
+      mechanism: 'plate_loaded',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+
+  const catalog = buildExercisesById([highFlaredRow]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'high_flared_row': [s(80, 5)]
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  // Evaluates directly on shoulders via canonical-prime attribution
+  assert.ok(snapshot.muscles.shoulders.strengthEvaluation, 'Shoulders receives evaluation directly without gating');
+  assert.equal(snapshot.muscles.shoulders.topExerciseId, 'high_flared_row');
+});
+
+test('25. Unsupported prime target produces no Strength observation in selectStrengthSnapshot', () => {
+  // An uncurated exercise targeting adductor_magnus has no supported Strength target (null)
+  const adductorMachine: Exercise = {
+    id: 'ex-adductor',
+    name: 'Adductor Machine',
+    category: 'machine',
+    primaryMuscle: 'adductor_magnus' as any,
+    loading: {
+      mechanism: 'plate_loaded',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+
+  const catalog = buildExercisesById([adductorMachine]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'ex-adductor': [s(100, 10)]
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  // No muscle receives an evaluation; adductor_magnus is never collapsed into quadriceps
+  assert.equal(snapshot.muscles.quadriceps.strengthEvaluation, undefined);
+  assert.equal(snapshot.muscles.glutes.strengthEvaluation, undefined);
+  assert.equal(snapshot.overall, null);
+});
+
+test('26. Legacy fallback is clearly target attribution only in selectStrengthSnapshot', () => {
+  const customCurl: Exercise = {
+    id: 'ex-custom-curl',
+    name: 'Custom Biceps Curl',
+    category: 'dumbbell',
+    primaryMuscle: 'biceps',
+    loading: {
+      mechanism: 'dumbbell',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+
+  const catalog = buildExercisesById([customCurl]);
+  const history: WorkoutSession[] = [
+    {
+      id: 's1',
+      userId: 'u1',
+      startedAt: '2026-09-01T10:00:00Z',
+      sets: {
+        'ex-custom-curl': [s(30, 8)]
+      }
+    }
+  ];
+
+  const snapshot = selectStrengthSnapshot(history, catalog, {
+    bodyweightKg: 80,
+    gender: 'male'
+  });
+
+  assert.ok(snapshot.muscles.biceps.strengthEvaluation, 'Legacy fallback attributes strength to primaryMuscle');
+  assert.equal(snapshot.muscles.biceps.topExerciseId, 'ex-custom-curl');
 });

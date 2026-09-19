@@ -48,6 +48,7 @@
     "src/components/charts/AnatomicalBodyMap.tsx",
     "src/components/charts/ExerciseAnatomyMap.tsx",
     "src/components/charts/exercise-anatomy-map.test.ts",
+    "src/components/charts/anatomical-map-integrity.test.ts",
     "src/features/profile/ProfileStrengthSection.tsx",
     "src/features/profile/ProfileView.tsx",
     "src/features/profile/profile-gender.test.ts",

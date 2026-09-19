@@ -9,6 +9,7 @@ import {
   getNeglectedMuscles,
   isSetEligibleForPersonalRecord,
   resolveBodyweightKgAtDate,
+  resolveExerciseStrengthTarget,
   REP_CAP,
   type BodyweightEntry,
   type Exercise,
@@ -119,7 +120,7 @@ export function selectStrengthSnapshot(
         const exercise = exercisesById[exerciseId];
         if (!exercise) continue;
 
-        const targetMuscle = exercise.primaryMuscle;
+        const targetMuscle = resolveExerciseStrengthTarget(exercise);
         if (!targetMuscle) continue;
 
         for (const set of sets) {

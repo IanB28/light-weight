@@ -211,13 +211,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     }
 
     if (mode === 'fatigue') {
-      if (item.recoveryStatus === 'fatigued') {
-        return { fill: '#F43F5E', stroke: '#FDA4AF', strokeWidth: 1.2 }; // Rose/Red
-      }
-      if (item.recoveryStatus === 'recovering') {
-        return { fill: '#F59E0B', stroke: '#FDE68A', strokeWidth: 1.1 }; // Amber
-      }
-      return { fill: '#10B981', stroke: '#6EE7B7', strokeWidth: 1.0 }; // Emerald
+      return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
     }
 
     if (mode === 'strength') {
@@ -328,7 +322,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
           const isSelected = isSemanticMode && onSelectPath
             ? selectedPath === (key as BodyMusclePath)
-            : selectedMuscle === muscle;
+            : mode === 'strength'
+            ? selectedMuscle === muscle
+            : false;
           const isStrengthMode = mode === 'strength';
           const rankVisual = isStrengthMode && item?.strengthEvaluation ? getStrengthRankVisual(item.strengthEvaluation.rank) : null;
 
@@ -388,6 +384,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               ? ' [datos incompletos]'
               : '';
             titleText = `${pathDisplayName} (${feuVal} FEU • ${stateLabel}${qualityNote})`;
+          } else if (isStrengthMode) {
+            const rankText = item?.strengthEvaluation ? t(`ranks.${item.strengthEvaluation.rank}`) : 'Sin evaluar';
+            const broadName = SPANISH_MUSCLE_NAMES[muscle] || muscle;
+            if (pathDisplayName && pathDisplayName.toLowerCase() !== broadName.toLowerCase()) {
+              titleText = `${pathDisplayName} (Proyección: ${broadName} • ${rankText})`;
+            } else {
+              titleText = `${broadName} (${rankText})`;
+            }
           }
 
           return paths.map((d, i) => (
@@ -404,7 +408,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               onClick={() => {
                 if (isSemanticMode && onSelectPath) {
                   onSelectPath(selectedPath === (key as BodyMusclePath) ? null : (key as BodyMusclePath));
-                } else {
+                } else if (mode === 'strength') {
                   onSelectMuscle(selectedMuscle === muscle ? null : muscle);
                 }
               }}
@@ -445,11 +449,11 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[11px] font-mono text-zinc-400 shadow-sm">
           <span>Menos</span>
           <div className="flex items-center gap-1.5">
-            <span className="w-3.5 h-3.5 rounded bg-white/[0.08] border border-white/20" title="Sin series (l0)" />
-            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_32%,rgba(255,255,255,0.08))] border border-accent/40" title="Volumen bajo (l1)" />
-            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_56%,rgba(255,255,255,0.08))] border border-accent/60" title="Volumen medio (l2)" />
-            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_78%,rgba(255,255,255,0.08))] border border-accent/80" title="Volumen alto (l3)" />
-            <span className="w-3.5 h-3.5 rounded bg-accent shadow-[0_0_8px_var(--accent-glow)]" title="Volumen máximo (l4)" />
+            <span className="w-3.5 h-3.5 rounded bg-white/[0.08] border border-white/20" title="Sin exposición (l0)" />
+            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_32%,rgba(255,255,255,0.08))] border border-accent/40" title="Exposición baja (l1)" />
+            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_56%,rgba(255,255,255,0.08))] border border-accent/60" title="Exposición media (l2)" />
+            <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_78%,rgba(255,255,255,0.08))] border border-accent/80" title="Exposición alta (l3)" />
+            <span className="w-3.5 h-3.5 rounded bg-accent shadow-[0_0_8px_var(--accent-glow)]" title="Exposición máxima (l4)" />
           </div>
           <span className="text-accent font-bold">Más</span>
         </div>
@@ -703,7 +707,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               Toca cualquier región anatómica en el cuerpo para ver su carga de fatiga en FEU y componentes reclutados.
             </p>
           )
-        ) : selectedData ? (
+        ) : mode === 'strength' && selectedData ? (
           <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -740,43 +744,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               </button>
             </div>
 
-            {/* 3 Metrics Cards */}
-            <div className="grid grid-cols-3 gap-2 text-center font-mono">
-              {/* Metric 1: Sets / Volume */}
-              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                <span className="text-[10px] text-zinc-500 block uppercase">Volumen</span>
-                <span className="text-sm font-bold text-white">{selectedData.sets} series</span>
-                <span className="text-[10px] text-zinc-400 block mt-0.5">
-                  {displayWeight(selectedData.volumeKg, preferences.units).toLocaleString()} {weightUnit}
-                </span>
-              </div>
-
-              {/* Metric 2: Physiological Fatigue */}
-              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                <span className="text-[10px] text-zinc-500 block uppercase">Fatiga Real</span>
-                <span
-                  className={`text-sm font-bold block ${
-                    selectedData.recoveryStatus === 'fatigued'
-                      ? 'text-rose-400'
-                      : selectedData.recoveryStatus === 'recovering'
-                      ? 'text-amber-400'
-                      : 'text-accent'
-                  }`}
-                >
-                  {selectedData.recoveryStatus === 'fatigued'
-                    ? 'Fatiga Alta'
-                    : selectedData.recoveryStatus === 'recovering'
-                    ? 'Adaptando'
-                    : 'Listo'}
-                </span>
-                <span className="text-[10px] text-zinc-400 block mt-0.5">
-                  {selectedData.lastTrainedHoursAgo !== null
-                    ? `Hace ${selectedData.lastTrainedHoursAgo}h (${selectedData.recentHardSetsCount} duras)`
-                    : 'Sin entreno'}
-                </span>
-              </div>
-
-              {/* Metric 3: Strength & Relative Ratio */}
+            {/* 2 Metrics Cards: Strictly Strength-Derived (Relative Strength & Estimated 1RM) */}
+            <div className="grid grid-cols-2 gap-2 text-center font-mono">
+              {/* Metric 1: Relative Strength */}
               <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
                 <span className="text-[10px] text-zinc-500 block uppercase">Fuerza Relativa</span>
                 <span className="text-sm font-bold text-accent block">
@@ -784,8 +754,19 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                     ? `${selectedData.strengthEvaluation?.currentRatio.toFixed(2)}× BW`
                     : '—'}
                 </span>
-                <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[90px] mx-auto" title={selectedData.topExerciseName}>
-                  {selectedData.topEst1RmKg > 0 ? `${formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)} 1RM` : 'Sin registro'}
+                <span className="text-[10px] text-zinc-400 block mt-0.5">
+                  {selectedData.strengthEvaluation ? `${selectedData.strengthEvaluation.strengthScore.toFixed(2)} / 9.00` : 'Sin evaluar'}
+                </span>
+              </div>
+
+              {/* Metric 2: Estimated 1RM */}
+              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                <span className="text-[10px] text-zinc-500 block uppercase">1RM Estimado</span>
+                <span className="text-sm font-bold text-white block">
+                  {selectedData.topEst1RmKg > 0 ? formatDisplayWeight(selectedData.topEst1RmKg, preferences.units) : '—'}
+                </span>
+                <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[140px] mx-auto" title={selectedData.topExerciseName}>
+                  {selectedData.topEst1RmKg > 0 ? (selectedData.topExerciseName || 'Top set') : 'Sin registro'}
                 </span>
               </div>
             </div>
@@ -829,7 +810,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           </div>
         ) : (
           <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
-            Toca cualquier grupo muscular en el cuerpo para ver su analítica, fatiga e insignias de fuerza.
+            Toca cualquier grupo muscular en el cuerpo para ver su nivel de fuerza y rango estimado.
           </p>
         )
       )}
