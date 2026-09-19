@@ -7,7 +7,6 @@ import type {
   SemanticEvidenceStatus
 } from './exerciseSemantics.js';
 import { EXERCISE_SEMANTICS_REGISTRY } from './exerciseSemantics.js';
-import { MUSCLE_ENTITY_METADATA } from './muscleTaxonomy.js';
 import { ALL_STRENGTH_MUSCLE_GROUPS } from './strengthStandards.js';
 
 /**
@@ -67,7 +66,7 @@ export const EXERCISE_ID_TO_SEMANTICS_KEY: Readonly<Record<string, string>> = Ob
 export function resolveExerciseSemantics(
   exercise: Pick<Exercise, 'id' | 'name' | 'primaryMuscle' | 'secondaryMuscles'>
 ): ResolvedExerciseSemantics {
-  const profileKey = EXERCISE_ID_TO_SEMANTICS_KEY[exercise.id] ?? (EXERCISE_SEMANTICS_REGISTRY[exercise.id] ? exercise.id : undefined);
+  const profileKey = EXERCISE_ID_TO_SEMANTICS_KEY[exercise.id];
 
   if (profileKey && EXERCISE_SEMANTICS_REGISTRY[profileKey]) {
     const profile = EXERCISE_SEMANTICS_REGISTRY[profileKey];
@@ -123,14 +122,15 @@ export function resolveExerciseSemantics(
 
 /**
  * Resolves the single canonical prime muscle contribution for an exercise.
- * If the exercise has no prime contribution, returns null.
+ * If the exercise does not have exactly one prime contribution (e.g. none, or malformed multiple primes),
+ * returns null safely and deterministically.
  */
 export function resolveExercisePrimeContribution(
   exercise: Pick<Exercise, 'id' | 'name' | 'primaryMuscle' | 'secondaryMuscles'>
 ): ResolvedExerciseContribution | null {
   const resolved = resolveExerciseSemantics(exercise);
   const primes = resolved.contributions.filter((c) => c.role === 'prime');
-  if (primes.length === 0) {
+  if (primes.length !== 1) {
     return null;
   }
   return primes[0];

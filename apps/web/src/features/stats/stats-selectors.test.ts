@@ -845,33 +845,34 @@ test('23. Strength Prime E: Overall Strength formula consumes only rated muscles
 });
 
 test('24. selectStrengthSnapshot uses resolveExerciseStrengthTarget directly without eligibility gating', () => {
-  // Curated high_flared_row has prime posterior_deltoid which resolves to target shoulders.
+  // Mapped exercise ex-0032 (Barbell Deadlift) has prime gluteus_maximus which resolves to target glutes.
+  // Legacy primaryMuscle is 'back'.
   // selectStrengthSnapshot uses resolveExerciseStrengthTarget directly:
-  // no eligibility gating prevents evaluation.
-  const highFlaredRow: Exercise = {
-    id: 'high_flared_row',
-    name: 'High Flared Row',
-    category: 'machine',
+  // no eligibility gating prevents evaluation, and canonical-prime glutes receives evaluation.
+  const deadlift: Exercise = {
+    id: 'ex-0032',
+    name: 'Barbell Deadlift',
+    category: 'barbell',
     primaryMuscle: 'back',
-    secondaryMuscles: ['shoulders'],
+    secondaryMuscles: ['glutes', 'hamstrings'],
     loading: {
-      mechanism: 'plate_loaded',
+      mechanism: 'barbell',
       loadMode: 'total',
       supportsKeyboard: true,
       supportsPlates: true,
       supportsExternalLoad: true,
-      includeBarWeight: false
+      includeBarWeight: true
     }
   };
 
-  const catalog = buildExercisesById([highFlaredRow]);
+  const catalog = buildExercisesById([deadlift]);
   const history: WorkoutSession[] = [
     {
       id: 's1',
       userId: 'u1',
       startedAt: '2026-09-01T10:00:00Z',
       sets: {
-        'high_flared_row': [s(80, 5)]
+        'ex-0032': [s(140, 5)]
       }
     }
   ];
@@ -881,9 +882,10 @@ test('24. selectStrengthSnapshot uses resolveExerciseStrengthTarget directly wit
     gender: 'male'
   });
 
-  // Evaluates directly on shoulders via canonical-prime attribution
-  assert.ok(snapshot.muscles.shoulders.strengthEvaluation, 'Shoulders receives evaluation directly without gating');
-  assert.equal(snapshot.muscles.shoulders.topExerciseId, 'high_flared_row');
+  // Evaluates directly on glutes via canonical-prime attribution without gating
+  assert.ok(snapshot.muscles.glutes.strengthEvaluation, 'Glutes receives evaluation directly without gating');
+  assert.equal(snapshot.muscles.glutes.topExerciseId, 'ex-0032');
+  assert.equal(snapshot.muscles.back.strengthEvaluation, undefined, 'Back does not receive evaluation for prime glutes');
 });
 
 test('25. Unsupported prime target produces no Strength observation in selectStrengthSnapshot', () => {

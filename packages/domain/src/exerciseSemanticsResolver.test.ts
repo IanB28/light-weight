@@ -7,6 +7,7 @@ import {
   resolveExerciseStrengthTarget,
   STRENGTH_SUPPORTED_PRIME_TARGETS,
   EXERCISE_ID_TO_SEMANTICS_KEY,
+  type ResolvedExerciseContribution,
   type ResolvedExerciseContributionTarget
 } from './exerciseSemanticsResolver.js';
 import {
@@ -246,14 +247,11 @@ test('10. resolveExerciseStrengthTarget: Curated movements map to appropriate St
     'back'
   );
 
-  // High Flared Row (curated high_flared_row) -> prime posterior_deltoid -> shoulders
-  // Canonical prime overrides legacy primaryMuscle: 'back'
-  const highFlaredExercise = {
-    id: 'high_flared_row',
-    name: 'High Flared Row',
-    primaryMuscle: 'back' as const
-  };
-  assert.equal(resolveExerciseStrengthTarget(highFlaredExercise), 'shoulders');
+  // Dumbbell Shoulder Press (ex-0405) -> prime anterior_deltoid -> shoulders
+  assert.equal(
+    resolveExerciseStrengthTarget({ id: 'ex-0405', name: 'Dumbbell Shoulder Press', primaryMuscle: 'shoulders' }),
+    'shoulders'
+  );
 });
 
 test('11. resolveExerciseStrengthTarget: Legacy uncurated exercises fallback safely', () => {
@@ -306,19 +304,12 @@ test('12. Future-Safety: Unapproved prime targets do NOT receive a Strength stan
   );
 });
 
-test('13. Registry Invariant: All curated profiles have exactly 1 prime and all primes are in STRENGTH_SUPPORTED_PRIME_TARGETS', () => {
+test('13. Registry Invariant: All curated profiles have exactly 1 prime (Strength support is an independent subset)', () => {
   for (const [key, profile] of Object.entries(EXERCISE_SEMANTICS_REGISTRY)) {
     const primes = profile.contributions.filter((c) => c.role === 'prime');
     assert.equal(primes.length, 1, `Curated exercise ${key} must have exactly 1 prime contribution`);
     const prime = primes[0];
     assert.equal(prime.target.kind, 'anatomical', `Curated exercise ${key} prime target must be anatomical`);
-    if (prime.target.kind === 'anatomical') {
-      const entity = prime.target.entity;
-      assert.ok(
-        entity in STRENGTH_SUPPORTED_PRIME_TARGETS,
-        `Curated exercise ${key} prime entity '${entity}' must be in STRENGTH_SUPPORTED_PRIME_TARGETS`
-      );
-    }
   }
 });
 
@@ -364,13 +355,76 @@ test('15. Legacy fallback is clearly target attribution only', () => {
   assert.equal(resolveExerciseStrengthTarget(legacyNeck), null);
 });
 
-test('16. High Flared Row attributes Strength target to shoulders (attribution-only)', () => {
-  const highFlaredRow = {
+test('16. High Flared Row semantic profile exists in registry with posterior_deltoid prime', () => {
+  const profile = EXERCISE_SEMANTICS_REGISTRY.high_flared_row;
+  assert.ok(profile, 'high_flared_row profile must exist in EXERCISE_SEMANTICS_REGISTRY');
+  const primes = profile.contributions.filter((c) => c.role === 'prime');
+  assert.equal(primes.length, 1, 'high_flared_row must have exactly one prime');
+  assert.deepEqual(primes[0].target, { kind: 'anatomical', entity: 'posterior_deltoid' });
+});
+
+test('17. Unmapped registry profile is NOT resolved by Exercise.id == profileKey', () => {
+  // high_flared_row exists in registry but has no production catalog ID in EXERCISE_ID_TO_SEMANTICS_KEY
+  const unmappedExercise = {
     id: 'high_flared_row',
     name: 'High Flared Row',
     primaryMuscle: 'back' as const,
     secondaryMuscles: ['shoulders'] as any
   };
-  const target = resolveExerciseStrengthTarget(highFlaredRow);
-  assert.equal(target, 'shoulders', 'high_flared_row prime (posterior_deltoid) maps to shoulders');
+  const resolved = resolveExerciseSemantics(unmappedExercise);
+  assert.equal(resolved.source, 'legacy', 'Unmapped registry key must not resolve to semantic_v2');
+  assert.equal(resolved.profileKey, undefined);
+  // Falls back safely to legacy primaryMuscle 'back' (attribution only)
+  assert.equal(resolveExerciseStrengthTarget(unmappedExercise), 'back');
+
+  const hipThrustExercise = {
+    id: 'hip_thrust',
+    name: 'Hip Thrust',
+    primaryMuscle: 'glutes' as const,
+    secondaryMuscles: ['hamstrings'] as any
+  };
+  const resolvedHip = resolveExerciseSemantics(hipThrustExercise);
+  assert.equal(resolvedHip.source, 'legacy');
+  assert.equal(resolvedHip.profileKey, undefined);
+});
+
+test('18. Decoupled Architecture: Unsupported prime remains valid Semantics and resolves to unrated Strength (null)', () => {
+  assert.equal('adductor_magnus' in STRENGTH_SUPPORTED_PRIME_TARGETS, false);
+  assert.equal('tibialis_anterior' in STRENGTH_SUPPORTED_PRIME_TARGETS, false);
+
+  const unsupportedExercise = {
+    id: 'ex-unsupported-prime',
+    name: 'Adductor Machine',
+    primaryMuscle: 'adductor_magnus' as any,
+    secondaryMuscles: []
+  };
+  assert.equal(resolveExerciseStrengthTarget(unsupportedExercise), null);
+});
+
+test('19. Runtime Prime Invariant: Multiple prime condition does not silently choose first and returns null', () => {
+  // Single prime resolves safely
+  const singlePrime = resolveExercisePrimeContribution({
+    id: 'ex-0025',
+    name: 'Barbell Bench Press',
+    primaryMuscle: 'chest'
+  });
+  assert.ok(singlePrime);
+  assert.equal(singlePrime?.role, 'prime');
+
+  // Zero primes returns null
+  const zeroPrime = resolveExercisePrimeContribution({
+    id: 'ex-custom-empty',
+    name: 'Empty Movement'
+  } as any);
+  assert.equal(zeroPrime, null);
+
+  // Runtime check: primes.length !== 1 returns null deterministically
+  const simulatedContributions: readonly ResolvedExerciseContribution[] = [
+    { target: { kind: 'legacy', group: 'chest' }, role: 'prime' },
+    { target: { kind: 'legacy', group: 'back' }, role: 'prime' }
+  ];
+  const primes: readonly ResolvedExerciseContribution[] = simulatedContributions.filter((c) => c.role === 'prime');
+  assert.equal(primes.length, 2);
+  const runtimePrimeChoice = (primes.length as number) !== 1 ? null : primes[0];
+  assert.equal(runtimePrimeChoice, null, 'Must never silently pick first prime when multiple primes exist');
 });

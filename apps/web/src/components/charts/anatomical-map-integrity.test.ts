@@ -5,7 +5,8 @@ import ReactDOMServer from 'react-dom/server';
 import {
   type MuscleGroup,
   type StrengthEvaluation,
-  resolveExerciseStrengthTarget
+  resolveExerciseStrengthTarget,
+  EXERCISE_SEMANTICS_REGISTRY
 } from '@light-weight/domain';
 import { AnatomicalBodyMap, type MuscleAnalytics } from './AnatomicalBodyMap.js';
 import { PreferencesProvider } from '../../lib/preferences-context.js';
@@ -255,32 +256,16 @@ test('5. Mode switching and selection isolation: balance does not render strengt
   assert.ok(balanceHtml.includes('Toca cualquier región anatómica'), 'Must prompt for anatomical region tap');
 });
 
-test('6. Metric Provenance Regression: Curated high_flared_row attributes Strength to shoulders (attribution-only)', () => {
-  // Curated high_flared_row has:
-  // - semantic prime = posterior_deltoid -> shoulders
-  // - legacy primaryMuscle = 'back'
-  const highFlaredRow = {
-    id: 'high_flared_row',
-    name: 'High Flared Row',
-    category: 'machine' as const,
-    primaryMuscle: 'back' as const,
-    secondaryMuscles: ['shoulders'] as any,
-    loading: {
-      mechanism: 'plate_loaded' as const,
-      loadMode: 'total' as const,
-      supportsKeyboard: true,
-      supportsPlates: true,
-      supportsExternalLoad: true,
-      includeBarWeight: false
-    }
-  };
-
-  // Attribution test: high_flared_row -> canonical target shoulders (NOT legacy back)
-  const resolvedStrengthTarget = resolveExerciseStrengthTarget(highFlaredRow);
-  assert.equal(
-    resolvedStrengthTarget,
-    'shoulders',
-    'Curated high_flared_row must attribute Strength strictly to shoulders (posterior_deltoid), NOT legacy back'
+test('6. Metric Provenance Regression: Curated high_flared_row registry profile and UI workload isolation', () => {
+  // Unmapped curated profile high_flared_row tested directly in registry:
+  const profile = EXERCISE_SEMANTICS_REGISTRY.high_flared_row;
+  assert.ok(profile, 'high_flared_row profile must exist in EXERCISE_SEMANTICS_REGISTRY');
+  const primes = profile.contributions.filter((c) => c.role === 'prime');
+  assert.equal(primes.length, 1, 'high_flared_row must have exactly one prime');
+  assert.deepEqual(
+    primes[0].target,
+    { kind: 'anatomical', entity: 'posterior_deltoid' },
+    'high_flared_row prime must be posterior_deltoid'
   );
 
   // UI Provenance & Isolation Check:
@@ -338,4 +323,66 @@ test('6. Metric Provenance Regression: Curated high_flared_row attributes Streng
   assert.ok(!html.includes('2400'), 'Must NOT display legacy back volume in shoulder strength card');
   assert.ok(!html.includes('6 series'), 'Must NOT display legacy back sets in shoulder strength card');
   assert.ok(!html.includes('Trabajo'), 'Strength detail must have no Trabajo card');
+});
+
+test('7. Balance mode without balanceByPath does not color from legacy sets', () => {
+  // Muscle data with heavy sets on chest
+  const mockData = createMockMuscleData({
+    chest: {
+      sets: 25,
+      volumeKg: 8000,
+      topEst1RmKg: 120,
+      topExerciseName: 'Barbell Bench Press'
+    }
+  });
+
+  // Render in Balance mode WITHOUT balanceByPath
+  const html = renderWithProviders(
+    React.createElement(AnatomicalBodyMap, {
+      gender: 'male',
+      data: mockData,
+      mode: 'balance',
+      balanceByPath: undefined,
+      selectedMuscle: null,
+      onSelectMuscle: () => {}
+    })
+  );
+
+  // The SVG body map MUST render in neutral/untrained state and NOT color paths from legacy sets
+  // Verify that untrained muscle fill is used for muscle paths
+  assert.ok(html.includes('fill="var(--untrained-muscle-fill'), 'Must use untrained muscle fill on paths');
+  // SVG paths must NOT contain accent-color fills from legacy sets
+  assert.ok(!html.includes('fill="var(--accent-color)"'), 'Must NOT color paths with max accent fill');
+  assert.ok(!html.includes('fill="color-mix(in srgb, var(--accent-color)'), 'Must NOT color paths with tiered accent fill');
+});
+
+test('8. Production Balance with path data still colors from exposureCount', () => {
+  const mockData = createMockMuscleData();
+  const mockBalancePaths: Partial<Record<string, BalanceBodyPathData>> = {
+    chest: {
+      pathKey: 'chest' as any,
+      exposureCount: 12,
+      hardExposureCount: 8,
+      contributors: [{ kind: 'anatomical', entity: 'pectoralis_major' }],
+      roles: ['prime'],
+      strongestRole: 'prime',
+      lastExposedAt: '2026-09-01T10:00:00Z',
+      sources: ['semantic_v2']
+    }
+  };
+
+  const html = renderWithProviders(
+    React.createElement(AnatomicalBodyMap, {
+      gender: 'male',
+      data: mockData,
+      mode: 'balance',
+      balanceByPath: mockBalancePaths as any,
+      selectedMuscle: null,
+      onSelectMuscle: () => {}
+    })
+  );
+
+  // Must color active regions on SVG paths using accent color derived from exposureCount
+  assert.ok(html.includes('fill="var(--accent-color)"'), 'Must color path with accent color from exposureCount');
+  assert.ok(html.includes('Pecho (12 series)'), 'Must display exposure count in title');
 });

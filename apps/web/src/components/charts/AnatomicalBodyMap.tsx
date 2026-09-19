@@ -171,9 +171,6 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   const genderPaths = BODY_PATHS[gender];
 
-  // Compute maximum volume for balance normalization
-  const maxSets = Math.max(1, ...Object.values(data).map((d) => d.sets));
-
   // Determine fill color and stroke for a given muscle group based on mode
   const getMuscleColor = (muscle: MuscleGroup): { fill: string; stroke: string; strokeWidth: number } => {
     const item = data[muscle];
@@ -181,33 +178,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     if (!item) return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
 
     if (mode === 'balance') {
-      if (item.sets === 0) {
-        // Untrained muscle in openGym: color-mix(in srgb, var(--label) 11%, var(--surface))
-        return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
-      }
-      const ratio = item.sets / maxSets;
-      if (ratio < 0.25) {
-        return {
-          fill: 'color-mix(in srgb, var(--accent-color) 32%, rgba(255, 255, 255, 0.08))',
-          stroke: 'var(--accent-color)',
-          strokeWidth: 0.9
-        };
-      }
-      if (ratio < 0.55) {
-        return {
-          fill: 'color-mix(in srgb, var(--accent-color) 56%, rgba(255, 255, 255, 0.08))',
-          stroke: 'var(--accent-color)',
-          strokeWidth: 0.9
-        };
-      }
-      if (ratio < 0.85) {
-        return {
-          fill: 'color-mix(in srgb, var(--accent-color) 78%, rgba(255, 255, 255, 0.08))',
-          stroke: 'var(--accent-color)',
-          strokeWidth: 1.0
-        };
-      }
-      return { fill: 'var(--accent-color)', stroke: '#ffffff', strokeWidth: 1.2 };
+      return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
     }
 
     if (mode === 'fatigue') {
@@ -232,49 +203,59 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   };
 
   const getPathColor = (pathKey: string, fallbackMuscle: MuscleGroup): { fill: string; stroke: string; strokeWidth: number } => {
-    if (mode === 'balance' && balanceByPath) {
-      const pathData = balanceByPath[pathKey as BodyMusclePath];
-      const count = pathData?.exposureCount ?? 0;
-      if (count === 0) {
-        return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
+    if (mode === 'balance') {
+      if (balanceByPath) {
+        const pathData = balanceByPath[pathKey as BodyMusclePath];
+        const count = pathData?.exposureCount ?? 0;
+        if (count === 0) {
+          return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
+        }
+        const maxPathSets = Math.max(1, ...Object.values(balanceByPath).map((p) => p?.exposureCount || 0));
+        const ratio = count / maxPathSets;
+        if (ratio < 0.25) {
+          return {
+            fill: 'color-mix(in srgb, var(--accent-color) 32%, rgba(255, 255, 255, 0.08))',
+            stroke: 'var(--accent-color)',
+            strokeWidth: 0.9
+          };
+        }
+        if (ratio < 0.55) {
+          return {
+            fill: 'color-mix(in srgb, var(--accent-color) 56%, rgba(255, 255, 255, 0.08))',
+            stroke: 'var(--accent-color)',
+            strokeWidth: 0.9
+          };
+        }
+        if (ratio < 0.85) {
+          return {
+            fill: 'color-mix(in srgb, var(--accent-color) 78%, rgba(255, 255, 255, 0.08))',
+            stroke: 'var(--accent-color)',
+            strokeWidth: 1.0
+          };
+        }
+        return { fill: 'var(--accent-color)', stroke: '#ffffff', strokeWidth: 1.2 };
       }
-      const maxPathSets = Math.max(1, ...Object.values(balanceByPath).map((p) => p?.exposureCount || 0));
-      const ratio = count / maxPathSets;
-      if (ratio < 0.25) {
-        return {
-          fill: 'color-mix(in srgb, var(--accent-color) 32%, rgba(255, 255, 255, 0.08))',
-          stroke: 'var(--accent-color)',
-          strokeWidth: 0.9
-        };
-      }
-      if (ratio < 0.55) {
-        return {
-          fill: 'color-mix(in srgb, var(--accent-color) 56%, rgba(255, 255, 255, 0.08))',
-          stroke: 'var(--accent-color)',
-          strokeWidth: 0.9
-        };
-      }
-      if (ratio < 0.85) {
-        return {
-          fill: 'color-mix(in srgb, var(--accent-color) 78%, rgba(255, 255, 255, 0.08))',
-          stroke: 'var(--accent-color)',
-          strokeWidth: 1.0
-        };
-      }
-      return { fill: 'var(--accent-color)', stroke: '#ffffff', strokeWidth: 1.2 };
+      return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
     }
 
-    if (mode === 'fatigue' && fatigueByPath) {
-      const fData = fatigueByPath[pathKey as BodyMusclePath];
-      const state = fData?.state ?? 'fresh';
-      if (state === 'fatigued') {
-        return { fill: '#F43F5E', stroke: '#FDA4AF', strokeWidth: 1.2 }; // Rose
-      }
-      if (state === 'recovering') {
-        return { fill: '#F59E0B', stroke: '#FDE68A', strokeWidth: 1.1 }; // Amber
-      }
-      if (state === 'ready') {
-        return { fill: '#10B981', stroke: '#6EE7B7', strokeWidth: 1.0 }; // Emerald
+    if (mode === 'fatigue') {
+      if (fatigueByPath) {
+        const fData = fatigueByPath[pathKey as BodyMusclePath];
+        const state = fData?.state ?? 'fresh';
+        if (state === 'fatigued') {
+          return { fill: '#F43F5E', stroke: '#FDA4AF', strokeWidth: 1.2 }; // Rose
+        }
+        if (state === 'recovering') {
+          return { fill: '#F59E0B', stroke: '#FDE68A', strokeWidth: 1.1 }; // Amber
+        }
+        if (state === 'ready') {
+          return { fill: '#10B981', stroke: '#6EE7B7', strokeWidth: 1.0 }; // Emerald
+        }
+        return {
+          fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))',
+          stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))',
+          strokeWidth: 0.8
+        };
       }
       return {
         fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))',
