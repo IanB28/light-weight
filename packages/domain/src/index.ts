@@ -15,3 +15,6 @@ export * from './muscleTaxonomy.js';
 export * from './exerciseSemantics.js';
 export * from './trainingCredit.js';
 export * from './exerciseSemanticsResolver.js';
+export * from './muscleExposure.js';
+export * from './muscleBalance.js';
+export * from './fatiguePolicy.js';

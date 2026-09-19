@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Activity,
   Calculator,
@@ -52,6 +52,17 @@ import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRE
 import { selectLastTopSet, selectStatsSnapshot } from '../features/stats/stats-selectors.js';
 import { StrengthRankBadge } from '../components/StrengthRankBadge.js';
 import { getStrengthRankColor } from '../lib/strength-rank-visuals.js';
+import {
+  getUnderexposedBodyPaths,
+  getSortedBodyPathsByExposure
+} from '../lib/balance-anatomy.js';
+import {
+  type BodyMusclePath,
+  ALL_BODY_MUSCLE_PATHS,
+  getBodyPathDisplayName,
+  resolveExerciseBodyMapData,
+  ROLE_DISPLAY_NAMES
+} from '../lib/exercise-anatomy.js';
 
 interface StatsViewProps {
   history?: WorkoutSession[];
@@ -129,6 +140,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [muscleAnalysisMode, setMuscleAnalysisMode] = useState<AnalysisMode>('balance');
   const [muscleWindow, setMuscleWindow] = useState<number>(7); // 7d, 30d, 90d, 0 (all)
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
+  const [selectedBalancePath, setSelectedBalancePath] = useState<BodyMusclePath | null>(null);
 
   // Exercise lookup dictionary
   const statsSnapshot = useMemo(
@@ -144,6 +156,24 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const fatigueMap = statsSnapshot.muscle.fatigueMap;
 
   const fullMuscleAnalytics = statsSnapshot.muscle.fullMuscleAnalytics;
+  const semanticBalance = statsSnapshot.muscle.semanticBalance;
+
+  const underexposedPaths = useMemo(() => {
+    if (!semanticBalance) return [];
+    return getUnderexposedBodyPaths(semanticBalance.pathBalance);
+  }, [semanticBalance]);
+
+  const sortedBalancePaths = useMemo(() => {
+    if (!semanticBalance) return ALL_BODY_MUSCLE_PATHS;
+    return getSortedBodyPathsByExposure(semanticBalance.pathBalance);
+  }, [semanticBalance]);
+
+  const getSampleExerciseForPath = useCallback((path: BodyMusclePath): Exercise | undefined => {
+    return exercises.find((ex) => {
+      const bodyMap = resolveExerciseBodyMapData(ex);
+      return bodyMap.regions[path] !== undefined;
+    });
+  }, [exercises]);
 
   // =========================================================================
   // 2. PROGRESO POR EJERCICIO
@@ -370,17 +400,21 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-1 text-[10px] font-bold text-text-muted">
                 {t('stats.noData')}
               </span>
-            ) : muscleAnalysis.neglected.length > 0 ? (
+            ) : (muscleAnalysisMode === 'balance' ? underexposedPaths.length > 0 : muscleAnalysis.neglected.length > 0) ? (
               <span
                 className="w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)] shrink-0"
-                title={`${muscleAnalysis.neglected.length} músculos rezagados`}
+                title={
+                  muscleAnalysisMode === 'balance'
+                    ? `${underexposedPaths.length} regiones sin entrenar`
+                    : `${muscleAnalysis.neglected.length} músculos rezagados`
+                }
               >
                 !
               </span>
             ) : (
               <span
                 className="w-2.5 h-2.5 rounded-full bg-accent shadow-[0_0_6px_var(--accent-glow)] shrink-0"
-                title="Todos los grupos musculares activos"
+                title="Todas las regiones activas"
               />
             )}
             <ChevronDown
@@ -508,15 +542,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
             {/* Gráfico del Cuerpo Humano (Frontal y Dorsal) */}
             <AnatomicalBodyMap
               data={fullMuscleAnalytics}
+              balanceByPath={semanticBalance?.pathBalance}
               mode={muscleAnalysisMode}
               gender={currentGender}
               selectedMuscle={selectedMuscle}
               onSelectMuscle={setSelectedMuscle}
+              selectedPath={selectedBalancePath}
+              onSelectPath={setSelectedBalancePath}
               onConfigureGender={onOpenSettings}
             />
 
-            {/* Subsección A: Músculos Rezagados como Lista Desplegable */}
-            {muscleAnalysisMode === 'balance' && muscleAnalysis.neglected.length > 0 && (
+            {/* Subsección A: Regiones Rezagadas / Sin Exposición */}
+            {muscleAnalysisMode === 'balance' && underexposedPaths.length > 0 && (
               <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 overflow-hidden shadow-sm transition-all">
                 <button
                   type="button"
@@ -529,7 +566,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     </span>
                     <div className="text-left min-w-0">
                       <span className="text-xs font-bold text-amber-300 block">
-                        {t('stats.neglected', { count: muscleAnalysis.neglected.length })}
+                        {underexposedPaths.length === 1
+                          ? '1 región anatómica sin entrenar'
+                          : `${underexposedPaths.length} regiones anatómicas sin entrenar`}
                       </span>
                       <span className="text-[10px] text-amber-400/80">
                         {isNeglectedListOpen ? t('stats.collapseList') : t('stats.expandSuggestions')}
@@ -551,19 +590,19 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     </p>
 
                     <div className="space-y-1.5 pt-0.5">
-                      {muscleAnalysis.neglected.map((m) => {
-                        const muscleName = muscleLabel(m);
-                        const sampleEx = exercises.find((ex) => ex.primaryMuscle === m);
+                      {underexposedPaths.map((path) => {
+                        const pathName = getBodyPathDisplayName(path, 'es');
+                        const sampleEx = getSampleExerciseForPath(path);
 
                         return (
                           <div
-                            key={m}
-                            onClick={() => setSelectedMuscle(m)}
+                            key={path}
+                            onClick={() => setSelectedBalancePath(path)}
                             className="p-2.5 rounded-xl bg-black/40 border border-amber-500/20 flex items-center justify-between hover:bg-amber-500/20 transition-all cursor-pointer group"
                           >
                             <div className="min-w-0 flex-1 pr-2">
                               <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
-                                {muscleName}
+                                {pathName}
                               </span>
                               {sampleEx && (
                                 <span className="text-[10px] text-zinc-400 block truncate mt-0.5">
@@ -594,7 +633,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 <div className="min-w-0 pr-2">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
                     {muscleAnalysisMode === 'balance'
-                      ? t('stats.effectiveSets')
+                      ? 'Series de exposición'
                       : muscleAnalysisMode === 'fatigue'
                       ? t('stats.fatigueLoad')
                       : t('stats.relativeStrength')}
@@ -607,7 +646,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[10px] font-mono font-bold text-zinc-400 bg-white/[0.06] px-2.5 py-0.5 rounded-full">
                     {muscleAnalysisMode === 'balance'
-                      ? t('stats.setCount', { count: Object.values(fullMuscleAnalytics).reduce((a, b) => a + b.sets, 0) })
+                      ? `${semanticBalance ? Object.values(semanticBalance.pathBalance).reduce((a, b) => a + (b?.exposureCount || 0), 0) : 0} series`
+                      : muscleAnalysisMode === 'fatigue'
+                      ? t('stats.groupCount', { count: ALL_MUSCLE_GROUPS.length })
                       : t('stats.groupCount', { count: ALL_MUSCLE_GROUPS.length })}
                   </span>
                   <ChevronDown
@@ -620,113 +661,156 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
               {isEffectiveSetsOpen && (
                 <div className="p-3 pt-0 space-y-1.5 border-t border-white/[0.04] animate-in fade-in duration-150">
-                  {ALL_MUSCLE_GROUPS.map((m) => {
-                    const item = fullMuscleAnalytics[m];
-                    const isSelected = selectedMuscle === m;
+                  {muscleAnalysisMode === 'balance' ? (
+                    sortedBalancePaths.map((path) => {
+                      const pathData = semanticBalance?.pathBalance[path];
+                      const isSelected = selectedBalancePath === path;
+                      const exposureCount = pathData?.exposureCount ?? 0;
+                      const hardCount = pathData?.hardExposureCount ?? 0;
 
-                    return (
-                      <div
-                        key={m}
-                        onClick={() => setSelectedMuscle(isSelected ? null : m)}
-                        className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
-                            : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                          {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
-                            <StrengthRankBadge rank={item.strengthEvaluation.rank} size="sm" />
-                          )}
-
-                          {muscleAnalysisMode !== 'strength' && (
+                      return (
+                        <div
+                          key={path}
+                          onClick={() => setSelectedBalancePath(isSelected ? null : path)}
+                          className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
+                              : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                             <span
                               className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                muscleAnalysisMode === 'fatigue'
-                                  ? item.recoveryStatus === 'fatigued'
-                                  ? 'bg-rose-500'
-                                  : item.recoveryStatus === 'recovering'
-                                  ? 'bg-amber-500'
-                                  : 'bg-accent'
-                                  : item.sets > 0
-                                  ? 'bg-accent'
-                                  : 'bg-zinc-700'
+                                exposureCount > 0 ? 'bg-accent' : 'bg-zinc-700'
                               }`}
                             />
-                          )}
-
-                          <div className="min-w-0">
-                            <span className="font-bold text-white capitalize block truncate">
-                              {muscleLabel(m)}
-                            </span>
-                            {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
-                              <span
-                                className="text-[10px] font-mono font-bold block truncate"
-                                style={{ color: getStrengthRankColor(item.strengthEvaluation.rank) }}
-                              >
-                                {t(`ranks.${item.strengthEvaluation.rank}`)} • {item.strengthEvaluation.currentRatio.toFixed(2)}× BW
+                            <div className="min-w-0">
+                              <span className="font-bold text-white capitalize block truncate">
+                                {getBodyPathDisplayName(path, 'es')}
                               </span>
+                              {pathData && pathData.strongestRole && exposureCount > 0 && (
+                                <span className="text-[10px] font-mono text-zinc-400 block truncate">
+                                  Rol: {ROLE_DISPLAY_NAMES[pathData.strongestRole]?.es ?? pathData.strongestRole}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="text-right font-mono shrink-0">
+                            <span className="text-zinc-400">
+                              <strong className="text-accent">{exposureCount}</strong> {t('workout.sets')}
+                              {hardCount > 0 && (
+                                <span className="text-[10px] text-zinc-500 ml-1">
+                                  ({hardCount} duras)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    ALL_MUSCLE_GROUPS.map((m) => {
+                      const item = fullMuscleAnalytics[m];
+                      const isSelected = selectedMuscle === m;
+
+                      return (
+                        <div
+                          key={m}
+                          onClick={() => setSelectedMuscle(isSelected ? null : m)}
+                          className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
+                              : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                            {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
+                              <StrengthRankBadge rank={item.strengthEvaluation.rank} size="sm" />
+                            )}
+
+                            {muscleAnalysisMode !== 'strength' && (
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                  muscleAnalysisMode === 'fatigue'
+                                    ? item.recoveryStatus === 'fatigued'
+                                    ? 'bg-rose-500'
+                                    : item.recoveryStatus === 'recovering'
+                                    ? 'bg-amber-500'
+                                    : 'bg-accent'
+                                    : item.sets > 0
+                                    ? 'bg-accent'
+                                    : 'bg-zinc-700'
+                                }`}
+                              />
+                            )}
+
+                            <div className="min-w-0">
+                              <span className="font-bold text-white capitalize block truncate">
+                                {muscleLabel(m)}
+                              </span>
+                              {muscleAnalysisMode === 'strength' && item.strengthEvaluation && (
+                                <span
+                                  className="text-[10px] font-mono font-bold block truncate"
+                                  style={{ color: getStrengthRankColor(item.strengthEvaluation.rank) }}
+                                >
+                                  {t(`ranks.${item.strengthEvaluation.rank}`)} • {item.strengthEvaluation.currentRatio.toFixed(2)}× BW
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="text-right font-mono shrink-0">
+                            {muscleAnalysisMode === 'fatigue' && (
+                              <div>
+                                <span
+                                  className={`font-bold block ${
+                                    item.recoveryStatus === 'fatigued'
+                                      ? 'text-rose-400'
+                                      : item.recoveryStatus === 'recovering'
+                                      ? 'text-amber-400'
+                                      : 'text-accent'
+                                  }`}
+                                >
+                                  {item.recoveryStatus === 'fatigued'
+                                    ? t('stats.highFatigue')
+                                    : item.recoveryStatus === 'recovering'
+                                    ? t('stats.recovering')
+                                    : t('stats.ready')}{' '}
+                                  <span className="text-zinc-500 font-normal text-[10px]">
+                                    ({item.fatigueScore} pts)
+                                  </span>
+                                </span>
+                                <span className="text-zinc-500 font-normal text-[10px] block">
+                                  {item.lastTrainedHoursAgo !== null
+                                    ? t('stats.hoursAgo', { hours: item.lastTrainedHoursAgo, sets: item.recentHardSetsCount })
+                                    : t('stats.rested')}
+                                </span>
+                              </div>
+                            )}
+
+                            {muscleAnalysisMode === 'strength' && (
+                              <div>
+                                <span className="text-white font-bold block">
+                                  {item.topEst1RmKg > 0 ? formatDisplayWeight(item.topEst1RmKg, preferences.units) : t('stats.noData')}
+                                </span>
+                                {item.strengthEvaluation?.nextRank && item.strengthEvaluation.kgToNextRank !== null ? (
+                                  <span className="text-purple-400 text-[10px] block truncate">
+                                    +{formatDisplayWeight(item.strengthEvaluation.kgToNextRank, preferences.units)} → {t(`ranks.${item.strengthEvaluation.nextRank}`)}
+                                  </span>
+                                ) : item.strengthEvaluation?.rank === 'dios' ? (
+                                  <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
+                                    <span>{t('stats.maxRank')}</span>
+                                    <Sparkles className="w-3.5 h-3.5 text-accent inline" />
+                                  </span>
+                                ) : null}
+                              </div>
                             )}
                           </div>
                         </div>
-
-                        <div className="text-right font-mono shrink-0">
-                          {muscleAnalysisMode === 'balance' && (
-                            <span className="text-zinc-400">
-                              <strong className="text-accent">{item.sets}</strong> {t('workout.sets')} •{' '}
-                              {displayWeight(item.volumeKg, preferences.units).toLocaleString(locale)} {weightUnit}
-                            </span>
-                          )}
-
-                          {muscleAnalysisMode === 'fatigue' && (
-                            <div>
-                              <span
-                                className={`font-bold block ${
-                                  item.recoveryStatus === 'fatigued'
-                                    ? 'text-rose-400'
-                                    : item.recoveryStatus === 'recovering'
-                                    ? 'text-amber-400'
-                                    : 'text-accent'
-                                }`}
-                              >
-                                {item.recoveryStatus === 'fatigued'
-                                  ? t('stats.highFatigue')
-                                  : item.recoveryStatus === 'recovering'
-                                  ? t('stats.recovering')
-                                  : t('stats.ready')}{' '}
-                                <span className="text-zinc-500 font-normal text-[10px]">
-                                  ({item.fatigueScore} pts)
-                                </span>
-                              </span>
-                              <span className="text-zinc-500 font-normal text-[10px] block">
-                                {item.lastTrainedHoursAgo !== null
-                                  ? t('stats.hoursAgo', { hours: item.lastTrainedHoursAgo, sets: item.recentHardSetsCount })
-                                  : t('stats.rested')}
-                              </span>
-                            </div>
-                          )}
-
-                          {muscleAnalysisMode === 'strength' && (
-                            <div>
-                              <span className="text-white font-bold block">
-                                {item.topEst1RmKg > 0 ? formatDisplayWeight(item.topEst1RmKg, preferences.units) : t('stats.noData')}
-                              </span>
-                              {item.strengthEvaluation?.nextRank && item.strengthEvaluation.kgToNextRank !== null ? (
-                                <span className="text-purple-400 text-[10px] block truncate">
-                                  +{formatDisplayWeight(item.strengthEvaluation.kgToNextRank, preferences.units)} → {t(`ranks.${item.strengthEvaluation.nextRank}`)}
-                                </span>
-                              ) : item.strengthEvaluation?.rank === 'dios' ? (
-                                <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
-                                  <span>{t('stats.maxRank')}</span>
-                                  <Sparkles className="w-3.5 h-3.5 text-accent inline" />
-                                </span>
-                              ) : null}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>

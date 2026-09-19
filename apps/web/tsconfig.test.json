@@ -39,6 +39,8 @@
     "src/lib/body-paths.ts",
     "src/lib/exercise-anatomy.ts",
     "src/lib/exercise-anatomy.test.ts",
+    "src/lib/balance-anatomy.ts",
+    "src/lib/balance-anatomy.test.ts",
     "src/lib/auth-cache.ts",
     "src/components/ui/**/*.ts",
     "src/components/ui/**/*.tsx",

@@ -4,7 +4,8 @@ import {
   MuscleGroup,
   StrengthRank,
   StrengthEvaluation,
-  Gender
+  Gender,
+  getContributionTargetKey
 } from '@light-weight/domain';
 import BODY_PATHS, { BodyViewData } from '../../lib/body-paths.js';
 import { usePreferences } from '../../lib/preferences-context.js';
@@ -14,6 +15,13 @@ import {
   STRENGTH_RANK_VISUALS,
   getStrengthRankVisual
 } from '../../lib/strength-rank-visuals.js';
+import type { BalanceBodyPathData } from '../../lib/balance-anatomy.js';
+import {
+  type BodyMusclePath,
+  getBodyPathDisplayName,
+  getMuscleTargetDisplayName,
+  ROLE_DISPLAY_NAMES
+} from '../../lib/exercise-anatomy.js';
 
 export type AnalysisMode = 'balance' | 'fatigue' | 'strength';
 
@@ -36,10 +44,13 @@ export interface MuscleAnalytics {
 
 interface AnatomicalBodyMapProps {
   data: Record<MuscleGroup, MuscleAnalytics>;
+  balanceByPath?: Partial<Record<BodyMusclePath, BalanceBodyPathData>>;
   mode: AnalysisMode;
   gender?: Gender;
   selectedMuscle: MuscleGroup | null;
   onSelectMuscle: (muscle: MuscleGroup | null) => void;
+  selectedPath?: BodyMusclePath | null;
+  onSelectPath?: (path: BodyMusclePath | null) => void;
   onConfigureGender?: () => void;
   onSelectGender?: (gender: Gender) => void;
   strengthPresentation?: 'summary' | 'profile';
@@ -94,10 +105,13 @@ export const SPANISH_MUSCLE_NAMES: Record<MuscleGroup, string> = {
 
 export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   data,
+  balanceByPath,
   mode,
   gender,
   selectedMuscle,
   onSelectMuscle,
+  selectedPath,
+  onSelectPath,
   onConfigureGender,
   onSelectGender,
   strengthPresentation = 'summary',
@@ -220,6 +234,42 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     return { fill: 'rgba(255, 255, 255, 0.07)', stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 0.8 };
   };
 
+  const getPathColor = (pathKey: string, fallbackMuscle: MuscleGroup): { fill: string; stroke: string; strokeWidth: number } => {
+    if (mode === 'balance' && balanceByPath) {
+      const pathData = balanceByPath[pathKey as BodyMusclePath];
+      const count = pathData?.exposureCount ?? 0;
+      if (count === 0) {
+        return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
+      }
+      const maxPathSets = Math.max(1, ...Object.values(balanceByPath).map((p) => p?.exposureCount || 0));
+      const ratio = count / maxPathSets;
+      if (ratio < 0.25) {
+        return {
+          fill: 'color-mix(in srgb, var(--accent-color) 32%, rgba(255, 255, 255, 0.08))',
+          stroke: 'var(--accent-color)',
+          strokeWidth: 0.9
+        };
+      }
+      if (ratio < 0.55) {
+        return {
+          fill: 'color-mix(in srgb, var(--accent-color) 56%, rgba(255, 255, 255, 0.08))',
+          stroke: 'var(--accent-color)',
+          strokeWidth: 0.9
+        };
+      }
+      if (ratio < 0.85) {
+        return {
+          fill: 'color-mix(in srgb, var(--accent-color) 78%, rgba(255, 255, 255, 0.08))',
+          stroke: 'var(--accent-color)',
+          strokeWidth: 1.0
+        };
+      }
+      return { fill: 'var(--accent-color)', stroke: '#ffffff', strokeWidth: 1.2 };
+    }
+
+    return getMuscleColor(fallbackMuscle);
+  };
+
   const renderView = (view: BodyViewData, isFront: boolean) => {
     return (
       <svg
@@ -249,8 +299,10 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           if (!muscle) return null;
 
           const item = data[muscle];
-          const { fill, stroke, strokeWidth } = getMuscleColor(muscle);
-          const isSelected = selectedMuscle === muscle;
+          const { fill, stroke, strokeWidth } = getPathColor(key, muscle);
+          const isSelected = mode === 'balance' && onSelectPath
+            ? selectedPath === (key as BodyMusclePath)
+            : selectedMuscle === muscle;
           const isStrengthMode = mode === 'strength';
           const rankVisual = isStrengthMode && item?.strengthEvaluation ? getStrengthRankVisual(item.strengthEvaluation.rank) : null;
 
@@ -291,6 +343,13 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             renderedFilter = 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.9))';
           }
 
+          const isSemanticBalance = mode === 'balance' && Boolean(balanceByPath);
+          const pathData = isSemanticBalance ? balanceByPath?.[key as BodyMusclePath] : null;
+          const pathDisplayName = getBodyPathDisplayName(key as BodyMusclePath, 'es');
+          const titleText = isSemanticBalance
+            ? (pathData ? `${pathDisplayName} (${pathData.exposureCount} series)` : `${pathDisplayName} (0 series)`)
+            : (SPANISH_MUSCLE_NAMES[muscle] || muscle);
+
           return paths.map((d, i) => (
             <path
               key={`muscle-${key}-${i}`}
@@ -302,9 +361,15 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               style={{
                 filter: renderedFilter
               }}
-              onClick={() => onSelectMuscle(selectedMuscle === muscle ? null : muscle)}
+              onClick={() => {
+                if (mode === 'balance' && onSelectPath) {
+                  onSelectPath(selectedPath === (key as BodyMusclePath) ? null : (key as BodyMusclePath));
+                } else {
+                  onSelectMuscle(selectedMuscle === muscle ? null : muscle);
+                }
+              }}
             >
-              <title>{SPANISH_MUSCLE_NAMES[muscle] || muscle}</title>
+              <title>{titleText}</title>
             </path>
           ));
         })}
@@ -387,136 +452,218 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         </div>
       )}
 
-      {/* Selected Muscle Detail Card (Suppressed when strengthPresentation === 'profile' to let Profile render its own dedicated panel) */}
-      {strengthPresentation !== 'profile' && selectedData ? (
-        <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-extrabold text-white">
-                    {selectedData.nameEs}
-                  </h4>
-                  {selectedData.strengthEvaluation && (() => {
-                    const visual = getStrengthRankVisual(selectedData.strengthEvaluation.rank);
-                    return (
-                      <span
-                        className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
-                        style={{
-                          backgroundColor: visual.glow,
-                          color: visual.stroke,
-                          border: `1px solid ${visual.stroke}80`
-                        }}
-                      >
-                        {t(`ranks.${selectedData.strengthEvaluation.rank}`)}
+      {/* Detail Card (Suppressed when strengthPresentation === 'profile' to let Profile render its own dedicated panel) */}
+      {strengthPresentation !== 'profile' && (
+        mode === 'balance' ? (
+          selectedPath ? (
+            (() => {
+              const pathData = balanceByPath?.[selectedPath];
+              return (
+                <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-extrabold text-white">
+                        {getBodyPathDisplayName(selectedPath, 'es')}
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent-soft text-accent border border-accent/20">
+                        Región anatómica
                       </span>
-                    );
-                  })()}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onSelectPath?.(null)}
+                      className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+
+                  {/* 3 Metrics Cards */}
+                  <div className="grid grid-cols-3 gap-2 text-center font-mono">
+                    {/* Metric 1: Exposures */}
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                      <span className="text-[10px] text-zinc-500 block uppercase">Series de exposición</span>
+                      <span className="text-sm font-bold text-white">{pathData?.exposureCount ?? 0} series</span>
+                      <span className="text-[10px] text-zinc-400 block mt-0.5">Estímulo directo</span>
+                    </div>
+
+                    {/* Metric 2: Hard sets */}
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                      <span className="text-[10px] text-zinc-500 block uppercase">Series duras</span>
+                      <span className="text-sm font-bold text-accent">{pathData?.hardExposureCount ?? 0} series</span>
+                      <span className="text-[10px] text-zinc-400 block mt-0.5">RIR ≤ 2 / RPE ≥ 8</span>
+                    </div>
+
+                    {/* Metric 3: Strongest role */}
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                      <span className="text-[10px] text-zinc-500 block uppercase">Rol dominante</span>
+                      <span className="text-sm font-bold text-white">
+                        {pathData?.strongestRole ? (ROLE_DISPLAY_NAMES[pathData.strongestRole]?.es ?? pathData.strongestRole) : '—'}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 block mt-0.5">
+                        {pathData?.roles?.length ? `${pathData.roles.length} roles` : 'Sin series'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Contributors list */}
+                  {pathData && pathData.contributors.length > 0 && (
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04] space-y-1.5 font-mono">
+                      <span className="text-[10px] text-zinc-400 block font-semibold">
+                        Componentes anatómicos que aportan a esta región:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {pathData.contributors.map((c) => (
+                          <span
+                            key={getContributionTargetKey(c)}
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-white/[0.06] border border-white/10 text-zinc-300"
+                          >
+                            {getMuscleTargetDisplayName(c, 'es')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+            <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
+              Toca cualquier región anatómica en el cuerpo para ver sus series de exposición y componentes reclutados.
+            </p>
+          )
+        ) : selectedData ? (
+          <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-extrabold text-white">
+                      {selectedData.nameEs}
+                    </h4>
+                    {selectedData.strengthEvaluation && (() => {
+                      const visual = getStrengthRankVisual(selectedData.strengthEvaluation.rank);
+                      return (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+                          style={{
+                            backgroundColor: visual.glow,
+                            color: visual.stroke,
+                            border: `1px solid ${visual.stroke}80`
+                          }}
+                        >
+                          {t(`ranks.${selectedData.strengthEvaluation.rank}`)}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => onSelectMuscle(null)}
-              className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
-            >
-              Cerrar
-            </button>
-          </div>
-
-          {/* 3 Metrics Cards */}
-          <div className="grid grid-cols-3 gap-2 text-center font-mono">
-            {/* Metric 1: Sets / Volume */}
-            <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-              <span className="text-[10px] text-zinc-500 block uppercase">Volumen</span>
-              <span className="text-sm font-bold text-white">{selectedData.sets} series</span>
-              <span className="text-[10px] text-zinc-400 block mt-0.5">
-                {displayWeight(selectedData.volumeKg, preferences.units).toLocaleString()} {weightUnit}
-              </span>
-            </div>
-
-            {/* Metric 2: Physiological Fatigue */}
-            <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-              <span className="text-[10px] text-zinc-500 block uppercase">Fatiga Real</span>
-              <span
-                className={`text-sm font-bold block ${
-                  selectedData.recoveryStatus === 'fatigued'
-                    ? 'text-rose-400'
-                    : selectedData.recoveryStatus === 'recovering'
-                    ? 'text-amber-400'
-                    : 'text-accent'
-                }`}
+              <button
+                onClick={() => onSelectMuscle(null)}
+                className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
               >
-                {selectedData.recoveryStatus === 'fatigued'
-                  ? 'Fatiga Alta'
-                  : selectedData.recoveryStatus === 'recovering'
-                  ? 'Adaptando'
-                  : 'Listo'}
-              </span>
-              <span className="text-[10px] text-zinc-400 block mt-0.5">
-                {selectedData.lastTrainedHoursAgo !== null
-                  ? `Hace ${selectedData.lastTrainedHoursAgo}h (${selectedData.recentHardSetsCount} duras)`
-                  : 'Sin entreno'}
-              </span>
+                Cerrar
+              </button>
             </div>
 
-            {/* Metric 3: Strength & Relative Ratio */}
-            <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-              <span className="text-[10px] text-zinc-500 block uppercase">Fuerza Relativa</span>
-              <span className="text-sm font-bold text-accent block">
-                {selectedData.topEst1RmKg > 0
-                  ? `${selectedData.strengthEvaluation?.currentRatio.toFixed(2)}× BW`
-                  : '—'}
-              </span>
-              <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[90px] mx-auto" title={selectedData.topExerciseName}>
-                {selectedData.topEst1RmKg > 0 ? `${formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)} 1RM` : 'Sin registro'}
-              </span>
+            {/* 3 Metrics Cards */}
+            <div className="grid grid-cols-3 gap-2 text-center font-mono">
+              {/* Metric 1: Sets / Volume */}
+              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                <span className="text-[10px] text-zinc-500 block uppercase">Volumen</span>
+                <span className="text-sm font-bold text-white">{selectedData.sets} series</span>
+                <span className="text-[10px] text-zinc-400 block mt-0.5">
+                  {displayWeight(selectedData.volumeKg, preferences.units).toLocaleString()} {weightUnit}
+                </span>
+              </div>
+
+              {/* Metric 2: Physiological Fatigue */}
+              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                <span className="text-[10px] text-zinc-500 block uppercase">Fatiga Real</span>
+                <span
+                  className={`text-sm font-bold block ${
+                    selectedData.recoveryStatus === 'fatigued'
+                      ? 'text-rose-400'
+                      : selectedData.recoveryStatus === 'recovering'
+                      ? 'text-amber-400'
+                      : 'text-accent'
+                  }`}
+                >
+                  {selectedData.recoveryStatus === 'fatigued'
+                    ? 'Fatiga Alta'
+                    : selectedData.recoveryStatus === 'recovering'
+                    ? 'Adaptando'
+                    : 'Listo'}
+                </span>
+                <span className="text-[10px] text-zinc-400 block mt-0.5">
+                  {selectedData.lastTrainedHoursAgo !== null
+                    ? `Hace ${selectedData.lastTrainedHoursAgo}h (${selectedData.recentHardSetsCount} duras)`
+                    : 'Sin entreno'}
+                </span>
+              </div>
+
+              {/* Metric 3: Strength & Relative Ratio */}
+              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                <span className="text-[10px] text-zinc-500 block uppercase">Fuerza Relativa</span>
+                <span className="text-sm font-bold text-accent block">
+                  {selectedData.topEst1RmKg > 0
+                    ? `${selectedData.strengthEvaluation?.currentRatio.toFixed(2)}× BW`
+                    : '—'}
+                </span>
+                <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[90px] mx-auto" title={selectedData.topExerciseName}>
+                  {selectedData.topEst1RmKg > 0 ? `${formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)} 1RM` : 'Sin registro'}
+                </span>
+              </div>
             </div>
+
+            {/* Gamification Progress Bar toward Next Rank */}
+            {selectedData.strengthEvaluation && selectedData.strengthEvaluation.nextRank && (
+              <div className="p-3 rounded-2xl bg-black/50 border border-white/[0.06] space-y-1.5 font-mono">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-400 text-[11px] flex items-center gap-1">
+                    Siguiente Rango:
+                    <strong className="text-white">
+                      {t(`ranks.${selectedData.strengthEvaluation.nextRank}`)}
+                    </strong>
+                  </span>
+                  <span className="text-accent font-bold text-[11px]">
+                    Faltan ≈ +{formatDisplayWeight(selectedData.strengthEvaluation.kgToNextRank ?? 0, preferences.units)}
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-sky-500 via-accent to-purple-500 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${selectedData.strengthEvaluation.progressPctToNextRank}%` }}
+                  />
+                </div>
+
+                <div className="flex justify-between text-[10px] text-zinc-500">
+                  <span>Actual: {formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)}</span>
+                  <span>Objetivo: {formatDisplayWeight(selectedData.strengthEvaluation.targetOneRmKg ?? 0, preferences.units)} ({selectedData.strengthEvaluation.targetRatio}× BW)</span>
+                </div>
+              </div>
+            )}
+
+            {selectedData.strengthEvaluation && selectedData.strengthEvaluation.rank === 'dios' && (
+              <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-center font-mono text-xs text-amber-300 flex items-center justify-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                <span>Rango Dios alcanzado (Rango máximo de fuerza).</span>
+              </div>
+            )}
           </div>
-
-          {/* Gamification Progress Bar toward Next Rank */}
-          {selectedData.strengthEvaluation && selectedData.strengthEvaluation.nextRank && (
-            <div className="p-3 rounded-2xl bg-black/50 border border-white/[0.06] space-y-1.5 font-mono">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-400 text-[11px] flex items-center gap-1">
-                  Siguiente Rango:
-                  <strong className="text-white">
-                    {t(`ranks.${selectedData.strengthEvaluation.nextRank}`)}
-                  </strong>
-                </span>
-                <span className="text-accent font-bold text-[11px]">
-                  Faltan ≈ +{formatDisplayWeight(selectedData.strengthEvaluation.kgToNextRank ?? 0, preferences.units)}
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-sky-500 via-accent to-purple-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${selectedData.strengthEvaluation.progressPctToNextRank}%` }}
-                />
-              </div>
-
-              <div className="flex justify-between text-[10px] text-zinc-500">
-                <span>Actual: {formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)}</span>
-                <span>Objetivo: {formatDisplayWeight(selectedData.strengthEvaluation.targetOneRmKg ?? 0, preferences.units)} ({selectedData.strengthEvaluation.targetRatio}× BW)</span>
-              </div>
-            </div>
-          )}
-
-          {selectedData.strengthEvaluation && selectedData.strengthEvaluation.rank === 'dios' && (
-            <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-center font-mono text-xs text-amber-300 flex items-center justify-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
-              <span>Rango Dios alcanzado (Rango máximo de fuerza).</span>
-            </div>
-          )}
-        </div>
-      ) : strengthPresentation !== 'profile' && !selectedData ? (
-        <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
-          Toca cualquier grupo muscular en el cuerpo para ver su analítica, fatiga e insignias de fuerza.
-        </p>
-      ) : null}
+        ) : (
+          <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
+            Toca cualquier grupo muscular en el cuerpo para ver su analítica, fatiga e insignias de fuerza.
+          </p>
+        )
+      )}
     </div>
   );
 };
