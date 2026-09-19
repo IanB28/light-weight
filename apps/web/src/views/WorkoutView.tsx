@@ -36,6 +36,7 @@ interface WorkoutViewProps {
   currentBodyweightKg?: number | null;
   onToggleSet: (exerciseId: string, setIndex: number) => void;
   onUpdateSet: (exerciseId: string, setIndex: number, field: 'weightKg' | 'reps' | 'rir', value: number) => void;
+  onUpdateSetRir?: (exerciseId: string, setIndex: number, rir: number | undefined) => void;
   onAddSet: (exerciseId: string, setType?: WorkoutSetType) => void;
   onRemoveSet: (exerciseId: string) => void;
   onAddExercise: (exercise: Exercise) => void;
@@ -73,7 +74,7 @@ export const calculateEffectiveTotalSets = (exerciseSessions: ActiveExerciseSess
 export const WorkoutView: React.FC<WorkoutViewProps> = ({
   isWorkoutActive, routines, routineName, sessionDuration, exerciseSessions, availableExercises, history,
   currentBodyweightKg,
-  onToggleSet, onUpdateSet, onAddSet, onRemoveSet, onAddExercise, onRemoveExercise, onSkipExercise, onResumeExercise, onCreateCustomExercise,
+  onToggleSet, onUpdateSet, onUpdateSetRir, onAddSet, onRemoveSet, onAddExercise, onRemoveExercise, onSkipExercise, onResumeExercise, onCreateCustomExercise,
   onFinishWorkout, onCancelWorkout, onStartRestTimer, onStartRoutine, preferences, onUpdateWeightInputMode,
   onToggleAddedWeight, onUpdateBarInclusion, onUpdatePlateBaseWeight
 }) => {
@@ -170,7 +171,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     {exerciseSessions.length === 0 ? <AppCard className="space-y-4">
       <EmptyState icon={<Dumbbell className="size-5" />} title={t('workout.emptyTitle')} description={isWorkoutActive ? t('workout.emptyActive') : t('workout.emptyInactive')} actionLabel={t('exercise.add')} onAction={() => { setReplacementMuscle(null); setIsAddModalOpen(true); }} />
       {routines.length > 0 && <div className="space-y-2 border-t border-border-subtle pt-4"><p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('workout.useRoutine')}</p>{routines.slice(0, 3).map((routine) => <button key={routine.id} type="button" onClick={() => onStartRoutine(routine.id)} className="flex min-h-11 w-full items-center justify-between rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left text-sm font-bold text-text-primary hover:border-border-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><span className="truncate">{routine.name}</span><span className="text-xs font-medium text-text-muted">{routine.exerciseIds.length} {routine.exerciseIds.length === 1 ? t('library.exercise') : t('library.exercises')}</span></button>)}</div>}
-    </AppCard> : exerciseSessions.map((session, index) => <ExerciseSessionCard key={session.exercise.id} session={session} exerciseIndex={index} totalExercises={exerciseSessions.length} preferences={preferences} onViewTechnique={setSelectedMediaExercise} onRemoveExercise={onRemoveExercise} onSkipExercise={onSkipExercise} onResumeExercise={onResumeExercise} onAddReplacement={handleAddReplacement} onUpdateSet={onUpdateSet} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={setPlateTarget} onAddSet={onAddSet} onRemoveSet={onRemoveSet} onUpdateWeightInputMode={onUpdateWeightInputMode} onToggleAddedWeight={onToggleAddedWeight} />)}
+    </AppCard> : exerciseSessions.map((session, index) => <ExerciseSessionCard key={session.exercise.id} session={session} exerciseIndex={index} totalExercises={exerciseSessions.length} preferences={preferences} onViewTechnique={setSelectedMediaExercise} onRemoveExercise={onRemoveExercise} onSkipExercise={onSkipExercise} onResumeExercise={onResumeExercise} onAddReplacement={handleAddReplacement} onUpdateSet={onUpdateSet} onUpdateSetRir={onUpdateSetRir} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={setPlateTarget} onAddSet={onAddSet} onRemoveSet={onRemoveSet} onUpdateWeightInputMode={onUpdateWeightInputMode} onToggleAddedWeight={onToggleAddedWeight} />)}
     {exerciseSessions.length > 0 && <div className="pt-4"><Button variant="secondary" onClick={() => { setReplacementMuscle(null); setIsAddModalOpen(true); }} className="w-full border-accent/30 bg-accent/15 text-accent hover:bg-accent/25"><Plus className="size-5 stroke-[2.5]" />{t('workout.addToSession')}</Button></div>}
     <AddExerciseModal isOpen={isAddModalOpen} onClose={() => { setReplacementMuscle(null); setIsAddModalOpen(false); }} availableExercises={availableExercises} history={history} onSelectExercise={(exercise) => { setReplacementMuscle(null); onAddExercise(exercise); }} onCreateCustomExercise={onCreateCustomExercise} initialMuscleFilter={replacementMuscle || getDefaultMuscleFilter(routineName)} />
     <ExerciseMediaModal exercise={selectedMediaExercise} isOpen={Boolean(selectedMediaExercise)} onClose={() => setSelectedMediaExercise(null)} />

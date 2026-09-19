@@ -1,7 +1,7 @@
 import type { ExerciseLoadingProfile, LoggedSet, WorkoutSetType } from '@light-weight/domain';
 import { normalizeWorkoutSetType, poundsToKilograms, resolveExerciseLoadingProfile, resolvePlateBaseWeightKg } from '@light-weight/domain';
 import { Check, Disc3, Dumbbell, Eye, SkipForward, Trash2, X } from 'lucide-react';
-import { Button, IconButton, OptionPicker } from '../../components/ui/index.js';
+import { Button, IconButton, OptionPicker, RirHeaderButton, RirPicker } from '../../components/ui/index.js';
 import { getExerciseImgUrl } from '../../lib/exercises.js';
 import { useExerciseLabels, useI18n } from '../../lib/i18n.js';
 import type { AppPreferences, WeightInputMode } from '../../lib/preferences.js';
@@ -61,12 +61,13 @@ interface SetRowProps {
   weightInputMode: WeightInputMode;
   preferences: AppPreferences;
   onUpdateSet: (exerciseId: string, setIndex: number, field: 'weightKg' | 'reps' | 'rir', value: number) => void;
+  onUpdateSetRir?: (exerciseId: string, setIndex: number, rir: number | undefined) => void;
   onToggleSet: (exerciseId: string, setIndex: number) => void;
   onStartRestTimer: (seconds: number) => void;
   onOpenPlates: (target: PlateTarget) => void;
 }
 
-export function SetRow({ exerciseId, set, session, loading, usesAddedWeight, weightInputMode, preferences, onUpdateSet, onToggleSet, onStartRestTimer, onOpenPlates }: SetRowProps) {
+export function SetRow({ exerciseId, set, session, loading, usesAddedWeight, weightInputMode, preferences, onUpdateSet, onUpdateSetRir, onToggleSet, onStartRestTimer, onOpenPlates }: SetRowProps) {
   const { t } = useI18n();
   const canComplete = isValidWorkoutSet(set);
   const setType = normalizeWorkoutSetType(set);
@@ -91,7 +92,7 @@ export function SetRow({ exerciseId, set, session, loading, usesAddedWeight, wei
         <input type="number" inputMode="numeric" min="0" step="1" value={set.reps === 0 ? '' : set.reps} placeholder="0" onFocus={(event) => event.target.select()} onChange={(event) => onUpdateSet(exerciseId, set.setIndex, 'reps', Number.parseInt(event.target.value, 10) || 0)} aria-label={t('workout.repsForSet', { set: set.setIndex })} className="h-11 min-w-0 w-full rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 min-[390px]:w-9" />
         <button type="button" onClick={() => onUpdateSet(exerciseId, set.setIndex, 'reps', set.reps + 1)} aria-label={t('workout.increaseReps', { set: set.setIndex })} className="hidden h-11 w-6 items-center justify-center rounded-md text-sm font-bold text-text-muted hover:bg-surface-active hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent min-[390px]:flex">+</button>
       </div>
-      <div className="col-span-2 flex items-center justify-center"><OptionPicker value={set.rir ?? 2} options={[0, 1, 2, 3, 4, 5].map((value) => ({ value, label: String(value) }))} onChange={(value) => onUpdateSet(exerciseId, set.setIndex, 'rir', value)} ariaLabel={t('workout.rirForSet', { set: set.setIndex })} triggerLabel={String(set.rir ?? 2)} className="font-mono" /></div>
+      <div className="col-span-2 flex items-center justify-center"><RirPicker value={set.rir} onChange={(value) => { if (onUpdateSetRir) { onUpdateSetRir(exerciseId, set.setIndex, value); } else if (value !== undefined) { onUpdateSet(exerciseId, set.setIndex, 'rir', value); } }} ariaLabel={t('workout.rirForSet', { set: set.setIndex })} className="font-mono" /></div>
       <div className="col-span-2 flex items-center justify-end pr-1"><button type="button" onClick={() => { onToggleSet(exerciseId, set.setIndex); if (!set.completed && canComplete) onStartRestTimer(preferences.defaultRestSeconds); }} disabled={!set.completed && !canComplete} aria-label={t(set.completed ? 'workout.markPendingSet' : 'workout.completeSet', { set: set.setIndex })} title={!canComplete ? t('workout.invalidSet') : undefined} aria-pressed={set.completed} className={`flex size-11 items-center justify-center rounded-full transition-[transform,background-color,border-color] duration-150 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-40 ${set.completed ? 'border-2 border-accent bg-accent text-accent-fg shadow-accent' : 'border-2 border-border-active bg-surface-input text-transparent hover:border-accent'}`}><Check className="size-5 stroke-[3]" /></button></div>
     </div>
   );
@@ -101,6 +102,7 @@ interface SetTableProps {
   session: ActiveExerciseSession;
   preferences: AppPreferences;
   onUpdateSet: SetRowProps['onUpdateSet'];
+  onUpdateSetRir?: SetRowProps['onUpdateSetRir'];
   onToggleSet: SetRowProps['onToggleSet'];
   onStartRestTimer: SetRowProps['onStartRestTimer'];
   onOpenPlates: SetRowProps['onOpenPlates'];
@@ -110,7 +112,7 @@ interface SetTableProps {
   onToggleAddedWeight: (exerciseId: string, enabled: boolean) => void;
 }
 
-export function SetTable({ session, preferences, onUpdateSet, onToggleSet, onStartRestTimer, onOpenPlates, onAddSet, onRemoveSet, onUpdateWeightInputMode, onToggleAddedWeight }: SetTableProps) {
+export function SetTable({ session, preferences, onUpdateSet, onUpdateSetRir, onToggleSet, onStartRestTimer, onOpenPlates, onAddSet, onRemoveSet, onUpdateWeightInputMode, onToggleAddedWeight }: SetTableProps) {
   const { t } = useI18n();
   const { exercise, sets } = session;
   const loading = resolveExerciseLoadingProfile(exercise).profile;
@@ -121,8 +123,8 @@ export function SetTable({ session, preferences, onUpdateSet, onToggleSet, onSta
     {loading.supportsPlates && !loading.supportsKeyboard && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2"><span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.weightMode')}</span><span className="inline-flex items-center gap-1.5 text-xs font-bold text-accent"><Disc3 aria-hidden="true" className="size-4" />{t('workout.plates')}</span></div>}
     {loading.loadMode === 'added_weight' && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2"><span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.additionalWeight')}</span><button type="button" aria-pressed={usesAddedWeight} onClick={() => onToggleAddedWeight(exercise.id, !usesAddedWeight)} className={`min-h-9 rounded-ui-md border px-3 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${usesAddedWeight ? 'border-accent bg-accent-soft text-accent' : 'border-border-subtle bg-surface-input text-text-secondary'}`}>{usesAddedWeight ? t('workout.additionalWeightActive') : t('workout.addWeight')}</button></div>}
     {loading.loadMode === 'assisted' && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2"><span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.machineAssistance')}</span><span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-accent">{t('workout.counterweight')}</span></div>}
-    <div className="grid grid-cols-12 gap-1 px-1 pb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-muted"><span className="col-span-1">#</span><span className="col-span-4">{loading.loadMode === 'assisted' ? t('workout.assistance') : t('workout.weight')} ({preferences.units === 'imperial' ? 'LB' : 'KG'})</span><span className="col-span-3">{t('workout.reps')}</span><span className="col-span-2">RIR</span><span className="col-span-2 flex justify-end pr-2"><Check className="size-3.5 text-accent" /></span></div>
-    {sets.map((set) => <SetRow key={set.setIndex} exerciseId={exercise.id} set={set} session={session} loading={loading} usesAddedWeight={usesAddedWeight} weightInputMode={weightInputMode} preferences={preferences} onUpdateSet={onUpdateSet} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={onOpenPlates} />)}
+    <div className="grid grid-cols-12 gap-1 px-1 pb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-muted"><span className="col-span-1">#</span><span className="col-span-4">{loading.loadMode === 'assisted' ? t('workout.assistance') : t('workout.weight')} ({preferences.units === 'imperial' ? 'LB' : 'KG'})</span><span className="col-span-3">{t('workout.reps')}</span><span className="col-span-2 flex items-center justify-center"><RirHeaderButton /></span><span className="col-span-2 flex justify-end pr-2"><Check className="size-3.5 text-accent" /></span></div>
+    {sets.map((set) => <SetRow key={set.setIndex} exerciseId={exercise.id} set={set} session={session} loading={loading} usesAddedWeight={usesAddedWeight} weightInputMode={weightInputMode} preferences={preferences} onUpdateSet={onUpdateSet} onUpdateSetRir={onUpdateSetRir} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={onOpenPlates} />)}
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-2 text-xs font-semibold"><OptionPicker value="" options={[{ value: 'working', label: t('workout.workingSet') }, { value: 'warmup', label: t('workout.warmupSet') }, { value: 'drop', label: t('workout.dropSet') }, { value: 'backoff', label: t('workout.backoffSet') }]} onChange={(setType) => onAddSet(exercise.id, setType as WorkoutSetType)} ariaLabel={t('workout.addSetType')} triggerLabel={`+ ${t('workout.addSet')}`} /><Button variant="ghost" size="md" onClick={() => onRemoveSet(exercise.id)} disabled={sets.length <= 1} className="justify-start px-2 text-text-muted hover:text-danger">— {t('workout.removeLastSet')}</Button></div>
   </div>;
 }
@@ -138,6 +140,7 @@ interface ExerciseSessionCardProps {
   onResumeExercise?: (exerciseId: string) => void;
   onAddReplacement?: (targetExercise: ActiveExerciseSession['exercise']) => void;
   onUpdateSet: SetRowProps['onUpdateSet'];
+  onUpdateSetRir?: SetRowProps['onUpdateSetRir'];
   onToggleSet: SetRowProps['onToggleSet'];
   onStartRestTimer: SetRowProps['onStartRestTimer'];
   onOpenPlates: SetRowProps['onOpenPlates'];
@@ -158,6 +161,7 @@ export function ExerciseSessionCard({
   onResumeExercise,
   onAddReplacement,
   onUpdateSet,
+  onUpdateSetRir,
   onToggleSet,
   onStartRestTimer,
   onOpenPlates,
@@ -320,6 +324,7 @@ export function ExerciseSessionCard({
         session={session}
         preferences={preferences}
         onUpdateSet={onUpdateSet}
+        onUpdateSetRir={onUpdateSetRir}
         onToggleSet={onToggleSet}
         onStartRestTimer={onStartRestTimer}
         onOpenPlates={onOpenPlates}

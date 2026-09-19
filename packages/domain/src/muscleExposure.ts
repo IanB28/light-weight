@@ -9,6 +9,7 @@ import {
   resolveExerciseSemantics
 } from './exerciseSemanticsResolver.js';
 import { shouldCountForVolume } from './setSemantics.js';
+import { isValidRirValue, isValidRpeValue } from './effort.js';
 
 export type MuscleExposureSource = 'semantic_v2' | 'legacy';
 
@@ -68,7 +69,7 @@ export const PROVISIONAL_EFFORT_POLICY = FATIGUE_EFFORT_CATEGORIES_V1;
  * Invariant: Does not multiply effort into numeric physiological fatigue.
  */
 export function classifySetEffort(set: Pick<LoggedSet, 'rir' | 'rpe'>): EffortBand {
-  if (typeof set.rir === 'number' && Number.isFinite(set.rir)) {
+  if (isValidRirValue(set.rir)) {
     if (set.rir <= PROVISIONAL_EFFORT_POLICY.failureRirMax) {
       return 'failure';
     }
@@ -78,7 +79,7 @@ export function classifySetEffort(set: Pick<LoggedSet, 'rir' | 'rpe'>): EffortBa
     return 'submaximal';
   }
 
-  if (typeof set.rpe === 'number' && Number.isFinite(set.rpe)) {
+  if (isValidRpeValue(set.rpe)) {
     if (set.rpe >= PROVISIONAL_EFFORT_POLICY.failureRpeMin) {
       return 'failure';
     }

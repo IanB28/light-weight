@@ -8,6 +8,7 @@ import {
   getContributionTargetKey
 } from './muscleExposure.js';
 import type { WorkoutSession, LoggedSet } from './types.js';
+import { isValidRirValue, isValidRpeValue } from './effort.js';
 
 /**
  * Canonical Fatigue states for FatiguePolicyV1.
@@ -325,18 +326,20 @@ export interface SetEffortResolution {
  * Invariant: Missing RIR/RPE strictly yields 0 measured FEU and isUnknown = true. Never defaults to 2 or 3.
  */
 export function resolveSetEffortV1(set: Pick<LoggedSet, 'rir' | 'rpe'>): SetEffortResolution {
-  if (typeof set.rir === 'number' && Number.isFinite(set.rir)) {
-    const rawRir = set.rir;
-    const boundedRir = Math.max(0, Math.round(rawRir));
+  const hasValidRir = isValidRirValue(set.rir);
+  const hasValidRpe = isValidRpeValue(set.rpe);
+
+  if (hasValidRir) {
+    const rawRir = set.rir!;
     const effortCoeff =
-      boundedRir >= 6
+      rawRir >= 6
         ? FATIGUE_EFFORT_COEFFICIENTS_V1[6]
-        : FATIGUE_EFFORT_COEFFICIENTS_V1[boundedRir as keyof typeof FATIGUE_EFFORT_COEFFICIENTS_V1];
+        : FATIGUE_EFFORT_COEFFICIENTS_V1[rawRir as keyof typeof FATIGUE_EFFORT_COEFFICIENTS_V1];
 
     let effortConflict = false;
-    if (typeof set.rpe === 'number' && Number.isFinite(set.rpe)) {
-      const derivedRirFromRpe = Math.max(0, Math.round(10 - set.rpe));
-      if (Math.abs(boundedRir - derivedRirFromRpe) >= 2) {
+    if (hasValidRpe) {
+      const derivedRirFromRpe = Math.max(0, Math.round(10 - set.rpe!));
+      if (Math.abs(rawRir - derivedRirFromRpe) >= 2) {
         effortConflict = true;
       }
     }
@@ -345,12 +348,12 @@ export function resolveSetEffortV1(set: Pick<LoggedSet, 'rir' | 'rpe'>): SetEffo
       effortCoeff,
       isUnknown: false,
       effortConflict,
-      effectiveRir: boundedRir
+      effectiveRir: rawRir
     });
   }
 
-  if (typeof set.rpe === 'number' && Number.isFinite(set.rpe)) {
-    const rawRpe = set.rpe;
+  if (hasValidRpe) {
+    const rawRpe = set.rpe!;
     const derivedRir = Math.max(0, Math.round(10 - rawRpe));
     const effortCoeff =
       derivedRir >= 6

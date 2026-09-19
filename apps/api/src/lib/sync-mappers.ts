@@ -1,6 +1,8 @@
 import {
   isWorkoutSetType,
   normalizeLoggedSet,
+  isValidRirValue,
+  isValidRpeValue,
   type WorkoutSetType
 } from '@light-weight/domain';
 
@@ -42,6 +44,12 @@ export function normalizeIncomingSyncSet<T extends SyncSetInput>(set: T): T & {
 } {
   if (set.setType !== undefined && !isWorkoutSetType(set.setType)) {
     throw new SyncValidationError();
+  }
+  if (set.rir !== undefined && !isValidRirValue(set.rir)) {
+    throw new SyncValidationError('INVALID_RIR', 'Invalid RIR value: must be a non-negative integer');
+  }
+  if (set.rpe !== undefined && !isValidRpeValue(set.rpe)) {
+    throw new SyncValidationError('INVALID_RPE', 'Invalid RPE value: must be a finite number between 0 and 10');
   }
   return normalizeLoggedSet(set);
 }

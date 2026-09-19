@@ -4,6 +4,7 @@ import { calculateSetOneRm, estimate1RM } from './onerm.js';
 import { shouldCountForVolume } from './setSemantics.js';
 import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
 import { resolveBodyweightKgAtDate } from './weight.js';
+import { isValidRirValue, isValidRpeValue } from './effort.js';
 
 export interface MuscleVolumeDistribution {
   muscle: MuscleGroup;
@@ -152,11 +153,11 @@ export function getExerciseProgressSeries(
     }
 
     // Average RIR
-    const ratedSets = completedSets.filter((s) => s.rir !== undefined);
+    const ratedSets = completedSets.filter((s) => isValidRirValue(s.rir));
     const avgRir =
       ratedSets.length > 0
         ? Math.round(
-            (ratedSets.reduce((acc, s) => acc + (s.rir ?? 0), 0) / ratedSets.length) * 10
+            (ratedSets.reduce((acc, s) => acc + s.rir!, 0) / ratedSets.length) * 10
           ) / 10
         : null;
 
@@ -321,19 +322,21 @@ export function calculateMuscleFatigue(
 
       for (const s of completed) {
         let intensityMult = 1.2;
-        if (s.rir !== undefined) {
-          if (s.rir <= 0) intensityMult = 2.0;
+        const hasValidRir = isValidRirValue(s.rir);
+        const hasValidRpe = isValidRpeValue(s.rpe);
+        if (hasValidRir) {
+          if (s.rir === 0) intensityMult = 2.0;
           else if (s.rir === 1) intensityMult = 1.6;
           else if (s.rir === 2) intensityMult = 1.3;
           else intensityMult = 1.0;
-        } else if (s.rpe !== undefined) {
-          if (s.rpe >= 10) intensityMult = 2.0;
-          else if (s.rpe >= 9) intensityMult = 1.6;
-          else if (s.rpe >= 8) intensityMult = 1.3;
+        } else if (hasValidRpe) {
+          if (s.rpe! >= 10) intensityMult = 2.0;
+          else if (s.rpe! >= 9) intensityMult = 1.6;
+          else if (s.rpe! >= 8) intensityMult = 1.3;
           else intensityMult = 1.0;
         }
 
-        const isHard = (s.rir !== undefined && s.rir <= 2) || (s.rpe !== undefined && s.rpe >= 8);
+        const isHard = (hasValidRir && s.rir! <= 2) || (!hasValidRir && hasValidRpe && s.rpe! >= 8);
 
         // Update Primary
         if (result[primary]) {

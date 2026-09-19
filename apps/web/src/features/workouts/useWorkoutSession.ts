@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
   normalizeLoggedSet,
+  normalizeRirValue,
   resolveExerciseLoadingProfile,
   resolvePlateBaseWeightKg,
   type Exercise,
@@ -113,6 +114,21 @@ export function resumeExerciseInSessions(sessions: ActiveExerciseSession[], exer
   ));
 }
 
+export function updateSetRirInSessions(
+  sessions: ActiveExerciseSession[],
+  exerciseId: string,
+  setIndex: number,
+  rir: number | undefined
+): ActiveExerciseSession[] {
+  const normalized = normalizeRirValue(rir);
+  return sessions.map((session) => (
+    session.exercise.id !== exerciseId || session.skipped ? session : {
+      ...session,
+      sets: session.sets.map((set) => set.setIndex === setIndex ? { ...set, rir: normalized } : set)
+    }
+  ));
+}
+
 export function updateSetInSessions(
   sessions: ActiveExerciseSession[],
   exerciseId: string,
@@ -120,12 +136,13 @@ export function updateSetInSessions(
   field: 'weightKg' | 'reps' | 'rir',
   value: number
 ): ActiveExerciseSession[] {
+  if (field === 'rir') {
+    return updateSetRirInSessions(sessions, exerciseId, setIndex, value);
+  }
   const finite = Number.isFinite(value) ? value : 0;
   const normalized = field === 'weightKg'
     ? Math.max(0, finite)
-    : field === 'reps'
-      ? Math.max(0, Math.round(finite))
-      : Math.min(5, Math.max(0, Math.round(finite)));
+    : Math.max(0, Math.round(finite));
   return sessions.map((session) => (
     session.exercise.id !== exerciseId || session.skipped ? session : {
       ...session,
@@ -173,7 +190,7 @@ export function addSetToSessions(
         completed: false,
         setType,
         isWarmup: setType === 'warmup',
-        rir: lastSet?.rir ?? 2
+        rir: undefined
       }]
     };
   });
@@ -204,6 +221,84 @@ export function serializeWorkoutSets(exerciseSessions: ActiveExerciseSession[]):
   return sets;
 }
 
+export function createDefaultExerciseSession(
+  exercise: Exercise,
+  options?: {
+    historyIndex?: WorkoutHistoryIndex;
+    preferences?: AppPreferences;
+  }
+): ActiveExerciseSession {
+  const loading = resolveExerciseLoadingProfile(exercise).profile;
+  const historyIndex = options?.historyIndex;
+  const preferences = options?.preferences;
+  const previous = historyIndex?.latestPerformanceByExercise[exercise.id];
+  const previousTopSet = previous?.sets.reduce<LoggedSet | null>(
+    (best, set) => !best || set.weightKg > best.weightKg ? set : best,
+    null
+  );
+  const personalRecord = historyIndex?.personalRecordsByExercise[exercise.id];
+  const startsWithPlates = loading.supportsPlates && (
+    !loading.supportsKeyboard || preferences?.weightInputMode === 'plates'
+  );
+  const semanticDefaultWeight = startsWithPlates && preferences
+    ? getDefaultPlateLoadedWeightKg(
+        preferences.units,
+        resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg),
+        preferences.availablePlatesKg,
+        loading
+      )
+    : 0;
+  // Preserve a user's own valid last load; zero is the conservative semantic fallback.
+  const defaultWeight = resolveInitialWeightKg(previousTopSet?.weightKg, semanticDefaultWeight);
+  const initialSets = [
+    { setIndex: 1, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: undefined },
+    { setIndex: 2, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: undefined },
+    { setIndex: 3, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: undefined }
+  ];
+
+  const isAssisted = loading.loadMode === 'assisted';
+  const isAddedWeight = loading.loadMode === 'added_weight';
+  const units = preferences?.units ?? 'metric';
+
+  let prevRecordText: string | undefined;
+  if (previousTopSet) {
+    if (isAssisted) {
+      prevRecordText = `-${formatDisplayWeight(previousTopSet.weightKg, units)} × ${previousTopSet.reps}`;
+    } else if (isAddedWeight && previousTopSet.weightKg === 0) {
+      prevRecordText = `BW × ${previousTopSet.reps}`;
+    } else if (isAddedWeight) {
+      prevRecordText = `+${formatDisplayWeight(previousTopSet.weightKg, units)} × ${previousTopSet.reps}`;
+    } else {
+      prevRecordText = `${formatDisplayWeight(previousTopSet.weightKg, units)} × ${previousTopSet.reps}`;
+    }
+  }
+
+  let bestRecordText: string | undefined;
+  if (personalRecord) {
+    if (isAssisted) {
+      bestRecordText = `-${formatDisplayWeight(personalRecord.weightKg, units)} × ${personalRecord.reps}`;
+    } else if (isAddedWeight && personalRecord.weightKg === 0) {
+      bestRecordText = `BW × ${personalRecord.reps}`;
+    } else if (isAddedWeight) {
+      bestRecordText = `+${formatDisplayWeight(personalRecord.weightKg, units)} × ${personalRecord.reps}`;
+    } else {
+      bestRecordText = `${formatDisplayWeight(personalRecord.weightKg, units)} × ${personalRecord.reps}`;
+    }
+  }
+
+  return {
+    exercise: { ...exercise, loading },
+    previousRecord: prevRecordText,
+    bestRecord: bestRecordText,
+    bestEst1Rm: personalRecord?.est1Rm,
+    targetRepRange: [6, 12],
+    includeBarWeight: loading.includeBarWeight,
+    plateBaseWeightKg: resolvePlateBaseWeightKg(loading, preferences?.defaultBarWeightKg ?? 20),
+    skipped: false,
+    sets: initialSets
+  };
+}
+
 export function useWorkoutSession({
   exercises,
   routines,
@@ -229,80 +324,9 @@ export function useWorkoutSession({
   const priorWeightInputMode = useRef(preferences.weightInputMode);
   const activeSnapshotRef = useRef<StoredActiveWorkout | null>(null);
 
-  const createExerciseSession = (exercise: Exercise): ActiveExerciseSession => {
-    const loading = resolveExerciseLoadingProfile(exercise).profile;
-    const previous = historyIndex.latestPerformanceByExercise[exercise.id];
-    const previousTopSet = previous?.sets.reduce<LoggedSet | null>(
-      (best, set) => !best || set.weightKg > best.weightKg ? set : best,
-      null
-    );
-    const personalRecord = historyIndex.personalRecordsByExercise[exercise.id];
-    const startsWithPlates = loading.supportsPlates && (
-      !loading.supportsKeyboard || preferences.weightInputMode === 'plates'
-    );
-    const semanticDefaultWeight = startsWithPlates
-      ? getDefaultPlateLoadedWeightKg(
-          preferences.units,
-          resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg),
-          preferences.availablePlatesKg,
-          loading
-        )
-      : loading.loadMode === 'added_weight'
-        ? 0
-        : loading.loadMode === 'assisted'
-          ? 0
-          : loading.mechanism === 'dumbbell'
-            ? 0
-            : 0;
-    // Preserve a user's own valid last load; zero is the conservative semantic fallback.
-    const defaultWeight = resolveInitialWeightKg(previousTopSet?.weightKg, semanticDefaultWeight);
-    const initialSets = [
-      { setIndex: 1, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: 2 },
-      { setIndex: 2, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: 2 },
-      { setIndex: 3, weightKg: defaultWeight, reps: 8, completed: false, setType: 'working' as const, isWarmup: false, rir: 1 }
-    ];
-
-    const isAssisted = loading.loadMode === 'assisted';
-    const isAddedWeight = loading.loadMode === 'added_weight';
-
-    let prevRecordText: string | undefined;
-    if (previousTopSet) {
-      if (isAssisted) {
-        prevRecordText = `-${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}`;
-      } else if (isAddedWeight && previousTopSet.weightKg === 0) {
-        prevRecordText = `BW × ${previousTopSet.reps}`;
-      } else if (isAddedWeight) {
-        prevRecordText = `+${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}`;
-      } else {
-        prevRecordText = `${formatDisplayWeight(previousTopSet.weightKg, preferences.units)} × ${previousTopSet.reps}`;
-      }
-    }
-
-    let bestRecordText: string | undefined;
-    if (personalRecord) {
-      if (isAssisted) {
-        bestRecordText = `-${formatDisplayWeight(personalRecord.weightKg, preferences.units)} × ${personalRecord.reps}`;
-      } else if (isAddedWeight && personalRecord.weightKg === 0) {
-        bestRecordText = `BW × ${personalRecord.reps}`;
-      } else if (isAddedWeight) {
-        bestRecordText = `+${formatDisplayWeight(personalRecord.weightKg, preferences.units)} × ${personalRecord.reps}`;
-      } else {
-        bestRecordText = `${formatDisplayWeight(personalRecord.weightKg, preferences.units)} × ${personalRecord.reps}`;
-      }
-    }
-
-    return {
-      exercise: { ...exercise, loading },
-      previousRecord: prevRecordText,
-      bestRecord: bestRecordText,
-      bestEst1Rm: personalRecord?.est1Rm,
-      targetRepRange: [6, 12],
-      includeBarWeight: loading.includeBarWeight,
-      plateBaseWeightKg: resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg),
-      skipped: false,
-      sets: initialSets
-    };
-  };
+  const createExerciseSession = (exercise: Exercise): ActiveExerciseSession => (
+    createDefaultExerciseSession(exercise, { historyIndex, preferences })
+  );
 
   useEffect(() => {
     const saved = getStoredActiveWorkout<StoredActiveWorkout>();
@@ -437,6 +461,10 @@ export function useWorkoutSession({
     setExerciseSessions((current) => updateSetInSessions(current, exerciseId, setIndex, field, value));
   };
 
+  const updateSetRir = (exerciseId: string, setIndex: number, rir: number | undefined) => {
+    setExerciseSessions((current) => updateSetRirInSessions(current, exerciseId, setIndex, rir));
+  };
+
   const toggleSet = (exerciseId: string, setIndex: number) => {
     let completed = false;
     setExerciseSessions((current) => {
@@ -538,6 +566,7 @@ export function useWorkoutSession({
     skipExercise,
     resumeExercise,
     updateSet,
+    updateSetRir,
     toggleSet,
     addSet,
     removeSet,

@@ -96,6 +96,27 @@ test('1. Effort Table & RPE Fallback Resolution', () => {
   assert.equal(missingEffort.isUnknown, true);
   assert.equal(missingEffort.effortConflict, false);
 
+  // Negative RIR is INVALID: must not be clamped to 0 / failure
+  const negativeRir = resolveSetEffortV1({ rir: -2 });
+  assert.equal(negativeRir.effortCoeff, 0);
+  assert.equal(negativeRir.isUnknown, true);
+  assert.equal(negativeRir.effortConflict, false);
+
+  // Negative RIR + valid RPE -> falls back to valid RPE
+  const negativeRirWithRpe = resolveSetEffortV1({ rir: -2, rpe: 9 });
+  assert.equal(negativeRirWithRpe.effortCoeff, 0.85);
+  assert.equal(negativeRirWithRpe.isUnknown, false);
+  assert.equal(negativeRirWithRpe.effectiveRir, 1);
+
+  // Malformed RPE (> 10 or < 0) -> strictly 0 measured FEU, isUnknown = true
+  const excessiveRpe = resolveSetEffortV1({ rpe: 15 });
+  assert.equal(excessiveRpe.effortCoeff, 0);
+  assert.equal(excessiveRpe.isUnknown, true);
+
+  const negativeRpe = resolveSetEffortV1({ rpe: -5 });
+  assert.equal(negativeRpe.effortCoeff, 0);
+  assert.equal(negativeRpe.isUnknown, true);
+
   // Explicit RIR authoritative over RPE
   const bothPresent = resolveSetEffortV1({ rir: 1, rpe: 8 });
   assert.equal(bothPresent.effortCoeff, 0.85);

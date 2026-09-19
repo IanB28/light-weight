@@ -178,23 +178,35 @@ test('3. Romanian Deadlift: proves "minimal" survives the entire exposure and ba
 });
 
 test('4. Effort classification: categorical extraction without numeric fatigue scores', () => {
-  // RIR paths
+  // Valid RIR paths
   assert.equal(classifySetEffort({ rir: 0 }), 'failure');
-  assert.equal(classifySetEffort({ rir: -1 }), 'failure');
   assert.equal(classifySetEffort({ rir: 1 }), 'hard');
   assert.equal(classifySetEffort({ rir: 2 }), 'hard');
   assert.equal(classifySetEffort({ rir: 3 }), 'hard');
   assert.equal(classifySetEffort({ rir: 4 }), 'submaximal');
   assert.equal(classifySetEffort({ rir: 5 }), 'submaximal');
+  assert.equal(classifySetEffort({ rir: 6 }), 'submaximal');
+  assert.equal(classifySetEffort({ rir: 8 }), 'submaximal');
 
-  // RPE paths
+  // Malformed RIR paths: NEVER failure, ignore invalid RIR
+  assert.equal(classifySetEffort({ rir: -1 }), 'unknown');
+  assert.equal(classifySetEffort({ rir: -2 }), 'unknown');
+  // Fallback to valid RPE when RIR is malformed
+  assert.equal(classifySetEffort({ rir: -1, rpe: 9 }), 'hard');
+  assert.equal(classifySetEffort({ rir: -2, rpe: 10 }), 'failure');
+
+  // Valid RPE paths
   assert.equal(classifySetEffort({ rpe: 10 }), 'failure');
-  assert.equal(classifySetEffort({ rpe: 10.5 }), 'failure');
   assert.equal(classifySetEffort({ rpe: 9 }), 'hard');
   assert.equal(classifySetEffort({ rpe: 8 }), 'hard');
   assert.equal(classifySetEffort({ rpe: 7 }), 'hard');
   assert.equal(classifySetEffort({ rpe: 6.5 }), 'submaximal');
   assert.equal(classifySetEffort({ rpe: 6 }), 'submaximal');
+
+  // Malformed RPE paths: out-of-range RPE must NEVER create measured effort
+  assert.equal(classifySetEffort({ rpe: 10.5 }), 'unknown');
+  assert.equal(classifySetEffort({ rpe: 15 }), 'unknown');
+  assert.equal(classifySetEffort({ rpe: -1 }), 'unknown');
 
   // STRICT INVARIANT: Missing RIR/RPE MUST BE 'unknown', NEVER assumed as 2
   assert.equal(classifySetEffort({}), 'unknown');

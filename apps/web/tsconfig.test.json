@@ -73,6 +73,7 @@
     "src/features/workouts/WorkoutSessionComponents.tsx",
     "src/features/workouts/useWorkoutSession.ts",
     "src/features/workouts/workout-session-skip.test.ts",
-    "src/features/workouts/routine-startup-order.test.ts"
+    "src/features/workouts/routine-startup-order.test.ts",
+    "src/features/workouts/rir-input-integrity.test.ts"
   ]
 }

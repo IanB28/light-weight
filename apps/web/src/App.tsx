@@ -168,6 +168,7 @@ export function App() {
           currentBodyweightKg={resolveBodyweightKgAtDate(data.bodyweightEntries)}
           onToggleSet={workout.toggleSet}
           onUpdateSet={workout.updateSet}
+          onUpdateSetRir={workout.updateSetRir}
           onAddSet={workout.addSet}
           onRemoveSet={workout.removeSet}
           onAddExercise={workout.addExercise}

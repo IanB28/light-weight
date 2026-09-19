@@ -1,5 +1,6 @@
 import type { Exercise, ExerciseLoadMode, LoggedSet, WorkoutSession, WorkoutSetType } from './types.js';
 import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
+import { normalizeRirValue, normalizeRpeValue } from './effort.js';
 
 export const WORKOUT_SET_TYPES = ['working', 'warmup', 'drop', 'backoff'] as const;
 
@@ -30,7 +31,15 @@ export function normalizeLoggedSet<T extends LegacyWorkoutSetClassification>(
   set: T
 ): T & { setType: WorkoutSetType; isWarmup: boolean } {
   const setType = normalizeWorkoutSetType(set);
-  return { ...set, setType, isWarmup: setType === 'warmup' };
+  const raw = set as Record<string, unknown>;
+  const result: any = { ...set, setType, isWarmup: setType === 'warmup' };
+  if ('rir' in raw) {
+    result.rir = normalizeRirValue(raw.rir);
+  }
+  if ('rpe' in raw) {
+    result.rpe = normalizeRpeValue(raw.rpe);
+  }
+  return result;
 }
 
 export function normalizeWorkoutSession(session: LegacyWorkoutSession): WorkoutSession {
