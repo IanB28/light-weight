@@ -44,19 +44,22 @@ export interface MuscleExposureEvent {
   readonly effort: EffortBand;
   readonly reps: number;
   readonly loadKg: number;
+  readonly rir?: number;
+  readonly rpe?: number;
 }
 
 /**
- * Centralized, replaceable effort classification thresholds.
- * Deep Research may refine these categorical thresholds.
+ * Approved FatiguePolicyV1 effort classification thresholds.
  * INVARIANT: Missing RIR/RPE is strictly 'unknown' and never assumed.
  */
-export const PROVISIONAL_EFFORT_POLICY = Object.freeze({
+export const FATIGUE_EFFORT_CATEGORIES_V1 = Object.freeze({
   failureRirMax: 0,
-  hardRirMax: 2,
+  hardRirMax: 3,
   failureRpeMin: 10,
-  hardRpeMin: 8
+  hardRpeMin: 7
 });
+
+export const PROVISIONAL_EFFORT_POLICY = FATIGUE_EFFORT_CATEGORIES_V1;
 
 /**
  * Categorical effort extractor.
@@ -177,7 +180,9 @@ export function extractMuscleExposures(
               semanticStatus: contribution.status,
               effort,
               reps,
-              loadKg
+              loadKg,
+              rir: set.rir,
+              rpe: set.rpe
             })
           );
         }

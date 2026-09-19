@@ -8,9 +8,12 @@ import {
   PROVISIONAL_EFFORT_POLICY
 } from './muscleExposure.js';
 import { calculateSemanticMuscleBalance } from './muscleBalance.js';
+import type { ResolvedExerciseContributionTarget } from './exerciseSemanticsResolver.js';
 import {
   extractMuscleFatigueEvidence,
-  DefaultFatiguePolicy
+  DefaultFatiguePolicy,
+  calculateTargetFatigueV2,
+  resolveFatigueStateFromResidualFeu
 } from './fatiguePolicy.js';
 
 // Curated exercises present in EXERCISE_ID_TO_SEMANTICS_KEY
@@ -180,15 +183,17 @@ test('4. Effort classification: categorical extraction without numeric fatigue s
   assert.equal(classifySetEffort({ rir: -1 }), 'failure');
   assert.equal(classifySetEffort({ rir: 1 }), 'hard');
   assert.equal(classifySetEffort({ rir: 2 }), 'hard');
-  assert.equal(classifySetEffort({ rir: 2.5 }), 'submaximal');
+  assert.equal(classifySetEffort({ rir: 3 }), 'hard');
   assert.equal(classifySetEffort({ rir: 4 }), 'submaximal');
+  assert.equal(classifySetEffort({ rir: 5 }), 'submaximal');
 
   // RPE paths
   assert.equal(classifySetEffort({ rpe: 10 }), 'failure');
   assert.equal(classifySetEffort({ rpe: 10.5 }), 'failure');
-  assert.equal(classifySetEffort({ rpe: 8 }), 'hard');
   assert.equal(classifySetEffort({ rpe: 9 }), 'hard');
-  assert.equal(classifySetEffort({ rpe: 7.5 }), 'submaximal');
+  assert.equal(classifySetEffort({ rpe: 8 }), 'hard');
+  assert.equal(classifySetEffort({ rpe: 7 }), 'hard');
+  assert.equal(classifySetEffort({ rpe: 6.5 }), 'submaximal');
   assert.equal(classifySetEffort({ rpe: 6 }), 'submaximal');
 
   // STRICT INVARIANT: Missing RIR/RPE MUST BE 'unknown', NEVER assumed as 2
@@ -303,7 +308,7 @@ test('7. Balance v2: multi-set deduplication per muscle target', () => {
           completed: true,
           setType: 'working',
           isWarmup: false,
-          rir: 3 // submaximal
+          rir: 4 // submaximal (RIR >= 4)
         }
       ]
     }
@@ -376,24 +381,35 @@ test('8. Fatigue v2 Evidence & Policy: facts-first extraction and central policy
   assert.equal(chestEvidence?.unknownEffortSets, 1);
   assert.equal(chestEvidence?.submaximalSets, 0);
 
-  // Test neutral pluggable policy interface
+  // Test pluggable policy interface
   const stimulus = DefaultFatiguePolicy.classifyStimulus(chestEvidence!);
   assert.equal(stimulus.totalSets, 3);
   assert.equal(stimulus.effectiveHardSets, 2);
   assert.equal(stimulus.dominantRole, 'prime');
 
-  // State evaluation with neutral reference policy
-  const refTime = new Date('2026-09-17T22:00:00Z');
-  const state = DefaultFatiguePolicy.resolveState(chestEvidence!, refTime);
-  assert.equal(state, 'adapted');
+  const time2h = new Date('2026-09-17T12:00:00Z');
+  // Pluggable policy resolves confidence requiring referenceTime
+  const conf = DefaultFatiguePolicy.resolveConfidence(chestEvidence!, time2h);
+  assert.equal(conf, 'moderate'); // 1 unknown of 3 sets -> moderate
 
-  // Empty evidence resolves to 'fresh'
-  const emptyEvidence = {
-    ...chestEvidence!,
-    lastExposureAt: null,
-    totalEligibleSets: 0
-  };
-  assert.equal(DefaultFatiguePolicy.resolveState(emptyEvidence, refTime), 'fresh');
+  // Canonical state evaluation via calculateTargetFatigueV2 and resolveFatigueStateFromResidualFeu:
+  // 2h later: residual = 1.70 - 0.25 = 1.45 FEU -> recovering
+  const results2h = calculateTargetFatigueV2([session1], EXERCISES_MAP, { referenceTimeMs: time2h.getTime() });
+  const res2h = results2h.find((r) => r.target.kind === 'anatomical' && r.target.entity === 'pectoralis_major')!;
+  assert.equal(res2h.state, 'recovering');
+  assert.equal(resolveFatigueStateFromResidualFeu(res2h.residualFeu), 'recovering');
+
+  // 12h later: residual = 1.70 - 1.50 = 0.20 FEU -> fresh
+  const time12h = new Date('2026-09-17T22:00:00Z');
+  const results12h = calculateTargetFatigueV2([session1], EXERCISES_MAP, { referenceTimeMs: time12h.getTime() });
+  const res12h = results12h.find((r) => r.target.kind === 'anatomical' && r.target.entity === 'pectoralis_major')!;
+  assert.equal(res12h.state, 'fresh');
+  assert.equal(resolveFatigueStateFromResidualFeu(res12h.residualFeu), 'fresh');
+
+  // Empty history resolves to 'fresh'
+  const resultsEmpty = calculateTargetFatigueV2([], EXERCISES_MAP, { referenceTimeMs: time12h.getTime() });
+  assert.equal(resultsEmpty.length, 0);
+  assert.equal(resolveFatigueStateFromResidualFeu(0), 'fresh');
 });
 
 test('9. Time identity: performedAt uses session.endedAt when available, falling back to startedAt', () => {

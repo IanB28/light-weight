@@ -26,6 +26,10 @@ import {
   computeSemanticBalanceForHistory,
   type SemanticBalanceResult
 } from '../../lib/balance-anatomy.js';
+import {
+  computeSemanticFatigueForHistory,
+  type SemanticFatigueResult
+} from '../../lib/fatigue-anatomy.js';
 
 const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
@@ -217,6 +221,7 @@ export function selectMuscleAnalytics(
   fatigueMap: ReturnType<typeof calculateMuscleFatigue>;
   fullMuscleAnalytics: Record<MuscleGroup, StatsMuscleAnalytics>;
   semanticBalance: SemanticBalanceResult;
+  semanticFatigue: SemanticFatigueResult;
 } {
   const muscleAnalysis = getNeglectedMuscles(history, exercisesById, windowDays, {
     bodyweightKg,
@@ -235,6 +240,7 @@ export function selectMuscleAnalytics(
     ? history.filter((s) => Date.parse(s.startedAt) >= cutoffTime)
     : history;
   const semanticBalance = computeSemanticBalanceForHistory(windowedHistory, exercisesById);
+  const semanticFatigue = computeSemanticFatigueForHistory(history, exercisesById);
 
   const fullMuscleAnalytics = {} as Record<MuscleGroup, StatsMuscleAnalytics>;
   ALL_MUSCLE_GROUPS.forEach((muscle) => {
@@ -260,7 +266,7 @@ export function selectMuscleAnalytics(
     };
   });
 
-  return { muscleAnalysis, fatigueMap, fullMuscleAnalytics, semanticBalance };
+  return { muscleAnalysis, fatigueMap, fullMuscleAnalytics, semanticBalance, semanticFatigue };
 }
 
 export function selectProgressSummary(

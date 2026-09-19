@@ -16,6 +16,7 @@ import {
   getStrengthRankVisual
 } from '../../lib/strength-rank-visuals.js';
 import type { BalanceBodyPathData } from '../../lib/balance-anatomy.js';
+import type { FatigueBodyPathData } from '../../lib/fatigue-anatomy.js';
 import {
   type BodyMusclePath,
   getBodyPathDisplayName,
@@ -45,6 +46,7 @@ export interface MuscleAnalytics {
 interface AnatomicalBodyMapProps {
   data: Record<MuscleGroup, MuscleAnalytics>;
   balanceByPath?: Partial<Record<BodyMusclePath, BalanceBodyPathData>>;
+  fatigueByPath?: Partial<Record<BodyMusclePath, FatigueBodyPathData>>;
   mode: AnalysisMode;
   gender?: Gender;
   selectedMuscle: MuscleGroup | null;
@@ -106,6 +108,7 @@ export const SPANISH_MUSCLE_NAMES: Record<MuscleGroup, string> = {
 export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   data,
   balanceByPath,
+  fatigueByPath,
   mode,
   gender,
   selectedMuscle,
@@ -267,6 +270,25 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       return { fill: 'var(--accent-color)', stroke: '#ffffff', strokeWidth: 1.2 };
     }
 
+    if (mode === 'fatigue' && fatigueByPath) {
+      const fData = fatigueByPath[pathKey as BodyMusclePath];
+      const state = fData?.state ?? 'fresh';
+      if (state === 'fatigued') {
+        return { fill: '#F43F5E', stroke: '#FDA4AF', strokeWidth: 1.2 }; // Rose
+      }
+      if (state === 'recovering') {
+        return { fill: '#F59E0B', stroke: '#FDE68A', strokeWidth: 1.1 }; // Amber
+      }
+      if (state === 'ready') {
+        return { fill: '#10B981', stroke: '#6EE7B7', strokeWidth: 1.0 }; // Emerald
+      }
+      return {
+        fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))',
+        stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))',
+        strokeWidth: 0.8
+      };
+    }
+
     return getMuscleColor(fallbackMuscle);
   };
 
@@ -300,7 +322,11 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
           const item = data[muscle];
           const { fill, stroke, strokeWidth } = getPathColor(key, muscle);
-          const isSelected = mode === 'balance' && onSelectPath
+          const isSemanticBalance = mode === 'balance' && Boolean(balanceByPath);
+          const isSemanticFatigue = mode === 'fatigue' && Boolean(fatigueByPath);
+          const isSemanticMode = isSemanticBalance || isSemanticFatigue;
+
+          const isSelected = isSemanticMode && onSelectPath
             ? selectedPath === (key as BodyMusclePath)
             : selectedMuscle === muscle;
           const isStrengthMode = mode === 'strength';
@@ -343,12 +369,26 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             renderedFilter = 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.9))';
           }
 
-          const isSemanticBalance = mode === 'balance' && Boolean(balanceByPath);
-          const pathData = isSemanticBalance ? balanceByPath?.[key as BodyMusclePath] : null;
           const pathDisplayName = getBodyPathDisplayName(key as BodyMusclePath, 'es');
-          const titleText = isSemanticBalance
-            ? (pathData ? `${pathDisplayName} (${pathData.exposureCount} series)` : `${pathDisplayName} (0 series)`)
-            : (SPANISH_MUSCLE_NAMES[muscle] || muscle);
+          let titleText = SPANISH_MUSCLE_NAMES[muscle] || muscle;
+          if (isSemanticBalance) {
+            const pathData = balanceByPath?.[key as BodyMusclePath];
+            titleText = pathData ? `${pathDisplayName} (${pathData.exposureCount} series)` : `${pathDisplayName} (0 series)`;
+          } else if (isSemanticFatigue) {
+            const fData = fatigueByPath?.[key as BodyMusclePath];
+            const stateLabels: Record<string, string> = {
+              fatigued: 'Fatigado',
+              recovering: 'En recuperación',
+              ready: 'Listo',
+              fresh: 'Fresco'
+            };
+            const stateLabel = fData ? (stateLabels[fData.state] || fData.state) : 'Fresco';
+            const feuVal = fData ? fData.residualFeu.toFixed(2) : '0.00';
+            const qualityNote = fData && fData.state === 'fresh' && fData.unknownEffortCount > 0
+              ? ' [datos incompletos]'
+              : '';
+            titleText = `${pathDisplayName} (${feuVal} FEU • ${stateLabel}${qualityNote})`;
+          }
 
           return paths.map((d, i) => (
             <path
@@ -362,7 +402,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                 filter: renderedFilter
               }}
               onClick={() => {
-                if (mode === 'balance' && onSelectPath) {
+                if (isSemanticMode && onSelectPath) {
                   onSelectPath(selectedPath === (key as BodyMusclePath) ? null : (key as BodyMusclePath));
                 } else {
                   onSelectMuscle(selectedMuscle === muscle ? null : muscle);
@@ -416,18 +456,22 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       )}
 
       {mode === 'fatigue' && (
-        <div className="grid grid-cols-3 gap-1.5 p-2 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono text-center shadow-sm">
-          <div className="flex items-center justify-center gap-1 text-rose-400 font-semibold" title="Fatiga alta (&ge;4.5 pts)">
+        <div className="grid grid-cols-4 gap-1.5 p-2 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono text-center shadow-sm">
+          <div className="flex items-center justify-center gap-1 text-rose-400 font-semibold" title="Fatigado (≥3.00 FEU)">
             <span className="w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 shrink-0" />
-            <span>Fatiga (&ge;4.5)</span>
+            <span className="truncate">Fatigado</span>
           </div>
-          <div className="flex items-center justify-center gap-1 text-amber-400 font-semibold" title="Adaptando (1.8 - 4.5 pts)">
+          <div className="flex items-center justify-center gap-1 text-amber-400 font-semibold" title="En recuperación (1.00 – 2.99 FEU)">
             <span className="w-2 h-2 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50 shrink-0" />
-            <span>Adaptando</span>
+            <span className="truncate">Recuperando</span>
           </div>
-          <div className="flex items-center justify-center gap-1 text-emerald-400 font-semibold" title="Listo / Recuperado (&lt;1.8 pts)">
+          <div className="flex items-center justify-center gap-1 text-emerald-400 font-semibold" title="Listo (0.25 – 0.99 FEU)">
             <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 shrink-0" />
-            <span>Listo</span>
+            <span className="truncate">Listo</span>
+          </div>
+          <div className="flex items-center justify-center gap-1 text-zinc-400 font-semibold" title="Fresco (<0.25 FEU)">
+            <span className="w-2 h-2 rounded-full bg-white/20 border border-white/30 shrink-0" />
+            <span className="truncate">Fresco</span>
           </div>
         </div>
       )}
@@ -532,6 +576,131 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           ) : (
             <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
               Toca cualquier región anatómica en el cuerpo para ver sus series de exposición y componentes reclutados.
+            </p>
+          )
+        ) : mode === 'fatigue' ? (
+          selectedPath ? (
+            (() => {
+              const fData = fatigueByPath?.[selectedPath];
+              const state = fData?.state ?? 'fresh';
+              const hoursAgo = fData?.lastExposedAt
+                ? Math.max(0, Math.round((Date.now() - Date.parse(fData.lastExposedAt)) / (1000 * 60 * 60)))
+                : null;
+              const stateBadge =
+                state === 'fatigued'
+                  ? { text: 'Fatigado', bg: 'bg-rose-500/20 text-rose-300 border-rose-500/30' }
+                  : state === 'recovering'
+                  ? { text: 'En recuperación', bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
+                  : state === 'ready'
+                  ? { text: 'Listo', bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' }
+                  : { text: 'Fresco', bg: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
+
+              return (
+                <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-extrabold text-white">
+                        {getBodyPathDisplayName(selectedPath, 'es')}
+                      </h4>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${stateBadge.bg}`}>
+                        {stateBadge.text}
+                      </span>
+                      {fData && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-white/[0.06] border border-white/10">
+                          Certeza: {fData.confidence === 'high' ? 'Alta' : fData.confidence === 'moderate' ? 'Moderada' : 'Baja'}
+                        </span>
+                      )}
+                      {fData && fData.unknownEffortCount > 0 && fData.unknownEffortCount >= fData.totalEligibleSets && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/30">
+                          Esfuerzo sin registrar
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onSelectPath?.(null)}
+                      className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+
+                  {/* Incomplete effort alert banner */}
+                  {fData && fData.unknownEffortCount > 0 && (
+                    <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 font-mono leading-relaxed">
+                      ⚠️ Datos de esfuerzo incompletos: {fData.unknownEffortCount} de {fData.totalEligibleSets} series no registraron RIR o RPE. La baja carga residual estimada refleja ausencia de datos de intensidad, no necesariamente recuperación muscular completa.
+                    </div>
+                  )}
+
+                  {/* 3 Metrics Cards */}
+                  <div className="grid grid-cols-3 gap-2 text-center font-mono">
+                    {/* Metric 1: Residual Load */}
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                      <span className="text-[10px] text-zinc-500 block uppercase">Carga residual</span>
+                      <span className={`text-sm font-bold ${
+                        state === 'fatigued'
+                          ? 'text-rose-400'
+                          : state === 'recovering'
+                          ? 'text-amber-400'
+                          : state === 'ready'
+                          ? 'text-emerald-400'
+                          : 'text-white'
+                      }`}>
+                        {fData?.residualFeu ? fData.residualFeu.toFixed(2) : '0.00'} FEU
+                      </span>
+                      <span className="text-[10px] text-zinc-400 block mt-0.5">Activa ahora</span>
+                    </div>
+
+                    {/* Metric 2: 7-day Load */}
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                      <span className="text-[10px] text-zinc-500 block uppercase">Carga 7 días</span>
+                      <span className="text-sm font-bold text-accent">
+                        {fData?.rolling7DayFeu ? fData.rolling7DayFeu.toFixed(2) : '0.00'} FEU
+                      </span>
+                      <span className="text-[10px] text-zinc-400 block mt-0.5">
+                        {fData?.totalEligibleSets ?? 0} series
+                      </span>
+                    </div>
+
+                    {/* Metric 3: Time elapsed */}
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
+                      <span className="text-[10px] text-zinc-500 block uppercase">Última exposición</span>
+                      <span className="text-sm font-bold text-white">
+                        {hoursAgo !== null ? `Hace ${hoursAgo}h` : 'Descansado'}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 block mt-0.5">
+                        {fData?.unknownEffortCount ? `${fData.unknownEffortCount} s/ RIR` : 'Esfuerzo medido'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Contributors list */}
+                  {fData && fData.contributors.length > 0 && (
+                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04] space-y-1.5 font-mono">
+                      <span className="text-[10px] text-zinc-400 block font-semibold">
+                        Componentes anatómicos que aportan a esta región:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {fData.contributors.map((c) => (
+                          <span
+                            key={getContributionTargetKey(c.target)}
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-white/[0.06] border border-white/10 text-zinc-300 flex items-center gap-1"
+                          >
+                            <span>{getMuscleTargetDisplayName(c.target, 'es')}</span>
+                            <span className="text-accent font-bold">({c.residualFeu.toFixed(2)} FEU)</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+            <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
+              Toca cualquier región anatómica en el cuerpo para ver su carga de fatiga en FEU y componentes reclutados.
             </p>
           )
         ) : selectedData ? (

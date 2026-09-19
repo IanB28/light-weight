@@ -268,8 +268,9 @@ export interface MuscleFatigueResult {
 }
 
 /**
- * Calculates physiological fatigue per muscle group using volume, intensity (RIR),
- * and exponential time decay (tau = 28 hours).
+ * @deprecated Legacy fatigue calculation based on exponential decay and heuristic multipliers.
+ * Superseded by FatiguePolicyV1 and calculateTargetFatigueV2 in fatiguePolicy.ts.
+ * Retained strictly for backwards-compatibility; has no active production UI consumers.
  *
  * Sets near failure (RIR 0-1) incur high neuromuscular damage multiplier (1.6x - 2.0x),
  * while submaximal sets (RIR 3+) generate minimal fatigue (1.0x).

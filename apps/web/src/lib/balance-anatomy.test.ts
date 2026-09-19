@@ -111,7 +111,7 @@ test('2. Multi-set aggregation: multiple sets accurately accumulate deduplicated
           completed: true,
           setType: 'working',
           isWarmup: false,
-          rir: 3 // submaximal
+          rir: 4 // submaximal (RIR >= 4)
         },
         {
           setIndex: 2,
