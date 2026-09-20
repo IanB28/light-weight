@@ -156,9 +156,11 @@ export const loggedSets = pgTable('logged_sets', {
   check('logged_sets_machine_base_status_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status IN ('none', 'unknown', 'suggested', 'verified', 'user_defined')`),
   check('logged_sets_machine_base_kg_check', sql`machine_base_resistance_kg IS NULL OR machine_base_resistance_kg >= 0`),
   check('logged_sets_machine_base_unknown_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'unknown' OR machine_base_resistance_kg IS NULL`),
-  check('logged_sets_machine_base_none_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'none' OR machine_base_resistance_kg IS NULL OR machine_base_resistance_kg = 0`),
+  check('logged_sets_machine_base_none_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'none' OR machine_base_resistance_kg = 0`),
   check('logged_sets_machine_base_positive_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status NOT IN ('suggested', 'user_defined', 'verified') OR machine_base_resistance_kg > 0`),
-  check('logged_sets_machine_base_verified_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'verified' OR (machine_base_resistance_kg > 0 AND (machine_base_source_url IS NOT NULL OR (machine_manufacturer IS NOT NULL AND machine_model IS NOT NULL AND machine_base_source_label IS NOT NULL)))`)
+  check('logged_sets_machine_base_verified_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'verified' OR (machine_base_resistance_kg > 0 AND (machine_base_source_url IS NOT NULL OR (machine_manufacturer IS NOT NULL AND machine_model IS NOT NULL AND machine_base_source_label IS NOT NULL)))`),
+  check('logged_sets_machine_base_requires_status_check', sql`machine_base_resistance_kg IS NULL OR machine_base_resistance_status IS NOT NULL`),
+  check('logged_sets_machine_base_total_load_check', sql`machine_base_resistance_kg IS NULL OR weight_kg >= machine_base_resistance_kg`)
 ]);
 
 // 8. Récords personales (PRs) calculados

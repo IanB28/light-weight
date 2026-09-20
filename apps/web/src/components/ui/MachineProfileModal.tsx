@@ -8,6 +8,7 @@ import { formatDisplayWeight } from '../../lib/weight-units.js';
 import {
   type MachineProfile,
   type BaseResistanceStatus,
+  type MachineBaseSelection,
   kilogramsToPounds,
   poundsToKilograms
 } from '@light-weight/domain';
@@ -26,11 +27,7 @@ export interface MachineProfileModalProps {
   currentProfileId?: string;
   currentStatus?: BaseResistanceStatus;
   currentWeightKg?: number;
-  onSelectProfile: (
-    profile: MachineProfile | null,
-    status: BaseResistanceStatus,
-    weightKg: number | null
-  ) => void;
+  onSelectProfile: (selection: MachineBaseSelection) => void;
 }
 
 export function MachineProfileModal({
@@ -126,7 +123,11 @@ export function MachineProfileModal({
       refreshProfiles();
       setIsCreating(false);
       setEditingId(null);
-      onSelectProfile(saved, saved.baseResistanceStatus, saved.baseResistanceKg ?? (saved.baseResistanceStatus === 'none' ? 0 : null));
+      onSelectProfile({
+        profile: saved,
+        status: saved.baseResistanceStatus,
+        weightKg: saved.baseResistanceKg ?? (saved.baseResistanceStatus === 'none' ? 0 : null)
+      });
       onClose();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Error al guardar');
@@ -138,18 +139,30 @@ export function MachineProfileModal({
     deleteMachineProfile(id);
     refreshProfiles();
     if (currentProfileId === id) {
-      onSelectProfile(null, 'unknown', null);
+      onSelectProfile({
+        profile: undefined,
+        status: 'unknown',
+        weightKg: null
+      });
     }
   };
 
   const handleSelectUnknown = () => {
-    onSelectProfile(null, 'unknown', null);
+    onSelectProfile({
+      profile: undefined,
+      status: 'unknown',
+      weightKg: null
+    });
     onClose();
   };
 
   const handleSelectNone = () => {
     // 0 kg tare
-    onSelectProfile(null, 'none', 0);
+    onSelectProfile({
+      profile: undefined,
+      status: 'none',
+      weightKg: 0
+    });
     onClose();
   };
 
@@ -168,21 +181,29 @@ export function MachineProfileModal({
       });
 
       refreshProfiles();
-      onSelectProfile(saved, 'suggested', suggestion.weightKg);
+      onSelectProfile({
+        profile: saved,
+        status: 'suggested',
+        weightKg: suggestion.weightKg
+      });
       onClose();
     } catch {
       // Fallback
-      onSelectProfile(null, 'suggested', suggestion.weightKg);
+      onSelectProfile({
+        profile: undefined,
+        status: 'suggested',
+        weightKg: suggestion.weightKg
+      });
       onClose();
     }
   };
 
   const handleSelectProfile = (p: MachineProfile) => {
-    onSelectProfile(
-      p,
-      p.baseResistanceStatus,
-      p.baseResistanceKg ?? (p.baseResistanceStatus === 'none' ? 0 : null)
-    );
+    onSelectProfile({
+      profile: p,
+      status: p.baseResistanceStatus,
+      weightKg: p.baseResistanceKg ?? (p.baseResistanceStatus === 'none' ? 0 : null)
+    });
     onClose();
   };
 

@@ -105,6 +105,17 @@ export function normalizeIncomingSyncSet<T extends SyncSetInput>(set: T): T & {
   if (set.machineBaseResistanceKg !== undefined && set.machineBaseResistanceStatus === undefined) {
     throw new SyncValidationError('INVALID_MACHINE_BASE_MISSING_STATUS', 'Machine base resistance status is required when machine base resistance weight is provided');
   }
+  if (
+    set.machineBaseResistanceKg !== undefined &&
+    typeof set.weightKg === 'number' &&
+    Number.isFinite(set.weightKg) &&
+    set.weightKg < set.machineBaseResistanceKg
+  ) {
+    throw new SyncValidationError(
+      'INVALID_MACHINE_TOTAL_LOAD',
+      'Weight cannot be less than machine base resistance'
+    );
+  }
   return normalizeLoggedSet(set);
 }
 

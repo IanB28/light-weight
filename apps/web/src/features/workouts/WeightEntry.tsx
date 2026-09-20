@@ -1,12 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Disc3 } from 'lucide-react';
-import { calculateLoadedBarWeight, decomposeLoadedBarWeight, getPlateLoadMultiplier, normalizeWeightKg } from '@light-weight/domain';
-import type { ExerciseLoadingProfile } from '@light-weight/domain';
+import {
+  calculateLoadedBarWeight,
+  decomposeLoadedBarWeight,
+  getPlateLoadMultiplier,
+  normalizeWeightKg,
+  type ExerciseLoadingProfile,
+  type MachineSnapshot
+} from '@light-weight/domain';
 import type { UnitSystem } from '../../lib/preferences.js';
 import { useI18n } from '../../lib/i18n.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import { BottomSheet, Button } from '../../components/ui/index.js';
 import { WeightPlate } from './WeightPlate.js';
+
+export type { MachineSnapshot };
 
 export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }: { valueKg: number; units: UnitSystem; label: string; prefix?: string; onChange: (weightKg: number) => void }) {
   const displayValue = displayWeight(valueKg, units);
@@ -65,17 +73,6 @@ export function PlateWeightButton({ valueKg, units, label, prefix, onClick }: { 
       <span className="truncate">{prefix ? `${prefix}${displayWeight(valueKg, units)}` : displayWeight(valueKg, units)}</span>
     </button>
   );
-}
-
-export interface MachineSnapshot {
-  machineProfileId?: string;
-  machineProfileLabel?: string;
-  machineBaseResistanceKg?: number;
-  machineBaseResistanceStatus?: import('@light-weight/domain').BaseResistanceStatus;
-  machineBaseSourceLabel?: string;
-  machineBaseSourceUrl?: string;
-  machineManufacturer?: string;
-  machineModel?: string;
 }
 
 export function PlatePickerSheet({
@@ -286,8 +283,9 @@ export function PlatePickerSheet({
           )
         ) : (
           <Button
-            disabled={!isExactInitialLoad && !hasInteracted}
+            disabled={(!isExactInitialLoad && !hasInteracted) || (isPlateMachine && !isUnknownMachineBase && selectedBaseWeightKg > 0 && totalKg < selectedBaseWeightKg)}
             onClick={() => {
+              if (isPlateMachine && !isUnknownMachineBase && selectedBaseWeightKg > 0 && totalKg < selectedBaseWeightKg) return;
               const machineSnapshot: MachineSnapshot | undefined = isPlateMachine ? {
                 machineProfileId,
                 machineProfileLabel,

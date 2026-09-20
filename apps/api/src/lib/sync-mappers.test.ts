@@ -310,3 +310,66 @@ test('sync hydration safely preserves machine base resistance or degrades missin
   assert.equal(legacy.machineBaseResistanceKg, undefined);
   assert.equal(legacy.machineBaseResistanceStatus, undefined);
 });
+
+test('sync input validates total load invariant weightKg >= machineBaseResistanceKg', () => {
+  // Reject when weightKg < machineBaseResistanceKg
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      weightKg: 15,
+      machineBaseResistanceKg: 20,
+      machineBaseResistanceStatus: 'user_defined'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_TOTAL_LOAD'
+  );
+
+  // Accept when weightKg >= machineBaseResistanceKg
+  const validEqual = normalizeIncomingSyncSet({
+    ...base,
+    weightKg: 20,
+    machineBaseResistanceKg: 20,
+    machineBaseResistanceStatus: 'user_defined'
+  });
+  assert.equal(validEqual.weightKg, 20);
+  assert.equal(validEqual.machineBaseResistanceKg, 20);
+
+  const validGreater = normalizeIncomingSyncSet({
+    ...base,
+    weightKg: 100,
+    machineBaseResistanceKg: 20,
+    machineBaseResistanceStatus: 'user_defined'
+  });
+  assert.equal(validGreater.weightKg, 100);
+  assert.equal(validGreater.machineBaseResistanceKg, 20);
+});
+
+test('sync hydration safely degrades contradictory total load claim (weightKg < base) without rewriting weightKg', () => {
+  // Historical data where weightKg < machineBaseResistanceKg:
+  // preserves weightKg, degrades machineBaseResistanceKg to undefined and status to unknown/absent, strips provenance
+  const degraded = hydrateSyncedSet({
+    ...base,
+    weightKg: 10,
+    machineProfileId: 'mp-smith-legacy',
+    machineProfileLabel: 'Gym Smith',
+    machineBaseResistanceKg: 20,
+    machineBaseResistanceStatus: 'user_defined',
+    machineBaseSourceLabel: 'Some label'
+  });
+  assert.equal(degraded.weightKg, 10);
+  assert.equal(degraded.machineProfileId, 'mp-smith-legacy');
+  assert.equal(degraded.machineProfileLabel, 'Gym Smith');
+  assert.equal(degraded.machineBaseResistanceKg, undefined);
+  assert.equal(degraded.machineBaseResistanceStatus, 'unknown');
+  assert.equal(degraded.machineBaseSourceLabel, undefined);
+
+  // Without profileId, status degrades to undefined
+  const degradedNoProfile = hydrateSyncedSet({
+    ...base,
+    weightKg: 5,
+    machineBaseResistanceKg: 15,
+    machineBaseResistanceStatus: 'suggested'
+  });
+  assert.equal(degradedNoProfile.weightKg, 5);
+  assert.equal(degradedNoProfile.machineBaseResistanceKg, undefined);
+  assert.equal(degradedNoProfile.machineBaseResistanceStatus, undefined);
+});

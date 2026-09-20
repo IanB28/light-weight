@@ -111,7 +111,25 @@ export interface LoggedSet {
   machineModel?: string;
 }
 
+export interface MachineSnapshot {
+  machineProfileId?: string;
+  machineProfileLabel?: string;
+  machineBaseResistanceKg?: number;
+  machineBaseResistanceStatus?: import('./machineProfile.js').BaseResistanceStatus;
+  machineBaseSourceLabel?: string;
+  machineBaseSourceUrl?: string;
+  machineManufacturer?: string;
+  machineModel?: string;
+}
+
+export interface MachineBaseSelection {
+  profile?: import('./machineProfile.js').MachineProfile;
+  status: import('./machineProfile.js').BaseResistanceStatus;
+  weightKg: number | null;
+}
+
 export interface WorkoutSession {
+
   id: string;
   userId: string;
   routineId?: string;

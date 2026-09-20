@@ -53,7 +53,7 @@ interface WorkoutViewProps {
   onToggleAddedWeight: (exerciseId: string, enabled: boolean) => void;
   onUpdateBarInclusion: (exerciseId: string, includeBarWeight: boolean) => void;
   onUpdatePlateBaseWeight: (exerciseId: string, weightKg: number) => void;
-  onUpdateMachineProfile?: (exerciseId: string, profile: import('@light-weight/domain').MachineProfile | undefined) => void;
+  onUpdateMachineProfile?: (exerciseId: string, selection: import('@light-weight/domain').MachineBaseSelection) => void;
   onApplyPlateWeight?: (exerciseId: string, setIndex: number, weightKg: number, includeBarWeight: boolean, baseWeightKg: number, machineSnapshot?: import('../features/workouts/WeightEntry.js').MachineSnapshot) => void;
 }
 
@@ -225,8 +225,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         currentProfileId={calibratingMachineSession.machineProfileId}
         currentStatus={calibratingMachineSession.machineBaseResistanceStatus}
         currentWeightKg={calibratingMachineSession.machineBaseResistanceKg}
-        onSelectProfile={(profile) => {
-          onUpdateMachineProfile?.(calibratingMachineSession.exercise.id, profile ?? undefined);
+        onSelectProfile={(selection) => {
+          onUpdateMachineProfile?.(calibratingMachineSession.exercise.id, selection);
           setCalibratingMachineSession(null);
         }}
       />

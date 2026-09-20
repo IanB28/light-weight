@@ -14,7 +14,10 @@ import {
   type WorkoutSession,
   type WorkoutSetType,
   type MachineProfile,
-  type BaseResistanceStatus
+  type BaseResistanceStatus,
+  type MachineSnapshot,
+  type MachineBaseSelection,
+  normalizeMachineBaseSelection
 } from '@light-weight/domain';
 import {
   clearActiveWorkout,
@@ -218,16 +221,7 @@ export function applyPlateWeightInSessions(
   weightKg: number,
   includeBarWeight: boolean,
   baseWeightKg: number,
-  machineSnapshot?: {
-    machineProfileId?: string;
-    machineProfileLabel?: string;
-    machineBaseResistanceKg?: number;
-    machineBaseResistanceStatus?: BaseResistanceStatus;
-    machineBaseSourceLabel?: string;
-    machineBaseSourceUrl?: string;
-    machineManufacturer?: string;
-    machineModel?: string;
-  }
+  machineSnapshot?: MachineSnapshot
 ): ActiveExerciseSession[] {
   return sessions.map((session) => {
     if (session.exercise.id !== exerciseId || session.skipped) return session;
@@ -271,6 +265,24 @@ export function toggleSetInSessions(
         if (set.setIndex !== setIndex) return set;
         const valid = Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0;
         if (!set.completed && !valid) return set;
+        const hasExistingSnapshot = Boolean(
+          set.machineProfileId ||
+          set.machineBaseResistanceStatus
+        );
+        const effectiveBaseKg = hasExistingSnapshot
+          ? set.machineBaseResistanceKg
+          : (isPlateMachine ? session.machineBaseResistanceKg : undefined);
+        if (!set.completed && effectiveBaseKg !== undefined && set.weightKg < effectiveBaseKg) {
+          return set;
+        }
+        const effectiveStatus = hasExistingSnapshot
+          ? set.machineBaseResistanceStatus
+          : (isPlateMachine
+              ? (session.machineBaseResistanceStatus ?? 'unknown')
+              : undefined);
+        if (!set.completed && isPlateMachine && effectiveStatus === 'unknown' && !hasExistingSnapshot) {
+          return set;
+        }
         completed = !set.completed;
         if (!completed) {
           return {
@@ -279,7 +291,6 @@ export function toggleSetInSessions(
           };
         }
         // Invariant: If set already has a snapshot -> preserve it; if set has no snapshot and completes -> snapshot current applicable context.
-        const hasExistingSnapshot = Boolean(set.machineProfileId || set.machineBaseResistanceStatus);
         return {
           ...set,
           completed: true,
@@ -316,14 +327,14 @@ export function addSetToSessions(
         setType,
         isWarmup: setType === 'warmup',
         rir: undefined,
-        machineProfileId: session.machineProfileId,
-        machineProfileLabel: session.machineProfileLabel,
-        machineBaseResistanceKg: session.machineBaseResistanceKg,
-        machineBaseResistanceStatus: session.machineProfileId ? session.machineBaseResistanceStatus : undefined,
-        machineBaseSourceLabel: session.machineBaseSourceLabel,
-        machineBaseSourceUrl: session.machineBaseSourceUrl,
-        machineManufacturer: session.machineManufacturer,
-        machineModel: session.machineModel
+        machineProfileId: undefined,
+        machineProfileLabel: undefined,
+        machineBaseResistanceKg: undefined,
+        machineBaseResistanceStatus: undefined,
+        machineBaseSourceLabel: undefined,
+        machineBaseSourceUrl: undefined,
+        machineManufacturer: undefined,
+        machineModel: undefined
       }]
     };
   });
@@ -343,48 +354,29 @@ export function removeSetFromSessions(
 export function updateMachineProfileInSessions(
   sessions: ActiveExerciseSession[],
   exerciseId: string,
-  profile: MachineProfile | undefined
+  selection: MachineBaseSelection | MachineProfile | undefined
 ): ActiveExerciseSession[] {
   return sessions.map((session) => {
     if (session.exercise.id !== exerciseId || session.skipped) return session;
-    const resolved = resolveMachineBaseResistance(session.exercise.loading ?? DEFAULT_EXERCISE_LOADING_PROFILE, profile);
-    const machineProfileId = profile?.id;
-    const machineProfileLabel = profile?.label;
-    const machineBaseResistanceKg = resolved.weightKg ?? undefined;
-    const machineBaseResistanceStatus = resolved.status;
-    const machineBaseSourceLabel = profile?.sourceLabel;
-    const machineBaseSourceUrl = profile?.sourceUrl;
-    const machineManufacturer = profile?.manufacturer;
-    const machineModel = profile?.model;
+
+    const normalized = normalizeMachineBaseSelection(
+      selection,
+      session.exercise.loading ?? DEFAULT_EXERCISE_LOADING_PROFILE
+    );
+
     return {
       ...session,
-      machineProfileId,
-      machineProfileLabel,
-      machineBaseResistanceKg,
-      machineBaseResistanceStatus,
-      machineBaseSourceLabel,
-      machineBaseSourceUrl,
-      machineManufacturer,
-      machineModel,
-      plateBaseWeightKg: machineBaseResistanceKg,
-      sets: session.sets.map((set) => {
-        if (set.completed) return set;
-        // Invariant: If set has ANY machine snapshot provenance -> preserve it
-        // regardless of status: unknown, none, suggested, user_defined, verified.
-        const hasSnapshot = Boolean(set.machineProfileId || set.machineBaseResistanceStatus);
-        if (hasSnapshot) return set;
-        return {
-          ...set,
-          machineProfileId,
-          machineProfileLabel,
-          machineBaseResistanceKg,
-          machineBaseResistanceStatus,
-          machineBaseSourceLabel,
-          machineBaseSourceUrl,
-          machineManufacturer,
-          machineModel
-        };
-      })
+      machineProfileId: normalized.profile?.id,
+      machineProfileLabel: normalized.profile?.label,
+      machineBaseResistanceKg: normalized.weightKg,
+      machineBaseResistanceStatus: normalized.status,
+      machineBaseSourceLabel: normalized.sourceLabel,
+      machineBaseSourceUrl: normalized.sourceUrl,
+      machineManufacturer: normalized.manufacturer,
+      machineModel: normalized.model,
+      plateBaseWeightKg: normalized.weightKg,
+      // Invariant 3: SESSION PROFILE != SET SNAPSHOT. Untouched sets remain untouched.
+      sets: session.sets
     };
   });
 }
@@ -397,15 +389,7 @@ export function serializeWorkoutSets(exerciseSessions: ActiveExerciseSession[]):
     }
     sets[session.exercise.id] = session.sets.map((set) => normalizeLoggedSet({
       ...set,
-      completed: set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0,
-      machineProfileId: set.machineProfileId ?? session.machineProfileId,
-      machineProfileLabel: set.machineProfileLabel ?? session.machineProfileLabel,
-      machineBaseResistanceKg: set.machineBaseResistanceKg ?? session.machineBaseResistanceKg,
-      machineBaseResistanceStatus: set.machineBaseResistanceStatus ?? session.machineBaseResistanceStatus,
-      machineBaseSourceLabel: set.machineBaseSourceLabel ?? session.machineBaseSourceLabel,
-      machineBaseSourceUrl: set.machineBaseSourceUrl ?? session.machineBaseSourceUrl,
-      machineManufacturer: set.machineManufacturer ?? session.machineManufacturer,
-      machineModel: set.machineModel ?? session.machineModel
+      completed: set.completed && Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0
     }));
   }
   return sets;
@@ -475,20 +459,10 @@ export function createDefaultExerciseSession(
       )
     : 0;
   // Preserve a user's own valid last load; zero is the conservative semantic fallback.
-  const defaultWeight = resolveInitialWeightKg(previousTopSet?.weightKg, semanticDefaultWeight);
-
-  // If a profile was previously calibrated/configured, initial sets inherit it.
-  // If first use (no profile), initial sets start with NO SNAPSHOT (undefined) until user interacts or configures.
-  const initialSetSnapshot = machineProfileId ? {
-    machineProfileId,
-    machineProfileLabel,
-    machineBaseResistanceKg,
-    machineBaseResistanceStatus,
-    machineBaseSourceLabel,
-    machineBaseSourceUrl,
-    machineManufacturer,
-    machineModel
-  } : {};
+  let defaultWeight = resolveInitialWeightKg(previousTopSet?.weightKg, semanticDefaultWeight);
+  if (isPlateMachine && machineBaseResistanceStatus === 'unknown') {
+    defaultWeight = 0;
+  }
 
   const initialSets = [
     {
@@ -499,7 +473,14 @@ export function createDefaultExerciseSession(
       setType: 'working' as const,
       isWarmup: false,
       rir: undefined,
-      ...initialSetSnapshot
+      machineProfileId: undefined,
+      machineProfileLabel: undefined,
+      machineBaseResistanceKg: undefined,
+      machineBaseResistanceStatus: undefined,
+      machineBaseSourceLabel: undefined,
+      machineBaseSourceUrl: undefined,
+      machineManufacturer: undefined,
+      machineModel: undefined
     },
     {
       setIndex: 2,
@@ -509,7 +490,14 @@ export function createDefaultExerciseSession(
       setType: 'working' as const,
       isWarmup: false,
       rir: undefined,
-      ...initialSetSnapshot
+      machineProfileId: undefined,
+      machineProfileLabel: undefined,
+      machineBaseResistanceKg: undefined,
+      machineBaseResistanceStatus: undefined,
+      machineBaseSourceLabel: undefined,
+      machineBaseSourceUrl: undefined,
+      machineManufacturer: undefined,
+      machineModel: undefined
     },
     {
       setIndex: 3,
@@ -519,7 +507,14 @@ export function createDefaultExerciseSession(
       setType: 'working' as const,
       isWarmup: false,
       rir: undefined,
-      ...initialSetSnapshot
+      machineProfileId: undefined,
+      machineProfileLabel: undefined,
+      machineBaseResistanceKg: undefined,
+      machineBaseResistanceStatus: undefined,
+      machineBaseSourceLabel: undefined,
+      machineBaseSourceUrl: undefined,
+      machineManufacturer: undefined,
+      machineModel: undefined
     }
   ];
 
@@ -567,6 +562,10 @@ export function createDefaultExerciseSession(
     machineProfileLabel,
     machineBaseResistanceKg,
     machineBaseResistanceStatus,
+    machineBaseSourceLabel,
+    machineBaseSourceUrl,
+    machineManufacturer,
+    machineModel,
     skipped: false,
     sets: initialSets
   };
@@ -788,11 +787,20 @@ export function useWorkoutSession({
     )));
   };
 
-  const updateMachineProfile = (exerciseId: string, profile: MachineProfile | undefined) => {
-    if (profile?.id) {
-      setLastUsedMachineProfileId(exerciseId, profile.id);
+  const updateMachineProfile = (
+    exerciseId: string,
+    selection: MachineBaseSelection | MachineProfile | undefined
+  ) => {
+    const profileId = selection && 'profile' in selection
+      ? selection.profile?.id
+      : (selection && 'id' in selection ? selection.id : undefined);
+
+    if (profileId) {
+      setLastUsedMachineProfileId(exerciseId, profileId);
+    } else {
+      setLastUsedMachineProfileId(exerciseId, null);
     }
-    setExerciseSessions((current) => updateMachineProfileInSessions(current, exerciseId, profile));
+    setExerciseSessions((current) => updateMachineProfileInSessions(current, exerciseId, selection));
   };
 
   const applyPlateWeight = (
@@ -801,12 +809,7 @@ export function useWorkoutSession({
     weightKg: number,
     includeBarWeight: boolean,
     baseWeightKg: number,
-    machineSnapshot?: {
-      machineProfileId?: string;
-      machineProfileLabel?: string;
-      machineBaseResistanceKg?: number;
-      machineBaseResistanceStatus?: BaseResistanceStatus;
-    }
+    machineSnapshot?: MachineSnapshot
   ) => {
     setExerciseSessions((current) =>
       applyPlateWeightInSessions(

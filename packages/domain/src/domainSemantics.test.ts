@@ -6,7 +6,7 @@ import {
   resolveExerciseLoadingProfile,
   resolvePlateBaseWeightKg
 } from './exerciseLoading.js';
-import { calculateLoadedBarWeight, poundsToKilograms, resolveBodyweightKgAtDate } from './weight.js';
+import { calculateLoadedBarWeight, kilogramsToPounds, poundsToKilograms, resolveBodyweightKgAtDate } from './weight.js';
 import {
   calculateEffectiveLoadKg,
   isEffectiveSet,
@@ -181,19 +181,24 @@ test('isExerciseLoadingProfile validates factor ranges, mechanism coherence, and
   }), false);
 });
 
-test('Smith machines use their fixed 20 lb base, not the user barbell preference', () => {
+test('Smith machines have hasMachineBase true and suggestions without fixed physical tare', () => {
   const smith = resolveExerciseLoadingProfile(exercise({ id: 'ex-0748', name: 'Smith bench press', category: 'machine' })).profile;
-  const base20 = resolvePlateBaseWeightKg(smith, 100);
-  const base22 = resolvePlateBaseWeightKg(smith, 100, poundsToKilograms(22));
-  assert.equal(Math.round(base20 * 100) / 100, Math.round(poundsToKilograms(20) * 100) / 100);
-  assert.equal(Math.round(base22 * 100) / 100, Math.round(poundsToKilograms(22) * 100) / 100);
-  assert.equal(Math.round(calculateLoadedBarWeight(base20, [poundsToKilograms(45)]) * 10) / 10, 49.9);
+  assert.equal(smith.hasMachineBase, true);
+  assert.equal(smith.suggestions?.length, 2);
+  assert.equal(Math.round(kilogramsToPounds(smith.suggestions?.[0].weightKg || 0)), 20);
+  assert.equal(Math.round(kilogramsToPounds(smith.suggestions?.[1].weightKg || 0)), 22);
+  assert.notEqual(smith.plateBase?.kind, 'fixed');
+  assert.equal(resolvePlateBaseWeightKg(smith, 100), 0);
+
   const equipmentFallback = resolveExerciseLoadingProfile(exercise({ id: 'legacy-smith', category: 'machine' }), { legacyEquipment: 'Smith machine' }).profile;
-  assert.equal(equipmentFallback.plateBase?.label, 'smith');
-  assert.equal(Math.round(resolvePlateBaseWeightKg(equipmentFallback, 200) * 100) / 100, Math.round(poundsToKilograms(20) * 100) / 100);
+  assert.equal(equipmentFallback.hasMachineBase, true);
+  assert.equal(equipmentFallback.suggestions?.length, 2);
+
   const nameFallback = resolveExerciseLoadingProfile(exercise({ id: 'new-smith', name: 'Smith machine squat', category: 'machine' })).profile;
-  assert.equal(nameFallback.plateBase?.label, 'smith');
+  assert.equal(nameFallback.hasMachineBase, true);
+  assert.equal(nameFallback.suggestions?.length, 2);
 });
+
 
 test('legacy set classification normalizes to canonical setType', () => {
   assert.equal(normalizeWorkoutSetType({ isWarmup: true }), 'warmup');

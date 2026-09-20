@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateEffectiveLoadKg, kilogramsToPounds, resolveExerciseLoadingProfile } from '@light-weight/domain';
+import { calculateEffectiveLoadKg, kilogramsToPounds, resolveExerciseLoadingProfile, resolvePlateBaseWeightKg } from '@light-weight/domain';
 import { toDomainExercise, type ExerciseRow } from '../routes/exercises.js';
 
 function row(overrides: Partial<ExerciseRow>): ExerciseRow {
@@ -13,17 +13,20 @@ function row(overrides: Partial<ExerciseRow>): ExerciseRow {
   };
 }
 
-test('DB Smith row round-trip reconstructs fixed/selectable 20/22 lb base', () => {
+test('DB Smith row round-trip reconstructs machine base suggestions (20/22 lb)', () => {
   const mapped = toDomainExercise(row({}));
   const profile = resolveExerciseLoadingProfile(mapped).profile;
-  assert.equal(profile.plateBase?.kind, 'fixed');
-  assert.equal(Math.round(kilogramsToPounds(profile.plateBase?.weightKg || 0)), 20);
-  assert.deepEqual(profile.plateBase?.selectableWeightsKg?.map((value) => Math.round(kilogramsToPounds(value))), [20, 22]);
+  assert.equal(profile.mechanism, 'plate_loaded');
+  assert.equal(profile.hasMachineBase, true);
+  assert.notEqual(profile.plateBase?.kind, 'fixed');
+  assert.deepEqual(profile.suggestions?.map((item) => Math.round(kilogramsToPounds(item.weightKg))), [20, 22]);
+  assert.equal(resolvePlateBaseWeightKg(profile, 20), 0, 'Must NOT reintroduce 20 lb as a known physical tare');
 });
 
-test('curated Smith id survives a generic DB loading profile', () => {
+test('curated Smith id survives a generic DB loading profile and restores machine base metadata', () => {
   const mapped = toDomainExercise(row({ id: 'ex-0748', name: 'Bench press machine' }));
-  assert.equal(mapped.loading?.plateBase?.label, 'smith');
+  assert.equal(mapped.loading?.hasMachineBase, true);
+  assert.deepEqual(mapped.loading?.suggestions?.map((item) => Math.round(kilogramsToPounds(item.weightKg))), [20, 22]);
 });
 
 test('toDomainExercise preserves explicit bodyweightFactor and assisted loadMode from DB row', () => {

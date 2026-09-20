@@ -108,14 +108,15 @@ test('6. Sled 45° leg press (ex-0739) IS an inherent resistance candidate', () 
   assert.ok(record.flags.includes('POSSIBLE_INHERENT_MACHINE_RESISTANCE'));
 });
 
-test('7. Smith exercise (ex-0748) with resolved plateBase.kind=fixed -> suggested', () => {
+test('7. Smith exercise (ex-0748) with suggestions -> suggested', () => {
   const raw = EXDB.find((e) => String(e.id) === '0748');
   assert.ok(raw, 'ex-0748 must exist in EXDB');
   const record = auditExercise(raw);
   assert.equal(record.id, 'ex-0748');
-  assert.equal(record.current.plateBaseKind, 'fixed');
+  assert.equal(record.current.plateBaseKind, 'none');
   assert.equal(record.inferred.machineResistanceClass, 'suggested');
 });
+
 
 test('8. suggested derives strictly from resolved loading profile plateBase.kind=fixed or suggestions', () => {
   // Mock profile with plateBase kind 'fixed'

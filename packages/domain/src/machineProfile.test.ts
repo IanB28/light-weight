@@ -5,6 +5,8 @@ import {
   isValidMachineProfile,
   isPlateLoadedMachine,
   resolveMachineBaseResistance,
+  isAuthoritativeProvenance,
+  normalizeMachineBaseSelection,
   type MachineProfile
 } from './machineProfile.js';
 import {
@@ -70,32 +72,59 @@ test('validateMachineProfile validates complete profile attributes', () => {
   const verifiedZero = { ...validProfile, baseResistanceStatus: 'verified' as const, baseResistanceKg: 0, sourceUrl: 'https://example.com' };
   assert.equal(isValidMachineProfile(verifiedZero), false);
 
-  // Verified requires authoritative provenance: free-form sourceLabel alone is NOT enough
-  const verifiedWeakSource = {
-    ...validProfile,
+  // Verified requires authoritative provenance: base resistance > 0 and (valid http/https URL OR manufacturer + model + sourceLabel)
+  const baseVerifiedProfile = {
+    id: 'prof-ver-1',
+    exerciseId: 'ex-smith-bench',
+    label: 'Smith #1',
     baseResistanceStatus: 'verified' as const,
     baseResistanceKg: 10,
-    sourceLabel: 'manual'
+    createdAt: '2026-09-19T00:00:00.000Z',
+    updatedAt: '2026-09-19T00:00:00.000Z'
   };
-  assert.equal(isValidMachineProfile(verifiedWeakSource), false);
-  const weakVal = validateMachineProfile(verifiedWeakSource);
+
+  // SourceLabel alone MUST fail
+  const sourceLabelOnly = { ...baseVerifiedProfile, sourceLabel: 'manual' };
+  assert.equal(isValidMachineProfile(sourceLabelOnly), false);
+  const weakVal = validateMachineProfile(sourceLabelOnly);
   assert.equal(weakVal.valid, false);
   assert.match(weakVal.error || '', /requires baseResistanceKg > 0 and either a valid http\/https sourceUrl or complete structured provenance/);
 
+  // Manufacturer alone MUST fail
+  const manufacturerOnly = { ...baseVerifiedProfile, manufacturer: 'Hammer Strength' };
+  assert.equal(isValidMachineProfile(manufacturerOnly), false);
+  assert.equal(validateMachineProfile(manufacturerOnly).valid, false);
+
+  // Model alone MUST fail
+  const modelOnly = { ...baseVerifiedProfile, model: 'Linear Leg Press' };
+  assert.equal(isValidMachineProfile(modelOnly), false);
+  assert.equal(validateMachineProfile(modelOnly).valid, false);
+
+  // Manufacturer + Model without sourceLabel MUST fail
+  const noSourceLabel = { ...baseVerifiedProfile, manufacturer: 'Hammer Strength', model: 'Linear Leg Press' };
+  assert.equal(isValidMachineProfile(noSourceLabel), false);
+  assert.equal(validateMachineProfile(noSourceLabel).valid, false);
+
+  // Manufacturer + SourceLabel without model MUST fail
+  const noModel = { ...baseVerifiedProfile, manufacturer: 'Hammer Strength', sourceLabel: 'Manual Section 4.2' };
+  assert.equal(isValidMachineProfile(noModel), false);
+  assert.equal(validateMachineProfile(noModel).valid, false);
+
+  // Model + SourceLabel without manufacturer MUST fail
+  const noManufacturer = { ...baseVerifiedProfile, model: 'Linear Leg Press', sourceLabel: 'Manual Section 4.2' };
+  assert.equal(isValidMachineProfile(noManufacturer), false);
+  assert.equal(validateMachineProfile(noManufacturer).valid, false);
+
   // Verified with valid http/https sourceUrl passes
   const verifiedUrl = {
-    ...validProfile,
-    baseResistanceStatus: 'verified' as const,
-    baseResistanceKg: 10,
+    ...baseVerifiedProfile,
     sourceUrl: 'https://cybexintl.com/specs/smith'
   };
   assert.equal(isValidMachineProfile(verifiedUrl), true);
 
-  // Verified with manufacturer + model + sourceLabel passes
+  // Verified with complete structured provenance (manufacturer + model + sourceLabel) passes
   const verifiedStructured = {
-    ...validProfile,
-    baseResistanceStatus: 'verified' as const,
-    baseResistanceKg: 10,
+    ...baseVerifiedProfile,
     manufacturer: 'Hammer Strength',
     model: 'Linear Leg Press',
     sourceLabel: 'Manual Section 4.2'
@@ -344,4 +373,116 @@ test('normalizeLoggedSet sanitizes machine base resistance fields', () => {
   assert.equal(degradedSet.machineBaseResistanceStatus, 'user_defined');
   assert.equal(degradedSet.machineBaseResistanceKg, 15);
   assert.equal(degradedSet.machineBaseSourceLabel, 'manual notes');
+});
+
+test('isAuthoritativeProvenance strictly validates URLs and structured provenance', () => {
+  // C: "https://" -> false
+  assert.equal(isAuthoritativeProvenance({ sourceUrl: 'https://' }), false);
+  // D: "http://" -> false
+  assert.equal(isAuthoritativeProvenance({ sourceUrl: 'http://' }), false);
+  // E: ftp URL -> false
+  assert.equal(isAuthoritativeProvenance({ sourceUrl: 'ftp://manufacturer.com/manual' }), false);
+  // Plain text -> false
+  assert.equal(isAuthoritativeProvenance({ sourceUrl: 'manufacturer manual' }), false);
+  // F: real http/https URL with hostname -> true
+  assert.equal(isAuthoritativeProvenance({ sourceUrl: 'https://manufacturer.com/manual.pdf' }), true);
+  assert.equal(isAuthoritativeProvenance({ sourceUrl: 'http://example.com/spec' }), true);
+  // G: manufacturer + model + sourceLabel -> true
+  assert.equal(isAuthoritativeProvenance({
+    manufacturer: 'Hammer Strength',
+    model: 'Linear Leg Press',
+    sourceLabel: 'Official Service Manual 2022'
+  }), true);
+
+  // Incomplete structured provenance must FAIL
+  assert.equal(isAuthoritativeProvenance({ sourceLabel: 'Service Manual Rev B' }), false);
+  assert.equal(isAuthoritativeProvenance({ manufacturer: 'Matrix' }), false);
+  assert.equal(isAuthoritativeProvenance({ model: 'XYZ123' }), false);
+  assert.equal(isAuthoritativeProvenance({ manufacturer: 'Matrix', model: 'XYZ123' }), false);
+  assert.equal(isAuthoritativeProvenance({ type: 'manual' }), false);
+  assert.equal(isAuthoritativeProvenance({ type: 'manufacturer_spec' }), false);
+
+  // Complete structured provenance must PASS
+  assert.equal(isAuthoritativeProvenance({
+    manufacturer: 'Matrix',
+    model: 'XYZ123',
+    sourceLabel: 'Service Manual Rev B'
+  }), true);
+  assert.equal(isAuthoritativeProvenance({
+    type: 'manual',
+    manufacturer: 'Matrix',
+    model: 'XYZ123',
+    sourceLabel: 'Service Manual Rev B'
+  }), true);
+  assert.equal(isAuthoritativeProvenance('https://manufacturer.com/manual.pdf'), true);
+});
+
+test('normalizeMachineBaseSelection normalizes profile-less and profile-backed selections', () => {
+  // H: profile-less unknown + 20 -> degraded to unknown with undefined kg
+  const degradedUnknown = normalizeMachineBaseSelection({
+    status: 'unknown',
+    weightKg: 20
+  });
+  assert.equal(degradedUnknown.status, 'unknown');
+  assert.equal(degradedUnknown.weightKg, undefined);
+
+  // I: profile-less none + 15 -> degraded to unknown with undefined kg
+  const degradedNone = normalizeMachineBaseSelection({
+    status: 'none',
+    weightKg: 15
+  });
+  assert.equal(degradedNone.status, 'unknown');
+  assert.equal(degradedNone.weightKg, undefined);
+
+  // J: profile-less none + 0 -> valid none with weight 0
+  const validNone = normalizeMachineBaseSelection({
+    status: 'none',
+    weightKg: 0
+  });
+  assert.equal(validNone.status, 'none');
+  assert.equal(validNone.weightKg, 0);
+
+  // K: profile-less suggested + positive kg -> valid suggested with positive kg
+  const validSuggested = normalizeMachineBaseSelection({
+    status: 'suggested',
+    weightKg: 9.07
+  });
+  assert.equal(validSuggested.status, 'suggested');
+  assert.equal(validSuggested.weightKg, 9.07);
+
+  // profile-less suggested + 0 -> degraded to unknown
+  const invalidSuggestedZero = normalizeMachineBaseSelection({
+    status: 'suggested',
+    weightKg: 0
+  });
+  assert.equal(invalidSuggestedZero.status, 'unknown');
+  assert.equal(invalidSuggestedZero.weightKg, undefined);
+
+  // profile-less verified -> degraded to unknown
+  const invalidVerifiedNoProfile = normalizeMachineBaseSelection({
+    status: 'verified',
+    weightKg: 15
+  });
+  assert.equal(invalidVerifiedNoProfile.status, 'unknown');
+  assert.equal(invalidVerifiedNoProfile.weightKg, undefined);
+
+  // profile-less user_defined -> degraded to unknown
+  const invalidUserDefinedNoProfile = normalizeMachineBaseSelection({
+    status: 'user_defined',
+    weightKg: 15
+  });
+  assert.equal(invalidUserDefinedNoProfile.status, 'unknown');
+  assert.equal(invalidUserDefinedNoProfile.weightKg, undefined);
+});
+
+test('normalizeMachineBaseSelection regression: Smith suggestions = [20 lb, 22 lb] MUST NOT auto-select 20 lb on null weightKg', () => {
+  const normalized = normalizeMachineBaseSelection({
+    status: 'suggested',
+    weightKg: null
+  });
+
+  assert.notEqual(normalized.weightKg, 9.07);
+  assert.notEqual(normalized.weightKg, 10);
+  assert.equal(normalized.status, 'unknown');
+  assert.equal(normalized.weightKg, undefined);
 });

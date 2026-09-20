@@ -46,15 +46,10 @@ export const SMITH_PROFILE: ExerciseLoadingProfile = Object.freeze({
   suggestions: Object.freeze([
     { weightKg: poundsToKilograms(20), label: '20 lb' },
     { weightKg: poundsToKilograms(22), label: '22 lb' }
-  ]),
-  plateBase: {
-    kind: 'fixed' as const,
-    weightKg: poundsToKilograms(20),
-    selectableWeightsKg: [poundsToKilograms(20), poundsToKilograms(22)],
-    label: 'smith' as const
-  }
+  ])
 });
 export const SELECTORIZED_PROFILE: ExerciseLoadingProfile = Object.freeze({
+
   mechanism: 'selectorized', loadMode: 'total', supportsKeyboard: true,
   supportsPlates: false, supportsExternalLoad: true, includeBarWeight: false
 });
@@ -227,8 +222,20 @@ export function resolveExerciseLoadingProfile(
     const bodyweightFactor = exercise.loading.mechanism === 'bodyweight'
       ? (exercise.loading.bodyweightFactor ?? override?.bodyweightFactor ?? fallback?.bodyweightFactor)
       : undefined;
-    return { profile: cloneProfile({ ...exercise.loading, plateBase, bodyweightFactor }), source: 'explicit' };
+    const hasMachineBase = exercise.loading.hasMachineBase ?? override?.hasMachineBase ?? fallback?.hasMachineBase;
+    const suggestions = exercise.loading.suggestions ?? override?.suggestions ?? fallback?.suggestions;
+    return {
+      profile: cloneProfile({
+        ...exercise.loading,
+        plateBase,
+        bodyweightFactor,
+        hasMachineBase,
+        suggestions
+      }),
+      source: 'explicit'
+    };
   }
+
 
   if (override) return { profile: cloneProfile(override), source: 'override' };
 

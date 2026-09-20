@@ -38,25 +38,121 @@ export interface MachineProfileValidationResult {
   error?: string;
 }
 
-export function isAuthoritativeProvenance(candidate: {
-  sourceUrl?: unknown;
-  manufacturer?: unknown;
-  model?: unknown;
-  sourceLabel?: unknown;
-}): boolean {
-  const hasValidUrl =
-    typeof candidate.sourceUrl === 'string' &&
-    /^https?:\/\//i.test(candidate.sourceUrl.trim());
-  if (hasValidUrl) return true;
+export type MachineBaseProvenance =
+  | string
+  | {
+      type?: 'manual' | 'manufacturer_spec' | 'url' | 'structured' | string;
+      sourceUrl?: string;
+      url?: string;
+      manufacturer?: string;
+      model?: string;
+      sourceLabel?: string;
+    };
+
+function isValidHttpUrl(candidate: unknown): boolean {
+  if (typeof candidate !== 'string') return false;
+  const trimmed = candidate.trim();
+  if (!trimmed) return false;
+  try {
+    const parsed = new URL(trimmed);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export function isAuthoritativeProvenance(
+  candidate: MachineBaseProvenance | unknown
+): boolean {
+  if (!candidate) return false;
+
+  if (typeof candidate === 'string') {
+    return isValidHttpUrl(candidate);
+  }
+
+  if (typeof candidate !== 'object' || candidate === null) {
+    return false;
+  }
+
+  const obj = candidate as Record<string, unknown>;
+
+  const urlCandidate = obj.sourceUrl ?? (typeof obj.url === 'string' ? obj.url : undefined);
+  if (isValidHttpUrl(urlCandidate)) {
+    return true;
+  }
 
   const hasManufacturer =
-    typeof candidate.manufacturer === 'string' && candidate.manufacturer.trim().length > 0;
+    typeof obj.manufacturer === 'string' && obj.manufacturer.trim().length > 0;
   const hasModel =
-    typeof candidate.model === 'string' && candidate.model.trim().length > 0;
+    typeof obj.model === 'string' && obj.model.trim().length > 0;
   const hasSourceLabel =
-    typeof candidate.sourceLabel === 'string' && candidate.sourceLabel.trim().length > 0;
+    typeof obj.sourceLabel === 'string' && obj.sourceLabel.trim().length > 0;
 
   return hasManufacturer && hasModel && hasSourceLabel;
+}
+
+export interface NormalizedMachineBaseSelection {
+  profile?: MachineProfile;
+  status: BaseResistanceStatus;
+  weightKg?: number;
+  sourceLabel?: string;
+  sourceUrl?: string;
+  manufacturer?: string;
+  model?: string;
+}
+
+export function normalizeMachineBaseSelection(
+  selection: import('./types.js').MachineBaseSelection | MachineProfile | undefined,
+  loadingProfile?: Pick<ExerciseLoadingProfile, 'mechanism' | 'hasMachineBase'>
+): NormalizedMachineBaseSelection {
+  if (!selection) {
+    return { status: 'unknown', weightKg: undefined };
+  }
+
+  const profile = 'id' in selection && !('status' in selection)
+    ? (selection as MachineProfile)
+    : ('profile' in selection ? selection.profile : undefined);
+
+  if (profile) {
+    const loading = loadingProfile ?? { mechanism: 'plate_loaded', hasMachineBase: true };
+    const resolved = resolveMachineBaseResistance(loading, profile);
+    return {
+      profile,
+      status: resolved.status,
+      weightKg: resolved.weightKg ?? (resolved.status === 'none' ? 0 : undefined),
+      sourceLabel: profile.sourceLabel ?? resolved.provenance?.sourceLabel,
+      sourceUrl: profile.sourceUrl ?? resolved.provenance?.sourceUrl,
+      manufacturer: profile.manufacturer ?? resolved.provenance?.manufacturer,
+      model: profile.model ?? resolved.provenance?.model
+    };
+  }
+
+  const baseSel = selection as import('./types.js').MachineBaseSelection;
+  const status = baseSel.status;
+  const rawWeight = baseSel.weightKg;
+
+  if (status === 'unknown') {
+    if (rawWeight !== null && rawWeight !== undefined) {
+      return { status: 'unknown', weightKg: undefined };
+    }
+    return { status: 'unknown', weightKg: undefined };
+  }
+
+  if (status === 'none') {
+    if (rawWeight !== null && rawWeight !== undefined && rawWeight !== 0) {
+      return { status: 'unknown', weightKg: undefined };
+    }
+    return { status: 'none', weightKg: 0 };
+  }
+
+  if (status === 'suggested') {
+    if (typeof rawWeight === 'number' && Number.isFinite(rawWeight) && rawWeight > 0) {
+      return { status: 'suggested', weightKg: rawWeight };
+    }
+    return { status: 'unknown', weightKg: undefined };
+  }
+
+  return { status: 'unknown', weightKg: undefined };
 }
 
 export function validateMachineProfile(value: unknown): MachineProfileValidationResult {
@@ -206,7 +302,8 @@ export function resolveMachineBaseResistance(
     weightKg,
     profileId: selectedProfile.id,
     label: selectedProfile.label,
-    provenance: selectedProfile.sourceLabel || selectedProfile.manufacturer || selectedProfile.model
+    provenance: Boolean(selectedProfile.sourceUrl || selectedProfile.sourceLabel || selectedProfile.manufacturer || selectedProfile.model)
+
       ? {
           sourceLabel: selectedProfile.sourceLabel,
           sourceUrl: selectedProfile.sourceUrl,

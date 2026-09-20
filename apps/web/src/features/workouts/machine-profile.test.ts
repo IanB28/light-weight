@@ -18,7 +18,8 @@ import {
   toggleSetInSessions,
   applyPlateWeightInSessions,
   updateMachineProfileInSessions,
-  updateSetInSessions
+  updateSetInSessions,
+  addSetToSessions
 } from './useWorkoutSession.js';
 import type { ActiveExerciseSession } from './types.js';
 import {
@@ -295,7 +296,14 @@ test('5. SWITCH_MACHINE_PRESERVES_EXISTING_SNAPSHOT: Set 1 composed with Machine
   assert.equal(sessions[0].sets[0].machineBaseResistanceKg, 10);
   assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, 'user_defined');
 
-  // Prospective Set 2 (uncomposed) receives Machine B
+  // Invariant 3: Changing session machine MUST NOT touch untouched sets!
+  assert.equal(sessions[0].sets[1].machineProfileId, undefined);
+  assert.equal(sessions[0].sets[1].machineBaseResistanceKg, undefined);
+
+  // When Set 2 is completed with Machine B active in session, it receives Machine B snapshot
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 2, 'weightKg', 50);
+  sessions = toggleSetInSessions(sessions, 'smith-bench-press', 2).sessions;
+  assert.equal(sessions[0].sets[1].completed, true);
   assert.equal(sessions[0].sets[1].machineProfileId, profileB.id);
   assert.equal(sessions[0].sets[1].machineBaseResistanceKg, 20);
 });
@@ -770,12 +778,20 @@ test('16. UNKNOWN_SNAPSHOT_IMMUTABILITY_ACROSS_SESSION_SWITCH: Machine with unkn
   assert.equal(set1AfterSwitch.machineBaseResistanceKg, undefined);
   assert.equal(set1AfterSwitch.machineProfileId, undefined);
 
-  // INVARIANT 2: Unconfigured Set 2 (no snapshot) inherits session Machine B
+  // INVARIANT 2: Changing session machine does NOT mutate untouched sets (session.sets remains untouched)
   const set2AfterSwitch = sessions[0].sets[1];
-  assert.equal(set2AfterSwitch.machineProfileId, profileB.id);
-  assert.equal(set2AfterSwitch.machineProfileLabel, 'Smith Calibrada B (20 kg)');
-  assert.equal(set2AfterSwitch.machineBaseResistanceKg, 20);
-  assert.equal(set2AfterSwitch.machineBaseResistanceStatus, 'user_defined');
+  assert.equal(set2AfterSwitch.machineProfileId, undefined);
+  assert.equal(set2AfterSwitch.machineBaseResistanceStatus, undefined);
+
+  // When Set 2 is executed/completed under Machine B, it receives Machine B snapshot:
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 2, 'weightKg', 60);
+  sessions = toggleSetInSessions(sessions, 'smith-bench-press', 2).sessions;
+  const set2Completed = sessions[0].sets[1];
+  assert.equal(set2Completed.completed, true);
+  assert.equal(set2Completed.machineProfileId, profileB.id);
+  assert.equal(set2Completed.machineProfileLabel, 'Smith Calibrada B (20 kg)');
+  assert.equal(set2Completed.machineBaseResistanceKg, 20);
+  assert.equal(set2Completed.machineBaseResistanceStatus, 'user_defined');
 
   // INVARIANT 3: Completing Set 1 preserves unknown status
   sessions = toggleSetInSessions(sessions, 'smith-bench-press', 1).sessions;
@@ -902,5 +918,336 @@ test('17. VERIFIED_HISTORICAL_SNAPSHOT_PRESERVES_EVIDENCE_ACROSS_EDIT_AND_DELETE
   assert.equal(loggedSet.machineManufacturer, 'Cybex International');
   assert.equal(loggedSet.machineModel, 'VR3 Smith Machine');
   assert.equal(loggedSet.machineBaseSourceLabel, 'Official Service Manual 2022');
+});
+
+test('18. POST_COMMIT_INTEGRITY_HARDENING_SCENARIOS: Selection contract, last-used lifecycle, initial/add set isolation, serialize honesty, and total load guards', () => {
+  localStorage.clear();
+
+  // 1. Initial sets start without snapshot
+  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  assert.equal(sessions[0].machineBaseResistanceStatus, 'unknown');
+  assert.equal(sessions[0].sets[0].weightKg, 0, 'Unknown base must start default weight at 0, not synthetic plate sum');
+  assert.equal(sessions[0].sets[0].machineProfileId, undefined);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, undefined);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceKg, undefined);
+
+  // 2. addSetToSessions does NOT pre-snapshot
+  sessions = addSetToSessions(sessions, 'smith-bench-press', 'working');
+  const addedSet = sessions[0].sets[sessions[0].sets.length - 1];
+  assert.equal(addedSet.machineProfileId, undefined);
+  assert.equal(addedSet.machineBaseResistanceStatus, undefined);
+  assert.equal(addedSet.machineBaseResistanceKg, undefined);
+
+  // 3. Selection contract: Quick none (status: none, weightKg: 0)
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: undefined,
+    status: 'none',
+    weightKg: 0
+  });
+  assert.equal(sessions[0].machineBaseResistanceStatus, 'none');
+  assert.equal(sessions[0].machineBaseResistanceKg, 0);
+  assert.equal(sessions[0].plateBaseWeightKg, 0);
+  // Existing untouched sets remain untouched!
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, undefined);
+
+  // 4. Selection contract: Quick unknown (status: unknown, weightKg: null)
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: undefined,
+    status: 'unknown',
+    weightKg: null
+  });
+  assert.equal(sessions[0].machineBaseResistanceStatus, 'unknown');
+  assert.equal(sessions[0].machineBaseResistanceKg, undefined);
+
+  // 5. Selection contract: Saved profile selection
+  const profileCybex = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Cybex 12 kg',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 12
+  });
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: profileCybex,
+    status: 'user_defined',
+    weightKg: 12
+  });
+  assert.equal(sessions[0].machineProfileId, profileCybex.id);
+  assert.equal(sessions[0].machineProfileLabel, 'Cybex 12 kg');
+  assert.equal(sessions[0].machineBaseResistanceStatus, 'user_defined');
+  assert.equal(sessions[0].machineBaseResistanceKg, 12);
+  // Untouched sets still untouched
+  assert.equal(sessions[0].sets[0].machineProfileId, undefined);
+
+  // 6. Last-used tracking: saved profile saves ID, quick none/unknown clears ID
+  setLastUsedMachineProfileId('smith-bench-press', profileCybex.id);
+  assert.equal(getLastUsedMachineProfileId('smith-bench-press'), profileCybex.id);
+  setLastUsedMachineProfileId('smith-bench-press', null);
+  assert.equal(getLastUsedMachineProfileId('smith-bench-press'), null);
+
+  // 7. Total load invariant guard in toggleSetInSessions:
+  // Cannot complete set where weightKg < machineBaseResistanceKg (12 kg)
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'weightKg', 10);
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'reps', 8);
+  const blockedToggle = toggleSetInSessions(sessions, 'smith-bench-press', 1);
+  assert.equal(blockedToggle.completed, false, 'Completing set with weight < machine base must be blocked');
+  assert.equal(blockedToggle.sessions[0].sets[0].completed, false);
+
+  // When weightKg >= machineBaseResistanceKg, completion succeeds and snapshots
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'weightKg', 12);
+  const successToggle = toggleSetInSessions(sessions, 'smith-bench-press', 1);
+  assert.equal(successToggle.completed, true);
+  assert.equal(successToggle.sessions[0].sets[0].completed, true);
+  assert.equal(successToggle.sessions[0].sets[0].machineProfileId, profileCybex.id);
+  assert.equal(successToggle.sessions[0].sets[0].machineBaseResistanceKg, 12);
+
+  // 8. Explicit total assertion on unknown machine base:
+  // Switch session to unknown machine base
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: undefined,
+    status: 'unknown',
+    weightKg: null
+  });
+  // Set 2 has weight 0 and no snapshot: toggle must be blocked
+  const blockedUnknown = toggleSetInSessions(sessions, 'smith-bench-press', 2);
+  assert.equal(blockedUnknown.completed, false, 'Completing unasserted set on unknown machine must be blocked');
+
+  // Once user enters explicit total weight via keyboard (> 0), completion succeeds
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 2, 'weightKg', 80);
+  const successUnknown = toggleSetInSessions(sessions, 'smith-bench-press', 2);
+  assert.equal(successUnknown.completed, true);
+  assert.equal(successUnknown.sessions[0].sets[1].completed, true);
+  assert.equal(successUnknown.sessions[0].sets[1].weightKg, 80);
+  assert.equal(successUnknown.sessions[0].sets[1].machineBaseResistanceStatus, 'unknown');
+  assert.equal(successUnknown.sessions[0].sets[1].machineBaseResistanceKg, undefined);
+
+  // 9. serializeWorkoutSets does NOT backfill machine fields to unsnapshotted sets
+  // Set 3 was never touched/completed: serialize must keep machine fields undefined
+  const serializedSets = serializeWorkoutSets(sessions);
+  const set3Serialized = serializedSets['smith-bench-press'][2];
+  assert.equal(set3Serialized.machineProfileId, undefined);
+  assert.equal(set3Serialized.machineBaseResistanceStatus, undefined);
+  assert.equal(set3Serialized.machineBaseResistanceKg, undefined);
+});
+
+test('19. SNAPSHOT_TIMING_SEQUENCE: Session starts with A -> Set 1 untouched (no snapshot) -> switch to B -> Set 1 untouched (no snapshot) -> keyboard 80 kg (snapshots B) -> switch to C -> Set 1 remains B -> complete Set 1 -> remains B -> serialize -> remains B without C', () => {
+  localStorage.clear();
+
+  const profileA = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Machine A (10 kg)',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 10
+  });
+  const profileB = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Machine B (15 kg)',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 15
+  });
+  const profileC = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Machine C (20 kg)',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 20
+  });
+
+  // 1. Session starts with Machine A
+  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: profileA,
+    status: 'user_defined',
+    weightKg: 10
+  });
+  // Set 1 untouched -> no snapshot
+  assert.equal(sessions[0].sets[0].machineProfileId, undefined);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, undefined);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceKg, undefined);
+
+  // 2. Switch session to Machine B
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: profileB,
+    status: 'user_defined',
+    weightKg: 15
+  });
+  // Set 1 untouched -> still no snapshot
+  assert.equal(sessions[0].sets[0].machineProfileId, undefined);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, undefined);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceKg, undefined);
+
+  // 3. keyboard enter 80 kg -> Set 1 snapshots Machine B
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'weightKg', 80);
+  assert.equal(sessions[0].sets[0].machineProfileId, profileB.id);
+  assert.equal(sessions[0].sets[0].machineProfileLabel, 'Machine B (15 kg)');
+  assert.equal(sessions[0].sets[0].machineBaseResistanceKg, 15);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, 'user_defined');
+
+  // 4. Switch session to Machine C
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: profileC,
+    status: 'user_defined',
+    weightKg: 20
+  });
+  // Set 1 remains Machine B
+  assert.equal(sessions[0].sets[0].machineProfileId, profileB.id);
+  assert.equal(sessions[0].sets[0].machineProfileLabel, 'Machine B (15 kg)');
+  assert.equal(sessions[0].sets[0].machineBaseResistanceKg, 15);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, 'user_defined');
+
+  // 5. Complete Set 1
+  const toggleResult = toggleSetInSessions(sessions, 'smith-bench-press', 1);
+  sessions = toggleResult.sessions;
+  assert.equal(toggleResult.completed, true);
+  // Set 1 remains Machine B
+  assert.equal(sessions[0].sets[0].machineProfileId, profileB.id);
+  assert.equal(sessions[0].sets[0].machineProfileLabel, 'Machine B (15 kg)');
+  assert.equal(sessions[0].sets[0].machineBaseResistanceKg, 15);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, 'user_defined');
+
+  // 6. Serialize -> Set 1 remains Machine B; no Machine C provenance leaks in
+  const serialized = serializeWorkoutSets(sessions);
+  const serializedSet1 = serialized['smith-bench-press'][0];
+  assert.equal(serializedSet1.machineProfileId, profileB.id);
+  assert.equal(serializedSet1.machineProfileLabel, 'Machine B (15 kg)');
+  assert.equal(serializedSet1.machineBaseResistanceKg, 15);
+  assert.equal(serializedSet1.machineBaseResistanceStatus, 'user_defined');
+});
+
+test('20. LAST_USED_CLEARING: Selecting profile A records last-used; quick Unknown clears; new session starts without A; repeat with quick None', () => {
+  localStorage.clear();
+
+  const profileA = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Machine A',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 10
+  });
+
+  // 1. Select saved profile A -> last-used A
+  setLastUsedMachineProfileId('smith-bench-press', profileA.id);
+  assert.equal(getLastUsedMachineProfileId('smith-bench-press'), profileA.id);
+
+  // 2. Select quick Unknown -> last-used cleared
+  setLastUsedMachineProfileId('smith-bench-press', null);
+  assert.equal(getLastUsedMachineProfileId('smith-bench-press'), null);
+
+  // 3. Restart/create new session -> A does NOT return
+  const session1 = createDefaultExerciseSession(mockSmithExercise);
+  assert.equal(session1.machineProfileId, undefined);
+  assert.equal(session1.machineBaseResistanceStatus, 'unknown');
+
+  // 4. Repeat: Select A -> last-used A
+  setLastUsedMachineProfileId('smith-bench-press', profileA.id);
+  assert.equal(getLastUsedMachineProfileId('smith-bench-press'), profileA.id);
+
+  // 5. Select quick None -> last-used cleared
+  setLastUsedMachineProfileId('smith-bench-press', null);
+  assert.equal(getLastUsedMachineProfileId('smith-bench-press'), null);
+
+  // 6. Restart/create new session -> A does NOT return
+  const session2 = createDefaultExerciseSession(mockSmithExercise);
+  assert.equal(session2.machineProfileId, undefined);
+  assert.equal(session2.machineBaseResistanceStatus, 'unknown');
+});
+
+test('21. ZERO_WEIGHT_AND_SELECTION_CONSISTENCY: Base 0/status none allows total weight 0 completion; contradictory selection derives from profile', () => {
+  localStorage.clear();
+
+  // 1. Base none (0 kg) allows completing a set with explicit total 0 kg
+  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: undefined,
+    status: 'none',
+    weightKg: 0
+  });
+  // Set weight to 0 explicitly via keyboard (user entered total 0)
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'weightKg', 0);
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'reps', 10);
+  const toggleNone = toggleSetInSessions(sessions, 'smith-bench-press', 1);
+  assert.equal(toggleNone.completed, true, 'Set with status none and weight 0 MUST be able to complete');
+  assert.equal(toggleNone.sessions[0].sets[0].weightKg, 0);
+  assert.equal(toggleNone.sessions[0].sets[0].machineBaseResistanceStatus, 'none');
+
+  // 2. Contradictory selection: profile exists with user_defined 20 kg, but selection claims none / 0 kg
+  const profile20 = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Cybex 20 kg',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 20
+  });
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: profile20,
+    status: 'none', // contradictory!
+    weightKg: 0 // contradictory!
+  });
+  // Must derive status/weightKg from profile, preventing contradictory state
+  assert.equal(sessions[0].machineBaseResistanceStatus, 'user_defined');
+  assert.equal(sessions[0].machineBaseResistanceKg, 20);
+  assert.equal(sessions[0].machineProfileId, profile20.id);
+});
+
+test('22. UNKNOWN_SNAPSHOT_ISOLATION_AGAINST_SESSION_BASE: Unknown snapshot A (10 kg) does NOT borrow session B base (20 kg), can complete, and session C (30 kg) does not leak into serialization', () => {
+  localStorage.clear();
+
+  // 1. Session Machine A with unknown base
+  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  assert.equal(sessions[0].machineBaseResistanceStatus, 'unknown');
+
+  // User keyboard-enters 10 kg, 8 reps
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'weightKg', 10);
+  sessions = updateSetInSessions(sessions, 'smith-bench-press', 1, 'reps', 8);
+
+  // Set 1 has snapshot: status unknown, base undefined, weightKg 10
+  const set1BeforeSwitch = sessions[0].sets[0];
+  assert.equal(set1BeforeSwitch.weightKg, 10);
+  assert.equal(set1BeforeSwitch.machineBaseResistanceStatus, 'unknown');
+  assert.equal(set1BeforeSwitch.machineBaseResistanceKg, undefined);
+
+  // 2. Switch SESSION to Machine B (base 20 kg, status user_defined)
+  const profileB = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Machine B (20 kg)',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 20
+  });
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: profileB,
+    status: 'user_defined',
+    weightKg: 20
+  });
+  assert.equal(sessions[0].machineBaseResistanceKg, 20);
+
+  // Set 1 MUST NOT borrow Machine B base 20 kg!
+  // Even though 10 < 20, Set 1 evaluates exclusively from its unknown snapshot and CAN be completed
+  const toggleResult = toggleSetInSessions(sessions, 'smith-bench-press', 1);
+  assert.equal(toggleResult.completed, true, 'Set 1 must complete using its own unknown snapshot, NOT blocked by session base 20 kg');
+  sessions = toggleResult.sessions;
+  assert.equal(sessions[0].sets[0].completed, true);
+  assert.equal(sessions[0].sets[0].weightKg, 10);
+  assert.equal(sessions[0].sets[0].machineBaseResistanceStatus, 'unknown');
+  assert.equal(sessions[0].sets[0].machineBaseResistanceKg, undefined);
+  assert.equal(sessions[0].sets[0].machineProfileId, undefined);
+
+  // 3. Switch session to Machine C (base 30 kg)
+  const profileC = saveMachineProfile({
+    exerciseId: 'smith-bench-press',
+    label: 'Machine C (30 kg)',
+    baseResistanceStatus: 'user_defined',
+    baseResistanceKg: 30
+  });
+  sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
+    profile: profileC,
+    status: 'user_defined',
+    weightKg: 30
+  });
+
+  // 4. Serialize: Set 1 must remain weightKg 10, status unknown, base undefined, with NO B or C provenance
+  const serialized = serializeWorkoutSets(sessions);
+  const serializedSet1 = serialized['smith-bench-press'][0];
+  assert.equal(serializedSet1.weightKg, 10);
+  assert.equal(serializedSet1.machineBaseResistanceStatus, 'unknown');
+  assert.equal(serializedSet1.machineBaseResistanceKg, undefined);
+  assert.equal(serializedSet1.machineProfileId, undefined);
+  assert.notEqual(serializedSet1.machineProfileId, profileB.id);
+  assert.notEqual(serializedSet1.machineProfileId, profileC.id);
 });
 

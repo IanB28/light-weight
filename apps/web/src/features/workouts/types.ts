@@ -1,5 +1,7 @@
-import type { Exercise, LoggedSet, BaseResistanceStatus } from '@light-weight/domain';
+import type { Exercise, LoggedSet, BaseResistanceStatus, MachineSnapshot, MachineBaseSelection } from '@light-weight/domain';
 import type { WeightInputMode } from '../../lib/preferences.js';
+
+export type { MachineSnapshot, MachineBaseSelection };
 
 export interface ActiveExerciseSession {
   exercise: Exercise;

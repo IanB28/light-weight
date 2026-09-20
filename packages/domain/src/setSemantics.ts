@@ -109,10 +109,27 @@ export function normalizeLoggedSet<T extends LegacyWorkoutSetClassification>(
       result.machineBaseResistanceStatus = 'user_defined';
     }
   }
+  // Invariant: Total external load must never be lower than known machine base.
+  // For historical or malformed hydration where weightKg < machineBaseResistanceKg:
+  // preserve historical weightKg, but safely degrade contradictory machine base claim to 'unknown'/absent.
+  if (
+    result.machineBaseResistanceKg !== undefined &&
+    typeof result.weightKg === 'number' &&
+    Number.isFinite(result.weightKg) &&
+    result.weightKg < result.machineBaseResistanceKg
+  ) {
+    result.machineBaseResistanceKg = undefined;
+    result.machineBaseResistanceStatus = result.machineProfileId ? 'unknown' : undefined;
+    result.machineBaseSourceLabel = undefined;
+    result.machineBaseSourceUrl = undefined;
+    result.machineManufacturer = undefined;
+    result.machineModel = undefined;
+  }
   return result;
 }
 
 export function normalizeWorkoutSession(session: LegacyWorkoutSession): WorkoutSession {
+
   return {
     ...session,
     sets: Object.fromEntries(

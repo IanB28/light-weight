@@ -96747,7 +96747,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "other",
@@ -96829,7 +96829,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "other",
@@ -96907,7 +96907,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -96986,7 +96986,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "other",
@@ -97064,7 +97064,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "row",
@@ -97144,7 +97144,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "squat",
@@ -97236,7 +97236,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -97327,7 +97327,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "deadlift",
@@ -97414,7 +97414,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "decline_press",
@@ -97493,7 +97493,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -97575,7 +97575,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "squat",
@@ -97685,7 +97685,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "squat",
@@ -97787,7 +97787,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "hack_squat",
@@ -97887,7 +97887,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "core",
@@ -97965,7 +97965,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "incline_press",
@@ -98050,7 +98050,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -98128,7 +98128,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "other",
@@ -98220,7 +98220,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "leg_press",
@@ -98322,7 +98322,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "squat",
@@ -98420,7 +98420,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "elbow_flexion",
@@ -98488,7 +98488,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -98576,7 +98576,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "elbow_extension",
@@ -98652,7 +98652,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -98731,7 +98731,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "row",
@@ -98810,7 +98810,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "row",
@@ -98888,7 +98888,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "calf_raise",
@@ -98967,7 +98967,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "row",
@@ -99060,7 +99060,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "calf_raise",
@@ -99128,7 +99128,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "calf_raise",
@@ -99198,7 +99198,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "row",
@@ -99276,7 +99276,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -99353,7 +99353,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "calf_raise",
@@ -99423,7 +99423,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "vertical_press",
@@ -99501,7 +99501,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "elbow_flexion",
@@ -99580,7 +99580,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "vertical_press",
@@ -99656,7 +99656,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "other",
@@ -99738,7 +99738,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "split_squat",
@@ -99825,7 +99825,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "lunge",
@@ -99927,7 +99927,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "squat",
@@ -100027,7 +100027,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "elbow_flexion",
@@ -100106,7 +100106,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "vertical_press",
@@ -100184,7 +100184,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "calf_raise",
@@ -100262,7 +100262,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "vertical_press",
@@ -100342,7 +100342,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "squat",
@@ -100441,7 +100441,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "calf_raise",
@@ -100514,7 +100514,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "row",
@@ -100600,7 +100600,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "bench_press",
@@ -100679,7 +100679,7 @@
       ],
       "loadMechanism": "plate_loaded",
       "loadMode": "total",
-      "plateBaseKind": "fixed"
+      "plateBaseKind": "none"
     },
     "inferred": {
       "movementFamily": "decline_press",

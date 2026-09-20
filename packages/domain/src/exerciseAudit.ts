@@ -416,7 +416,12 @@ export function detectAuditFindings(
   }
 
   // 11. Plate loaded without base resistance metadata
-  if (current.loadMechanism === 'plate_loaded' && current.plateBaseKind !== 'fixed' && current.plateBaseKind !== 'user_bar') {
+  if (
+    current.loadMechanism === 'plate_loaded' &&
+    current.plateBaseKind !== 'fixed' &&
+    current.plateBaseKind !== 'user_bar' &&
+    inferred.machineResistanceClass !== 'suggested'
+  ) {
     findings.push({
       flag: 'PLATE_LOADED_NO_BASE_RESISTANCE_METADATA',
       severity: 'high',
@@ -447,14 +452,15 @@ export function detectAuditFindings(
     });
   }
 
-  // 14. Smith without fixed base
-  if ((rawEq.includes('smith') || name.includes('smith')) && current.plateBaseKind !== 'fixed') {
+  // 14. Smith without machine base guidance
+  if ((rawEq.includes('smith') || name.includes('smith')) && inferred.machineResistanceClass !== 'suggested') {
     findings.push({
       flag: 'SMITH_WITHOUT_FIXED_BASE',
       severity: 'high',
-      description: 'Smith machine resolved without fixed base tare resistance.'
+      description: 'Smith machine resolved without machine base resistance guidance.'
     });
   }
+
 
   // 15. Machine category with unknown load mechanism
   if (current.equipmentCategory === 'machine' && current.loadMechanism === 'other') {

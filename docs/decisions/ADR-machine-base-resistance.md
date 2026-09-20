@@ -62,37 +62,41 @@ To guarantee historical integrity and prevent retrospective corruption:
 ## 3. Implementation Details
 
 ### 3.1 Domain Package (`@light-weight/domain`)
-- **`machineProfile.ts`**: Pure domain model, schema validation (`validateMachineProfile`), and canonical resolver (`resolveMachineBaseResistance`).
 - **`types.ts`**:
-  - `ExerciseLoadingProfile`: Extended with `hasMachineBase?: boolean` and `suggestions?: readonly { weightKg: number; label?: string }[]`.
-  - `LoggedSet`: Extended with snapshot fields `machineProfileId`, `machineProfileLabel`, `machineBaseResistanceKg`, `machineBaseResistanceStatus`.
-- **`exerciseAudit.ts`**: Refactored `MachineResistanceClass` from `known_current` to `suggested` to reflect honest epistemic status.
-- **`setSemantics.ts`**: Updated `normalizeLoggedSet` to validate and sanitize machine profile snapshot attributes.
+  - Exported consolidated `MachineSnapshot` interface representing immutable set-level provenance (`machineProfileId`, `machineProfileLabel`, `machineBaseResistanceKg`, `machineBaseResistanceStatus`).
+  - Exported `MachineBaseSelection` interface (`profile?`, `status`, `weightKg`) unifying modal emissions and state updates.
+  - `ExerciseLoadingProfile`: Configured with `hasMachineBase?: boolean` and `suggestions?: readonly { weightKg: number; label?: string }[]`. Smith machines provide suggestions without hardcoding a fixed tare into `plateBase`.
+- **`machineProfile.ts`**: Pure domain model, schema validation (`validateMachineProfile`), and canonical resolver (`resolveMachineBaseResistance`). Verified provenance requires genuine source evidence: standard URL parsing (`http:`/`https:` with non-empty hostname) or complete structured provenance (`manufacturer` + `model` + `sourceLabel`). Exported `normalizeMachineBaseSelection` to enforce canonical combinations and safely degrade invalid profile-less selections.
+- **`setSemantics.ts`**: Updated `normalizeLoggedSet` to enforce the total load invariant ($W_{\text{total}} \ge W_{\text{base}}$). Contradictory historical sets gracefully degrade to `unknown`/absent base resistance rather than modifying the user's logged `weightKg`. Canonicalizes `machineBaseResistanceKg = 0` whenever `status === 'none'`.
+- **`exerciseAudit.ts`**: Audit accepts `inferred.machineResistanceClass === 'suggested'`, maintaining zero critical flags and exact flag count consistency.
 
 ### 3.2 Database & API Sync (`apps/api`)
-- **Migration `0004_machine_base_resistance_v1.sql`**: Added 4 nullable columns to `logged_sets`:
-  - `machine_profile_id text`
-  - `machine_profile_label text`
-  - `machine_base_resistance_kg numeric(6, 2)`
-  - `machine_base_resistance_status text`
-- **Database Constraints**:
-  - `CHECK (machine_base_resistance_kg IS NULL OR machine_base_resistance_kg >= 0)`
-  - `CHECK (machine_base_resistance_status IS NULL OR machine_base_resistance_status IN ('none', 'unknown', 'suggested', 'verified', 'user_defined'))`
-  - `CHECK (machine_base_resistance_kg IS NULL OR machine_base_resistance_status IS NOT NULL)`
-  - `CHECK (NOT (machine_base_resistance_status = 'unknown' AND machine_base_resistance_kg IS NOT NULL))`
-- **Sync Validation (`sync-mappers.ts`)**: Rejects invalid payloads with HTTP 422 if base kg is negative, status is invalid, or `unknown` is accompanied by a numeric weight.
-- **Hydration**: Safely preserves nulls for legacy records created prior to Block 15.
+- **Migration `0004_machine_base_resistance_v1.sql`**: Added baseline nullable columns to `logged_sets` (`machine_profile_id`, `machine_profile_label`, `machine_base_resistance_kg`, `machine_base_resistance_status`).
+- **Migration `0005_machine_base_resistance_integrity.sql`**: Added strict post-commit integrity check constraints with pre-migration data sanitization:
+  - Sanitizes existing historical contradictory rows ($W_{\text{total}} < W_{\text{base}}$) to status `unknown` and `NULL` base kg before adding check constraints.
+  - Canonicalizes legacy `none` rows to `machine_base_resistance_kg = 0`.
+  - `logged_sets_machine_base_total_load_check`: `CHECK (machine_base_resistance_kg IS NULL OR weight_kg >= machine_base_resistance_kg)` guaranteeing total load is never less than base resistance.
+  - `logged_sets_machine_base_none_check`: `CHECK (machine_base_resistance_status != 'none' OR machine_base_resistance_kg = 0)` ensuring epistemic certainty of zero tare.
+- **Sync Validation (`sync-mappers.ts`)**:
+  - Validates total load invariant and rejects invalid sync payloads with HTTP 422 `INVALID_MACHINE_TOTAL_LOAD` if $W_{\text{total}} < W_{\text{base}}$.
+  - Validates negative weights, invalid statuses, and forbidden non-null weight with status `unknown`.
+- **Hydration Degradation**: Historical or corrupted sync payloads that violate the total load invariant degrade safely to status `unknown` and null base weight without altering `weightKg`.
 
 ### 3.3 Web Client (`apps/web`)
-- **Local Store (`machine-profiles.ts`)**: Local-first CRUD store persisted under `STORAGE_KEYS.MACHINE_PROFILES` with last-used tracking under `STORAGE_KEYS.LAST_USED_MACHINE_PROFILES`. Both keys are registered in `PRIVATE_STORAGE_KEYS` to guarantee user-scope isolation across account switches.
-- **Session Management (`useWorkoutSession.ts`)**:
-  - First use on plate-loaded/Smith machines defaults to `machineBaseResistanceStatus: 'unknown'`, without auto-injecting 20 lb.
-  - Automatically restores last-used profile for the exercise if one has been calibrated previously.
-  - Implements `updateMachineProfile(exerciseId, profile)` updating session state and incomplete sets while leaving completed sets immutable.
-- **UI Components**:
-  - `MachineProfileModal.tsx`: Calibration bottom sheet with options for "Sin configurar (Desconocida)", "Sin resistencia (0 kg)", catalog suggestions, and user-defined custom machine profiles.
-  - `WeightEntry.tsx` (`PlatePickerSheet`): Displays canonical equation ($\text{Base} + \text{Plates} = \text{Total}$). When unknown, shows warning *"Resistencia inicial sin configurar"* with quick-action button *"Calibrar máquina"*, without blocking workout logging.
-  - `WorkoutSessionComponents.tsx` (`ExerciseSessionCard`): Renders a compact starting resistance chip in the exercise header for plate-loaded movements, allowing instantaneous calibration at any time.
+- **Selection Contract (`MachineBaseSelection`)**: `MachineProfileModal` emits a unified contract distinguishing quick none (`none`, 0 kg), quick unknown (`unknown`, null), catalog suggestions, and user-defined profiles, normalized via `normalizeMachineBaseSelection`.
+- **Last-Used Profile Lifecycle**:
+  - Selecting a saved profile persists the ID in `STORAGE_KEYS.LAST_USED_MACHINE_PROFILES`.
+  - Selecting "Sin resistencia inicial" or "Sin configurar" explicitly clears last-used (`null`), preventing cross-session pollution.
+  - Deleting the active profile clears last-used.
+- **Strict Set Snapshot Isolation**: Once a set has any machine snapshot (`machineProfileId` or `machineBaseResistanceStatus`), it evaluates exclusively from its own snapshot and **never** falls back to session-level machine metadata. Modifying the session machine profile never mutates existing `session.sets` nor does it invalidate previously snapshotted sets with unknown base.
+- **No Pre-Snapshotting**: Initial sets created by `createDefaultExerciseSession` and sets added via `addSetToSessions` start with all machine snapshot fields `undefined`.
+- **Honest Serialization**: `serializeWorkoutSets` serializes set-level snapshot fields directly without falling back to session-level defaults (`set.xxx ?? session.xxx`).
+- **Default Weight & Explicit Assertion for Unknown**:
+  - Default weight is initialized to `0` when machine base is unknown.
+  - Set completion is blocked until the athlete explicitly asserts a weight or calibrates the machine base.
+- **Total Load Invariant UI Guards**:
+  - `SetRow` and `toggleSetInSessions` block completing a set if `weightKg < machineBaseResistanceKg`.
+  - `WeightEntry` (`PlatePickerSheet`) prevents emitting a total load lower than base resistance.
 
 ---
 
@@ -100,12 +104,14 @@ To guarantee historical integrity and prevent retrospective corruption:
 
 ### 4.1 Positive Consequences
 1. **Epistemic Honesty:** The app never pretends an uncalibrated Smith machine or leg press is 20 lb or 0 kg.
-2. **Gym Mobility:** Athletes who train across multiple gyms can maintain distinct machine profiles for the same exercise (e.g. "Smith Cybex" vs "Smith Matrix") and switch between them seamlessly.
-3. **Data Integrity:** Historical sets remain immutable; changing a machine profile never corrupts historical PRs or previous session logs.
-4. **Full Backward Compatibility:** Legacy sets without machine metadata hydrate cleanly with `null` fields; 1RM and volume analytics remain continuous.
+2. **Total Load Invariant Guaranteed:** Enforced end-to-end (DB constraint with prior data sanitization, API HTTP 422, hydration degradation, and UI completion/picker guards) so that total load can never be less than starting tare.
+3. **True Historical Isolation:** Existing sets are never mutated by subsequent session profile changes; snapshotted sets evaluate strictly from their own snapshot.
+4. **Gym Mobility:** Athletes who train across multiple gyms can maintain distinct machine profiles for the same exercise and switch between them cleanly.
+5. **Full Backward Compatibility:** Legacy sets without machine metadata hydrate cleanly with `null` fields; 1RM and volume analytics remain continuous.
 
 ### 4.2 Automated Verification
-- Domain tests: 230 passing tests (`pnpm --filter @light-weight/domain test`).
-- API tests: 43 passing tests (`pnpm --filter @light-weight/api test`).
-- Web tests: 197 passing tests (`pnpm --filter @light-weight/web test`), including 6 comprehensive machine profile scenarios.
+- Domain tests: 232 passing tests (`pnpm --filter @light-weight/domain test`).
+- API tests: 48 passing tests (`pnpm --filter @light-weight/api test`).
+- Web tests: 213 passing tests (`pnpm --filter @light-weight/web test`), including 22 comprehensive post-commit integrity hardening scenarios.
 - Exercise audit: Clean execution with 0 critical errors, 48 suggested base machine movements, and 15 inherent resistance candidates (`pnpm audit:exercises`).
+- Component invariants: `apps/web/src/components/ui/Disclosure.tsx` preserved with 0 diff.
