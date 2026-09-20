@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Calendar, Clock, Flame, Dumbbell } from 'lucide-react';
-import { calculateSessionTotalVolume, normalizeWorkoutSetType, shouldCountForVolume, type WorkoutSession, type Exercise } from '@light-weight/domain';
+import { calculateSessionTotalVolume, normalizeWorkoutSetType, resolveWorkoutDateKey, shouldCountForVolume, type WorkoutSession, type Exercise } from '@light-weight/domain';
 import { EXERCISES_BY_ID } from '../lib/exercises.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
@@ -32,7 +32,8 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
     ? Math.max(1, Math.round((new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()) / 60000))
     : null;
 
-  const formattedDate = new Date(session.startedAt).toLocaleDateString('es-ES', {
+  const [year, month, day] = resolveWorkoutDateKey(session).split('-').map(Number);
+  const formattedDate = new Date(year, month - 1, day).toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

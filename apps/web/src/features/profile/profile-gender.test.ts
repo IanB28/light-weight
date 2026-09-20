@@ -329,7 +329,8 @@ test('Stats selectors: undefined gender does NOT evaluate relative strength as m
   ];
 
   // 1. Without gender: muscleAnalysis and fatigueMap work, but strengthEvaluation is undefined
-  const analyticsUnset = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, undefined);
+  const historicalWeight = [{ date: '2026-01-01', weightKg: 75 }];
+  const analyticsUnset = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, undefined, historicalWeight);
   assert.ok(analyticsUnset.fullMuscleAnalytics.chest.sets > 0, 'Volume/sets must calculate normally without gender');
   assert.equal(
     analyticsUnset.fullMuscleAnalytics.chest.strengthEvaluation,
@@ -338,11 +339,11 @@ test('Stats selectors: undefined gender does NOT evaluate relative strength as m
   );
 
   // 2. With male gender: strengthEvaluation is computed
-  const analyticsMale = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, 'male');
+  const analyticsMale = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, 'male', historicalWeight);
   assert.ok(analyticsMale.fullMuscleAnalytics.chest.strengthEvaluation, 'Male strength standard must be calculated');
 
   // 3. With female gender: strengthEvaluation is computed differently
-  const analyticsFemale = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, 'female');
+  const analyticsFemale = selectMuscleAnalytics(mockHistory, mockExercisesById, 7, 75, 'female', historicalWeight);
   assert.ok(analyticsFemale.fullMuscleAnalytics.chest.strengthEvaluation, 'Female strength standard must be calculated');
 });
 

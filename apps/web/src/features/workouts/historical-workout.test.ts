@@ -55,6 +55,26 @@ test('historical editor rejects missing physical values, future facts, and impos
   );
 });
 
+test('historical physical facts parse display units, preserve explicit zero, and reject blanks', () => {
+  const now = new Date('2026-09-20T10:00:00.000Z');
+  assert.equal(createHistoricalWorkoutSession(draft({ units: 'metric' }), now).sets.bench[0].weightKg, 100);
+  assert.ok(Math.abs(createHistoricalWorkoutSession(draft({ units: 'imperial', exercises: [{ exercise: bench, sets: [{ weight: '225', reps: '5', rir: '', setType: 'working' }] }] }), now).sets.bench[0].weightKg - 102.058) < 0.01);
+  assert.equal(createHistoricalWorkoutSession(draft({ exercises: [{ exercise: bench, sets: [{ weight: '0', reps: '10', rir: '', setType: 'working' }] }] }), now).sets.bench[0].weightKg, 0);
+  assert.throws(() => createHistoricalWorkoutSession(draft({ exercises: [{ exercise: bench, sets: [{ weight: '', reps: '10', rir: '', setType: 'working' }] }] }), now), HistoricalWorkoutValidationError);
+  assert.throws(() => createHistoricalWorkoutSession(draft({ units: 'metric', exercises: [{ exercise: bench, sets: [{ weight: '-10', reps: '10', rir: '', setType: 'working' }] }] }), now), HistoricalWorkoutValidationError);
+  assert.throws(() => createHistoricalWorkoutSession(draft({ units: 'imperial', exercises: [{ exercise: bench, sets: [{ weight: '-10', reps: '10', rir: '', setType: 'working' }] }] }), now), HistoricalWorkoutValidationError);
+});
+
+test('historical machine semantics follow the loading profile, not the legacy category', () => {
+  const now = new Date('2026-09-20T10:00:00.000Z');
+  const selectorized: Exercise = { id: 'selectorized', name: 'Selectorized press', category: 'machine', primaryMuscle: 'chest', loading: { mechanism: 'selectorized', loadMode: 'total', supportsKeyboard: true, supportsPlates: false, supportsExternalLoad: true, includeBarWeight: false } };
+  const plateLoaded: Exercise = { id: 'plate-loaded', name: 'Plate loaded press', category: 'other', primaryMuscle: 'chest', loading: { mechanism: 'plate_loaded', loadMode: 'total', supportsKeyboard: true, supportsPlates: true, supportsExternalLoad: true, includeBarWeight: false, hasMachineBase: true } };
+  const selectorizedSet = createHistoricalWorkoutSession(draft({ exercises: [{ exercise: selectorized, sets: [{ weight: '100', reps: '8', rir: '', setType: 'working' }] }] }), now).sets.selectorized[0];
+  const plateSet = createHistoricalWorkoutSession(draft({ exercises: [{ exercise: plateLoaded, sets: [{ weight: '100', reps: '8', rir: '', setType: 'working' }] }] }), now).sets['plate-loaded'][0];
+  assert.equal(selectorizedSet.machineBaseResistanceStatus, undefined);
+  assert.equal(plateSet.machineBaseResistanceStatus, 'unknown');
+});
+
 test('historical sessions immediately group by performed date and derive a PR at its physical timestamp', () => {
   const historical = createHistoricalWorkoutSession(draft(), new Date('2026-09-20T10:00:00.000Z'));
   const recent: WorkoutSession = {
@@ -85,7 +105,7 @@ test('multiple sessions retain the same performed day and historical machines sn
   const grouped = buildWorkoutHistoryIndex([first, second]);
   assert.equal(grouped.sessionsByDate['2026-08-10'].length, 2);
 
-  const machine: Exercise = { id: 'leg-press', name: 'Leg press', category: 'machine', primaryMuscle: 'quadriceps' };
+  const machine: Exercise = { id: 'leg-press', name: 'Leg press', category: 'machine', primaryMuscle: 'quadriceps', loading: { mechanism: 'plate_loaded', loadMode: 'total', supportsKeyboard: true, supportsPlates: true, supportsExternalLoad: true, includeBarWeight: false, hasMachineBase: true } };
   const unknownMachine = createHistoricalWorkoutSession(draft({ exercises: [{ exercise: machine, sets: [{ weight: '100', reps: '8', rir: '', setType: 'working' }] }] }), new Date('2026-09-20T10:00:00.000Z'));
   assert.equal(unknownMachine.sets['leg-press'][0].weightKg, 100);
   assert.equal(unknownMachine.sets['leg-press'][0].machineBaseResistanceStatus, 'unknown');

@@ -1,12 +1,16 @@
 import {
   isValidRirValue,
   isValidWorkoutDateKey,
+  isPlateLoadedMachine,
   normalizeWorkoutSession,
+  resolveExerciseLoadingProfile,
   type Exercise,
   type MachineProfile,
   type WorkoutSession,
   type WorkoutSetType
 } from '@light-weight/domain';
+import { parseDisplayWeight } from '../../lib/weight-units.js';
+import type { UnitSystem } from '../../lib/preferences.js';
 
 export interface HistoricalSetDraft {
   weight: string;
@@ -28,39 +32,48 @@ export interface HistoricalWorkoutDraft {
   performedTime: string;
   durationMinutes?: string;
   routineName?: string;
+  units?: UnitSystem;
   exercises: HistoricalExerciseDraft[];
 }
 
-export class HistoricalWorkoutValidationError extends Error {}
+export type HistoricalWorkoutValidationCode = 'invalid_time' | 'future_date' | 'invalid_duration' | 'invalid_set' | 'machine_base' | 'invalid_recorded_at';
+export class HistoricalWorkoutValidationError extends Error {
+  constructor(readonly code: HistoricalWorkoutValidationCode) { super(code); }
+}
 
 function createLocalInstant(dateKey: string, time: string): Date {
-  if (!isValidWorkoutDateKey(dateKey) || !/^\d{2}:\d{2}$/.test(time)) throw new HistoricalWorkoutValidationError('Invalid performed date or time');
+  if (!isValidWorkoutDateKey(dateKey) || !/^\d{2}:\d{2}$/.test(time)) throw new HistoricalWorkoutValidationError('invalid_time');
   const [hours, minutes] = time.split(':').map(Number);
-  if (hours > 23 || minutes > 59) throw new HistoricalWorkoutValidationError('Invalid performed time');
+  if (hours > 23 || minutes > 59) throw new HistoricalWorkoutValidationError('invalid_time');
   const local = new Date(`${dateKey}T${time}:00`);
-  if (!Number.isFinite(local.getTime())) throw new HistoricalWorkoutValidationError('Invalid performed date');
+  if (!Number.isFinite(local.getTime())) throw new HistoricalWorkoutValidationError('invalid_time');
   return local;
 }
 
 export function createHistoricalWorkoutSession(draft: HistoricalWorkoutDraft, recordedAt = new Date()): WorkoutSession {
   const started = createLocalInstant(draft.performedDate, draft.performedTime);
-  if (started.getTime() > Date.now()) throw new HistoricalWorkoutValidationError('Performed date cannot be in the future');
+  if (started.getTime() > Date.now()) throw new HistoricalWorkoutValidationError('future_date');
   const durationText = draft.durationMinutes?.trim();
   const duration = durationText ? Number(durationText) : undefined;
   if (durationText && (!Number.isInteger(duration) || duration! <= 0 || duration! > 1_440)) {
-    throw new HistoricalWorkoutValidationError('Invalid duration');
+    throw new HistoricalWorkoutValidationError('invalid_duration');
   }
 
   const sets = Object.fromEntries(draft.exercises.flatMap(({ exercise, sets: exerciseSets, machineProfile }) => {
+    const isPlateMachine = isPlateLoadedMachine(resolveExerciseLoadingProfile(exercise).profile);
     const normalized = exerciseSets.map((set, index) => {
-      const weightKg = Number(set.weight);
-      const reps = Number(set.reps);
+      const rawWeight = set.weight.trim();
+      const rawReps = set.reps.trim();
+      if (rawWeight === '' || rawReps === '') throw new HistoricalWorkoutValidationError('invalid_set');
+      const displayWeight = Number(rawWeight);
+      const reps = Number(rawReps);
       const rir = set.rir.trim() === '' ? undefined : Number(set.rir);
-      if (!Number.isFinite(weightKg) || weightKg < 0 || !Number.isInteger(reps) || reps <= 0 || (rir !== undefined && !isValidRirValue(rir))) {
-        throw new HistoricalWorkoutValidationError('Every historical set needs explicit valid weight and reps');
+      if (!Number.isFinite(displayWeight) || displayWeight < 0 || !Number.isFinite(reps) || !Number.isInteger(reps) || reps <= 0 || (rir !== undefined && !isValidRirValue(rir))) {
+        throw new HistoricalWorkoutValidationError('invalid_set');
       }
+      const weightKg = parseDisplayWeight(displayWeight, draft.units || 'metric');
       if (machineProfile?.baseResistanceKg !== undefined && weightKg < machineProfile.baseResistanceKg) {
-        throw new HistoricalWorkoutValidationError('Total machine load cannot be below its known base resistance');
+        throw new HistoricalWorkoutValidationError('machine_base');
       }
       return {
         setIndex: index + 1,
@@ -79,17 +92,17 @@ export function createHistoricalWorkoutSession(draft: HistoricalWorkoutDraft, re
           machineBaseSourceUrl: machineProfile.sourceUrl,
           machineManufacturer: machineProfile.manufacturer,
           machineModel: machineProfile.model
-        } : exercise.category === 'machine' ? {
+        } : isPlateMachine ? {
           machineBaseResistanceStatus: 'unknown' as const
         } : {})
       };
     });
     return normalized.length ? [[exercise.id, normalized] as const] : [];
   }));
-  if (Object.values(sets).flat().length === 0) throw new HistoricalWorkoutValidationError('At least one physical set is required');
+  if (Object.values(sets).flat().length === 0) throw new HistoricalWorkoutValidationError('invalid_set');
 
   const recordedMs = recordedAt.getTime();
-  if (!Number.isFinite(recordedMs) || started.getTime() > recordedMs) throw new HistoricalWorkoutValidationError('Historical record time is invalid');
+  if (!Number.isFinite(recordedMs) || started.getTime() > recordedMs) throw new HistoricalWorkoutValidationError('invalid_recorded_at');
   const id = globalThis.crypto?.randomUUID?.() || `historical-${recordedMs}-${Math.random().toString(36).slice(2)}`;
   return normalizeWorkoutSession({
     id,

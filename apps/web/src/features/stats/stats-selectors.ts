@@ -110,12 +110,9 @@ export function selectStrengthSnapshot(
     for (const session of history) {
       const sessionDate = session.startedAt;
       const sessionCalendarDate = resolveWorkoutDateKey(session);
-      const resolvedHistoricalBw = bodyweightEntries && bodyweightEntries.length > 0
-        ? resolveBodyweightKgAtDate(bodyweightEntries, sessionCalendarDate)
-        : null;
-      const sessionBw = resolvedHistoricalBw ?? (
-        session.entrySource === 'historical_manual' ? null : bodyweightKg
-      );
+      // Every session is stored history. Current bodyweight is never evidence
+      // for a past physical observation, including legacy/live provenance.
+      const sessionBw = resolveBodyweightKgAtDate(bodyweightEntries || [], sessionCalendarDate);
 
       if (!sessionBw || sessionBw <= 0) {
         continue;

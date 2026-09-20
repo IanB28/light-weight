@@ -6,7 +6,14 @@ import {
   type BodyweightEntry,
   type LoggedSet
 } from '@light-weight/domain';
-import { selectStrengthSnapshot, buildExercisesById } from './stats-selectors.js';
+import { selectStrengthSnapshot as selectStoredStrengthSnapshot, buildExercisesById } from './stats-selectors.js';
+
+// Existing mathematical fixtures model a supplied historical weigh-in.
+const selectStrengthSnapshot: typeof selectStoredStrengthSnapshot = (history, exercises, options) =>
+  selectStoredStrengthSnapshot(history, exercises, {
+    ...options,
+    bodyweightEntries: options.bodyweightEntries ?? (options.bodyweightKg ? [{ date: '1900-01-01', weightKg: options.bodyweightKg }] : [])
+  });
 
 function s(weightKg: number, reps: number, options: Partial<LoggedSet> = {}): LoggedSet {
   return {
@@ -298,8 +305,7 @@ test('8. historical bodyweight is used when available', () => {
   assert.ok(chest.strengthEvaluation.strengthScore > 4.5);
 });
 
-test('9. current bodyweight fallback works', () => {
-  // No historical bodyweight entry matching date -> falls back to current bodyweightKg
+test('9. stored history never falls back to current bodyweight', () => {
   const history: WorkoutSession[] = [
     {
       id: 's1',
@@ -320,8 +326,7 @@ test('9. current bodyweight fallback works', () => {
   });
 
   const chest = snapshot.muscles.chest;
-  assert.ok(chest.strengthEvaluation);
-  assert.equal(chest.strengthEvaluation.bodyweightKg, 80);
+  assert.equal(chest.strengthEvaluation, undefined);
 });
 
 test('10. no bodyweight means no StrengthEvaluation', () => {

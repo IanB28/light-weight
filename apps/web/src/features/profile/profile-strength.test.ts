@@ -66,7 +66,8 @@ test('ProfileStrengthSection: renders empty state when no history is present', (
         history: [],
         exercises: [mockBenchExercise],
         bodyweightKg: 80,
-        gender: 'male'
+        gender: 'male',
+        bodyweightEntries: [{ date: '2026-08-31', weightKg: 80 }]
       })
     )
   );
@@ -114,7 +115,8 @@ test('ProfileStrengthSection: renders provisional Overall card when 1-10 muscles
         history,
         exercises: [mockBenchExercise],
         bodyweightKg: 80,
-        gender: 'male'
+        gender: 'male',
+        bodyweightEntries: [{ date: '2026-08-31', weightKg: 80 }]
       })
     )
   );
@@ -151,7 +153,8 @@ test('ProfileStrengthSection: renders complete Overall card when all 11 muscles 
         history,
         exercises: all11Exercises,
         bodyweightKg: 80,
-        gender: 'male'
+        gender: 'male',
+        bodyweightEntries: [{ date: '2026-08-31', weightKg: 80 }]
       })
     )
   );
