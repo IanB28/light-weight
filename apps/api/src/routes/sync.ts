@@ -137,7 +137,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
 
     // 3. Procesar y persistir sesiones de entrenamiento en lote
     for (const session of sessions) {
-      const { id, routineId, routineName, startedAt, endedAt, notes, sets = {} } = session;
+      const { id, routineId, routineName, startedAt, performedDate, recordedAt, entrySource, endedAt, notes, sets = {} } = session;
       const sessionUuid = toDatabaseUuid(id);
       const requestedRoutineUuid = routineId ? toDatabaseUuid(routineId) : null;
       const [existingSession] = await db.select({ userId: workoutSessions.userId }).from(workoutSessions).where(eq(workoutSessions.id, sessionUuid)).limit(1);
@@ -170,6 +170,9 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
           routineId: routineUuid,
           routineName: routineName || null,
           startedAt: new Date(startedAt),
+          performedDate: performedDate || null,
+          recordedAt: recordedAt ? new Date(recordedAt) : null,
+          entrySource: entrySource || null,
           endedAt: endedAt ? new Date(endedAt) : null,
           notes: notes || null,
           totalVolumeKg: String(totalVolume),
@@ -179,6 +182,10 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
           target: workoutSessions.id,
           setWhere: eq(workoutSessions.userId, userId),
           set: {
+            // Omitted legacy metadata must not erase provenance on a retry.
+            ...(performedDate === undefined ? {} : { performedDate: performedDate || null }),
+            ...(recordedAt === undefined ? {} : { recordedAt: recordedAt ? new Date(recordedAt) : null }),
+            ...(entrySource === undefined ? {} : { entrySource: entrySource || null }),
             endedAt: endedAt ? new Date(endedAt) : null,
             totalVolumeKg: String(totalVolume),
             notes: notes || null,
@@ -385,6 +392,9 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
           routineId: sess.routineId ?? undefined,
           routineName: sess.routineName ?? undefined,
           startedAt: sess.startedAt.toISOString(),
+          performedDate: sess.performedDate ?? undefined,
+          recordedAt: sess.recordedAt?.toISOString(),
+          entrySource: sess.entrySource ?? undefined,
           endedAt: sess.endedAt?.toISOString(),
           notes: sess.notes ?? undefined,
           sets: setsByExercise,

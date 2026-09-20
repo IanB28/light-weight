@@ -5,8 +5,12 @@ import {
   isValidRpeValue,
   isValidBaseResistanceStatus,
   isAuthoritativeProvenance,
+  isValidWorkoutDateKey,
+  isWorkoutEntrySource,
+  isValidWorkoutTimestamp,
   type WorkoutSetType,
-  type BaseResistanceStatus
+  type BaseResistanceStatus,
+  type WorkoutEntrySource
 } from '@light-weight/domain';
 
 export class SyncValidationError extends Error {
@@ -44,6 +48,9 @@ export interface SyncSessionInput extends Record<string, unknown> {
   routineId?: string;
   routineName?: string;
   startedAt: string;
+  performedDate?: string;
+  recordedAt?: string;
+  entrySource?: WorkoutEntrySource;
   endedAt?: string;
   notes?: string;
   sets: Record<string, ReturnType<typeof normalizeIncomingSyncSet>[]>;
@@ -133,6 +140,26 @@ export function normalizeIncomingSyncSessions(value: unknown): SyncSessionInput[
     .map((session) => {
       if (typeof session.startedAt !== 'string' || Number.isNaN(new Date(session.startedAt).getTime())) {
         throw new SyncValidationError('INVALID_SESSION_DATE', 'Invalid workout session start date');
+      }
+      if (session.endedAt !== undefined && (!isValidWorkoutTimestamp(session.endedAt) || Date.parse(session.endedAt) < Date.parse(session.startedAt))) {
+        throw new SyncValidationError('INVALID_SESSION_END', 'Invalid workout session end date');
+      }
+      if (session.performedDate !== undefined && !isValidWorkoutDateKey(session.performedDate)) {
+        throw new SyncValidationError('INVALID_PERFORMED_DATE', 'Invalid performed date');
+      }
+      if (session.recordedAt !== undefined && !isValidWorkoutTimestamp(session.recordedAt)) {
+        throw new SyncValidationError('INVALID_RECORDED_AT', 'Invalid recorded date');
+      }
+      if (session.entrySource !== undefined && !isWorkoutEntrySource(session.entrySource)) {
+        throw new SyncValidationError('INVALID_ENTRY_SOURCE', 'Invalid workout entry source');
+      }
+      if (session.entrySource === 'historical_manual' && (!session.recordedAt || Date.parse(session.startedAt) > Date.parse(session.recordedAt))) {
+        throw new SyncValidationError('INVALID_HISTORICAL_PROVENANCE', 'Historical sessions require a recorded time after training');
+      }
+      // Historical facts cannot be dated materially in the future. A small
+      // tolerance avoids rejecting a client whose clock is milliseconds ahead.
+      if (session.entrySource === 'historical_manual' && Date.parse(session.startedAt) > Date.now() + 5 * 60_000) {
+        throw new SyncValidationError('HISTORICAL_SESSION_IN_FUTURE', 'Historical sessions cannot be in the future');
       }
       const rawSets = session.sets && typeof session.sets === 'object' && !Array.isArray(session.sets)
         ? session.sets as Record<string, unknown>

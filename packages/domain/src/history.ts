@@ -5,6 +5,7 @@ import { shouldCountForVolume } from './setSemantics.js';
 import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
 import { resolveBodyweightKgAtDate } from './weight.js';
 import { isValidRirValue, isValidRpeValue } from './effort.js';
+import { resolveWorkoutDateKey } from './workoutTemporal.js';
 
 export interface MuscleVolumeDistribution {
   muscle: MuscleGroup;
@@ -50,7 +51,7 @@ export function calculateSessionTotalVolume(
   options?: SessionVolumeOptions
 ): number {
   const sessionBw = options?.bodyweightEntries
-    ? resolveBodyweightKgAtDate(options.bodyweightEntries, session.startedAt)
+    ? resolveBodyweightKgAtDate(options.bodyweightEntries, resolveWorkoutDateKey(session))
     : options?.bodyweightKg;
   return Object.entries(session.sets).reduce((acc, [exerciseId, sets]) => {
     const exercise = options?.exercisesById?.[exerciseId];
@@ -136,7 +137,7 @@ export function getExerciseProgressSeries(
     );
 
     const sessionBw = options?.bodyweightEntries
-      ? resolveBodyweightKgAtDate(options.bodyweightEntries, session.startedAt)
+      ? resolveBodyweightKgAtDate(options.bodyweightEntries, resolveWorkoutDateKey(session))
       : options?.bodyweightKg;
 
     // Calculate best 1RM in session using effective load
@@ -162,7 +163,9 @@ export function getExerciseProgressSeries(
         : null;
 
     const t = new Date(session.startedAt).getTime();
-    const d = session.startedAt.slice(0, 10);
+    // Keep the physical timestamp for chronology, but label the point with
+    // the locally captured calendar date when the session provides one.
+    const d = resolveWorkoutDateKey(session);
 
     const loading = options?.exercise ? resolveExerciseLoadingProfile(options.exercise).profile : undefined;
     let label = `${topSet.weightKg} kg × ${topSet.reps}`;
@@ -237,7 +240,7 @@ export function calculateMuscleVolumeDistribution(
   const entries = isOptions ? bodyweightOrOptions.bodyweightEntries : undefined;
 
   for (const session of sessions) {
-    const sessionBw = entries ? resolveBodyweightKgAtDate(entries, session.startedAt) : directBw;
+    const sessionBw = entries ? resolveBodyweightKgAtDate(entries, resolveWorkoutDateKey(session)) : directBw;
     for (const [exId, sets] of Object.entries(session.sets)) {
       const exercise = exercisesById[exId];
       if (!exercise) continue;
@@ -404,7 +407,7 @@ export function weekKey(d: string | Date): string {
  */
 export function calculateWeeklyStreak(history: WorkoutSession[]): number {
   if (!history || history.length === 0) return 0;
-  const weeks = new Set(history.map((w) => weekKey(w.startedAt)));
+  const weeks = new Set(history.map((w) => weekKey(resolveWorkoutDateKey(w))));
   let streak = 0;
   const cur = new Date();
   for (let i = 0; i < 520; i++) {
@@ -424,5 +427,5 @@ export function calculateWeeklyStreak(history: WorkoutSession[]): number {
  */
 export function getWorkoutsThisWeek(history: WorkoutSession[]): WorkoutSession[] {
   const currentWeek = weekKey(new Date());
-  return history.filter((w) => weekKey(w.startedAt) === currentWeek);
+  return history.filter((w) => weekKey(resolveWorkoutDateKey(w)) === currentWeek);
 }

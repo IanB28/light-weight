@@ -15,7 +15,7 @@ import {
   index
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import type { ExerciseLoadMechanism, ExerciseLoadMode, Routine, WorkoutSetType, BaseResistanceStatus } from '@light-weight/domain';
+import type { ExerciseLoadMechanism, ExerciseLoadMode, Routine, WorkoutSetType, BaseResistanceStatus, WorkoutEntrySource } from '@light-weight/domain';
 
 // 1. Usuarios
 export const users = pgTable('users', {
@@ -117,11 +117,16 @@ export const workoutSessions = pgTable('workout_sessions', {
   routineId: uuid('routine_id').references(() => routines.id, { onDelete: 'set null' }),
   routineName: varchar('routine_name', { length: 255 }),
   startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+  performedDate: date('performed_date'),
+  recordedAt: timestamp('recorded_at', { withTimezone: true }),
+  entrySource: varchar('entry_source', { length: 32 }).$type<WorkoutEntrySource>(),
   endedAt: timestamp('ended_at', { withTimezone: true }),
   notes: text('notes'),
   totalVolumeKg: numeric('total_volume_kg', { precision: 10, scale: 2 }).default('0.00'),
   syncedAt: timestamp('synced_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  check('workout_sessions_entry_source_check', sql`${table.entrySource} IS NULL OR ${table.entrySource} IN ('live', 'historical_manual')`)
+]);
 
 // 7. Series ejecutadas (Logged Sets)
 export const loggedSets = pgTable('logged_sets', {

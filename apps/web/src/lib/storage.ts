@@ -315,11 +315,26 @@ export function getStoredHistory(): WorkoutSession[] {
 }
 
 export function saveCompletedWorkout(session: WorkoutSession): WorkoutSession[] {
+  const updated = upsertStoredHistory(session);
+  clearActiveWorkout();
+  return updated;
+}
+
+/** Pure history merge used by every local persistence boundary. */
+export function upsertHistoryByStartedAt(history: WorkoutSession[], session: WorkoutSession): WorkoutSession[] {
+  const normalized = normalizeWorkoutSession(session);
+  return [normalized, ...history.filter((item) => item.id !== normalized.id)]
+    .sort((left, right) => {
+      const chronological = Date.parse(right.startedAt) - Date.parse(left.startedAt);
+      return chronological !== 0 ? chronological : left.id.localeCompare(right.id);
+    });
+}
+
+/** Single local history write boundary for live, imported, and historical sessions. */
+export function upsertStoredHistory(session: WorkoutSession): WorkoutSession[] {
   try {
-    const current = getStoredHistory();
-    const updated = [normalizeWorkoutSession(session), ...current];
+    const updated = upsertHistoryByStartedAt(getStoredHistory(), session);
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updated));
-    clearActiveWorkout();
     return updated;
   } catch (err) {
     console.error('Failed to save workout session to storage:', err);

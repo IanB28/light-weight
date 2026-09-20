@@ -2,6 +2,7 @@ import type { Exercise, ExerciseLoadMode, LoggedSet, WorkoutSession, WorkoutSetT
 import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
 import { normalizeRirValue, normalizeRpeValue } from './effort.js';
 import { isValidBaseResistanceStatus, isAuthoritativeProvenance } from './machineProfile.js';
+import { isValidWorkoutDateKey, isWorkoutEntrySource, isValidWorkoutTimestamp } from './workoutTemporal.js';
 
 export const WORKOUT_SET_TYPES = ['working', 'warmup', 'drop', 'backoff'] as const;
 
@@ -129,8 +130,7 @@ export function normalizeLoggedSet<T extends LegacyWorkoutSetClassification>(
 }
 
 export function normalizeWorkoutSession(session: LegacyWorkoutSession): WorkoutSession {
-
-  return {
+  const normalized = {
     ...session,
     sets: Object.fromEntries(
       Object.entries(session.sets || {}).map(([exerciseId, sets]) => [
@@ -138,7 +138,11 @@ export function normalizeWorkoutSession(session: LegacyWorkoutSession): WorkoutS
         Array.isArray(sets) ? sets.map((set) => normalizeLoggedSet(set)) : []
       ])
     )
-  };
+  } as WorkoutSession;
+  if (!isValidWorkoutDateKey(normalized.performedDate)) delete normalized.performedDate;
+  if (!isValidWorkoutTimestamp(normalized.recordedAt)) delete normalized.recordedAt;
+  if (!isWorkoutEntrySource(normalized.entrySource)) delete normalized.entrySource;
+  return normalized;
 }
 
 export function isWarmupSet(set: LegacyWorkoutSetClassification): boolean {

@@ -63,7 +63,8 @@ export function ProfileView({
   const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'LW';
 
   const summary = useMemo(() => {
-    const records = calculateAllPersonalRecords(history);
+    const exercisesById = Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise]));
+    const records = calculateAllPersonalRecords(history, { exercisesById, bodyweightEntries });
     return {
       totalWorkouts: history.length,
       totalVolumeKg: history.reduce((total, session) => total + calculateSessionTotalVolume(session), 0),
@@ -76,7 +77,7 @@ export function ProfileView({
           name: resolveExerciseName(record.exerciseId, exercises, history, t('profile.exerciseUnavailable'))
         }))
     };
-  }, [exercises, history, t]);
+  }, [bodyweightEntries, exercises, history, t]);
 
   const openEdit = () => {
     setDraft({ ...profile, displayName });

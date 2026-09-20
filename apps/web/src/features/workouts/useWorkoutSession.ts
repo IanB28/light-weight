@@ -47,6 +47,7 @@ interface StoredActiveWorkout {
   activeRoutineName?: string;
   exerciseSessions?: ActiveExerciseSession[];
   workoutStartTime?: string;
+  performedDate?: string;
 }
 
 export interface UseWorkoutSessionOptions {
@@ -65,6 +66,13 @@ export interface WorkoutFinishResult {
 }
 
 const FALLBACK_USER_ID = 'local-anonymous';
+
+function localDateKey(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export function normalizeActiveExerciseSession(session: ActiveExerciseSession): ActiveExerciseSession {
   const legacySession = session as ActiveExerciseSession & { weightInputMode?: WeightInputMode };
@@ -592,6 +600,7 @@ export function useWorkoutSession({
   const [activeRoutineName, setActiveRoutineName] = useState('Entrenamiento Libre');
   const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>([]);
   const [workoutStartedAt, setWorkoutStartedAt] = useState<string | null>(null);
+  const [workoutPerformedDate, setWorkoutPerformedDate] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const priorWeightInputMode = useRef(preferences.weightInputMode);
   const activeSnapshotRef = useRef<StoredActiveWorkout | null>(null);
@@ -610,6 +619,7 @@ export function useWorkoutSession({
     setActiveRoutineName(saved.activeRoutineName || 'Entrenamiento Libre');
     setExerciseSessions((saved.exerciseSessions || []).map(normalizeActiveExerciseSession));
     setWorkoutStartedAt(startedAt);
+    setWorkoutPerformedDate(saved.performedDate || localDateKey(new Date(startedAt)));
     setNowMs(Date.now());
   }, []);
 
@@ -653,11 +663,12 @@ export function useWorkoutSession({
       isWorkoutActive: true,
       activeRoutineName,
       exerciseSessions,
-      workoutStartTime: workoutStartedAt
+      workoutStartTime: workoutStartedAt,
+      performedDate: workoutPerformedDate || localDateKey(new Date(workoutStartedAt))
     };
     activeSnapshotRef.current = snapshot;
     saveActiveWorkout(snapshot);
-  }, [activeRoutineName, exerciseSessions, isWorkoutActive, workoutStartedAt]);
+  }, [activeRoutineName, exerciseSessions, isWorkoutActive, workoutPerformedDate, workoutStartedAt]);
 
   useEffect(() => {
     const checkpoint = () => {
@@ -679,6 +690,7 @@ export function useWorkoutSession({
   const start = (routineId?: string, sessionName?: string, prefilterMuscles?: MuscleGroup[]) => {
     const startedAt = new Date().toISOString();
     setWorkoutStartedAt(startedAt);
+    setWorkoutPerformedDate(localDateKey());
     setNowMs(Date.now());
     setIsWorkoutActive(true);
     const routine = routineId ? routines.find((item) => item.id === routineId) : undefined;
@@ -699,6 +711,7 @@ export function useWorkoutSession({
   const addExercise = (exercise: Exercise) => {
     if (!isWorkoutActive) {
       setWorkoutStartedAt(new Date().toISOString());
+      setWorkoutPerformedDate(localDateKey());
       setNowMs(Date.now());
       setActiveRoutineName('Entrenamiento Libre');
       setIsWorkoutActive(true);
@@ -711,6 +724,7 @@ export function useWorkoutSession({
   const startWithExercise = (exercise: Exercise) => {
     const startedAt = new Date().toISOString();
     setWorkoutStartedAt(startedAt);
+    setWorkoutPerformedDate(localDateKey());
     setNowMs(Date.now());
     setActiveRoutineName('Entrenamiento Libre');
     setExerciseSessions([createExerciseSession(exercise)]);
@@ -832,7 +846,10 @@ export function useWorkoutSession({
       userId,
       routineName: activeRoutineName,
       startedAt: workoutStartedAt || new Date().toISOString(),
+      performedDate: workoutPerformedDate || localDateKey(),
       endedAt: new Date().toISOString(),
+      recordedAt: new Date().toISOString(),
+      entrySource: 'live',
       sets
     };
     const updatedHistory = saveCompletedWorkout(session);
@@ -840,6 +857,7 @@ export function useWorkoutSession({
     setIsWorkoutActive(false);
     setExerciseSessions([]);
     setWorkoutStartedAt(null);
+    setWorkoutPerformedDate(null);
     setActiveRoutineName('Entrenamiento Libre');
     return { session, history: updatedHistory };
   };
@@ -849,6 +867,7 @@ export function useWorkoutSession({
     setIsWorkoutActive(false);
     setExerciseSessions([]);
     setWorkoutStartedAt(null);
+    setWorkoutPerformedDate(null);
     setActiveRoutineName('Entrenamiento Libre');
   };
 

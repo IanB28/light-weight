@@ -1,11 +1,12 @@
 import React, { useRef, useEffect } from 'react';
-import { WorkoutSession, calculateSessionTotalVolume } from '@light-weight/domain';
+import { WorkoutSession, calculateSessionTotalVolume, formatLocalWorkoutDateKey, resolveWorkoutDateKey } from '@light-weight/domain';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 
 interface ActivityHeatmapProps {
   history: WorkoutSession[];
-  onSelectDate?: (dateStr: string, session?: WorkoutSession) => void;
+  /** A selected day is an aggregate; callers receive every session on it. */
+  onSelectDate?: (dateStr: string, sessions: WorkoutSession[]) => void;
 }
 
 export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
@@ -23,10 +24,10 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   }, []);
 
   // Aggregate workouts by YYYY-MM-DD
-  const sessionsByDate: Record<string, { session: WorkoutSession; volumeKg: number; sets: number }> = {};
+  const sessionsByDate: Record<string, { sessions: WorkoutSession[]; volumeKg: number; sets: number }> = {};
 
   for (const session of history) {
-    const d = session.startedAt.slice(0, 10);
+    const d = resolveWorkoutDateKey(session);
     const vol = calculateSessionTotalVolume(session);
     const sets = Object.values(session.sets).reduce(
       (acc, sList) => acc + sList.filter((s) => s.completed).length,
@@ -34,8 +35,9 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
     );
 
     if (!sessionsByDate[d]) {
-      sessionsByDate[d] = { session, volumeKg: vol, sets };
+      sessionsByDate[d] = { sessions: [session], volumeKg: vol, sets };
     } else {
+      sessionsByDate[d].sessions.push(session);
       sessionsByDate[d].volumeKg += vol;
       sessionsByDate[d].sets += sets;
     }
@@ -55,14 +57,14 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   const startDate = new Date(endDate);
   startDate.setDate(endDate.getDate() - totalWeeks * 7 + 1);
 
-  const weeks: { date: Date; dateStr: string; data?: { session: WorkoutSession; volumeKg: number; sets: number } }[][] = [];
+  const weeks: { date: Date; dateStr: string; data?: { sessions: WorkoutSession[]; volumeKg: number; sets: number } }[][] = [];
 
   for (let w = 0; w < totalWeeks; w++) {
-    const weekDays: { date: Date; dateStr: string; data?: { session: WorkoutSession; volumeKg: number; sets: number } }[] = [];
+    const weekDays: { date: Date; dateStr: string; data?: { sessions: WorkoutSession[]; volumeKg: number; sets: number } }[] = [];
     for (let d = 0; d < 7; d++) {
       const dayDate = new Date(startDate);
       dayDate.setDate(startDate.getDate() + w * 7 + d);
-      const dateStr = dayDate.toISOString().slice(0, 10);
+      const dateStr = formatLocalWorkoutDateKey(dayDate);
       weekDays.push({
         date: dayDate,
         dateStr,
@@ -101,7 +103,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
             {weeks.map((week, wIdx) => (
               <div key={wIdx} className="flex flex-col gap-1">
                 {week.map((day, dIdx) => {
-                  const isToday = day.dateStr === today.toISOString().slice(0, 10);
+                  const isToday = day.dateStr === formatLocalWorkoutDateKey(today);
                   const isFuture = day.date > today;
                   const levelCls = getLevelClass(day.data);
 
@@ -110,12 +112,12 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
                       key={dIdx}
                       onClick={() => {
                         if (day.data && onSelectDate) {
-                          onSelectDate(day.dateStr, day.data.session);
+                          onSelectDate(day.dateStr, day.data.sessions);
                         }
                       }}
                       title={`${day.dateStr}${
                         day.data
-                          ? ` • ${day.data.sets} series • ${displayWeight(day.data.volumeKg, preferences.units).toLocaleString()} ${weightUnit}`
+                          ? ` • ${day.data.sessions.length} sesiones • ${day.data.sets} series • ${displayWeight(day.data.volumeKg, preferences.units).toLocaleString()} ${weightUnit}`
                           : ''
                       }`}
                       className={`w-3 h-3 rounded-[3px] transition-all ${

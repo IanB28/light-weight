@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { shouldCountForVolume, type WorkoutSession, type Routine } from '@light-weight/domain';
+import { formatLocalWorkoutDateKey, resolveWorkoutDateKey, shouldCountForVolume, type WorkoutSession, type Routine } from '@light-weight/domain';
 import { WeeklySchedule, DAY_NUM_TO_WEEKDAY } from '../lib/storage.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
@@ -45,8 +45,8 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
   // Sesiones de este mes
   const monthSessions = useMemo(() => {
     return history.filter((s) => {
-      const d = new Date(s.startedAt);
-      return d.getFullYear() === year && d.getMonth() === month;
+      const [sessionYear, sessionMonth] = resolveWorkoutDateKey(s).split('-').map(Number);
+      return sessionYear === year && sessionMonth === month;
     });
   }, [history, year, month]);
 
@@ -54,6 +54,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
   const monthStats = useMemo(() => {
     const count = monthSessions.length;
     let totalMinutes = 0;
+    let hasUnknownDuration = false;
     let totalVolumeKg = 0;
 
     monthSessions.forEach((s) => {
@@ -63,7 +64,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
           totalMinutes += Math.round(diffMs / 60000);
         }
       } else {
-        totalMinutes += 60;
+        hasUnknownDuration = true;
       }
 
       if (s.sets) {
@@ -79,7 +80,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
 
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
-    const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    const durationStr = hasUnknownDuration ? '—' : hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
     const volumeFormatted = displayWeight(totalVolumeKg, preferences.units).toLocaleString('es-ES', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1
@@ -98,10 +99,10 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
     const startDayOfWeek = (firstDay.getDay() + 6) % 7; // 0 = Lun, ..., 6 = Dom
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    const sessionsByIso: Record<string, WorkoutSession> = {};
+    const sessionsByIso: Record<string, WorkoutSession[]> = {};
     history.forEach((s) => {
-      const iso = s.startedAt.slice(0, 10);
-      sessionsByIso[iso] = s;
+      const iso = resolveWorkoutDateKey(s);
+      (sessionsByIso[iso] ||= []).push(s);
     });
 
     const cells: any[] = [];
@@ -114,16 +115,16 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
     // Días del mes
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
       const d = new Date(year, month, dayNum);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = formatLocalWorkoutDateKey(d);
       const dayOfWeekKey = DAY_NUM_TO_WEEKDAY[d.getDay()];
       const routineId = weeklySchedule[dayOfWeekKey];
       const routine = routineId ? routines.find((r) => r.id === routineId) : null;
-      const completedSession = sessionsByIso[iso];
+      const completedSessions = sessionsByIso[iso] || [];
       const isToday = d.toDateString() === today.toDateString();
       const isPast = d < new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
       let dotStatus: 'trained' | 'planned' | 'reprogrammed' | null = null;
-      if (completedSession) {
+      if (completedSessions.length > 0) {
         dotStatus = 'trained';
       } else if (routine) {
         if (isPast) {
@@ -140,8 +141,8 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
         iso,
         dayNum,
         isToday,
-        isCompleted: Boolean(completedSession),
-        completedSession,
+        isCompleted: completedSessions.length > 0,
+        completedSessions,
         routine,
         dotStatus
       });

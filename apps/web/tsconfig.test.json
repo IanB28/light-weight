@@ -18,6 +18,8 @@
     "src/lib/workout-history-index.test.ts",
     "src/features/workouts/workout-time.ts",
     "src/features/workouts/workout-time.test.ts",
+    "src/features/workouts/historical-workout.ts",
+    "src/features/workouts/historical-workout.test.ts",
     "src/features/workouts/rest-timer-notifier.ts",
     "src/features/workouts/rest-timer-lifecycle.ts",
     "src/features/workouts/rest-timer-lifecycle.test.ts",

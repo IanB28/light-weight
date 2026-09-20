@@ -12,7 +12,9 @@ import {
   WorkoutSession,
   MuscleGroup,
   calculateWeeklyStreak,
-  getWorkoutsThisWeek
+  getWorkoutsThisWeek,
+  formatLocalWorkoutDateKey,
+  resolveWorkoutDateKey
 } from '@light-weight/domain';
 import {
   BodyweightEntry,
@@ -26,6 +28,7 @@ import { WorkoutFocusModal, WorkoutFocus } from '../components/WorkoutFocusModal
 import { DayDetailModal } from '../components/DayDetailModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
 import { MonthCalendarModal } from '../components/MonthCalendarModal.js';
+import { HistoricalWorkoutModal } from '../components/HistoricalWorkoutModal.js';
 import { AppCard, AppLogo, Button, IconButton } from '../components/ui/index.js';
 import { TranslationKey, useI18n } from '../lib/i18n.js';
 
@@ -44,6 +47,9 @@ interface HomeViewProps {
   activeWorkoutDuration?: string;
   onNavigateToWorkout?: () => void;
   onOpenSettings?: () => void;
+  exercises?: import('@light-weight/domain').Exercise[];
+  userId?: string;
+  onSaveHistoricalWorkout?: (session: WorkoutSession) => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -60,7 +66,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   isWorkoutActive = false,
   activeWorkoutDuration = '00:00',
   onNavigateToWorkout,
-  onOpenSettings
+  onOpenSettings,
+  exercises = [],
+  userId = 'local-anonymous',
+  onSaveHistoricalWorkout
 }) => {
   const { locale, t } = useI18n();
   const [weekOffset, setWeekOffset] = useState<number>(0);
@@ -75,6 +84,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [inspectedSession, setInspectedSession] = useState<WorkoutSession | null>(null);
   const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
+  const [historicalDate, setHistoricalDate] = useState<Date | undefined>();
+  const [isHistoricalOpen, setIsHistoricalOpen] = useState(false);
 
   // Keep the calendar dependency stable for all renders within the same local day.
   const todayKey = new Date().toDateString();
@@ -114,21 +125,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
     const currentDay = (today.getDay() + 6) % 7; // 0 = Lunes, ..., 6 = Domingo
     monday.setDate(today.getDate() - currentDay + weekOffset * 7);
 
-    const sessionsByDate: Record<string, WorkoutSession> = {};
+    const sessionsByDate: Record<string, WorkoutSession[]> = {};
     history.forEach((s) => {
-      const dateKey = s.startedAt.slice(0, 10);
-      sessionsByDate[dateKey] = s;
+      const dateKey = resolveWorkoutDateKey(s);
+      (sessionsByDate[dateKey] ||= []).push(s);
     });
 
     const days = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = formatLocalWorkoutDateKey(d);
       const dayOfWeekKey = DAY_NUM_TO_WEEKDAY[d.getDay()];
       const routineId = weeklySchedule[dayOfWeekKey];
       const routine = routineId ? routines.find((r) => r.id === routineId) : null;
-      const completed = sessionsByDate[iso];
+      const completed = sessionsByDate[iso] || [];
       const isCurrentDay = d.toDateString() === today.toDateString();
 
       days.push({
@@ -138,7 +149,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         dayShort: t(`weekday.${dayOfWeekKey}.short` as TranslationKey).slice(0, 2).toUpperCase(),
         dayNum: d.getDate(),
         isToday: isCurrentDay,
-        completed: Boolean(completed),
+        completed: completed.length > 0,
         routine
       });
     }
@@ -174,17 +185,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
   // Rutina asignada al día seleccionado en DayDetailModal
   const selectedDayInfo = useMemo(() => {
     if (!selectedDayDate) return null;
-    const iso = selectedDayDate.toISOString().slice(0, 10);
+    const iso = formatLocalWorkoutDateKey(selectedDayDate);
     const dayOfWeekKey = DAY_NUM_TO_WEEKDAY[selectedDayDate.getDay()];
     const routineId = weeklySchedule[dayOfWeekKey];
     const scheduledRoutine = routineId ? routines.find((r) => r.id === routineId) : undefined;
-    const completedSession = history.find((s) => s.startedAt.slice(0, 10) === iso);
+    const completedSessions = history
+      .filter((s) => resolveWorkoutDateKey(s) === iso)
+      .sort((left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt));
 
     return {
       date: selectedDayDate,
       dayOfWeekKey,
       scheduledRoutine,
-      completedSession
+      completedSessions
     };
   }, [selectedDayDate, weeklySchedule, routines, history]);
 
@@ -329,6 +342,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {t('home.trainOther')}
             </Button>
           )}
+          {onSaveHistoricalWorkout && <Button variant="ghost" size="sm" onClick={() => { setHistoricalDate(today); setIsHistoricalOpen(true); }} className="w-full text-text-muted hover:text-text-primary">Registrar entrenamiento pasado</Button>}
         </div>
       </AppCard>
 
@@ -397,13 +411,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
           isOpen={Boolean(selectedDayDate)}
           onClose={() => setSelectedDayDate(null)}
           date={selectedDayInfo.date}
-          completedSession={selectedDayInfo.completedSession}
+          completedSessions={selectedDayInfo.completedSessions}
           scheduledRoutine={selectedDayInfo.scheduledRoutine}
           availableRoutines={routines}
           onStartRoutine={(routineId) => onStartWorkout(routineId)}
           onStartFreeWorkout={() => setIsFocusModalOpen(true)}
           onAssignRoutine={handleAssignRoutineToDay}
           onViewSessionDetail={(session) => setInspectedSession(session)}
+          onRegisterHistorical={(date) => { setHistoricalDate(date); setIsHistoricalOpen(true); }}
         />
       )}
 
@@ -412,6 +427,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         session={inspectedSession}
         onClose={() => setInspectedSession(null)}
       />
+      {onSaveHistoricalWorkout && <HistoricalWorkoutModal isOpen={isHistoricalOpen} onClose={() => setIsHistoricalOpen(false)} onSave={onSaveHistoricalWorkout} userId={userId} exercises={exercises} history={history} routines={routines} initialDate={historicalDate} />}
 
     </div>
   );

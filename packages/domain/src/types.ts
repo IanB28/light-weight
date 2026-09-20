@@ -82,6 +82,7 @@ export interface Exercise {
 }
 
 export type WorkoutSetType = 'working' | 'warmup' | 'drop' | 'backoff';
+export type WorkoutEntrySource = 'live' | 'historical_manual';
 
 export interface LoggedSet {
   setIndex: number;
@@ -135,6 +136,12 @@ export interface WorkoutSession {
   routineId?: string;
   routineName?: string;
   startedAt: string;
+  /** Local calendar date on which the physical training occurred. */
+  performedDate?: string;
+  /** Instant the session was recorded in the application. Never analytics time. */
+  recordedAt?: string;
+  /** Provenance only; absent on legacy sessions. */
+  entrySource?: WorkoutEntrySource;
   endedAt?: string;
   notes?: string;
   sets: Record<string, LoggedSet[]>; // Keyed by exerciseId

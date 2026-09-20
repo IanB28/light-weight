@@ -16,6 +16,7 @@ import {
   saveStoredRoutines,
   saveStoredTargetWeight,
   saveStoredWeeklySchedule,
+  upsertStoredHistory,
   storedUserScopeMatches,
   type BodyweightEntry,
   type UserProfile,
@@ -104,6 +105,14 @@ export function useAppData() {
     void sync();
   }, [sync]);
 
+  /** Shared offline-first history write used by live and historical entry flows. */
+  const saveHistorySession = useCallback((session: WorkoutSession) => {
+    const updated = upsertStoredHistory(session);
+    setHistory(updated);
+    void sync();
+    return updated;
+  }, [sync]);
+
   const deleteRoutine = useCallback((routineId: string) => {
     addStoredDeletedRoutineId(routineId);
     setRoutines((current) => {
@@ -149,6 +158,7 @@ export function useAppData() {
     saveBodyweight,
     saveTargetWeight,
     saveRoutine,
+    saveHistorySession,
     deleteRoutine,
     saveProfile,
     addCustomExercise

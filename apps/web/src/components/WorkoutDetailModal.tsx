@@ -29,13 +29,8 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   );
 
   const durationMin = session.endedAt
-    ? Math.max(
-        1,
-        Math.round(
-          (new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()) / 60000
-        )
-      )
-    : 45;
+    ? Math.max(1, Math.round((new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()) / 60000))
+    : null;
 
   const formattedDate = new Date(session.startedAt).toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -86,7 +81,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
           <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
             <span className="text-[10px] text-zinc-500 block uppercase">Duración</span>
-            <span className="text-sm font-extrabold text-white">{durationMin} min</span>
+            <span className="text-sm font-extrabold text-white">{durationMin === null ? '—' : `${durationMin} min`}</span>
           </div>
         </div>
 

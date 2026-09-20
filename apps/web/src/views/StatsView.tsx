@@ -1088,12 +1088,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   {history.length} sesiones registradas
                 </span>
               </div>
-              <ActivityHeatmap
-                history={history}
-                onSelectDate={(_d, session) => {
-                  if (session) setInspectingSession(session);
-                }}
-              />
+              <ActivityHeatmap history={history} />
             </div>
 
             {/* Listado Reciente de Entrenamientos */}

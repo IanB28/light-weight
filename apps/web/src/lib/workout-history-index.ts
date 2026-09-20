@@ -2,6 +2,7 @@ import {
   calculateSetOneRm,
   isSetEligibleForPersonalRecord,
   resolveBodyweightKgAtDate,
+  resolveWorkoutDateKey,
   resolveExerciseLoadingProfile,
   shouldCountForVolume,
   type BodyweightEntry,
@@ -57,11 +58,11 @@ export function buildWorkoutHistoryIndex(
   );
 
   for (const session of newestFirst) {
-    const dateKey = session.startedAt.slice(0, 10);
+    const dateKey = resolveWorkoutDateKey(session);
     (index.sessionsByDate[dateKey] ||= []).push(session);
 
     const sessionBw = options?.bodyweightEntries
-      ? resolveBodyweightKgAtDate(options.bodyweightEntries, session.startedAt)
+      ? resolveBodyweightKgAtDate(options.bodyweightEntries, dateKey)
       : null;
 
     for (const [exerciseId, sets] of Object.entries(session.sets)) {

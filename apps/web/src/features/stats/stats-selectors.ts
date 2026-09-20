@@ -9,6 +9,7 @@ import {
   getNeglectedMuscles,
   isSetEligibleForPersonalRecord,
   resolveBodyweightKgAtDate,
+  resolveWorkoutDateKey,
   resolveExerciseStrengthTarget,
   REP_CAP,
   type BodyweightEntry,
@@ -88,7 +89,7 @@ interface BestMuscleStrengthRecord {
  * Selection Invariants:
  * - Only sets eligible for Personal Record (isSetEligibleForPersonalRecord).
  * - Only sets within REP_CAP (1 to 12 reps, >12 rejected).
- * - Historical bodyweight is resolved via resolveBodyweightKgAtDate with fallback to current bodyweight.
+ * - Historical sessions use only bodyweight known at their physical timestamp.
  * - Missing bodyweight or gender results in no StrengthEvaluation (undefined, never Novato).
  * - Multiple sets are NEVER averaged.
  * - Winner per MuscleGroup is selected by:
@@ -108,9 +109,13 @@ export function selectStrengthSnapshot(
   if (gender === 'male' || gender === 'female') {
     for (const session of history) {
       const sessionDate = session.startedAt;
-      const sessionBw = bodyweightEntries && bodyweightEntries.length > 0
-        ? (resolveBodyweightKgAtDate(bodyweightEntries, sessionDate) ?? bodyweightKg)
-        : bodyweightKg;
+      const sessionCalendarDate = resolveWorkoutDateKey(session);
+      const resolvedHistoricalBw = bodyweightEntries && bodyweightEntries.length > 0
+        ? resolveBodyweightKgAtDate(bodyweightEntries, sessionCalendarDate)
+        : null;
+      const sessionBw = resolvedHistoricalBw ?? (
+        session.entrySource === 'historical_manual' ? null : bodyweightKg
+      );
 
       if (!sessionBw || sessionBw <= 0) {
         continue;
@@ -283,7 +288,7 @@ export function selectProgressSummary(
 
   recentSessions.forEach((session) => {
     const sessionBw = bodyweightEntries
-      ? resolveBodyweightKgAtDate(bodyweightEntries, session.startedAt)
+      ? resolveBodyweightKgAtDate(bodyweightEntries, resolveWorkoutDateKey(session))
       : null;
 
     Object.entries(session.sets).forEach(([exerciseId, sets]) => {
@@ -307,7 +312,7 @@ export function selectProgressSummary(
 
   const volumeKg = recentSessions.reduce((total, session) => {
     const sessionBw = bodyweightEntries
-      ? resolveBodyweightKgAtDate(bodyweightEntries, session.startedAt)
+      ? resolveBodyweightKgAtDate(bodyweightEntries, resolveWorkoutDateKey(session))
       : null;
     return total + calculateSessionTotalVolume(session, { exercisesById, bodyweightKg: sessionBw });
   }, 0);
@@ -334,7 +339,7 @@ export function selectLastTopSet(
     (a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)
   )) {
     const sessionBw = options?.bodyweightEntries
-      ? resolveBodyweightKgAtDate(options.bodyweightEntries, session.startedAt)
+      ? resolveBodyweightKgAtDate(options.bodyweightEntries, resolveWorkoutDateKey(session))
       : options?.bodyweightKg ?? null;
     const effectiveSets = (session.sets[exerciseId] || []).filter((s) =>
       isSetEligibleForPersonalRecord({ set: s, exercise: options?.exercise, bodyweightKg: sessionBw })
@@ -378,7 +383,7 @@ export function selectStatsSnapshot(
   const exercisesById = buildExercisesById(exercises);
   const totalVolumeTonnage = history.reduce((total, session) => {
     const sessionBw = bodyweightEntries
-      ? resolveBodyweightKgAtDate(bodyweightEntries, session.startedAt)
+      ? resolveBodyweightKgAtDate(bodyweightEntries, resolveWorkoutDateKey(session))
       : bodyweightKg;
     return total + calculateSessionTotalVolume(session, { exercisesById, bodyweightKg: sessionBw });
   }, 0);

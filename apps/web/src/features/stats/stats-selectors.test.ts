@@ -53,6 +53,27 @@ const mockBackExercise: Exercise = {
 
 const exercisesById = buildExercisesById([mockChestExercise, mockBackExercise]);
 
+test('historical strength never substitutes current bodyweight when the performed-date record is absent', () => {
+  const historical: WorkoutSession[] = [{
+    id: 'historical', userId: 'u1', startedAt: '2026-08-10T10:00:00.000Z',
+    performedDate: '2026-08-10', recordedAt: '2026-09-20T10:00:00.000Z', entrySource: 'historical_manual',
+    sets: { 'ex-pullup': [s(20, 5)] }
+  }];
+  const unavailable = selectStrengthSnapshot(historical, exercisesById, {
+    bodyweightKg: 75,
+    bodyweightEntries: [{ date: '2026-09-15', weightKg: 75 }],
+    gender: 'male'
+  });
+  assert.equal(unavailable.muscles.back.strengthEvaluation, undefined);
+
+  const resolved = selectStrengthSnapshot(historical, exercisesById, {
+    bodyweightKg: 75,
+    bodyweightEntries: [{ date: '2026-08-01', weightKg: 70 }],
+    gender: 'male'
+  });
+  assert.ok(resolved.muscles.back.strengthEvaluation);
+});
+
 test('1. normal multi-rep working set can generate high Strength Rank', () => {
   // Lifter (80kg BW, male): 100kg x 8 reps on Bench Press -> e1RM ≈ 126.7kg -> ratio ≈ 1.58 -> Maestro
   const history: WorkoutSession[] = [

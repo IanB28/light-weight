@@ -7,26 +7,28 @@ interface DayDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: Date;
-  completedSession?: WorkoutSession;
+  completedSessions?: WorkoutSession[];
   scheduledRoutine?: Routine;
   availableRoutines: Routine[];
   onStartRoutine: (routineId: string) => void;
   onStartFreeWorkout: () => void;
   onAssignRoutine: (routineId: string | null) => void;
   onViewSessionDetail?: (session: WorkoutSession) => void;
+  onRegisterHistorical?: (date: Date) => void;
 }
 
 export const DayDetailModal: React.FC<DayDetailModalProps> = ({
   isOpen,
   onClose,
   date,
-  completedSession,
+  completedSessions = [],
   scheduledRoutine,
   availableRoutines,
   onStartRoutine,
   onStartFreeWorkout,
   onAssignRoutine,
-  onViewSessionDetail
+  onViewSessionDetail,
+  onRegisterHistorical
 }) => {
   if (!isOpen) return null;
 
@@ -78,9 +80,10 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-none py-1">
+          {onRegisterHistorical && date <= new Date() && <button type="button" onClick={() => { onRegisterHistorical(date); onClose(); }} className="w-full rounded-xl border border-border-subtle bg-surface-active px-3 py-2.5 text-sm font-bold text-text-secondary hover:text-text-primary">Registrar entrenamiento pasado</button>}
           {/* Si ya se completó un entrenamiento este día */}
-          {completedSession ? (
-            <div className="p-4 rounded-2xl glass-subcard border-accent/30 space-y-3 relative overflow-hidden">
+          {completedSessions.length > 0 ? (
+            completedSessions.map((completedSession) => <div key={completedSession.id} className="p-4 rounded-2xl glass-subcard border-accent/30 space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-accent flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-accent" />
@@ -127,7 +130,7 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               )}
-            </div>
+            </div>)
           ) : (
             /* Si NO hay entrenamiento completado */
             <div className="space-y-3">

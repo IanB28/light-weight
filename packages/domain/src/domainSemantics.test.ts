@@ -18,6 +18,8 @@ import {
 } from './setSemantics.js';
 import { calculateVolume } from './progression.js';
 import { bestSetOf, calculateSetOneRm, is1RMRecord } from './onerm.js';
+import { getExerciseProgressSeries } from './history.js';
+import { formatLocalWorkoutDateKey, isValidWorkoutDateKey, resolveWorkoutDateKey } from './workoutTemporal.js';
 import type { Exercise, ExerciseLoadingProfile, LoggedSet } from './types.js';
 
 const exercise = (overrides: Partial<Exercise>): Exercise => ({
@@ -26,6 +28,47 @@ const exercise = (overrides: Partial<Exercise>): Exercise => ({
   category: 'other',
   primaryMuscle: 'chest',
   ...overrides
+});
+
+test('historical calendar dates are strict, prefer performedDate, and preserve the legacy fallback', () => {
+  assert.equal(isValidWorkoutDateKey('2026-02-29'), false);
+  assert.equal(isValidWorkoutDateKey('2028-02-29'), true);
+  assert.equal(formatLocalWorkoutDateKey(new Date(2026, 8, 19, 23, 30)), '2026-09-19');
+  assert.equal(resolveWorkoutDateKey({ startedAt: '2026-09-20T04:30:00.000Z', performedDate: '2026-09-19' }), '2026-09-19');
+  assert.equal(resolveWorkoutDateKey({ startedAt: '2026-09-20T04:30:00.000Z' }), '2026-09-20');
+});
+
+test('session bodyweight uses performed calendar date while legacy records retain ISO-prefix behavior', () => {
+  const entries = [{ date: '2026-09-19', weightKg: 70 }, { date: '2026-09-20', weightKg: 72 }];
+  const historical = { startedAt: '2026-09-20T04:30:00.000Z', performedDate: '2026-09-19' };
+  const legacy = { startedAt: '2026-09-20T04:30:00.000Z' };
+  assert.equal(resolveBodyweightKgAtDate(entries, resolveWorkoutDateKey(historical)), 70);
+  assert.equal(resolveBodyweightKgAtDate(entries, resolveWorkoutDateKey(legacy)), 72);
+});
+
+test('historical metadata never changes physical chronology or the progress date label', () => {
+  const sessions = [
+    {
+      id: 'recent', userId: 'user', startedAt: '2026-09-18T10:00:00.000Z', recordedAt: '2026-09-18T11:00:00.000Z',
+      sets: { bench: [{ setIndex: 1, weightKg: 90, reps: 5, completed: true, setType: 'working' as const }] }
+    },
+    {
+      id: 'historical', userId: 'user', startedAt: '2026-08-10T10:00:00.000Z', performedDate: '2026-08-10', recordedAt: '2026-09-20T10:00:00.000Z', entrySource: 'historical_manual' as const,
+      sets: { bench: [{ setIndex: 1, weightKg: 100, reps: 5, completed: true, setType: 'working' as const }] }
+    }
+  ];
+  const series = getExerciseProgressSeries(sessions, 'bench');
+  assert.deepEqual(series.map((point) => point.date), ['2026-08-10', '2026-09-18']);
+  assert.ok(series[0].timestamp < series[1].timestamp);
+});
+
+test('historical physical sets derive PRs while warmups and missing RIR remain valid non-PR data', () => {
+  const historical: LoggedSet = { setIndex: 1, weightKg: 100, reps: 5, completed: true, setType: 'working' };
+  const warmup: LoggedSet = { setIndex: 2, weightKg: 120, reps: 5, completed: true, setType: 'warmup', isWarmup: true };
+  assert.equal(historical.rir, undefined);
+  assert.equal(isSetEligibleForPersonalRecord({ set: historical }), true);
+  assert.equal(isSetEligibleForPersonalRecord({ set: warmup }), false);
+  assert.equal(calculateSetOneRm(historical), 116.7);
 });
 
 test('loading resolver prioritizes explicit metadata over curated and fallback data', () => {

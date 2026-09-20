@@ -52,6 +52,40 @@ test('sync session serialization preserves canonical types across exercise group
   assert.equal(session.sets.squat[0].setType, 'backoff');
 });
 
+test('sync accepts legacy sessions and validates historical temporal provenance', () => {
+  const [legacy] = normalizeIncomingSyncSessions([{
+    id: 'legacy', startedAt: '2026-09-13T00:00:00.000Z', sets: { bench: [base] }
+  }]);
+  assert.equal(legacy.performedDate, undefined);
+  assert.equal(legacy.entrySource, undefined);
+
+  const [historical] = normalizeIncomingSyncSessions([{
+    id: 'historical',
+    startedAt: '2026-08-10T19:30:00.000Z',
+    performedDate: '2026-08-10',
+    recordedAt: '2026-09-20T10:00:00.000Z',
+    entrySource: 'historical_manual',
+    endedAt: '2026-08-10T20:45:00.000Z',
+    sets: { bench: [base] }
+  }]);
+  assert.equal(historical.performedDate, '2026-08-10');
+  assert.equal(historical.recordedAt, '2026-09-20T10:00:00.000Z');
+  assert.equal(historical.entrySource, 'historical_manual');
+});
+
+test('sync rejects invalid temporal metadata before persistence', () => {
+  const invalid = (session: Record<string, unknown>, code: string) => assert.throws(
+    () => normalizeIncomingSyncSessions([{ id: 'bad', startedAt: '2026-09-13T10:00:00.000Z', sets: { bench: [base] }, ...session }]),
+    (err: unknown) => err instanceof SyncValidationError && err.code === code
+  );
+  invalid({ performedDate: '2026-02-30' }, 'INVALID_PERFORMED_DATE');
+  invalid({ entrySource: 'imported' }, 'INVALID_ENTRY_SOURCE');
+  invalid({ recordedAt: 'not-a-date' }, 'INVALID_RECORDED_AT');
+  invalid({ endedAt: '2026-09-13T09:59:59.000Z' }, 'INVALID_SESSION_END');
+  invalid({ entrySource: 'historical_manual', recordedAt: '2026-09-12T10:00:00.000Z' }, 'INVALID_HISTORICAL_PROVENANCE');
+  invalid({ entrySource: 'historical_manual', startedAt: '2099-01-01T10:00:00.000Z', recordedAt: '2099-01-01T10:01:00.000Z' }, 'HISTORICAL_SESSION_IN_FUTURE');
+});
+
 test('sync input accepts missing and valid effort, and rejects malformed values', () => {
   // Missing effort is completely valid
   const missing = normalizeIncomingSyncSet({ ...base });
