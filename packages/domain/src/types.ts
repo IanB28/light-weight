@@ -61,6 +61,10 @@ export interface ExerciseLoadingProfile {
    * Undefined when biomechanical contribution is unknown or not reliably quantified.
    */
   bodyweightFactor?: number;
+  /** Whether this exercise movement involves an inherent machine starting resistance / carriage tare. */
+  hasMachineBase?: boolean;
+  /** Non-authoritative product suggestions for machine base resistance (e.g. 20 lb / 22 lb for Smith). */
+  suggestions?: readonly { weightKg: number; label?: string }[];
 }
 
 export interface Exercise {
@@ -89,6 +93,22 @@ export interface LoggedSet {
   setType: WorkoutSetType;
   /** @deprecated Compatibility mirror. Use setType through domain helpers. */
   isWarmup?: boolean;
+  /** Snapshot of selected machine starting/base resistance at set execution time. */
+  machineBaseResistanceKg?: number;
+  /** Snapshot of machine base resistance status at set execution time. */
+  machineBaseResistanceStatus?: import('./machineProfile.js').BaseResistanceStatus;
+  /** Snapshot of selected machine profile ID at set execution time. */
+  machineProfileId?: string;
+  /** Snapshot of selected machine profile label at set execution time. */
+  machineProfileLabel?: string;
+  /** Snapshot of machine base resistance authoritative source label/document. */
+  machineBaseSourceLabel?: string;
+  /** Snapshot of machine base resistance authoritative source URL. */
+  machineBaseSourceUrl?: string;
+  /** Snapshot of machine manufacturer at set execution time. */
+  machineManufacturer?: string;
+  /** Snapshot of machine model at set execution time. */
+  machineModel?: string;
 }
 
 export interface WorkoutSession {

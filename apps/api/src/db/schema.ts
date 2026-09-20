@@ -15,7 +15,7 @@ import {
   index
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import type { ExerciseLoadMechanism, ExerciseLoadMode, Routine, WorkoutSetType } from '@light-weight/domain';
+import type { ExerciseLoadMechanism, ExerciseLoadMode, Routine, WorkoutSetType, BaseResistanceStatus } from '@light-weight/domain';
 
 // 1. Usuarios
 export const users = pgTable('users', {
@@ -141,10 +141,24 @@ export const loggedSets = pgTable('logged_sets', {
   isWarmup: boolean('is_warmup').default(false).notNull(),
   completed: boolean('completed').default(true).notNull(),
   estimatedOneRm: numeric('estimated_one_rm', { precision: 6, scale: 2 }),
+  machineProfileId: varchar('machine_profile_id', { length: 100 }),
+  machineProfileLabel: varchar('machine_profile_label', { length: 100 }),
+  machineBaseResistanceKg: numeric('machine_base_resistance_kg', { precision: 6, scale: 2 }),
+  machineBaseResistanceStatus: varchar('machine_base_resistance_status', { length: 20 }).$type<BaseResistanceStatus>(),
+  machineBaseSourceLabel: varchar('machine_base_source_label', { length: 255 }),
+  machineBaseSourceUrl: text('machine_base_source_url'),
+  machineManufacturer: varchar('machine_manufacturer', { length: 255 }),
+  machineModel: varchar('machine_model', { length: 255 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, () => [
   check('logged_sets_set_type_check', sql`set_type IN ('working', 'warmup', 'drop', 'backoff')`),
-  check('logged_sets_warmup_consistency_check', sql`is_warmup = (set_type = 'warmup')`)
+  check('logged_sets_warmup_consistency_check', sql`is_warmup = (set_type = 'warmup')`),
+  check('logged_sets_machine_base_status_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status IN ('none', 'unknown', 'suggested', 'verified', 'user_defined')`),
+  check('logged_sets_machine_base_kg_check', sql`machine_base_resistance_kg IS NULL OR machine_base_resistance_kg >= 0`),
+  check('logged_sets_machine_base_unknown_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'unknown' OR machine_base_resistance_kg IS NULL`),
+  check('logged_sets_machine_base_none_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'none' OR machine_base_resistance_kg IS NULL OR machine_base_resistance_kg = 0`),
+  check('logged_sets_machine_base_positive_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status NOT IN ('suggested', 'user_defined', 'verified') OR machine_base_resistance_kg > 0`),
+  check('logged_sets_machine_base_verified_check', sql`machine_base_resistance_status IS NULL OR machine_base_resistance_status <> 'verified' OR (machine_base_resistance_kg > 0 AND (machine_base_source_url IS NOT NULL OR (machine_manufacturer IS NOT NULL AND machine_model IS NOT NULL AND machine_base_source_label IS NOT NULL)))`)
 ]);
 
 // 8. Récords personales (PRs) calculados

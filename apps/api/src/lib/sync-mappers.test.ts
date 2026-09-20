@@ -110,3 +110,203 @@ test('sync hydration safely degrades malformed legacy effort to undefined withou
   assert.equal(validEffort.rir, 2);
   assert.equal(validEffort.rpe, 8);
 });
+
+test('sync input accepts valid machine base resistance snapshots', () => {
+  // 1. Suggested status with valid kg and profile metadata
+  const suggested = normalizeIncomingSyncSet({
+    ...base,
+    machineProfileId: 'mp-smith-1',
+    machineProfileLabel: 'Cybex Smith',
+    machineBaseResistanceKg: 9.07,
+    machineBaseResistanceStatus: 'suggested'
+  });
+  assert.equal(suggested.machineProfileId, 'mp-smith-1');
+  assert.equal(suggested.machineProfileLabel, 'Cybex Smith');
+  assert.equal(suggested.machineBaseResistanceKg, 9.07);
+  assert.equal(suggested.machineBaseResistanceStatus, 'suggested');
+
+  // 2. None status with 0 kg
+  const noneStatus = normalizeIncomingSyncSet({
+    ...base,
+    machineProfileId: 'mp-none',
+    machineProfileLabel: 'Counterbalanced to 0',
+    machineBaseResistanceKg: 0,
+    machineBaseResistanceStatus: 'none'
+  });
+  assert.equal(noneStatus.machineBaseResistanceKg, 0);
+  assert.equal(noneStatus.machineBaseResistanceStatus, 'none');
+
+  // 3. Unknown status with absent kg
+  const unknownStatus = normalizeIncomingSyncSet({
+    ...base,
+    machineProfileId: 'mp-unk',
+    machineProfileLabel: 'Uncalibrated Machine',
+    machineBaseResistanceStatus: 'unknown'
+  });
+  assert.equal(unknownStatus.machineBaseResistanceStatus, 'unknown');
+  assert.equal(unknownStatus.machineBaseResistanceKg, undefined);
+
+  // 4. User defined status
+  const userDefined = normalizeIncomingSyncSet({
+    ...base,
+    machineBaseResistanceKg: 20,
+    machineBaseResistanceStatus: 'user_defined'
+  });
+  assert.equal(userDefined.machineBaseResistanceKg, 20);
+  assert.equal(userDefined.machineBaseResistanceStatus, 'user_defined');
+});
+
+test('sync input rejects invalid machine base resistance inputs with 422', () => {
+  // Reject invalid status string
+  assert.throws(
+    () => normalizeIncomingSyncSet({ ...base, machineBaseResistanceStatus: 'invalid_status' }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_STATUS'
+  );
+
+  // Reject negative machineBaseResistanceKg
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceKg: -5,
+      machineBaseResistanceStatus: 'user_defined'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_KG'
+  );
+
+  // Reject NaN / non-finite kg
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceKg: NaN,
+      machineBaseResistanceStatus: 'user_defined'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_KG'
+  );
+
+  // Reject unknown status with non-null/non-undefined kg
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceKg: 10,
+      machineBaseResistanceStatus: 'unknown'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_UNKNOWN'
+  );
+
+  // Reject suggested status without kg
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceStatus: 'suggested'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_KG'
+  );
+
+  // Reject none status with non-zero kg
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceKg: 10,
+      machineBaseResistanceStatus: 'none'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_NONE'
+  );
+
+  // Canonical zero contract: reject suggested/user_defined/verified with 0 kg
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceKg: 0,
+      machineBaseResistanceStatus: 'suggested'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_KG'
+  );
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceKg: 0,
+      machineBaseResistanceStatus: 'user_defined'
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_KG'
+  );
+
+  // Reject verified status without authoritative provenance
+  assert.throws(
+    () => normalizeIncomingSyncSet({
+      ...base,
+      machineBaseResistanceKg: 20,
+      machineBaseResistanceStatus: 'verified',
+      machineBaseSourceLabel: 'manual notes' // NOT authoritative by itself!
+    }),
+    (err: unknown) => err instanceof SyncValidationError && err.code === 'INVALID_MACHINE_BASE_PROVENANCE'
+  );
+});
+
+test('sync input accepts verified machine base resistance with authoritative provenance', () => {
+  // Verified with valid http/https sourceUrl
+  const withUrl = normalizeIncomingSyncSet({
+    ...base,
+    machineBaseResistanceKg: 15,
+    machineBaseResistanceStatus: 'verified',
+    machineBaseSourceUrl: 'https://cybexintl.com/specs/smith'
+  });
+  assert.equal(withUrl.machineBaseResistanceStatus, 'verified');
+  assert.equal(withUrl.machineBaseResistanceKg, 15);
+  assert.equal(withUrl.machineBaseSourceUrl, 'https://cybexintl.com/specs/smith');
+
+  // Verified with structured manufacturer + model + sourceLabel
+  const withStructured = normalizeIncomingSyncSet({
+    ...base,
+    machineBaseResistanceKg: 20,
+    machineBaseResistanceStatus: 'verified',
+    machineManufacturer: 'Hammer Strength',
+    machineModel: 'Linear Leg Press',
+    machineBaseSourceLabel: 'Manual Section 4.2'
+  });
+  assert.equal(withStructured.machineBaseResistanceStatus, 'verified');
+  assert.equal(withStructured.machineBaseResistanceKg, 20);
+  assert.equal(withStructured.machineManufacturer, 'Hammer Strength');
+  assert.equal(withStructured.machineModel, 'Linear Leg Press');
+});
+
+test('sync hydration safely preserves machine base resistance or degrades missing cleanly', () => {
+  const hydrated = hydrateSyncedSet({
+    ...base,
+    machineProfileId: 'mp-smith-1',
+    machineProfileLabel: 'Cybex Smith',
+    machineBaseResistanceKg: 9.07,
+    machineBaseResistanceStatus: 'suggested'
+  });
+  assert.equal(hydrated.machineProfileId, 'mp-smith-1');
+  assert.equal(hydrated.machineProfileLabel, 'Cybex Smith');
+  assert.equal(hydrated.machineBaseResistanceKg, 9.07);
+  assert.equal(hydrated.machineBaseResistanceStatus, 'suggested');
+
+  // Hydration of verified with authoritative evidence retains verified
+  const hydratedVerified = hydrateSyncedSet({
+    ...base,
+    machineBaseResistanceKg: 15,
+    machineBaseResistanceStatus: 'verified',
+    machineBaseSourceUrl: 'https://example.com/spec'
+  });
+  assert.equal(hydratedVerified.machineBaseResistanceStatus, 'verified');
+  assert.equal(hydratedVerified.machineBaseResistanceKg, 15);
+  assert.equal(hydratedVerified.machineBaseSourceUrl, 'https://example.com/spec');
+
+  // Hydration of verified without authoritative evidence degrades to user_defined
+  const degradedVerified = hydrateSyncedSet({
+    ...base,
+    machineBaseResistanceKg: 15,
+    machineBaseResistanceStatus: 'verified',
+    machineBaseSourceLabel: 'manual'
+  });
+  assert.equal(degradedVerified.machineBaseResistanceStatus, 'user_defined');
+  assert.equal(degradedVerified.machineBaseResistanceKg, 15);
+
+  // Legacy set without machine fields
+  const legacy = hydrateSyncedSet({ ...base });
+  assert.equal(legacy.machineProfileId, undefined);
+  assert.equal(legacy.machineProfileLabel, undefined);
+  assert.equal(legacy.machineBaseResistanceKg, undefined);
+  assert.equal(legacy.machineBaseResistanceStatus, undefined);
+});

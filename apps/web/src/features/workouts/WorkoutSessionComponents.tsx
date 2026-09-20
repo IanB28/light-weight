@@ -1,10 +1,12 @@
-import type { ExerciseLoadingProfile, LoggedSet, WorkoutSetType } from '@light-weight/domain';
+import React, { useState } from 'react';
+import type { ExerciseLoadingProfile, LoggedSet, WorkoutSetType, MachineProfile } from '@light-weight/domain';
 import { normalizeWorkoutSetType, poundsToKilograms, resolveExerciseLoadingProfile, resolvePlateBaseWeightKg } from '@light-weight/domain';
-import { Check, Disc3, Dumbbell, Eye, SkipForward, Trash2, X } from 'lucide-react';
-import { Button, IconButton, OptionPicker, RirHeaderButton, RirPicker } from '../../components/ui/index.js';
+import { Check, Disc3, Dumbbell, Eye, SkipForward, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { Button, IconButton, MachineProfileModal, OptionPicker, RirHeaderButton, RirPicker } from '../../components/ui/index.js';
 import { getExerciseImgUrl } from '../../lib/exercises.js';
 import { useExerciseLabels, useI18n } from '../../lib/i18n.js';
 import type { AppPreferences, WeightInputMode } from '../../lib/preferences.js';
+import { formatDisplayWeight } from '../../lib/weight-units.js';
 import { PlateWeightButton, KeyboardWeightInput } from './WeightEntry.js';
 import type { ActiveExerciseSession } from './types.js';
 
@@ -16,6 +18,14 @@ export interface PlateTarget {
   allowBarToggle: boolean;
   baseWeightKg: number;
   loading: ExerciseLoadingProfile;
+  machineProfileId?: string;
+  machineProfileLabel?: string;
+  machineBaseResistanceKg?: number;
+  machineStatus?: import('@light-weight/domain').BaseResistanceStatus;
+  machineBaseSourceLabel?: string;
+  machineBaseSourceUrl?: string;
+  machineManufacturer?: string;
+  machineModel?: string;
 }
 
 const isValidWorkoutSet = (set: LoggedSet): boolean => (
@@ -83,7 +93,7 @@ export function SetRow({ exerciseId, set, session, loading, usesAddedWeight, wei
       <div className="col-span-4 flex items-center justify-center gap-0.5">
         {!usesAddedWeight ? <span aria-label={t('workout.bodyweightOnly')} className="flex h-11 w-full items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input font-mono text-xs font-bold text-text-muted">BW</span> : <>
           {weightInputMode === 'keyboard' && <button type="button" onClick={() => onUpdateSet(exerciseId, set.setIndex, 'weightKg', Math.max(0, Math.round((set.weightKg - weightStepKg) * 100) / 100))} aria-label={t('workout.reduceWeight', { set: set.setIndex })} className="hidden h-11 w-7 items-center justify-center rounded-md text-sm font-bold text-text-muted hover:bg-surface-active hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent min-[390px]:flex">—</button>}
-          {weightInputMode === 'plates' ? <PlateWeightButton valueKg={set.weightKg} units={preferences.units} prefix={prefix} label={t('workout.weightForSet', { set: set.setIndex })} onClick={() => onOpenPlates({ exerciseId, setIndex: set.setIndex, valueKg: set.weightKg, includeBarWeight: loading.plateBase?.kind === 'fixed' ? true : session.includeBarWeight ?? loading.includeBarWeight, allowBarToggle: loading.includeBarWeight && loading.plateBase?.kind === 'user_bar', baseWeightKg: session.plateBaseWeightKg ?? resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg), loading })} /> : <KeyboardWeightInput valueKg={set.weightKg} units={preferences.units} prefix={prefix} label={t('workout.weightForSet', { set: set.setIndex })} onChange={(value) => onUpdateSet(exerciseId, set.setIndex, 'weightKg', value)} />}
+          {weightInputMode === 'plates' ? <PlateWeightButton valueKg={set.weightKg} units={preferences.units} prefix={prefix} label={t('workout.weightForSet', { set: set.setIndex })} onClick={() => onOpenPlates({ exerciseId, setIndex: set.setIndex, valueKg: set.weightKg, includeBarWeight: loading.plateBase?.kind === 'fixed' ? true : session.includeBarWeight ?? loading.includeBarWeight, allowBarToggle: loading.includeBarWeight && loading.plateBase?.kind === 'user_bar', baseWeightKg: session.plateBaseWeightKg ?? resolvePlateBaseWeightKg(loading, preferences.defaultBarWeightKg), loading, machineProfileId: set.machineProfileId ?? session.machineProfileId, machineProfileLabel: set.machineProfileLabel ?? session.machineProfileLabel, machineBaseResistanceKg: set.machineBaseResistanceKg ?? session.machineBaseResistanceKg, machineStatus: set.machineBaseResistanceStatus ?? session.machineBaseResistanceStatus, machineBaseSourceLabel: set.machineBaseSourceLabel ?? session.machineBaseSourceLabel, machineBaseSourceUrl: set.machineBaseSourceUrl ?? session.machineBaseSourceUrl, machineManufacturer: set.machineManufacturer ?? session.machineManufacturer, machineModel: set.machineModel ?? session.machineModel })} /> : <KeyboardWeightInput valueKg={set.weightKg} units={preferences.units} prefix={prefix} label={t('workout.weightForSet', { set: set.setIndex })} onChange={(value) => onUpdateSet(exerciseId, set.setIndex, 'weightKg', value)} />}
           {weightInputMode === 'keyboard' && <button type="button" onClick={() => onUpdateSet(exerciseId, set.setIndex, 'weightKg', Math.round((set.weightKg + weightStepKg) * 100) / 100)} aria-label={t('workout.increaseWeight', { set: set.setIndex })} className="hidden h-11 w-7 items-center justify-center rounded-md text-sm font-bold text-text-muted hover:bg-surface-active hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent min-[390px]:flex">+</button>}
         </>}
       </div>
@@ -148,6 +158,7 @@ interface ExerciseSessionCardProps {
   onRemoveSet: SetTableProps['onRemoveSet'];
   onUpdateWeightInputMode: SetTableProps['onUpdateWeightInputMode'];
   onToggleAddedWeight: SetTableProps['onToggleAddedWeight'];
+  onUpdateMachineProfile?: (exerciseId: string, profile: MachineProfile | undefined) => void;
 }
 
 export function ExerciseSessionCard({
@@ -168,11 +179,15 @@ export function ExerciseSessionCard({
   onAddSet,
   onRemoveSet,
   onUpdateWeightInputMode,
-  onToggleAddedWeight
+  onToggleAddedWeight,
+  onUpdateMachineProfile
 }: ExerciseSessionCardProps) {
   const { t } = useI18n();
   const { muscleLabel, equipmentLabel } = useExerciseLabels();
   const { exercise, previousRecord, bestRecord, skipped } = session;
+  const [isMachineModalOpen, setIsMachineModalOpen] = useState(false);
+  const loading = resolveExerciseLoadingProfile(exercise).profile;
+  const isPlateMachine = loading.mechanism === 'plate_loaded' || Boolean(loading.hasMachineBase);
   const imgUrl = getExerciseImgUrl(exercise);
   const hasCompletedSets = session.sets.some((set) => set.completed && isValidWorkoutSet(set));
 
@@ -318,6 +333,43 @@ export function ExerciseSessionCard({
               <span className="font-semibold text-text-secondary">{t('workout.previous')}</span> {previousRecord}
             </p>
           )}
+          {isPlateMachine && (
+            <div className="pt-1.5">
+              <button
+                type="button"
+                onClick={() => setIsMachineModalOpen(true)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  session.machineBaseResistanceStatus === 'unknown' || !session.machineBaseResistanceStatus
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-500 hover:bg-amber-500/20'
+                    : 'border-border-subtle bg-surface-input text-text-secondary hover:border-border-default hover:text-text-primary'
+                }`}
+                title={t('workout.machineBaseResistance')}
+              >
+                <SlidersHorizontal className="size-3 shrink-0" />
+                {session.machineProfileLabel ? (
+                  <>
+                    <span className="truncate max-w-[140px]">{session.machineProfileLabel}</span>
+                    <span className="font-mono text-accent">
+                      ({session.machineBaseResistanceKg !== undefined
+                        ? formatDisplayWeight(session.machineBaseResistanceKg, preferences.units)
+                        : t('workout.machineBaseUnknown')})
+                    </span>
+                  </>
+                ) : session.machineBaseResistanceStatus === 'none' ? (
+                  <span>{t('workout.machineBaseNone')} (0 {preferences.units === 'imperial' ? 'lb' : 'kg'})</span>
+                ) : session.machineBaseResistanceStatus === 'suggested' && session.machineBaseResistanceKg !== undefined ? (
+                  <>
+                    <span>{t('workout.machineBaseSuggested')}</span>
+                    <span className="font-mono text-accent">
+                      ({formatDisplayWeight(session.machineBaseResistanceKg, preferences.units)})
+                    </span>
+                  </>
+                ) : (
+                  <span>{t('workout.machineBaseUnconfigured')}</span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <SetTable
@@ -333,6 +385,21 @@ export function ExerciseSessionCard({
         onUpdateWeightInputMode={onUpdateWeightInputMode}
         onToggleAddedWeight={onToggleAddedWeight}
       />
+      {isPlateMachine && (
+        <MachineProfileModal
+          isOpen={isMachineModalOpen}
+          onClose={() => setIsMachineModalOpen(false)}
+          exerciseId={exercise.id}
+          exerciseName={exercise.name}
+          suggestions={loading.suggestions}
+          currentProfileId={session.machineProfileId}
+          currentStatus={session.machineBaseResistanceStatus}
+          currentWeightKg={session.machineBaseResistanceKg}
+          onSelectProfile={(profile) => {
+            onUpdateMachineProfile?.(exercise.id, profile ?? undefined);
+          }}
+        />
+      )}
     </div>
   );
 }

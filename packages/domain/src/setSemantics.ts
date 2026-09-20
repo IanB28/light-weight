@@ -1,6 +1,7 @@
 import type { Exercise, ExerciseLoadMode, LoggedSet, WorkoutSession, WorkoutSetType } from './types.js';
 import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
 import { normalizeRirValue, normalizeRpeValue } from './effort.js';
+import { isValidBaseResistanceStatus, isAuthoritativeProvenance } from './machineProfile.js';
 
 export const WORKOUT_SET_TYPES = ['working', 'warmup', 'drop', 'backoff'] as const;
 
@@ -38,6 +39,75 @@ export function normalizeLoggedSet<T extends LegacyWorkoutSetClassification>(
   }
   if ('rpe' in raw) {
     result.rpe = normalizeRpeValue(raw.rpe);
+  }
+  if ('machineBaseResistanceStatus' in raw) {
+    result.machineBaseResistanceStatus = isValidBaseResistanceStatus(raw.machineBaseResistanceStatus)
+      ? raw.machineBaseResistanceStatus
+      : undefined;
+  }
+  if ('machineBaseResistanceKg' in raw) {
+    const val = raw.machineBaseResistanceKg;
+    result.machineBaseResistanceKg = typeof val === 'number' && Number.isFinite(val) && val >= 0
+      ? val
+      : undefined;
+    if (!result.machineBaseResistanceStatus || result.machineBaseResistanceStatus === 'unknown') {
+      result.machineBaseResistanceKg = undefined;
+    } else if (result.machineBaseResistanceStatus === 'none') {
+      result.machineBaseResistanceKg = 0;
+    }
+  } else if (result.machineBaseResistanceStatus === 'none') {
+    result.machineBaseResistanceKg = 0;
+  }
+  if (
+    result.machineBaseResistanceStatus === 'suggested' ||
+    result.machineBaseResistanceStatus === 'verified' ||
+    result.machineBaseResistanceStatus === 'user_defined'
+  ) {
+    if (result.machineBaseResistanceKg === undefined || result.machineBaseResistanceKg <= 0) {
+      result.machineBaseResistanceStatus = undefined;
+      result.machineBaseResistanceKg = undefined;
+    }
+  }
+  if ('machineProfileId' in raw) {
+    result.machineProfileId = typeof raw.machineProfileId === 'string' && raw.machineProfileId.trim().length > 0
+      ? raw.machineProfileId.trim()
+      : undefined;
+  }
+  if ('machineProfileLabel' in raw) {
+    result.machineProfileLabel = typeof raw.machineProfileLabel === 'string' && raw.machineProfileLabel.trim().length > 0
+      ? raw.machineProfileLabel.trim()
+      : undefined;
+  }
+  if ('machineBaseSourceLabel' in raw) {
+    result.machineBaseSourceLabel = typeof raw.machineBaseSourceLabel === 'string' && raw.machineBaseSourceLabel.trim().length > 0
+      ? raw.machineBaseSourceLabel.trim()
+      : undefined;
+  }
+  if ('machineBaseSourceUrl' in raw) {
+    result.machineBaseSourceUrl = typeof raw.machineBaseSourceUrl === 'string' && raw.machineBaseSourceUrl.trim().length > 0
+      ? raw.machineBaseSourceUrl.trim()
+      : undefined;
+  }
+  if ('machineManufacturer' in raw) {
+    result.machineManufacturer = typeof raw.machineManufacturer === 'string' && raw.machineManufacturer.trim().length > 0
+      ? raw.machineManufacturer.trim()
+      : undefined;
+  }
+  if ('machineModel' in raw) {
+    result.machineModel = typeof raw.machineModel === 'string' && raw.machineModel.trim().length > 0
+      ? raw.machineModel.trim()
+      : undefined;
+  }
+  if (result.machineBaseResistanceStatus === 'verified') {
+    const isAuthoritative = isAuthoritativeProvenance({
+      sourceUrl: result.machineBaseSourceUrl,
+      manufacturer: result.machineManufacturer,
+      model: result.machineModel,
+      sourceLabel: result.machineBaseSourceLabel
+    });
+    if (!isAuthoritative) {
+      result.machineBaseResistanceStatus = 'user_defined';
+    }
   }
   return result;
 }

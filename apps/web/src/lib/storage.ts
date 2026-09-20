@@ -18,7 +18,9 @@ export const STORAGE_KEYS = {
   PROFILE: 'lightweight_user_profile',
   WEEKLY_SCHEDULE: 'lightweight_weekly_schedule',
   USER_INFO: 'lightweight_user_info',
-  DELETED_ROUTINE_IDS: 'lightweight_deleted_routine_ids'
+  DELETED_ROUTINE_IDS: 'lightweight_deleted_routine_ids',
+  MACHINE_PROFILES: 'lightweight_machine_profiles',
+  LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles'
 };
 
 const PRIVATE_STORAGE_KEYS = Object.values(STORAGE_KEYS);

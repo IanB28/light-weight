@@ -133,7 +133,7 @@ async function main() {
   console.log(`Isolation candidates: ${summary.byComplexity.isolation}`);
   console.log(`Unknown complexity: ${summary.byComplexity.unknown}`);
   console.log(`Machine resistance candidates: ${summary.machineResistanceCandidates.length}`);
-  console.log(`Known current machine base: ${summary.byMachineResistanceClass.known_current}`);
+  console.log(`Suggested machine base: ${summary.byMachineResistanceClass.suggested}`);
   console.log(`Plate-loaded candidates: ${summary.plateLoadedCandidates.length}`);
   console.log(`Assisted bodyweight candidates: ${summary.bodyweightAssistedCandidates.length}`);
   console.log(`Total flag instances: ${Object.values(summary.byFlag).reduce((a, b) => a + b, 0)}`);

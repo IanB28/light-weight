@@ -29,7 +29,7 @@ export type ExerciseComplexity = 'compound' | 'isolation' | 'unknown';
 export type MachineResistanceClass =
   | 'none_expected'
   | 'inherent_resistance_candidate'
-  | 'known_current'
+  | 'suggested'
   | 'unknown';
 
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -215,9 +215,9 @@ export function inferMachineResistanceClass(
   raw: RawDatasetExercise,
   loading: ExerciseLoadingProfile
 ): MachineResistanceClass {
-  // 1. Known current: explicitly modeled fixed plate tare base (e.g. Smith machine with 20/22 lb base)
-  if (loading.plateBase?.kind === 'fixed') {
-    return 'known_current';
+  // 1. Suggested: catalog suggests known standard baseline (e.g. Smith machine with 20/22 lb suggestions or fixed plate base)
+  if ((loading.suggestions && loading.suggestions.length > 0) || loading.plateBase?.kind === 'fixed') {
+    return 'suggested';
   }
 
   const eq = (raw.eq || '').toLowerCase();
@@ -617,7 +617,7 @@ export function auditExerciseCatalog(rawDataset: RawDatasetExercise[]): {
     byMachineResistanceClass: {
       none_expected: 0,
       inherent_resistance_candidate: 0,
-      known_current: 0,
+      suggested: 0,
       unknown: 0
     },
     bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },

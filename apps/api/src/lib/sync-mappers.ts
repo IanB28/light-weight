@@ -3,7 +3,10 @@ import {
   normalizeLoggedSet,
   isValidRirValue,
   isValidRpeValue,
-  type WorkoutSetType
+  isValidBaseResistanceStatus,
+  isAuthoritativeProvenance,
+  type WorkoutSetType,
+  type BaseResistanceStatus
 } from '@light-weight/domain';
 
 export class SyncValidationError extends Error {
@@ -26,6 +29,14 @@ export interface SyncSetInput {
   completed?: boolean;
   setType?: unknown;
   isWarmup?: unknown;
+  machineProfileId?: string;
+  machineProfileLabel?: string;
+  machineBaseResistanceKg?: number;
+  machineBaseResistanceStatus?: unknown;
+  machineBaseSourceLabel?: string;
+  machineBaseSourceUrl?: string;
+  machineManufacturer?: string;
+  machineModel?: string;
 }
 
 export interface SyncSessionInput extends Record<string, unknown> {
@@ -50,6 +61,49 @@ export function normalizeIncomingSyncSet<T extends SyncSetInput>(set: T): T & {
   }
   if (set.rpe !== undefined && !isValidRpeValue(set.rpe)) {
     throw new SyncValidationError('INVALID_RPE', 'Invalid RPE value: must be a finite number between 0 and 10');
+  }
+  if (set.machineBaseResistanceStatus !== undefined && !isValidBaseResistanceStatus(set.machineBaseResistanceStatus)) {
+    throw new SyncValidationError('INVALID_MACHINE_BASE_STATUS', 'Invalid machine base resistance status');
+  }
+  if (
+    set.machineBaseResistanceKg !== undefined &&
+    (typeof set.machineBaseResistanceKg !== 'number' ||
+      !Number.isFinite(set.machineBaseResistanceKg) ||
+      set.machineBaseResistanceKg < 0)
+  ) {
+    throw new SyncValidationError('INVALID_MACHINE_BASE_KG', 'Invalid machine base resistance weight: must be a non-negative number');
+  }
+  if (set.machineBaseResistanceStatus === 'unknown' && set.machineBaseResistanceKg !== undefined) {
+    throw new SyncValidationError('INVALID_MACHINE_BASE_UNKNOWN', 'Machine base resistance weight must not be set when status is unknown');
+  }
+  if (set.machineBaseResistanceStatus === 'none' && set.machineBaseResistanceKg !== undefined && set.machineBaseResistanceKg !== 0) {
+    throw new SyncValidationError('INVALID_MACHINE_BASE_NONE', 'Machine base resistance weight must be 0 or omitted when status is none');
+  }
+  if (
+    set.machineBaseResistanceStatus === 'suggested' ||
+    set.machineBaseResistanceStatus === 'verified' ||
+    set.machineBaseResistanceStatus === 'user_defined'
+  ) {
+    if (set.machineBaseResistanceKg === undefined || set.machineBaseResistanceKg <= 0) {
+      throw new SyncValidationError('INVALID_MACHINE_BASE_KG', `Machine base resistance weight must be greater than 0 for status "${set.machineBaseResistanceStatus}"`);
+    }
+  }
+  if (set.machineBaseResistanceStatus === 'verified') {
+    const hasAuthoritative = isAuthoritativeProvenance({
+      sourceUrl: set.machineBaseSourceUrl,
+      manufacturer: set.machineManufacturer,
+      model: set.machineModel,
+      sourceLabel: set.machineBaseSourceLabel
+    });
+    if (!hasAuthoritative) {
+      throw new SyncValidationError(
+        'INVALID_MACHINE_BASE_PROVENANCE',
+        'Verified machine base resistance requires authoritative provenance (valid URL or manufacturer + model + document identifier)'
+      );
+    }
+  }
+  if (set.machineBaseResistanceKg !== undefined && set.machineBaseResistanceStatus === undefined) {
+    throw new SyncValidationError('INVALID_MACHINE_BASE_MISSING_STATUS', 'Machine base resistance status is required when machine base resistance weight is provided');
   }
   return normalizeLoggedSet(set);
 }

@@ -96752,7 +96752,7 @@
     "inferred": {
       "movementFamily": "other",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -96834,7 +96834,7 @@
     "inferred": {
       "movementFamily": "other",
       "complexity": "unknown",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -96912,7 +96912,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -96991,7 +96991,7 @@
     "inferred": {
       "movementFamily": "other",
       "complexity": "unknown",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97069,7 +97069,7 @@
     "inferred": {
       "movementFamily": "row",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97149,7 +97149,7 @@
     "inferred": {
       "movementFamily": "squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97241,7 +97241,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97332,7 +97332,7 @@
     "inferred": {
       "movementFamily": "deadlift",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97419,7 +97419,7 @@
     "inferred": {
       "movementFamily": "decline_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97498,7 +97498,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97580,7 +97580,7 @@
     "inferred": {
       "movementFamily": "squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97690,7 +97690,7 @@
     "inferred": {
       "movementFamily": "squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97792,7 +97792,7 @@
     "inferred": {
       "movementFamily": "hack_squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97892,7 +97892,7 @@
     "inferred": {
       "movementFamily": "core",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -97970,7 +97970,7 @@
     "inferred": {
       "movementFamily": "incline_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98055,7 +98055,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98133,7 +98133,7 @@
     "inferred": {
       "movementFamily": "other",
       "complexity": "unknown",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98225,7 +98225,7 @@
     "inferred": {
       "movementFamily": "leg_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98327,7 +98327,7 @@
     "inferred": {
       "movementFamily": "squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98425,7 +98425,7 @@
     "inferred": {
       "movementFamily": "elbow_flexion",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98493,7 +98493,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98581,7 +98581,7 @@
     "inferred": {
       "movementFamily": "elbow_extension",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98657,7 +98657,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98736,7 +98736,7 @@
     "inferred": {
       "movementFamily": "row",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98815,7 +98815,7 @@
     "inferred": {
       "movementFamily": "row",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98893,7 +98893,7 @@
     "inferred": {
       "movementFamily": "calf_raise",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -98972,7 +98972,7 @@
     "inferred": {
       "movementFamily": "row",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99065,7 +99065,7 @@
     "inferred": {
       "movementFamily": "calf_raise",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99133,7 +99133,7 @@
     "inferred": {
       "movementFamily": "calf_raise",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99203,7 +99203,7 @@
     "inferred": {
       "movementFamily": "row",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99281,7 +99281,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99358,7 +99358,7 @@
     "inferred": {
       "movementFamily": "calf_raise",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99428,7 +99428,7 @@
     "inferred": {
       "movementFamily": "vertical_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99506,7 +99506,7 @@
     "inferred": {
       "movementFamily": "elbow_flexion",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99585,7 +99585,7 @@
     "inferred": {
       "movementFamily": "vertical_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99661,7 +99661,7 @@
     "inferred": {
       "movementFamily": "other",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99743,7 +99743,7 @@
     "inferred": {
       "movementFamily": "split_squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99830,7 +99830,7 @@
     "inferred": {
       "movementFamily": "lunge",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -99932,7 +99932,7 @@
     "inferred": {
       "movementFamily": "squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100032,7 +100032,7 @@
     "inferred": {
       "movementFamily": "elbow_flexion",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100111,7 +100111,7 @@
     "inferred": {
       "movementFamily": "vertical_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100189,7 +100189,7 @@
     "inferred": {
       "movementFamily": "calf_raise",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100267,7 +100267,7 @@
     "inferred": {
       "movementFamily": "vertical_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100347,7 +100347,7 @@
     "inferred": {
       "movementFamily": "squat",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100446,7 +100446,7 @@
     "inferred": {
       "movementFamily": "calf_raise",
       "complexity": "isolation",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100519,7 +100519,7 @@
     "inferred": {
       "movementFamily": "row",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100605,7 +100605,7 @@
     "inferred": {
       "movementFamily": "bench_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {
@@ -100684,7 +100684,7 @@
     "inferred": {
       "movementFamily": "decline_press",
       "complexity": "compound",
-      "machineResistanceClass": "known_current"
+      "machineResistanceClass": "suggested"
     },
     "v2": {
       "target": {

@@ -18,3 +18,4 @@ export * from './exerciseSemanticsResolver.js';
 export * from './muscleExposure.js';
 export * from './muscleBalance.js';
 export * from './fatiguePolicy.js';
+export * from './machineProfile.js';

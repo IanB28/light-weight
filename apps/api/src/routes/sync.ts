@@ -14,7 +14,8 @@ import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
   estimateOneRm,
   shouldCountForPersonalRecord,
-  shouldCountForVolume
+  shouldCountForVolume,
+  type BaseResistanceStatus
 } from '@light-weight/domain';
 import { and, eq, desc } from 'drizzle-orm';
 import {
@@ -228,6 +229,14 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
             isWarmup: s.isWarmup,
             completed: Boolean(s.completed),
             estimatedOneRm: est1Rm ? String(est1Rm) : null,
+            machineProfileId: s.machineProfileId || null,
+            machineProfileLabel: s.machineProfileLabel || null,
+            machineBaseResistanceKg: s.machineBaseResistanceKg !== undefined ? String(s.machineBaseResistanceKg) : null,
+            machineBaseResistanceStatus: (s.machineBaseResistanceStatus as BaseResistanceStatus) || null,
+            machineBaseSourceLabel: s.machineBaseSourceLabel || null,
+            machineBaseSourceUrl: s.machineBaseSourceUrl || null,
+            machineManufacturer: s.machineManufacturer || null,
+            machineModel: s.machineModel || null,
           });
 
           // Evaluar si es nuevo récord personal (PR)
@@ -359,6 +368,14 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
             setType: s.setType,
             isWarmup: s.isWarmup,
             completed: s.completed,
+            machineProfileId: s.machineProfileId ?? undefined,
+            machineProfileLabel: s.machineProfileLabel ?? undefined,
+            machineBaseResistanceKg: s.machineBaseResistanceKg !== null && s.machineBaseResistanceKg !== undefined ? Number(s.machineBaseResistanceKg) : undefined,
+            machineBaseResistanceStatus: s.machineBaseResistanceStatus ?? undefined,
+            machineBaseSourceLabel: s.machineBaseSourceLabel ?? undefined,
+            machineBaseSourceUrl: s.machineBaseSourceUrl ?? undefined,
+            machineManufacturer: s.machineManufacturer ?? undefined,
+            machineModel: s.machineModel ?? undefined,
           }));
         }
 

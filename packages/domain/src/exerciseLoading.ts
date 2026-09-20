@@ -27,20 +27,26 @@ export const DEFAULT_EXERCISE_LOADING_PROFILE: ExerciseLoadingProfile = Object.f
   includeBarWeight: false
 });
 
-const BARBELL_PROFILE: ExerciseLoadingProfile = Object.freeze({
+export const BARBELL_PROFILE: ExerciseLoadingProfile = Object.freeze({
   mechanism: 'barbell', loadMode: 'total', supportsKeyboard: false,
   supportsPlates: true, supportsExternalLoad: true, includeBarWeight: true
 });
-const DUMBBELL_PROFILE: ExerciseLoadingProfile = Object.freeze({
+export const DUMBBELL_PROFILE: ExerciseLoadingProfile = Object.freeze({
   mechanism: 'dumbbell', loadMode: 'per_hand', supportsKeyboard: true,
   supportsPlates: false, supportsExternalLoad: true, includeBarWeight: false
 });
-const PLATE_LOADED_PROFILE: ExerciseLoadingProfile = Object.freeze({
+export const PLATE_LOADED_PROFILE: ExerciseLoadingProfile = Object.freeze({
   mechanism: 'plate_loaded', loadMode: 'total', supportsKeyboard: true,
-  supportsPlates: true, supportsExternalLoad: true, includeBarWeight: false
+  supportsPlates: true, supportsExternalLoad: true, includeBarWeight: false,
+  hasMachineBase: true
 });
-const SMITH_PROFILE: ExerciseLoadingProfile = Object.freeze({
+export const SMITH_PROFILE: ExerciseLoadingProfile = Object.freeze({
   ...PLATE_LOADED_PROFILE,
+  hasMachineBase: true,
+  suggestions: Object.freeze([
+    { weightKg: poundsToKilograms(20), label: '20 lb' },
+    { weightKg: poundsToKilograms(22), label: '22 lb' }
+  ]),
   plateBase: {
     kind: 'fixed' as const,
     weightKg: poundsToKilograms(20),
@@ -48,7 +54,7 @@ const SMITH_PROFILE: ExerciseLoadingProfile = Object.freeze({
     label: 'smith' as const
   }
 });
-const SELECTORIZED_PROFILE: ExerciseLoadingProfile = Object.freeze({
+export const SELECTORIZED_PROFILE: ExerciseLoadingProfile = Object.freeze({
   mechanism: 'selectorized', loadMode: 'total', supportsKeyboard: true,
   supportsPlates: false, supportsExternalLoad: true, includeBarWeight: false
 });

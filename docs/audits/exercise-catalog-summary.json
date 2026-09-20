@@ -127,7 +127,7 @@
   "byMachineResistanceClass": {
     "none_expected": 1261,
     "inherent_resistance_candidate": 15,
-    "known_current": 48,
+    "suggested": 48,
     "unknown": 0
   },
   "bySeverity": {

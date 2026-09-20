@@ -74,6 +74,8 @@
     "src/features/workouts/useWorkoutSession.ts",
     "src/features/workouts/workout-session-skip.test.ts",
     "src/features/workouts/routine-startup-order.test.ts",
-    "src/features/workouts/rir-input-integrity.test.ts"
+    "src/features/workouts/rir-input-integrity.test.ts",
+    "src/lib/machine-profiles.ts",
+    "src/features/workouts/machine-profile.test.ts"
   ]
 }

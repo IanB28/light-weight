@@ -10,4 +10,5 @@ export * from './RirPicker.js';
 export * from './RirEducationModal.js';
 export * from './SectionHeader.js';
 export * from './PasswordField.js';
+export * from './MachineProfileModal.js';
 export * from '../brand/AppLogo.js';

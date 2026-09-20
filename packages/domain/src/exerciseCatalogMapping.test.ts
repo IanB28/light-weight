@@ -108,16 +108,16 @@ test('6. Sled 45° leg press (ex-0739) IS an inherent resistance candidate', () 
   assert.ok(record.flags.includes('POSSIBLE_INHERENT_MACHINE_RESISTANCE'));
 });
 
-test('7. Smith exercise (ex-0748) with resolved plateBase.kind=fixed -> known_current', () => {
+test('7. Smith exercise (ex-0748) with resolved plateBase.kind=fixed -> suggested', () => {
   const raw = EXDB.find((e) => String(e.id) === '0748');
   assert.ok(raw, 'ex-0748 must exist in EXDB');
   const record = auditExercise(raw);
   assert.equal(record.id, 'ex-0748');
   assert.equal(record.current.plateBaseKind, 'fixed');
-  assert.equal(record.inferred.machineResistanceClass, 'known_current');
+  assert.equal(record.inferred.machineResistanceClass, 'suggested');
 });
 
-test('8. known_current derives strictly from resolved loading profile plateBase.kind=fixed', () => {
+test('8. suggested derives strictly from resolved loading profile plateBase.kind=fixed or suggestions', () => {
   // Mock profile with plateBase kind 'fixed'
   const mockFixedProfile = {
     mechanism: 'plate_loaded' as const,
@@ -130,7 +130,7 @@ test('8. known_current derives strictly from resolved loading profile plateBase.
   };
   assert.equal(
     inferMachineResistanceClass({ id: 'mock', eq: 'machine', n: 'Custom Machine' }, mockFixedProfile),
-    'known_current'
+    'suggested'
   );
 
   // Mock profile with user_bar (barbell) is NOT known_current machine
@@ -373,7 +373,7 @@ test('19. Catalog audit summary invariants: 0 assisted inconsistencies, 15 inher
   assert.equal(summary.bySeverity.info, 1322);
   assert.equal(summary.byFlag['ASSISTED_METADATA_INCONSISTENT'] || 0, 0, 'Catalog must have 0 ASSISTED_METADATA_INCONSISTENT');
   assert.equal(summary.machineResistanceCandidates.length, 15);
-  assert.equal(summary.byMachineResistanceClass.known_current, 48);
+  assert.equal(summary.byMachineResistanceClass.suggested, 48);
   assert.equal(summary.byFlag['CANONICAL_MUSCLE_COLLAPSE'], 197);
   assert.equal(summary.byFlag['RAW_MG_NOT_REPRESENTED_IN_CANONICAL_MUSCLES'], 451);
 
