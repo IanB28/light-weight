@@ -73,9 +73,15 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
         exerciseIds.length ? tx.select({ id: exercises.id, userId: exercises.userId }).from(exercises).where(inArray(exercises.id, exerciseIds)) : []
       ]);
       const existingBodyweightByDate = new Map(existingBodyweightLogs.map((entry) => [entry.loggedAt.toISOString(), entry]));
-      const routineOwnerById = new Map(existingRoutines.map((routine) => [routine.id, routine.userId]));
-      const sessionOwnerById = new Map(existingSessions.map((session) => [session.id, session.userId]));
-      const exerciseOwnerById = new Map(existingExercises.map((exercise) => [exercise.id, exercise.userId]));
+      const routineOwnerById = new Map(existingRoutines.map(
+        (routine): [string, string] => [routine.id, routine.userId]
+      ));
+      const sessionOwnerById = new Map(existingSessions.map(
+        (session): [string, string] => [session.id, session.userId]
+      ));
+      const exerciseOwnerById = new Map(existingExercises.map(
+        (exercise): [string, string | null] => [exercise.id, exercise.userId]
+      ));
       // Personal records are loaded once for the entire sync. The map tracks
       // deterministic in-request updates instead of selecting per physical set.
       const personalRecordByExercise = new Map(existingPrs.map((record) => [record.exerciseId, record]));
