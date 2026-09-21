@@ -3,7 +3,12 @@ import { sql } from '../db/index.js';
 import { compareMigrationLedger, readExpectedMigrations } from '../../scripts/schema-compatibility-core.mjs';
 
 /** Matches Drizzle's readMigrationFiles(): SHA-256 of the complete SQL file. */
-export type MigrationJournalEntry = { when: number; tag: string; hash: string };
+export type MigrationJournalEntry = {
+  when: number;
+  tag: string;
+  hash: string;
+  acceptedAppliedHashes?: readonly string[];
+};
 export type AppliedMigration = { when: number; hash: string };
 type LedgerMigration = AppliedMigration | { created_at: number | string; hash: string };
 

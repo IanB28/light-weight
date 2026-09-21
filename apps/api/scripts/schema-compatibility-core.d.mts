@@ -1,4 +1,9 @@
-export type MigrationJournalEntry = { when: number; tag: string; hash: string };
+export type MigrationJournalEntry = {
+  when: number;
+  tag: string;
+  hash: string;
+  acceptedAppliedHashes?: readonly string[];
+};
 export type AppliedMigration = { when: number; hash: string };
 export type RemoteMigration = { created_at?: number | string; when?: number | string; hash?: string };
 

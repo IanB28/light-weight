@@ -1,5 +1,21 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
+import { legacyMigrationHashCompatibility } from './schema-compatibility-manifest.mjs';
+
+function sha256(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+/**
+ * Git/Vercel source is LF while the historical Windows checkout for 0002 had
+ * one CRLF. Canonicalizing only the declared legacy migration lets us verify
+ * source integrity on either platform without accepting source edits.
+ */
+function canonicalSourceHash(source) {
+  return sha256(Buffer.from(source.toString('utf8').replace(/\r\n/g, '\n'), 'utf8'));
+}
 
 /**
  * Reads local migration hashes with Drizzle's own canonical reader. The journal
@@ -27,7 +43,19 @@ export function readExpectedMigrations(migrationsFolder, journalPath) {
     if (!Number.isFinite(when) || !tag) {
       throw new Error('Local Drizzle migration metadata is inconsistent.');
     }
-    return { when, tag, hash: migration.hash };
+    const compatibility = legacyMigrationHashCompatibility(when, tag);
+    if (!compatibility) return { when, tag, hash: migration.hash };
+
+    const sourceHash = canonicalSourceHash(readFileSync(join(migrationsFolder, `${tag}.sql`)));
+    if (sourceHash !== compatibility.canonicalSourceHash) {
+      throw new Error(`Local migration source integrity mismatch for ${tag}.`);
+    }
+    return {
+      when,
+      tag,
+      hash: compatibility.canonicalSourceHash,
+      acceptedAppliedHashes: compatibility.acceptedAppliedHashes,
+    };
   });
 }
 
@@ -54,7 +82,8 @@ export function compareMigrationLedger(expected, remoteRows) {
   const missing = expected.filter((migration) => !appliedByTimestamp.has(migration.when));
   const hashMismatches = expected.filter((migration) => {
     const hash = appliedByTimestamp.get(migration.when);
-    return hash !== undefined && hash !== migration.hash;
+    const acceptedHashes = migration.acceptedAppliedHashes ?? [migration.hash];
+    return hash !== undefined && !acceptedHashes.includes(hash);
   });
   return { ok: missing.length === 0 && hashMismatches.length === 0, applied, missing, hashMismatches };
 }
