@@ -10,6 +10,16 @@ async function withServer(run: (baseUrl: string) => Promise<void>) {
   finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 }
 
+async function withReadyServer(
+  dependencies: Parameters<typeof createApp>[0],
+  run: (baseUrl: string) => Promise<void>
+) {
+  const server = createApp(dependencies).listen(0);
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  try { await run(`http://127.0.0.1:${(server.address() as AddressInfo).port}`); }
+  finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+}
+
 test('/auth/me and logout reject anonymous requests without querying a client userId', async () => {
   await withServer(async (baseUrl) => {
     const me = await fetch(`${baseUrl}/api/auth/me`);
@@ -25,6 +35,17 @@ test('/api/health is a minimal unauthenticated serverless health response', asyn
     const response = await fetch(`${baseUrl}/api/health`);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { status: 'ok' });
+  });
+});
+
+test('/api/ready safely maps migration asset failures without leaking internals', async () => {
+  await withReadyServer({
+    testDbConnection: async () => ({ ok: true }),
+    verifySchemaCompatibility: async () => { throw new Error('/var/task/drizzle/meta/_journal.json'); }
+  }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/ready`);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { status: 'not_ready', code: 'DB_SCHEMA_MISMATCH' });
   });
 });
 

@@ -8,7 +8,7 @@ import { syncRouter } from './routes/sync.js';
 import { authRouter } from './routes/auth.js';
 import { friendsRouter } from './routes/friends.js';
 import { routineSharesRouter } from './routes/routine-shares.js';
-import { apiErrorHandler, notFoundHandler } from './lib/api-error.js';
+import { apiErrorHandler, asyncRoute, notFoundHandler } from './lib/api-error.js';
 import { configuredOrigins, requireTrustedOrigin } from './lib/request-security.js';
 import { verifySchemaCompatibility } from './lib/schema-compatibility.js';
 import { testDbConnection } from './db/index.js';
@@ -21,7 +21,14 @@ import { testDbConnection } from './db/index.js';
 type HelmetFactory = (options?: Readonly<HelmetOptions>) => RequestHandler;
 const helmet: HelmetFactory = helmetModule as unknown as HelmetFactory;
 
-export function createApp(): Express {
+export type AppDependencies = {
+  testDbConnection?: typeof testDbConnection;
+  verifySchemaCompatibility?: typeof verifySchemaCompatibility;
+};
+
+export function createApp(dependencies: AppDependencies = {}): Express {
+  const checkDatabase = dependencies.testDbConnection ?? testDbConnection;
+  const checkSchema = dependencies.verifySchemaCompatibility ?? verifySchemaCompatibility;
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
@@ -43,13 +50,24 @@ export function createApp(): Express {
   });
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-  app.get('/api/ready', async (_req, res) => {
-    const connection = await testDbConnection();
+  app.get('/api/ready', asyncRoute(async (_req, res) => {
+    let connection: Awaited<ReturnType<typeof testDbConnection>>;
+    try {
+      connection = await checkDatabase();
+    } catch {
+      return res.status(503).json({ status: 'not_ready', code: 'DB_UNAVAILABLE' });
+    }
     if (!connection.ok) return res.status(503).json({ status: 'not_ready', code: 'DB_UNAVAILABLE' });
-    const compatibility = await verifySchemaCompatibility();
-    if (!compatibility.ok) return res.status(503).json({ status: 'not_ready', code: 'DB_SCHEMA_MISMATCH' });
+    try {
+      const compatibility = await checkSchema();
+      if (!compatibility.ok) return res.status(503).json({ status: 'not_ready', code: 'DB_SCHEMA_MISMATCH' });
+    } catch {
+      // Missing bundled migration assets must not leak paths, SQL, or an
+      // unhandled rejected Promise from an Express 4 async route.
+      return res.status(503).json({ status: 'not_ready', code: 'DB_SCHEMA_MISMATCH' });
+    }
     return res.json({ status: 'ready' });
-  });
+  }));
   app.use('/api/auth', authRouter);
   app.use('/api/friends', friendsRouter);
   app.use('/api/routine-shares', routineSharesRouter);
