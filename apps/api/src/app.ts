@@ -10,6 +10,8 @@ import { friendsRouter } from './routes/friends.js';
 import { routineSharesRouter } from './routes/routine-shares.js';
 import { apiErrorHandler, notFoundHandler } from './lib/api-error.js';
 import { configuredOrigins, requireTrustedOrigin } from './lib/request-security.js';
+import { verifySchemaCompatibility } from './lib/schema-compatibility.js';
+import { testDbConnection } from './db/index.js';
 
 /**
  * Helmet publishes CommonJS declaration metadata alongside an ESM entrypoint.
@@ -41,6 +43,13 @@ export function createApp(): Express {
   });
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/ready', async (_req, res) => {
+    const connection = await testDbConnection();
+    if (!connection.ok) return res.status(503).json({ status: 'not_ready', code: 'DB_UNAVAILABLE' });
+    const compatibility = await verifySchemaCompatibility();
+    if (!compatibility.ok) return res.status(503).json({ status: 'not_ready', code: 'DB_SCHEMA_MISMATCH' });
+    return res.json({ status: 'ready' });
+  });
   app.use('/api/auth', authRouter);
   app.use('/api/friends', friendsRouter);
   app.use('/api/routine-shares', routineSharesRouter);

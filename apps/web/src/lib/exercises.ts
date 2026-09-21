@@ -22,7 +22,6 @@ let catalogPromise: Promise<Exercise[]> | null = null;
 
 export function loadExerciseCatalog(): Promise<Exercise[]> {
   if (!catalogPromise) {
-    // @ts-expect-error The generated catalog is intentionally kept as plain JS.
     catalogPromise = import('./exercises-data.js').then(({ EXDB }) => {
       const exercises = (EXDB as RawDatasetExercise[]).map(mapDatasetExerciseToDomain);
       exercises.forEach((exercise) => { EXERCISES_BY_ID[exercise.id] = exercise; });

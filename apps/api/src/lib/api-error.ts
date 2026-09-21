@@ -29,7 +29,7 @@ function isMalformedJsonError(error: unknown): boolean {
   return parserError.type === 'entity.parse.failed' && parserError.status === 400;
 }
 
-export function apiErrorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function apiErrorHandler(error: unknown, req: Request, res: Response, _next: NextFunction) {
   if (error instanceof ApiError) {
     res.status(error.status).json({ error: error.code });
     return;
@@ -39,9 +39,16 @@ export function apiErrorHandler(error: unknown, _req: Request, res: Response, _n
     return;
   }
   const failure = error as { name?: unknown; code?: unknown } | null;
+  const databaseCode = typeof failure?.code === 'string' ? failure.code : undefined;
   console.error('[API_ERROR]', {
+    method: req.method,
+    path: req.path,
     name: typeof failure?.name === 'string' ? failure.name : 'UnknownError',
-    code: typeof failure?.code === 'string' ? failure.code : undefined
+    code: databaseCode
   });
+  if (databaseCode === '42703') {
+    res.status(503).json({ error: 'DB_SCHEMA_MISMATCH' });
+    return;
+  }
   res.status(500).json({ error: 'SERVER_ERROR' });
 }

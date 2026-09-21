@@ -10,7 +10,7 @@ export type ApiErrorCode =
   | 'routine_not_owned' | 'routine_share_not_found' | 'csrf_invalid'
   | 'cannot_share_with_self' | 'friend_request_not_found'
   | 'origin_not_allowed' | 'invalid_birth_date' | 'routine_has_custom_exercises'
-  | 'routine_share_dismissed' | 'account_linking_required' | 'google_auth_failed';
+  | 'routine_share_dismissed' | 'account_linking_required' | 'google_auth_failed' | 'schema_mismatch';
 
 export interface ApiError { code: ApiErrorCode; status?: number; retryable: boolean }
 export type OperationResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
@@ -34,7 +34,8 @@ const SERVER_CODES: Record<string, ApiErrorCode> = {
   ACCOUNT_LINKING_REQUIRED: 'account_linking_required',
   GOOGLE_AUTH_FAILED: 'google_auth_failed',
   UNVERIFIED_EMAIL: 'google_auth_failed',
-  CSRF_INVALID: 'csrf_invalid', RATE_LIMITED: 'rate_limited', FORBIDDEN: 'forbidden'
+  CSRF_INVALID: 'csrf_invalid', RATE_LIMITED: 'rate_limited', FORBIDDEN: 'forbidden',
+  DB_SCHEMA_MISMATCH: 'schema_mismatch'
 };
 
 export function mapApiError(error: unknown): ApiError {

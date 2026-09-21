@@ -42,6 +42,17 @@ interface SettingsSheetProps {
 type SettingsPanel = 'root' | 'profile' | 'friends' | 'training' | 'appearance' | 'theme' | 'accent' | 'language' | 'data';
 type StatusMessage = { tone: 'success' | 'error'; text: string } | null;
 
+function syncErrorMessage(t: (key: TranslationKey) => string, code: import('../lib/api-errors.js').ApiErrorCode): string {
+  const keyByCode: Partial<Record<import('../lib/api-errors.js').ApiErrorCode, TranslationKey>> = {
+    network: 'error.network', aborted: 'error.aborted', api_unconfigured: 'auth.error.api_unconfigured',
+    auth_required: 'auth.error.auth_required', unauthorized: 'auth.error.auth_required',
+    csrf_invalid: 'auth.error.csrf_invalid', rate_limited: 'error.rateLimited', validation: 'error.validation',
+    server: 'error.server', schema_mismatch: 'error.schema_mismatch', not_found: 'error.notFound',
+    forbidden: 'error.forbidden', conflict: 'error.conflict'
+  };
+  return t(keyByCode[code] || 'error.unknown');
+}
+
 function SettingsRow({ icon, label, value, onClick, disabled }: { icon: React.ReactNode; label: string; value?: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-14 w-full items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-left last:border-b-0 hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-45">
@@ -107,7 +118,7 @@ export function SettingsSheet({
     setIsSyncing(true);
     const result = await syncWithCloud();
     setIsSyncing(false);
-    setStatus(result.ok ? { tone: 'success', text: t('settings.synced') } : { tone: 'error', text: result.error.code === 'auth_required' || result.error.code === 'unauthorized' ? t('auth.error.auth_required') : t(`error.${result.error.code === 'not_found' ? 'notFound' : result.error.code === 'rate_limited' ? 'rateLimited' : result.error.code}` as import('../lib/i18n.js').TranslationKey) });
+    setStatus(result.ok ? { tone: 'success', text: t('settings.synced') } : { tone: 'error', text: syncErrorMessage(t, result.error.code) });
   };
 
   const handleExport = () => {

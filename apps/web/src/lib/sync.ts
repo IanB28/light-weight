@@ -117,6 +117,8 @@ export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }
 
   syncInFlight = (async () => {
     try {
+      // Block 17 will replace this full-history push with a cursor/outbox
+      // protocol. Keep it stable for now so retries remain idempotent.
       const payload = {
         sessions: getStoredHistory(),
         routines: getStoredRoutines(),
@@ -125,7 +127,9 @@ export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }
       };
       const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(apiEndpoint('/api/sync'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-      }, 10000);
+      // Sync may process a full local history. Its allowance intentionally
+      // exceeds the API's 30s serverless limit without changing other calls.
+      }, 35_000);
       const syncedCount = data.syncedCount || 0;
       if (Array.isArray(data.deletedRoutineIds)) removeStoredDeletedRoutineIds(data.deletedRoutineIds);
       notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: syncedCount });

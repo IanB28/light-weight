@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "node --test dist/**/*.test.js",
+    "build:vercel": "node scripts/vercel-build.mjs",
+    "test": "node --test dist/**/*.test.js scripts/verify-schema-compatibility.test.mjs",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "db:push": "drizzle-kit push",
@@ -14,6 +15,7 @@
     "db:validate-domain-migration": "node scripts/validate-domain-migration.mjs",
     "db:validate-auth-migration": "node scripts/validate-auth-migration.mjs",
     "db:validate-migrate-pipeline": "node scripts/validate-migrate-pipeline.mjs",
+    "db:verify-schema-compatibility": "node scripts/verify-schema-compatibility.mjs",
     "db:seed": "tsx src/db/seed.ts",
     "db:seed-catalog": "tsx src/db/seed-catalog.ts",
     "db:studio": "drizzle-kit studio"

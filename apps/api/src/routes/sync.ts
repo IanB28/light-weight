@@ -17,7 +17,7 @@ import {
   shouldCountForVolume,
   type BaseResistanceStatus
 } from '@light-weight/domain';
-import { and, eq, desc } from 'drizzle-orm';
+import { and, eq, desc, inArray } from 'drizzle-orm';
 import {
   hydrateSyncedSet,
   normalizeIncomingSyncSessions,
@@ -44,19 +44,6 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
     const deletedRoutineIds = [...new Set((Array.isArray(rawDeletedRoutineIds) ? rawDeletedRoutineIds : [])
       .filter((id): id is string => typeof id === 'string' && id.length > 0)
       .slice(0, 250))];
-    const deletedRoutineDbIds = new Set(deletedRoutineIds.map(toDatabaseUuid));
-    const acknowledgedDeletedRoutineIds: string[] = [];
-
-    const syncedSessionIds: string[] = [];
-
-    // 1. Guardar pesajes de forma idempotente por usuario + fecha.
-    const existingBodyweightLogs = await db
-      .select()
-      .from(bodyweightLogs)
-      .where(eq(bodyweightLogs.userId, userId));
-    const existingBodyweightByDate = new Map(
-      existingBodyweightLogs.map((entry) => [entry.loggedAt.toISOString(), entry])
-    );
     const validIncomingBodyweight = (Array.isArray(bLogs) ? bLogs : []).filter(
       (entry: unknown): entry is { loggedAt: string; weightKg: number } => {
         if (!entry || typeof entry !== 'object') return false;
@@ -67,88 +54,82 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
     const uniqueIncomingBodyweight = Array.from(
       new Map(validIncomingBodyweight.map((entry) => [new Date(entry.loggedAt).toISOString(), entry])).values()
     );
+    const incomingRoutineList = (Array.isArray(incomingRoutines) ? incomingRoutines.slice(0, 250) : [])
+      .filter((routine): routine is { id?: string; name?: string; description?: string; exerciseIds?: unknown } => Boolean(routine && typeof routine === 'object'));
+    const routineDbIds = new Set([
+      ...deletedRoutineIds.map(toDatabaseUuid),
+      ...incomingRoutineList.map((routine) => toDatabaseUuid(routine.id)),
+      ...sessions.flatMap((session) => session.routineId ? [toDatabaseUuid(session.routineId)] : [])
+    ]);
+    const sessionDbIds = sessions.map((session) => toDatabaseUuid(session.id));
+    const exerciseIds = [...new Set(sessions.flatMap((session) => Object.keys(session.sets || {})))];
 
-    for (const b of uniqueIncomingBodyweight) {
-      const loggedAt = new Date(b.loggedAt);
-      const existing = existingBodyweightByDate.get(loggedAt.toISOString());
-      if (existing) {
-        await db.update(bodyweightLogs).set({ weightKg: String(b.weightKg) }).where(eq(bodyweightLogs.id, existing.id));
-      } else {
-        await db.insert(bodyweightLogs).values({ userId, weightKg: String(b.weightKg), loggedAt });
+    const result = await db.transaction(async (tx) => {
+      const [existingBodyweightLogs, existingPrs, existingSessions, existingRoutines, existingExercises] = await Promise.all([
+        tx.select().from(bodyweightLogs).where(eq(bodyweightLogs.userId, userId)),
+        tx.select().from(personalRecords).where(eq(personalRecords.userId, userId)),
+        sessionDbIds.length ? tx.select({ id: workoutSessions.id, userId: workoutSessions.userId }).from(workoutSessions).where(inArray(workoutSessions.id, sessionDbIds)) : [],
+        routineDbIds.size ? tx.select({ id: routines.id, userId: routines.userId }).from(routines).where(inArray(routines.id, [...routineDbIds])) : [],
+        exerciseIds.length ? tx.select({ id: exercises.id, userId: exercises.userId }).from(exercises).where(inArray(exercises.id, exerciseIds)) : []
+      ]);
+      const existingBodyweightByDate = new Map(existingBodyweightLogs.map((entry) => [entry.loggedAt.toISOString(), entry]));
+      const routineOwnerById = new Map(existingRoutines.map((routine) => [routine.id, routine.userId]));
+      const sessionOwnerById = new Map(existingSessions.map((session) => [session.id, session.userId]));
+      const exerciseOwnerById = new Map(existingExercises.map((exercise) => [exercise.id, exercise.userId]));
+      // Personal records are loaded once for the entire sync. The map tracks
+      // deterministic in-request updates instead of selecting per physical set.
+      const personalRecordByExercise = new Map(existingPrs.map((record) => [record.exerciseId, record]));
+      const acknowledgedDeletedRoutineIds: string[] = [];
+      const syncedSessionIds: string[] = [];
+
+      for (const b of uniqueIncomingBodyweight) {
+        const loggedAt = new Date(b.loggedAt);
+        const existing = existingBodyweightByDate.get(loggedAt.toISOString());
+        if (existing) await tx.update(bodyweightLogs).set({ weightKg: String(b.weightKg) }).where(eq(bodyweightLogs.id, existing.id));
+        else await tx.insert(bodyweightLogs).values({ userId, weightKg: String(b.weightKg), loggedAt });
+        await tx.insert(userProfiles).values({ userId, gender: req.auth!.user.gender || 'male', currentBodyweightKg: String(b.weightKg), updatedAt: new Date() }).onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: { currentBodyweightKg: String(b.weightKg), updatedAt: new Date() }
+        });
       }
 
-      // Actualizar perfil con el último peso
-      await db.insert(userProfiles).values({
-        userId,
-        gender: req.auth!.user.gender || 'male',
-        currentBodyweightKg: String(b.weightKg),
-        updatedAt: new Date()
-      }).onConflictDoUpdate({
-        target: userProfiles.userId,
-        set: { currentBodyweightKg: String(b.weightKg), updatedAt: new Date() }
-      });
-    }
-
-    // 2. Sincronizar rutinas si se incluyen
-    for (const rawRoutine of Array.isArray(incomingRoutines) ? incomingRoutines.slice(0, 250) : []) {
-      if (!rawRoutine || typeof rawRoutine !== 'object') continue;
-      const r = rawRoutine as { id?: string; name?: string; description?: string; exerciseIds?: unknown };
-      if (typeof r.name !== 'string' || !r.name.trim() || r.name.length > 255) continue;
-      const rUuid = toDatabaseUuid(r.id);
-      if (deletedRoutineDbIds.has(rUuid)) continue;
-      const [existingRoutine] = await db.select({ userId: routines.userId }).from(routines).where(eq(routines.id, rUuid)).limit(1);
-      if (existingRoutine && existingRoutine.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
-      await db
-        .insert(routines)
-        .values({
-          id: rUuid,
-          userId,
-          name: r.name.trim(),
-          description: r.description || null,
-          exerciseIds: Array.isArray(r.exerciseIds) ? r.exerciseIds.filter((id): id is string => typeof id === 'string').slice(0, 100) : [],
-        })
-        .onConflictDoUpdate({
+      for (const r of incomingRoutineList) {
+        if (typeof r.name !== 'string' || !r.name.trim() || r.name.length > 255) continue;
+        const rUuid = toDatabaseUuid(r.id);
+        if (routineDbIds.has(rUuid) && deletedRoutineIds.some((id) => toDatabaseUuid(id) === rUuid)) continue;
+        const owner = routineOwnerById.get(rUuid);
+        if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
+        const exerciseIdsForRoutine = Array.isArray(r.exerciseIds) ? r.exerciseIds.filter((id): id is string => typeof id === 'string').slice(0, 100) : [];
+        await tx.insert(routines).values({ id: rUuid, userId, name: r.name.trim(), description: r.description || null, exerciseIds: exerciseIdsForRoutine }).onConflictDoUpdate({
           target: routines.id,
           setWhere: eq(routines.userId, userId),
-          set: {
-            name: r.name.trim(),
-            description: r.description || null,
-            exerciseIds: Array.isArray(r.exerciseIds) ? r.exerciseIds.filter((id): id is string => typeof id === 'string').slice(0, 100) : [],
-            updatedAt: new Date(),
-          },
+          set: { name: r.name.trim(), description: r.description || null, exerciseIds: exerciseIdsForRoutine, updatedAt: new Date() }
         });
-    }
-
-    // 2b. Deletes are ownership-scoped and idempotently acknowledged. A retry
-    // after a timed-out successful delete must clear its tombstone, while an
-    // existing routine belonging to another user remains a hard authorization
-    // failure.
-    for (let index = 0; index < deletedRoutineIds.length; index += 1) {
-      const rawId = deletedRoutineIds[index];
-      const databaseId = toDatabaseUuid(rawId);
-      const [existing] = await db.select({ userId: routines.userId }).from(routines)
-        .where(eq(routines.id, databaseId)).limit(1);
-      if (existing && existing.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
-      if (existing) {
-        await db.delete(routines).where(and(eq(routines.id, databaseId), eq(routines.userId, userId)));
+        routineOwnerById.set(rUuid, userId);
       }
-      acknowledgedDeletedRoutineIds.push(rawId);
-    }
 
-    // 3. Procesar y persistir sesiones de entrenamiento en lote
-    for (const session of sessions) {
+      for (const rawId of deletedRoutineIds) {
+        const databaseId = toDatabaseUuid(rawId);
+        const owner = routineOwnerById.get(databaseId);
+        if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
+        if (owner) await tx.delete(routines).where(and(eq(routines.id, databaseId), eq(routines.userId, userId)));
+        routineOwnerById.delete(databaseId);
+        acknowledgedDeletedRoutineIds.push(rawId);
+      }
+
+      for (const session of sessions) {
       const { id, routineId, routineName, startedAt, performedDate, recordedAt, entrySource, endedAt, notes, sets = {} } = session;
       const sessionUuid = toDatabaseUuid(id);
       const requestedRoutineUuid = routineId ? toDatabaseUuid(routineId) : null;
-      const [existingSession] = await db.select({ userId: workoutSessions.userId }).from(workoutSessions).where(eq(workoutSessions.id, sessionUuid)).limit(1);
-      if (existingSession && existingSession.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
+      const sessionOwner = sessionOwnerById.get(sessionUuid);
+      if (sessionOwner && sessionOwner !== userId) throw new ApiError(403, 'FORBIDDEN');
       let routineUuid: string | null = null;
       if (requestedRoutineUuid) {
-        const [referencedRoutine] = await db.select({ userId: routines.userId }).from(routines).where(eq(routines.id, requestedRoutineUuid)).limit(1);
-        if (referencedRoutine?.userId && referencedRoutine.userId !== userId) throw new ApiError(403, 'ROUTINE_NOT_OWNED');
+        const routineOwner = routineOwnerById.get(requestedRoutineUuid);
+        if (routineOwner && routineOwner !== userId) throw new ApiError(403, 'ROUTINE_NOT_OWNED');
         // A locally deleted routine may still be referenced by historical
         // sessions. Preserve the session name but never revive the routine.
-        if (referencedRoutine?.userId === userId) routineUuid = requestedRoutineUuid;
+        if (routineOwner === userId) routineUuid = requestedRoutineUuid;
       }
 
       // Calcular volumen total
@@ -162,7 +143,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       });
 
       // Insertar o actualizar la sesión
-      await db
+      await tx
         .insert(workoutSessions)
         .values({
           id: sessionUuid,
@@ -194,14 +175,14 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
         });
 
       // Limpiar series previas para garantizar idempotencia en re-sincronizaciones
-      await db.delete(loggedSets).where(eq(loggedSets.sessionId, sessionUuid));
+      await tx.delete(loggedSets).where(eq(loggedSets.sessionId, sessionUuid));
 
       // Insertar series asociadas
       for (const [exerciseId, exerciseSets] of Object.entries(sets)) {
-        const [existingExercise] = await db.select({ userId: exercises.userId }).from(exercises).where(eq(exercises.id, exerciseId)).limit(1);
-        if (existingExercise?.userId && existingExercise.userId !== userId) throw new ApiError(403, 'FORBIDDEN');
+        const exerciseOwner = exerciseOwnerById.get(exerciseId);
+        if (exerciseOwner && exerciseOwner !== userId) throw new ApiError(403, 'FORBIDDEN');
         // Garantizar que el ejercicio exista en Postgres para no violar FK
-        await db
+        await tx
           .insert(exercises)
           .values({
             id: exerciseId,
@@ -218,13 +199,14 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
             isCustom: true,
           })
           .onConflictDoNothing();
+        if (!exerciseOwnerById.has(exerciseId)) exerciseOwnerById.set(exerciseId, userId);
 
         for (const s of exerciseSets) {
           const est1Rm = shouldCountForPersonalRecord(s)
             ? estimateOneRm(Number(s.weightKg), Number(s.reps)).average
             : null;
 
-          await db.insert(loggedSets).values({
+          await tx.insert(loggedSets).values({
             sessionId: sessionUuid,
             exerciseId,
             setIndex: s.setIndex,
@@ -248,26 +230,24 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
 
           // Evaluar si es nuevo récord personal (PR)
           if (est1Rm && est1Rm > 0) {
-            const existingPr = await db
-              .select()
-              .from(personalRecords)
-              .where(eq(personalRecords.userId, userId))
-              .then((prs) => prs.find((p) => p.exerciseId === exerciseId));
+            const existingPr = personalRecordByExercise.get(exerciseId);
 
             if (!existingPr || est1Rm > Number(existingPr.oneRmKg)) {
               if (existingPr) {
-                await db
+                const nextValues = {
+                  oneRmKg: String(est1Rm),
+                  bestWeightKg: String(s.weightKg),
+                  bestReps: s.reps,
+                  achievedAt: new Date(startedAt),
+                  sessionId: sessionUuid,
+                };
+                await tx
                   .update(personalRecords)
-                  .set({
-                    oneRmKg: String(est1Rm),
-                    bestWeightKg: String(s.weightKg),
-                    bestReps: s.reps,
-                    achievedAt: new Date(startedAt),
-                    sessionId: sessionUuid,
-                  })
+                  .set(nextValues)
                   .where(eq(personalRecords.id, existingPr.id));
+                personalRecordByExercise.set(exerciseId, { ...existingPr, ...nextValues });
               } else {
-                await db.insert(personalRecords).values({
+                const [createdPr] = await tx.insert(personalRecords).values({
                   userId,
                   exerciseId,
                   oneRmKg: String(est1Rm),
@@ -275,7 +255,8 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
                   bestReps: s.reps,
                   achievedAt: new Date(startedAt),
                   sessionId: sessionUuid,
-                });
+                }).returning();
+                personalRecordByExercise.set(exerciseId, createdPr);
               }
             }
           }
@@ -283,22 +264,18 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       }
 
       syncedSessionIds.push(sessionUuid);
-    }
+      }
 
-    // Retornar confirmación y récords actualizados
-    const currentPrs = await db
-      .select()
-      .from(personalRecords)
-      .where(eq(personalRecords.userId, userId));
-
-    res.json({
-      success: true,
-      syncedCount: syncedSessionIds.length,
-      syncedSessionIds,
-      deletedRoutineIds: acknowledgedDeletedRoutineIds,
-      personalRecords: currentPrs,
-      timestamp: new Date().toISOString(),
+      return {
+        success: true,
+        syncedCount: syncedSessionIds.length,
+        syncedSessionIds,
+        deletedRoutineIds: acknowledgedDeletedRoutineIds,
+        personalRecords: await tx.select().from(personalRecords).where(eq(personalRecords.userId, userId)),
+        timestamp: new Date().toISOString(),
+      };
     });
+    res.json(result);
   } catch (error: unknown) {
     if (error instanceof SyncValidationError) {
       return res.status(error.status).json({ error: error.code });

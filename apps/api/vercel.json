@@ -3,10 +3,11 @@
   "version": 2,
   "framework": "express",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter @light-weight/domain build && pnpm --filter @light-weight/api build",
+  "buildCommand": "cd ../.. && pnpm --filter @light-weight/domain build && pnpm --filter @light-weight/api build:vercel",
   "functions": {
     "src/app.ts": {
-      "maxDuration": 10
+      "maxDuration": 30,
+      "includeFiles": ["drizzle/**", "scripts/schema-compatibility-core.mjs"]
     }
   }
 }

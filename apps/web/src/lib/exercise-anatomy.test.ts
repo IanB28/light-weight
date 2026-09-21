@@ -21,11 +21,9 @@ import {
 
 async function getRawCatalog(): Promise<RawDatasetExercise[]> {
   try {
-    // @ts-expect-error dynamic path for test runner
     const mod = await import('../../src/lib/exercises-data.js');
     return mod.EXDB;
   } catch {
-    // @ts-expect-error fallback path
     const mod = await import('./exercises-data.js');
     return mod.EXDB;
   }

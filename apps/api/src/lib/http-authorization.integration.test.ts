@@ -21,7 +21,7 @@ async function withServer(run: (baseUrl: string) => Promise<void>) {
   finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
 }
 
-test('HTTP authorization enforces ownership, recipient-only imports and idempotent tombstones', async (t) => {
+test('HTTP sync transaction rolls back mutations and preserves one PR row per exercise', async (t) => {
   if (!connectionString) {
     t.skip('DATABASE_URL is not configured');
     return;
@@ -33,6 +33,10 @@ test('HTTP authorization enforces ownership, recipient-only imports and idempote
   const c = '71000000-0000-4000-8000-000000000003';
   const routineA = '72000000-0000-4000-8000-000000000001';
   const localOnlyRoutine = '72000000-0000-4000-8000-000000000002';
+  const atomicSession = '72000000-0000-4000-8000-000000000003';
+  const atomicRoutine = '72000000-0000-4000-8000-000000000004';
+  const firstPrSession = '72000000-0000-4000-8000-000000000005';
+  const secondPrSession = '72000000-0000-4000-8000-000000000006';
   const share = '73000000-0000-4000-8000-000000000001';
   const sessions = [
     { userId: a, token: 'http-auth-token-a', csrf: 'http-auth-csrf-a' },
@@ -46,10 +50,11 @@ test('HTTP authorization enforces ownership, recipient-only imports and idempote
     const migrationSql = await readFile(new URL('../../drizzle/0001_auth_friends_routine_sharing_v1.sql', import.meta.url), 'utf8');
     try {
       await sql.begin(async (tx) => {
-        // Let Drizzle's nested transaction in the import handler reuse the
-        // same rollback-only connection.
+        // HTTP handlers open Drizzle transactions. Route them to PostgreSQL
+        // savepoints so a failed nested sync actually rolls back its writes
+        // while the outer disposable-test transaction remains inspectable.
         Object.defineProperty(tx, 'options', { value: sql.options });
-        Object.defineProperty(tx, 'begin', { value: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx) });
+        Object.defineProperty(tx, 'begin', { value: async (callback: (client: typeof tx) => Promise<unknown>) => tx.savepoint(callback) });
         await tx.unsafe(migrationSql);
         const transactionalDb = drizzle(tx as never, { schema });
         const restoreDb = replaceDatabaseForTesting(transactionalDb as typeof db);
@@ -68,6 +73,16 @@ test('HTTP authorization enforces ownership, recipient-only imports and idempote
           await tx`
             INSERT INTO routines (id, user_id, name, exercise_ids)
             VALUES (${routineA}, ${a}, 'Owner routine', ${JSON.stringify(['bench'])}::jsonb)
+          `;
+          await tx`
+            INSERT INTO workout_sessions (id, user_id, started_at)
+            VALUES (${atomicSession}, ${a}, '2026-01-01T10:00:00.000Z')
+          `;
+          await tx`
+            INSERT INTO logged_sets (session_id, exercise_id, set_index, weight_kg, reps, set_type, is_warmup)
+            VALUES
+              (${atomicSession}, 'bench', 1, 100, 5, 'working', false),
+              (${atomicSession}, 'bench', 2, 90, 8, 'working', false)
           `;
           await tx`
             INSERT INTO routines (id, user_id, name, exercise_ids)
@@ -95,6 +110,49 @@ test('HTTP authorization enforces ownership, recipient-only imports and idempote
             'content-type': 'application/json'
           });
           await withServer(async (baseUrl) => {
+            const oversizedExerciseId = 'x'.repeat(101);
+            const failedReplacement = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST', headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                bodyweightLogs: [{ weightKg: 88, loggedAt: '2026-01-01T10:00:00.000Z' }],
+                routines: [{ id: atomicRoutine, name: 'Must roll back', exerciseIds: ['bench'] }],
+                sessions: [{
+                  id: atomicSession,
+                  startedAt: '2026-01-01T10:00:00.000Z',
+                  sets: {
+                    bench: [{ setIndex: 1, weightKg: 110, reps: 5, setType: 'working', completed: true }],
+                    [oversizedExerciseId]: [{ setIndex: 1, weightKg: 1, reps: 1, setType: 'working' }]
+                  }
+                }]
+              })
+            });
+            assert.equal(failedReplacement.status, 500);
+            const preservedSession = await tx`SELECT id, total_volume_kg FROM workout_sessions WHERE id = ${atomicSession}`;
+            const preservedSets = await tx`SELECT weight_kg, reps FROM logged_sets WHERE session_id = ${atomicSession} ORDER BY set_index`;
+            assert.equal(preservedSession.length, 1);
+            assert.deepEqual(preservedSets.map((set) => [Number(set.weight_kg), set.reps]), [[100, 5], [90, 8]]);
+            assert.equal((await tx`SELECT id FROM routines WHERE id = ${atomicRoutine}`).length, 0);
+            assert.equal((await tx`SELECT id FROM bodyweight_logs WHERE user_id = ${a} AND weight_kg = 88`).length, 0);
+            assert.equal((await tx`SELECT id FROM personal_records WHERE user_id = ${a} AND exercise_id = 'bench'`).length, 0);
+
+            const firstPr = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST', headers: headersFor(sessions[0]),
+              body: JSON.stringify({ sessions: [{ id: firstPrSession, startedAt: '2026-01-02T10:00:00.000Z', sets: { bench: [{ setIndex: 1, weightKg: 100, reps: 5, setType: 'working', completed: true }] } }] })
+            });
+            assert.equal(firstPr.status, 200);
+            const strongerPrs = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST', headers: headersFor(sessions[0]),
+              body: JSON.stringify({ sessions: [{ id: secondPrSession, startedAt: '2026-01-03T10:00:00.000Z', sets: { bench: [
+                { setIndex: 1, weightKg: 105, reps: 5, setType: 'working', completed: true },
+                { setIndex: 2, weightKg: 110, reps: 5, setType: 'working', completed: true }
+              ] } }] })
+            });
+            assert.equal(strongerPrs.status, 200);
+            const benchPrs = await tx`SELECT best_weight_kg, best_reps, session_id, achieved_at FROM personal_records WHERE user_id = ${a} AND exercise_id = 'bench'`;
+            assert.equal(benchPrs.length, 1);
+            assert.deepEqual([Number(benchPrs[0].best_weight_kg), benchPrs[0].best_reps, benchPrs[0].session_id], [110, 5, secondPrSession]);
+            assert.equal(new Date(benchPrs[0].achieved_at).toISOString(), '2026-01-03T10:00:00.000Z');
+
             const unknownExerciseShare = await fetch(`${baseUrl}/api/routine-shares`, {
               method: 'POST', headers: headersFor(sessions[0]),
               body: JSON.stringify({ routineId: localOnlyRoutine, recipientId: b })
