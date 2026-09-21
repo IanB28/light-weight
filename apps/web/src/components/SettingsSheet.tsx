@@ -1,12 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Database, Download, Dumbbell, Languages, Palette, RefreshCw, Sparkles, Upload, UserRound } from 'lucide-react';
-import { Exercise, WorkoutSession } from '@light-weight/domain';
+import { Check, ChevronLeft, ChevronRight, Database, Download, Dumbbell, Languages, Palette, RefreshCw, Sparkles, Upload } from 'lucide-react';
 import {
   getStoredBodyweight, getStoredHistory, getStoredProfile, getStoredRoutines,
   getStoredTargetWeight, getStoredWeeklySchedule, saveStoredBodyweight,
   saveStoredHistory, saveStoredProfile, saveStoredRoutines, saveStoredTargetWeight,
-  saveStoredWeeklySchedule, switchStoredUserScope, UserInfo, UserProfile,
-  type BodyweightEntry
+  saveStoredWeeklySchedule
 } from '../lib/storage.js';
 import { syncWithCloud } from '../lib/sync.js';
 import { AccentColorId, ACCENT_PRESETS, applyTheme, GlassTheme, GLASS_THEMES, getStoredThemeSettings, ThemeSettings } from '../lib/theme.js';
@@ -21,25 +19,19 @@ import {
   weightsMatch,
   WEIGHT_UNIT_PRESETS
 } from '../lib/weight-units.js';
-import { ProfileView } from '../features/profile/ProfileView.js';
-import { FriendsPanel } from '../features/friends/FriendsPanel.js';
 import { useAuth } from '../lib/auth-context.js';
-import { BottomSheet, Button, LoadingState, OptionPicker, SectionHeader, SegmentedControl } from './ui/index.js';
+import type { SettingsTarget } from '../features/profile/profile-surface-state.js';
+import { restoreProfileFromBackup } from '../features/profile/profile-backup.js';
+import { BottomSheet, Button, OptionPicker, SectionHeader, SegmentedControl } from './ui/index.js';
 
 interface SettingsSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onDataRestored?: () => void;
-  profile: UserProfile;
-  userInfo: UserInfo;
-  history: WorkoutSession[];
-  exercises: Exercise[];
-  onProfileChange: (profile: UserProfile) => void;
-  bodyweightKg?: number | null;
-  bodyweightEntries?: BodyweightEntry[];
+  target?: SettingsTarget;
 }
 
-type SettingsPanel = 'root' | 'profile' | 'friends' | 'training' | 'appearance' | 'theme' | 'accent' | 'language' | 'data';
+type SettingsPanel = SettingsTarget | 'theme' | 'accent';
 type StatusMessage = { tone: 'success' | 'error'; text: string } | null;
 
 function syncErrorMessage(t: (key: TranslationKey) => string, code: import('../lib/api-errors.js').ApiErrorCode): string {
@@ -68,13 +60,7 @@ export function SettingsSheet({
   isOpen,
   onClose,
   onDataRestored,
-  profile,
-  userInfo,
-  history,
-  exercises,
-  onProfileChange,
-  bodyweightKg,
-  bodyweightEntries
+  target = 'root'
 }: SettingsSheetProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [panel, setPanel] = useState<SettingsPanel>('root');
@@ -88,7 +74,13 @@ export function SettingsSheet({
   const themeName = (id: GlassTheme) => t(`theme.${id}` as TranslationKey);
   const accentName = (id: AccentColorId) => t(`accent.${id}` as TranslationKey);
 
-  useEffect(() => { if (!isOpen) { setPanel('root'); setStatus(null); } }, [isOpen]);
+  useEffect(() => {
+    if (isOpen) setPanel(target);
+    else {
+      setPanel('root');
+      setStatus(null);
+    }
+  }, [isOpen, target]);
 
   const close = () => { setPanel('root'); setStatus(null); onClose(); };
   const chooseTheme = (glassTheme: GlassTheme) => { const updated = { ...themeSettings, glassTheme }; setThemeSettings(updated); applyTheme(updated); };
@@ -158,7 +150,7 @@ export function SettingsSheet({
         if (Array.isArray(data.routines)) saveStoredRoutines(data.routines);
         if (Array.isArray(data.bodyweight)) saveStoredBodyweight(data.bodyweight);
         if (typeof data.targetWeight === 'number') saveStoredTargetWeight(data.targetWeight);
-        if (data.profile && typeof data.profile === 'object') onProfileChange(saveStoredProfile(data.profile as Partial<UserProfile>));
+        restoreProfileFromBackup(data.profile, saveStoredProfile);
         if (data.preferences && typeof data.preferences === 'object') saveStoredPreferences(parseAppPreferences(data.preferences));
         if (data.weeklySchedule && typeof data.weeklySchedule === 'object') saveStoredWeeklySchedule(data.weeklySchedule as ReturnType<typeof getStoredWeeklySchedule>);
         if (data.theme?.glassTheme && GLASS_THEMES[data.theme.glassTheme as GlassTheme] && data.theme?.accentColor && ACCENT_PRESETS[data.theme.accentColor as AccentColorId]) {
@@ -182,42 +174,21 @@ export function SettingsSheet({
   };
 
   const titles: Record<SettingsPanel, string> = {
-    root: t('settings.title'), profile: t('profile.title'), training: t('settings.training'), appearance: t('settings.appearance'),
-    friends: t('friends.title'), theme: t('settings.theme'), accent: t('settings.accent'), language: t('settings.language'), data: t('settings.data')
+    root: t('settings.title'), training: t('settings.training'), appearance: t('settings.appearance'),
+    theme: t('settings.theme'), accent: t('settings.accent'), language: t('settings.language'), data: t('settings.data')
   };
   const backTarget = panel === 'theme' || panel === 'accent' ? 'appearance' : 'root';
 
   return (
-    <BottomSheet open={isOpen} onClose={close} title={titles[panel]} className={panel === 'profile' ? 'min-h-[90dvh] sm:min-h-0 sm:max-w-md' : 'sm:max-w-md'}>
+    <BottomSheet open={isOpen} onClose={close} title={titles[panel]} className="sm:max-w-md">
       {panel !== 'root' && <Button variant="ghost" size="sm" onClick={() => setPanel(backTarget)} className="mb-3 -ml-2"><ChevronLeft aria-hidden="true" className="size-4" />{backTarget === 'appearance' ? t('settings.appearance') : t('common.back')}</Button>}
 
       {panel === 'root' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-        <SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profile')} value={auth.user?.displayName || (profile.displayName === 'Atleta' ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete')) : profile.displayName)} onClick={() => setPanel('profile')} />
         <SettingsRow icon={<Dumbbell className="size-4" />} label={t('settings.training')} onClick={() => setPanel('training')} />
         <SettingsRow icon={<Palette className="size-4" />} label={t('settings.appearance')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('appearance')} />
         <SettingsRow icon={<Languages className="size-4" />} label={t('settings.language')} value={language === 'es' ? t('settings.spanish') : t('settings.english')} onClick={() => setPanel('language')} />
         <SettingsRow icon={<Database className="size-4" />} label={t('settings.data')} onClick={() => setPanel('data')} />
       </div>}
-
-      {panel === 'profile' && (auth.status === 'loading' ? <LoadingState compact title={t('common.loading')} /> : auth.isAuthenticated && auth.user ? <ProfileView
-        profile={{ ...profile, displayName: auth.user.displayName, username: auth.user.username, birthDate: auth.user.birthDate, gender: auth.user.gender ?? profile.gender, avatarUrl: auth.user.avatarUrl }}
-        userInfo={{ id: auth.user.id, name: auth.user.displayName, email: auth.user.email }}
-        history={history}
-        exercises={exercises}
-        isRemote
-        bodyweightKg={bodyweightKg}
-        bodyweightEntries={bodyweightEntries}
-        onOpenSettings={() => setPanel('training')}
-        onOpenFriends={() => setPanel('friends')}
-        onLogout={() => { void auth.logout().then((result) => { if (result.ok) { switchStoredUserScope(null); window.location.reload(); } }); }}
-        onSave={async (nextProfile) => {
-          const result = await auth.updateProfile(nextProfile);
-          if (!result.ok) return t(`auth.error.${result.error.code}` as TranslationKey);
-          onProfileChange({ ...nextProfile, displayName: result.data.displayName, username: result.data.username, birthDate: result.data.birthDate, gender: result.data.gender ?? nextProfile.gender, avatarUrl: result.data.avatarUrl });
-        }}
-      /> : auth.status === 'offline' && userInfo.id !== 'local-anonymous' ? <div className="space-y-3"><p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.offline')}</p><ProfileView profile={profile} userInfo={userInfo} history={history} exercises={exercises} bodyweightKg={bodyweightKg} bodyweightEntries={bodyweightEntries} onOpenSettings={() => setPanel('training')} onSave={(nextProfile) => { onProfileChange(nextProfile); }} /></div> : <p role="status" className="rounded-ui-md border border-border-subtle bg-surface-input p-3 text-xs text-text-secondary">{t('auth.syncRequiresLogin')}</p>)}
-
-      {panel === 'friends' && <FriendsPanel />}
 
       {panel === 'training' && <div className="space-y-5">
         <div className="space-y-2"><SectionHeader title={t('settings.units')} /><SegmentedControl value={preferences.units} label={t('settings.units')} options={[{ value: 'metric', label: t('settings.metric') }, { value: 'imperial', label: t('settings.imperial') }]} onChange={changeUnits} /></div>

@@ -36,7 +36,8 @@ export interface ProfileStrengthSectionProps {
   bodyweightKg?: number | null;
   gender?: 'male' | 'female' | null;
   bodyweightEntries?: BodyweightEntry[];
-  onOpenSettings?: () => void;
+  onConfigureGender?: () => void;
+  onConfigureBodyweight?: () => void;
 }
 
 export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
@@ -45,7 +46,8 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
   bodyweightKg,
   gender,
   bodyweightEntries = [],
-  onOpenSettings
+  onConfigureGender,
+  onConfigureBodyweight
 }) => {
   const { t, locale } = useI18n();
   const { preferences } = usePreferences();
@@ -114,27 +116,35 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
       </div>
 
       {/* Missing configuration notice */}
-      {(!gender || !bodyweightKg) && (
-        <div className="p-3.5 rounded-ui-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs">
-          <div className="space-y-0.5 min-w-0">
-            <p className="font-bold text-amber-300 flex items-center gap-1.5">
-              <AlertTriangle className="size-3.5 shrink-0" />
-              {!gender ? t('stats.genderRequiredForStandards') : t('stats.noData')}
+      {!gender && (
+        <div className="flex items-center justify-between gap-3 rounded-ui-xl border border-amber-500/25 bg-amber-500/10 p-3.5 text-xs">
+          <div className="min-w-0 space-y-0.5">
+            <p className="flex items-center gap-1.5 font-bold text-amber-300">
+              <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+              {t('stats.genderRequiredForStandards')}
             </p>
-            <p className="text-[11px] text-amber-200/80">
-              {!gender
-                ? t('profile.genderPrompt')
-                : t('profile.noStrengthDataDesc')}
-            </p>
+            <p className="text-[11px] text-amber-200/80">{t('profile.genderPrompt')}</p>
           </div>
-          {onOpenSettings && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onOpenSettings}
-              className="shrink-0 text-xs font-bold"
-            >
+          {onConfigureGender && (
+            <Button variant="secondary" size="sm" onClick={onConfigureGender} className="shrink-0 text-xs font-bold">
               {t('stats.configureGender')}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {!bodyweightKg && (
+        <div className="flex items-center justify-between gap-3 rounded-ui-xl border border-amber-500/25 bg-amber-500/10 p-3.5 text-xs">
+          <div className="min-w-0 space-y-0.5">
+            <p className="flex items-center gap-1.5 font-bold text-amber-300">
+              <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
+              {t('profile.bodyweightRequired')}
+            </p>
+            <p className="text-[11px] text-amber-200/80">{t('profile.bodyweightEntryHint')}</p>
+          </div>
+          {onConfigureBodyweight && (
+            <Button variant="secondary" size="sm" onClick={onConfigureBodyweight} className="shrink-0 text-xs font-bold">
+              {t('profile.addBodyweight')}
             </Button>
           )}
         </div>
@@ -262,7 +272,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
               gender={gender ?? undefined}
               selectedMuscle={selectedMuscle}
               onSelectMuscle={setSelectedMuscle}
-              onConfigureGender={onOpenSettings}
+              onConfigureGender={onConfigureGender}
             />
           </div>
 

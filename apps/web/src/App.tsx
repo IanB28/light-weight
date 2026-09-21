@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { BottomNav, type TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
 import { SettingsSheet } from './components/SettingsSheet.js';
@@ -10,7 +10,7 @@ import { LibraryView } from './views/LibraryView.js';
 import { initTheme } from './lib/theme.js';
 import { usePreferences } from './lib/preferences-context.js';
 import { useFeedback } from './lib/feedback-context.js';
-import { useI18n } from './lib/i18n.js';
+import { useI18n, type TranslationKey } from './lib/i18n.js';
 import { useAppData } from './lib/useAppData.js';
 import { useWorkoutSession } from './features/workouts/useWorkoutSession.js';
 import { useRestTimer } from './features/workouts/useRestTimer.js';
@@ -21,6 +21,11 @@ import { AuthScreen } from './features/auth/AuthScreen.js';
 import { AuthLoadingScreen } from './features/auth/AuthLoadingScreen.js';
 import { UsernameOnboardingScreen } from './features/auth/UsernameOnboardingScreen.js';
 import { resolveAuthScreenTarget } from './features/auth/auth-routing.js';
+import { ProfileScreen } from './features/profile/ProfileScreen.js';
+import { ProfileIdentityProvider } from './features/profile/ProfileIdentityButton.js';
+import { appSurfaceReducer, INITIAL_APP_SURFACE_STATE, type SettingsTarget } from './features/profile/profile-surface-state.js';
+import { saveProfileUpdate } from './features/profile/profile-save.js';
+import { resolveEffectiveProfile } from './features/profile/profile-authority.js';
 
 export function App() {
   const { preferences } = usePreferences();
@@ -28,8 +33,8 @@ export function App() {
   const { t } = useI18n();
   const auth = useAuth();
   const previousAuthScope = useRef<string | null>(null);
-  const [currentTab, setCurrentTab] = useState<TabType>('home');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [surfaces, dispatchSurface] = useReducer(appSurfaceReducer, INITIAL_APP_SURFACE_STATE);
+  const { currentTab, profileOpen, settingsOpen, settingsTarget } = surfaces;
   const data = useAppData();
   const workout = useWorkoutSession({
     exercises: data.exercises,
@@ -50,14 +55,22 @@ export function App() {
     if (switchStoredUserScope(auth.user?.id || null)) window.location.reload();
   }, [auth.status, auth.user?.id]);
 
+  const navigateToTab = useCallback((tab: TabType) => {
+    dispatchSurface({ type: 'select_tab', tab });
+  }, []);
+  const openSettings = useCallback((target: SettingsTarget = 'root') => {
+    dispatchSurface({ type: 'open_settings', target });
+  }, []);
+  const openRootSettings = useCallback(() => { openSettings('root'); }, [openSettings]);
+
   const startWorkout = (routineId?: string, sessionName?: string, prefilterMuscles?: MuscleGroup[]) => {
     workout.start(routineId, sessionName, prefilterMuscles);
-    setCurrentTab('workout');
+    navigateToTab('workout');
   };
 
   const startWorkoutWithExercise = (exercise: Parameters<typeof workout.addExercise>[0]) => {
     workout.startWithExercise(exercise);
-    setCurrentTab('workout');
+    navigateToTab('workout');
   };
 
   const createCustomExercise = (name: string, muscle: MuscleGroup) => {
@@ -71,7 +84,7 @@ export function App() {
     if (!result) return;
     restTimer.cancel();
     data.setHistory(result.history);
-    setCurrentTab('stats');
+    navigateToTab('stats');
     showFeedback(t('feedback.workoutSaved'));
     void data.sync();
   };
@@ -79,7 +92,7 @@ export function App() {
   const cancelWorkout = () => {
     workout.cancel();
     restTimer.cancel();
-    setCurrentTab('home');
+    navigateToTab('home');
   };
 
   const saveBodyweight = (weightKg: number, dateStr?: string) => {
@@ -92,27 +105,38 @@ export function App() {
     showFeedback(t('feedback.weightSaved'));
   };
 
-  const effectiveProfile = useMemo<UserProfile>(() => ({
-    ...data.profile,
-    displayName: auth.user?.displayName || data.profile.displayName,
-    gender: auth.user?.gender ?? data.profile.gender,
-    birthDate: auth.user?.birthDate ?? data.profile.birthDate,
-    avatarUrl: auth.user?.avatarUrl ?? data.profile.avatarUrl
-  }), [data.profile, auth.user]);
+  const effectiveProfile = useMemo<UserProfile>(
+    () => resolveEffectiveProfile(data.profile, auth.user, auth.status),
+    [data.profile, auth.status, auth.user]
+  );
+
+  const effectiveUserInfo = useMemo(() => auth.user ? {
+    id: auth.user.id,
+    name: auth.user.displayName,
+    email: auth.user.email
+  } : data.userInfo, [auth.user, data.userInfo]);
 
   const handleSaveProfile = useCallback(async (patch: Partial<UserProfile>) => {
-    const nextProfile: UserProfile = { ...effectiveProfile, ...patch };
-    data.saveProfile(nextProfile);
-    if (auth.isAuthenticated && auth.user) {
-      void auth.updateProfile({
-        displayName: patch.displayName ?? auth.user.displayName,
-        gender: patch.gender !== undefined ? patch.gender : auth.user.gender,
-        birthDate: patch.birthDate !== undefined ? patch.birthDate : auth.user.birthDate,
-        avatarUrl: patch.avatarUrl !== undefined ? patch.avatarUrl : auth.user.avatarUrl
-      });
-    }
-    showFeedback(t('feedback.profileSaved'));
+    return saveProfileUpdate({
+      currentProfile: effectiveProfile,
+      patch,
+      authStatus: auth.status,
+      authUser: auth.user,
+      updateRemote: auth.updateProfile,
+      persistLocal: data.saveProfile,
+      translateError: (code) => t(`auth.error.${code}` as TranslationKey),
+      onSaved: () => showFeedback(t('feedback.profileSaved'))
+    });
   }, [effectiveProfile, data, auth, showFeedback, t]);
+
+  const handleLogout = useCallback(() => {
+    void auth.logout().then((result) => {
+      if (result.ok) {
+        switchStoredUserScope(null);
+        window.location.reload();
+      }
+    });
+  }, [auth]);
 
   const authTarget = resolveAuthScreenTarget({
     status: auth.status,
@@ -139,7 +163,26 @@ export function App() {
       <div className="pointer-events-none fixed top-[52%] -right-24 -z-10 size-[32rem] rounded-full blur-[170px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-3)' }} />
       <div className="pointer-events-none fixed top-[22%] left-1/2 -z-10 size-[28rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-brand, rgba(34, 197, 94, 0.08))' }} />
 
+      <ProfileIdentityProvider value={{
+        displayName: effectiveProfile.displayName === 'Atleta' ? effectiveUserInfo.name : effectiveProfile.displayName,
+        avatarUrl: effectiveProfile.avatarUrl,
+        onOpenProfile: () => dispatchSurface({ type: 'open_profile' })
+      }}>
       <main className="flex-1 max-w-md w-full mx-auto px-page pt-[max(0.75rem,env(safe-area-inset-top))] pb-page-safe">
+        {profileOpen ? <ProfileScreen
+          profile={effectiveProfile}
+          userInfo={effectiveUserInfo}
+          history={data.history}
+          exercises={data.exercises}
+          authStatus={auth.status}
+          isAuthenticated={auth.isAuthenticated}
+          bodyweightKg={resolveBodyweightKgAtDate(data.bodyweightEntries)}
+          bodyweightEntries={data.bodyweightEntries}
+          onSave={handleSaveProfile}
+          onClose={() => dispatchSurface({ type: 'close_profile' })}
+          onOpenSettings={openSettings}
+          onLogout={handleLogout}
+        /> : <>
         {currentTab === 'home' && <HomeView
           userName={data.profile.displayName === 'Atleta' ? data.userInfo.name : data.profile.displayName}
           history={data.history}
@@ -153,8 +196,8 @@ export function App() {
           onStartWorkout={startWorkout}
           isWorkoutActive={workout.isWorkoutActive}
           activeWorkoutDuration={workout.duration}
-          onNavigateToWorkout={() => setCurrentTab('workout')}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onNavigateToWorkout={() => navigateToTab('workout')}
+          onOpenSettings={openRootSettings}
           exercises={data.exercises}
           userId={auth.user?.id || data.userInfo.id}
           onSaveHistoricalWorkout={(session) => { data.saveHistorySession(session); showFeedback(t('feedback.workoutSaved')); }}
@@ -197,8 +240,8 @@ export function App() {
           exercises={data.exercises}
           isWorkoutActive={workout.isWorkoutActive}
           activeWorkoutDuration={workout.duration}
-          onNavigateToWorkout={() => setCurrentTab('workout')}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onNavigateToWorkout={() => navigateToTab('workout')}
+          onOpenSettings={openRootSettings}
           profile={effectiveProfile}
           bodyweightEntries={data.bodyweightEntries}
           targetWeight={data.targetWeight}
@@ -218,8 +261,8 @@ export function App() {
           onDeleteRoutine={data.deleteRoutine}
           isWorkoutActive={workout.isWorkoutActive}
           activeWorkoutDuration={workout.duration}
-          onNavigateToWorkout={() => setCurrentTab('workout')}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onNavigateToWorkout={() => navigateToTab('workout')}
+          onOpenSettings={openRootSettings}
         />}
 
         {currentTab === 'exercises' && <LibraryView
@@ -229,12 +272,14 @@ export function App() {
           onRetryCatalog={() => { void data.loadCatalog().catch(() => undefined); }}
           isWorkoutActive={workout.isWorkoutActive}
           activeWorkoutDuration={workout.duration}
-          onNavigateToWorkout={() => setCurrentTab('workout')}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onNavigateToWorkout={() => navigateToTab('workout')}
+          onOpenSettings={openRootSettings}
           onAddExerciseToActiveWorkout={workout.addExercise}
           onStartWorkoutWithExercise={startWorkoutWithExercise}
         />}
+        </>}
       </main>
+      </ProfileIdentityProvider>
 
       <RestTimerBar
         secondsLeft={restTimer.secondsLeft}
@@ -243,19 +288,13 @@ export function App() {
         onDismiss={restTimer.cancel}
       />
 
-      <BottomNav currentTab={currentTab} onSelectTab={setCurrentTab} isWorkoutActive={workout.isWorkoutActive} />
+      <BottomNav currentTab={currentTab} onSelectTab={navigateToTab} isWorkoutActive={workout.isWorkoutActive} />
 
       <SettingsSheet
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        isOpen={settingsOpen}
+        target={settingsTarget}
+        onClose={() => dispatchSurface({ type: 'close_settings' })}
         onDataRestored={data.reloadFromStorage}
-        profile={effectiveProfile}
-        userInfo={data.userInfo}
-        history={data.history}
-        exercises={data.exercises}
-        onProfileChange={(profile) => { data.saveProfile(profile); showFeedback(t('feedback.profileSaved')); }}
-        bodyweightKg={data.bodyweightEntries[0]?.weightKg ?? null}
-        bodyweightEntries={data.bodyweightEntries}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { RefreshCw, Settings } from 'lucide-react';
 import { subscribeToSyncStatus, SyncStatus } from '../lib/sync.js';
 import { Badge, IconButton } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
+import { ProfileIdentityButton, useProfileIdentityAction } from '../features/profile/ProfileIdentityButton.js';
 
 export interface ViewHeaderProps {
   title: string;
@@ -26,6 +27,7 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
   onOpenSettings
 }) => {
   const { t } = useI18n();
+  const profileIdentity = useProfileIdentityAction();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'idle' });
   const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
   useEffect(() => subscribeToSyncStatus(setSyncStatus), []);
@@ -53,18 +55,25 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
           {subtitle && <p className="mt-1.5 max-w-xs text-xs font-medium leading-relaxed text-text-muted">{subtitle}</p>}
         </div>
 
-        {onOpenSettings && (
-          <div className="shrink-0 pt-0.5">
+        {(profileIdentity || onOpenSettings) && (
+          <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+            {profileIdentity && (
+              <ProfileIdentityButton
+                displayName={profileIdentity.displayName}
+                avatarUrl={profileIdentity.avatarUrl}
+                onOpenProfile={profileIdentity.onOpenProfile}
+              />
+            )}
+            {onOpenSettings && (
             <IconButton
               variant="secondary"
-              size="sm"
               aria-label={t('header.openSettings')}
               title={t('header.settingsTitle')}
               onClick={onOpenSettings}
-              className="size-10 min-h-10"
             >
               <Settings className="size-4" />
             </IconButton>
+            )}
           </div>
         )}
       </div>

@@ -87,12 +87,31 @@ test('ProfileStrengthSection: shows prompt when gender is unset', () => {
         exercises: [mockBenchExercise],
         bodyweightKg: 80,
         gender: null,
-        onOpenSettings: () => {}
+        onConfigureGender: () => {}
       })
     )
   );
 
   assert.ok(html.includes('Configurar género'));
+});
+
+test('ProfileStrengthSection: explains the legitimate bodyweight entry surfaces instead of opening Training settings', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(ProfileStrengthSection, {
+        history: [],
+        exercises: [mockBenchExercise],
+        bodyweightKg: null,
+        gender: 'male'
+      })
+    )
+  );
+
+  assert.ok(html.includes('Falta tu peso corporal'));
+  assert.ok(html.includes('Regístralo desde Inicio o Progreso'));
+  assert.ok(!html.includes('Preferencias de entrenamiento'));
 });
 
 test('ProfileStrengthSection: renders provisional Overall card when 1-10 muscles are rated', () => {
