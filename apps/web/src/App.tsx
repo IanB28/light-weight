@@ -181,7 +181,6 @@ export function App() {
           onSave={handleSaveProfile}
           onClose={() => dispatchSurface({ type: 'close_profile' })}
           onOpenSettings={openSettings}
-          onLogout={handleLogout}
         /> : <>
         {currentTab === 'home' && <HomeView
           userName={data.profile.displayName === 'Atleta' ? data.userInfo.name : data.profile.displayName}
@@ -295,6 +294,9 @@ export function App() {
         target={settingsTarget}
         onClose={() => dispatchSurface({ type: 'close_settings' })}
         onDataRestored={data.reloadFromStorage}
+        profile={effectiveProfile}
+        onSaveProfile={handleSaveProfile}
+        onLogout={handleLogout}
       />
     </div>
   );

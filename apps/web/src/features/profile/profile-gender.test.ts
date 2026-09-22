@@ -243,10 +243,9 @@ test('AnatomicalBodyMap: unset gender displays neutral prompt with CTA and does 
   assert.ok(!html.includes('border-white/'), 'Must not contain hardcoded border-white/* in neutral card');
 });
 
-test('ProfileView renders visible Gender section in summary and does NOT duplicate in edit mode', () => {
+test('ProfileView keeps gender configuration out of its summary body', () => {
   const mockUserInfo = { id: 'u-1', name: 'Atleta', email: 'atleta@test.com' };
 
-  // 1. Profile with unset gender in summary
   const unsetProfile: UserProfile = { displayName: 'Atleta' };
   const unsetHtml = ReactDOMServer.renderToStaticMarkup(
     React.createElement(
@@ -257,52 +256,15 @@ test('ProfileView renders visible Gender section in summary and does NOT duplica
         userInfo: mockUserInfo,
         history: [],
         exercises: [],
-        onSave: () => {}
+        onSave: () => {},
+        onConfigureGender: () => {}
       })
     )
   );
-  assert.ok(unsetHtml.includes('Género'), 'Profile must have a Género section');
-  assert.ok(unsetHtml.includes('Sin especificar'), 'Should show "Sin especificar" when gender is unset');
-  assert.ok(unsetHtml.includes('Hombre'), 'Should offer Hombre option');
-  assert.ok(unsetHtml.includes('Mujer'), 'Should offer Mujer option');
-
-  // 2. Profile with male gender
-  const maleProfile: UserProfile = { displayName: 'Carlos', gender: 'male' };
-  const maleHtml = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(
-      PreferencesProvider,
-      null,
-      React.createElement(ProfileView, {
-        profile: maleProfile,
-        userInfo: mockUserInfo,
-        history: [],
-        exercises: [],
-        onSave: () => {}
-      })
-    )
-  );
-  assert.ok(maleHtml.includes('Género'));
-  assert.ok(maleHtml.includes('Hombre'));
-  assert.ok(!maleHtml.includes('Sin especificar'));
-
-  // 3. Profile with female gender
-  const femaleProfile: UserProfile = { displayName: 'Laura', gender: 'female' };
-  const femaleHtml = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(
-      PreferencesProvider,
-      null,
-      React.createElement(ProfileView, {
-        profile: femaleProfile,
-        userInfo: mockUserInfo,
-        history: [],
-        exercises: [],
-        onSave: () => {}
-      })
-    )
-  );
-  assert.ok(femaleHtml.includes('Género'));
-  assert.ok(femaleHtml.includes('Mujer'));
-  assert.ok(!femaleHtml.includes('Sin especificar'));
+  assert.ok(!unsetHtml.includes('Sin especificar'));
+  assert.ok(!unsetHtml.includes('Hombre'));
+  assert.ok(!unsetHtml.includes('Mujer'));
+  assert.ok(unsetHtml.includes('Configurar género'), 'Strength keeps its honest route to Settings');
 });
 
 test('Stats selectors: undefined gender does NOT evaluate relative strength as male', async () => {

@@ -185,8 +185,13 @@ test('opening Profile edit always builds a fresh draft from the latest profile p
 
 test('strength configuration uses semantic gender intent and an honest bodyweight state', () => {
   const profileView = source('features/profile/ProfileView.tsx');
+  const profileScreen = source('features/profile/ProfileScreen.tsx');
+  const settings = source('components/SettingsSheet.tsx');
   const strength = source('features/profile/ProfileStrengthSection.tsx');
-  assert.ok(profileView.includes('onConfigureGender={focusGenderConfiguration}'));
+  assert.ok(profileView.includes('onConfigureGender={onConfigureGender}'));
+  assert.ok(profileScreen.includes("onConfigureGender={() => onOpenSettings('profile')}"));
+  assert.ok(settings.includes('const handleGenderChange = async'));
+  assert.ok(settings.includes('await onSaveProfile({ gender })'));
   assert.ok(strength.includes('onConfigureGender?: () => void'));
   assert.ok(strength.includes('onConfigureBodyweight?: () => void'));
   assert.ok(strength.includes("t('profile.bodyweightEntryHint')"));

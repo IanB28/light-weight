@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, LogOut, Settings, UsersRound } from 'lucide-react';
+import { ChevronLeft, Settings, UsersRound } from 'lucide-react';
 import type { BodyweightEntry, Exercise, WorkoutSession } from '@light-weight/domain';
 import type { AuthStatus } from '../../lib/auth-session-state.js';
 import type { UserInfo, UserProfile } from '../../lib/storage.js';
 import { useI18n } from '../../lib/i18n.js';
-import { Button, IconButton } from '../../components/ui/index.js';
+import { IconButton } from '../../components/ui/index.js';
 import { FriendsPanel } from '../friends/FriendsPanel.js';
+import { friendsApi } from '../../lib/social-api.js';
 import type { SettingsTarget } from './profile-surface-state.js';
 import { ProfileView } from './ProfileView.js';
+import { countAcceptedFriends } from './profile-friends.js';
 
 type ProfilePanel = 'summary' | 'friends';
 
@@ -23,7 +25,6 @@ interface ProfileScreenProps {
   onSave: (profile: UserProfile) => void | string | Promise<void | string>;
   onClose: () => void;
   onOpenSettings: (target?: SettingsTarget) => void;
-  onLogout: () => void;
 }
 
 export function ProfileScreen({
@@ -37,11 +38,11 @@ export function ProfileScreen({
   bodyweightEntries,
   onSave,
   onClose,
-  onOpenSettings,
-  onLogout
+  onOpenSettings
 }: ProfileScreenProps) {
   const { t } = useI18n();
   const [panel, setPanel] = useState<ProfilePanel>('summary');
+  const [friendCount, setFriendCount] = useState<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const friendsAvailable = authStatus === 'authenticated';
   const title = panel === 'friends' ? t('friends.title') : t('profile.title');
@@ -49,6 +50,17 @@ export function ProfileScreen({
   useEffect(() => {
     titleRef.current?.focus({ preventScroll: true });
   }, [panel]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !friendsAvailable || panel !== 'summary') return;
+    let disposed = false;
+    void friendsApi.list().then(({ friendships }) => {
+      if (!disposed) setFriendCount(countAcceptedFriends(friendships));
+    }).catch(() => {
+      if (!disposed) setFriendCount(null);
+    });
+    return () => { disposed = true; };
+  }, [friendsAvailable, isAuthenticated, panel]);
 
   return (
     <section className="min-w-0 pb-2" aria-labelledby="profile-screen-title">
@@ -93,42 +105,24 @@ export function ProfileScreen({
             bodyweightKg={bodyweightKg}
             bodyweightEntries={bodyweightEntries}
             onSave={onSave}
+            onConfigureGender={() => onOpenSettings('profile')}
           />
 
           {isAuthenticated && (
-            <div className="space-y-3">
-              <section className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface" aria-labelledby="profile-social-title">
-                <div className="border-b border-border-subtle px-4 py-3">
-                  <h2 id="profile-social-title" className="text-xs font-extrabold uppercase tracking-wide text-text-muted">{t('profile.social')}</h2>
-                </div>
-                <button
-                  type="button"
-                  disabled={!friendsAvailable}
-                  onClick={() => setPanel('friends')}
-                  className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">
-                    <UsersRound aria-hidden="true" className="size-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-text-primary">{t('friends.title')}</span>
-                    <span className="block text-xs text-text-muted">{friendsAvailable ? t('profile.friendsDescription') : t('profile.friendsOffline')}</span>
-                  </span>
-                  <ChevronLeft aria-hidden="true" className="size-4 rotate-180 text-text-muted" />
-                </button>
-              </section>
-
-              <section className="space-y-3 rounded-ui-xl border border-border-subtle bg-surface p-4" aria-labelledby="profile-account-title">
-                <div>
-                  <h2 id="profile-account-title" className="text-xs font-extrabold uppercase tracking-wide text-text-muted">{t('profile.account')}</h2>
-                  <p className="mt-1 text-xs text-text-secondary">{t('profile.accountDescription')}</p>
-                </div>
-                <Button variant="danger" className="w-full" onClick={onLogout}>
-                  <LogOut aria-hidden="true" className="size-4" />
-                  {t('auth.logout')}
-                </Button>
-              </section>
-            </div>
+            <button
+              type="button"
+              disabled={!friendsAvailable}
+              onClick={() => setPanel('friends')}
+              className="flex min-h-14 w-full items-center gap-3 rounded-ui-xl border border-border-subtle bg-surface px-4 py-2.5 text-left transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">
+                <UsersRound aria-hidden="true" className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1 text-sm font-bold text-text-primary" aria-busy={friendsAvailable && friendCount === null}>
+                {friendsAvailable ? t('profile.friendSummary', { count: friendCount ?? '—' }) : t('profile.friendsOffline')}
+              </span>
+              <ChevronLeft aria-hidden="true" className="size-4 shrink-0 rotate-180 text-text-muted" />
+            </button>
           )}
         </div>
       )}

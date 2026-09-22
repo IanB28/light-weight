@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Award, Pencil, UserRound } from 'lucide-react';
 import {
   calculateAge,
@@ -17,7 +17,7 @@ import { useI18n } from '../../lib/i18n.js';
 import { resolveExerciseName } from '../../lib/exercise-names.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import { usePreferences } from '../../lib/preferences-context.js';
-import { AppCard, Button, EmptyState, SegmentedControl } from '../../components/ui/index.js';
+import { AppCard, Button, EmptyState, IconButton } from '../../components/ui/index.js';
 import { ProfileStrengthSection } from './ProfileStrengthSection.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { submitProfileDraft } from './profile-save.js';
@@ -30,6 +30,7 @@ interface ProfileViewProps {
   onSave: (profile: UserProfile) => void | string | Promise<void | string>;
   bodyweightKg?: number | null;
   bodyweightEntries?: BodyweightEntry[];
+  onConfigureGender?: () => void;
 }
 
 type ProfileMode = 'summary' | 'edit';
@@ -41,14 +42,14 @@ export function ProfileView({
   exercises,
   onSave,
   bodyweightKg,
-  bodyweightEntries
+  bodyweightEntries,
+  onConfigureGender
 }: ProfileViewProps) {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
   const [mode, setMode] = useState<ProfileMode>('summary');
   const [draft, setDraft] = useState<UserProfile>(profile);
   const [error, setError] = useState<string | null>(null);
-  const genderSectionRef = useRef<HTMLElement>(null);
 
   const displayName = profile.displayName === 'Atleta'
     ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete'))
@@ -76,11 +77,6 @@ export function ProfileView({
     setDraft(createProfileDraft(profile, displayName));
     setError(null);
     setMode('edit');
-  };
-
-  const focusGenderConfiguration = () => {
-    genderSectionRef.current?.scrollIntoView({ block: 'center' });
-    genderSectionRef.current?.focus({ preventScroll: true });
   };
 
   const handleSave = async (event: React.FormEvent) => {
@@ -133,55 +129,22 @@ export function ProfileView({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col items-center text-center">
+      <div className="relative flex flex-col items-center text-center">
+        <IconButton
+          variant="secondary"
+          aria-label={t('profile.edit')}
+          onClick={openEdit}
+          className="absolute right-0 top-0 size-11"
+        >
+          <Pencil aria-hidden="true" className="size-4" />
+        </IconButton>
         <ProfileAvatar displayName={displayName} avatarUrl={profile.avatarUrl} className="size-20 text-xl shadow-accent" />
-        <h3 className="mt-3 text-xl font-extrabold text-text-primary">{displayName}</h3>
+        <h3 className="mt-3 max-w-[calc(100%-3.25rem)] break-words text-xl font-extrabold text-text-primary">{displayName}</h3>
         {profile.username && <p className="text-sm text-text-muted">@{profile.username}</p>}
         <p className="mt-1 text-xs font-semibold text-text-secondary">
           {t('profile.athlete')}{age !== null ? ` · ${t('profile.years', { count: age })}` : ''}
         </p>
-        <Button variant="ghost" size="sm" onClick={openEdit} className="mt-2">
-          <Pencil aria-hidden="true" className="size-3.5" />{t('profile.edit')}
-        </Button>
       </div>
-
-      {/* Apartado de Género */}
-      <section ref={genderSectionRef} tabIndex={-1} className="space-y-2 rounded-ui-xl border border-border-subtle bg-surface p-3.5 outline-none focus-visible:ring-2 focus-visible:ring-accent" aria-labelledby="profile-gender-section">
-        <div className="flex items-center justify-between">
-          <h4 id="profile-gender-section" className="text-xs font-bold uppercase tracking-wider text-text-muted">
-            {t('profile.gender')}
-          </h4>
-          {profile.gender ? (
-            <span className="text-xs font-mono font-bold text-accent">
-              {profile.gender === 'male' ? t('profile.male') : t('profile.female')}
-            </span>
-          ) : (
-            <span className="text-xs font-mono font-bold text-amber-400">
-              {t('profile.genderUnset')}
-            </span>
-          )}
-        </div>
-
-        <SegmentedControl
-          value={profile.gender || ''}
-          label={t('profile.gender')}
-          options={[
-            { value: 'male', label: t('profile.male') },
-            { value: 'female', label: t('profile.female') }
-          ]}
-          onChange={async (gender) => {
-            const saveError = await onSave({ ...profile, gender: gender as 'male' | 'female' });
-            setError(saveError || null);
-          }}
-        />
-
-        {!profile.gender && (
-          <p className="text-[11px] text-text-muted">
-            {t('profile.genderPrompt')}
-          </p>
-        )}
-        {error && <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</p>}
-      </section>
 
       <AppCard compact className="grid grid-cols-3 divide-x divide-border-subtle text-center">
         {[
@@ -197,7 +160,7 @@ export function ProfileView({
         bodyweightKg={bodyweightKg}
         gender={profile.gender}
         bodyweightEntries={bodyweightEntries}
-        onConfigureGender={focusGenderConfiguration}
+        onConfigureGender={onConfigureGender}
       />
 
       <section className="space-y-2" aria-labelledby="profile-records">

@@ -161,13 +161,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
       ) : (
         <div className="space-y-4">
           {/* Overall Strength Hero Card */}
-          <div
-            className="relative overflow-hidden rounded-ui-2xl border p-4.5 transition-all shadow-sm"
-            style={{
-              backgroundColor: 'rgba(18, 18, 22, 0.75)',
-              borderColor: `${overallVisual?.color}35`
-            }}
-          >
+          <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-4.5 shadow-card">
             {/* Background glowing gradient overlay */}
             <div
               className="pointer-events-none absolute -top-12 -right-12 size-40 rounded-full blur-3xl opacity-25"
@@ -224,7 +218,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
             </div>
 
             {/* Overall Progress to next rank */}
-            <div className="mt-3.5 pt-3 border-t border-white/[0.06] space-y-1.5">
+            <div className="mt-3.5 space-y-1.5 border-t border-border-subtle pt-3">
               <div className="flex items-center justify-between text-xs">
                 {overall.nextRank ? (
                   <>
@@ -264,7 +258,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
           </div>
 
           {/* Anatomical Body Map (Strength Mode) */}
-          <div className="rounded-ui-2xl border border-border-subtle bg-surface p-3 space-y-2">
+          <div className="space-y-2 rounded-ui-xl border border-border-subtle bg-surface p-3">
             <AnatomicalBodyMap
               data={strengthSnapshot.muscles}
               mode="strength"
@@ -278,15 +272,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
 
           {/* Selected Muscle Strength Detail Panel */}
           {selectedMuscle && (
-            <div
-              className="rounded-ui-xl border p-3.5 space-y-3 transition-all animate-in fade-in duration-200"
-              style={{
-                backgroundColor: 'rgba(18, 18, 22, 0.85)',
-                borderColor: selectedMuscleVisual
-                  ? `${selectedMuscleVisual.color}40`
-                  : 'rgba(255, 255, 255, 0.08)'
-              }}
-            >
+            <div className="space-y-3 rounded-ui-xl border border-border-subtle bg-surface p-3.5 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
                   {selectedEval && (
@@ -296,7 +282,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                     />
                   )}
                   <div className="min-w-0">
-                    <h4 className="text-sm font-extrabold text-white capitalize truncate">
+                    <h4 className="truncate text-sm font-extrabold capitalize text-text-primary">
                       {muscleLabel(selectedMuscle)}
                     </h4>
                     {selectedEval && (
@@ -330,16 +316,16 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                 <>
                   {/* Metric Grid: Best e1RM, Relative Strength, Top Exercise */}
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="p-2.5 rounded-ui-lg bg-surface-raised/40 border border-white/[0.04]">
+                    <div className="rounded-ui-lg border border-border-subtle bg-surface-input p-2.5">
                       <span className="text-[10px] text-text-muted block">
                         {t('profile.bestE1Rm')}
                       </span>
-                      <span className="text-xs font-mono font-bold text-white block mt-0.5">
+                      <span className="mt-0.5 block text-xs font-mono font-bold text-text-primary">
                         {formatDisplayWeight(selectedEval.oneRmKg, preferences.units)}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-ui-lg bg-surface-raised/40 border border-white/[0.04]">
+                    <div className="rounded-ui-lg border border-border-subtle bg-surface-input p-2.5">
                       <span className="text-[10px] text-text-muted block">
                         {t('profile.relativeStrength')}
                       </span>
@@ -351,7 +337,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
 
                   {/* Top exercise & date row */}
                   {(selectedExercise || selectedMuscleData?.topExerciseId) && (
-                    <div className="flex items-center justify-between gap-2 text-xs pt-1 border-t border-white/[0.04]">
+                    <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-1 text-xs">
                       <div className="min-w-0 flex items-center gap-1.5">
                         <Dumbbell className="size-3 text-text-muted shrink-0" />
                         <span className="text-text-muted text-[11px] truncate">
@@ -371,7 +357,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                   )}
 
                   {/* Next Rank Progress */}
-                  <div className="pt-2 border-t border-white/[0.04] space-y-1.5">
+                  <div className="space-y-1.5 border-t border-border-subtle pt-2">
                     <div className="flex items-center justify-between text-xs">
                       {selectedEval.nextRank ? (
                         <>
@@ -409,7 +395,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                   </div>
                 </>
               ) : (
-                <div className="p-3 text-center text-xs text-text-muted bg-white/[0.02] rounded-ui-lg border border-white/[0.04]">
+                <div className="rounded-ui-lg border border-border-subtle bg-surface-input p-3 text-center text-xs text-text-muted">
                   {t('profile.noStrengthData')}
                 </div>
               )}

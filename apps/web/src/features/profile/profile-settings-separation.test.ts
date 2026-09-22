@@ -8,6 +8,8 @@ import { ViewHeader } from '../../components/ViewHeader.js';
 import { dictionaries } from '../../lib/i18n.js';
 import { ProfileIdentityProvider, getProfileInitials } from './ProfileIdentityButton.js';
 import { appSurfaceReducer, INITIAL_APP_SURFACE_STATE } from './profile-surface-state.js';
+import { countAcceptedFriends } from './profile-friends.js';
+import type { FriendshipSummary } from '@light-weight/domain';
 
 const source = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), 'src', relativePath), 'utf8');
 
@@ -41,10 +43,10 @@ test('Bottom navigation selection closes secondary surfaces and navigates normal
 
 test('Profile to a deep Settings panel keeps Profile underneath when Settings closes', () => {
   const profile = appSurfaceReducer(INITIAL_APP_SURFACE_STATE, { type: 'open_profile' });
-  const settings = appSurfaceReducer(profile, { type: 'open_settings', target: 'appearance' });
+  const settings = appSurfaceReducer(profile, { type: 'open_settings', target: 'profile' });
   assert.equal(settings.profileOpen, true);
   assert.equal(settings.settingsOpen, true);
-  assert.equal(settings.settingsTarget, 'appearance');
+  assert.equal(settings.settingsTarget, 'profile');
 
   const closedSettings = appSurfaceReducer(settings, { type: 'close_settings' });
   assert.equal(closedSettings.profileOpen, true);
@@ -73,23 +75,27 @@ test('profile identity initials are stable for empty, single and long display na
   assert.equal(getProfileInitials('Ian Benjamin Rodriguez Longname'), 'IB');
 });
 
-test('SettingsSheet is configuration-only and exposes a public target contract', () => {
+test('SettingsSheet owns Profile and account controls without rendering Profile or Friends', () => {
   const settings = source('components/SettingsSheet.tsx');
   assert.ok(!settings.includes("ProfileView"));
   assert.ok(!settings.includes("FriendsPanel"));
-  assert.ok(!settings.includes("'profile' | 'friends'"));
-  assert.ok(!settings.includes('onProfileChange'));
+  assert.ok(settings.includes("panel === 'profile'"));
+  assert.ok(settings.includes('settings.profileAccount'));
+  assert.ok(settings.includes('onSaveProfile'));
+  assert.ok(settings.includes('onLogout'));
   assert.ok(!settings.includes('bodyweightEntries'));
   assert.match(settings, /target\?: SettingsTarget/);
   assert.match(settings, /if \(isOpen\) setPanel\(target\)/);
 });
 
-test('ProfileScreen owns Friends, Account and logout without misrouting strength requirements to Training settings', () => {
+test('ProfileScreen owns Friends but moves account controls to Settings', () => {
   const profileScreen = source('features/profile/ProfileScreen.tsx');
   assert.ok(profileScreen.includes("import { FriendsPanel }"));
   assert.ok(!profileScreen.includes("onOpenSettings('training')"));
-  assert.ok(profileScreen.includes('onLogout: () => void;'), 'ProfileScreen receives logout through its app-level contract');
-  assert.ok(profileScreen.includes('onClick={onLogout}'));
+  assert.ok(profileScreen.includes("onOpenSettings('profile')"));
+  assert.ok(!profileScreen.includes('onLogout: () => void;'));
+  assert.ok(!profileScreen.includes('profile.social'));
+  assert.ok(!profileScreen.includes('profile.account'));
   assert.ok(profileScreen.includes("authStatus === 'offline'"));
   assert.ok(profileScreen.includes('disabled={!friendsAvailable}'));
 });
@@ -112,6 +118,19 @@ test('ProfileView delegates social/account ownership and shares avatar fallback 
   assert.ok(!profileView.includes('onOpenFriends'));
   assert.ok(!profileView.includes('onLogout'));
   assert.ok(!profileView.includes('isRemote'));
+  assert.ok(!profileView.includes('SegmentedControl'));
+  assert.ok(profileView.includes('aria-label={t(\'profile.edit\')}'));
+  assert.ok(profileView.includes('className="absolute right-0 top-0 size-11"'));
+});
+
+test('friend summary counts accepted friendships only', () => {
+  const friendships: FriendshipSummary[] = [
+    { id: 'accepted', status: 'accepted', direction: 'friend', user: { id: '1', username: 'one', displayName: 'One' }, createdAt: '2026-01-01' },
+    { id: 'incoming', status: 'pending', direction: 'incoming', user: { id: '2', username: 'two', displayName: 'Two' }, createdAt: '2026-01-01' },
+    { id: 'outgoing', status: 'pending', direction: 'outgoing', user: { id: '3', username: 'three', displayName: 'Three' }, createdAt: '2026-01-01' },
+    { id: 'invalid-direction', status: 'pending', direction: 'friend', user: { id: '4', username: 'four', displayName: 'Four' }, createdAt: '2026-01-01' }
+  ];
+  assert.equal(countAcceptedFriends(friendships), 1);
 });
 
 test('new Profile surface labels are complete in Spanish and English', () => {
@@ -120,7 +139,8 @@ test('new Profile surface labels are complete in Spanish and English', () => {
     'header.profileTitle',
     'profile.close',
     'profile.backToProfile',
-    'profile.social',
+    'settings.profileAccount',
+    'profile.friendSummary',
     'profile.friendsDescription',
     'profile.friendsOffline',
     'profile.offlineAvailable',

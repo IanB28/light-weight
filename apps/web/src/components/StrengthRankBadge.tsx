@@ -33,23 +33,18 @@ export const StrengthRankBadge: React.FC<StrengthRankBadgeProps> = ({
     xl: 40
   }[size];
 
+  const glowStyle = showGlow
+    ? { filter: `drop-shadow(0 0 10px ${visual.glow}) drop-shadow(0 0 20px ${visual.glow})` }
+    : undefined;
+
   return (
-    <div
-      className={`relative inline-flex items-center justify-center shrink-0 select-none ${sizeClasses} ${className}`}
-      style={
-        showGlow
-          ? {
-              filter: `drop-shadow(0 0 16px ${visual.glow})`
-            }
-          : undefined
-      }
-      title={visual.name}
-    >
+    <div className={`relative inline-flex shrink-0 select-none items-center justify-center ${sizeClasses} ${className}`} title={visual.name}>
       {!imgError ? (
         <img
           src={visual.assetPath}
           alt={visual.name}
-          className="w-full h-full object-contain"
+          className="size-full object-contain"
+          style={glowStyle}
           onError={() => setImgError(true)}
           loading="lazy"
         />

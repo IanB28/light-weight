@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Database, Download, Dumbbell, Languages, Palette, RefreshCw, Sparkles, Upload } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Database, Download, Dumbbell, Languages, LogOut, Palette, RefreshCw, Sparkles, Upload, UserRound } from 'lucide-react';
 import {
   getStoredBodyweight, getStoredHistory, getStoredProfile, getStoredRoutines,
   getStoredTargetWeight, getStoredWeeklySchedule, saveStoredBodyweight,
@@ -29,6 +29,9 @@ interface SettingsSheetProps {
   onClose: () => void;
   onDataRestored?: () => void;
   target?: SettingsTarget;
+  profile: import('../lib/storage.js').UserProfile;
+  onSaveProfile: (patch: Partial<import('../lib/storage.js').UserProfile>) => void | string | Promise<void | string>;
+  onLogout: () => void;
 }
 
 type SettingsPanel = SettingsTarget | 'theme' | 'accent';
@@ -60,13 +63,17 @@ export function SettingsSheet({
   isOpen,
   onClose,
   onDataRestored,
-  target = 'root'
+  target = 'root',
+  profile,
+  onSaveProfile,
+  onLogout
 }: SettingsSheetProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [panel, setPanel] = useState<SettingsPanel>('root');
   const [status, setStatus] = useState<StatusMessage>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [themeSettings, setThemeSettings] = useState<ThemeSettings>(getStoredThemeSettings());
   const { preferences, updatePreferences, reloadPreferences } = usePreferences();
   const { language, setLanguage, t } = useI18n();
@@ -79,10 +86,11 @@ export function SettingsSheet({
     else {
       setPanel('root');
       setStatus(null);
+      setProfileError(null);
     }
   }, [isOpen, target]);
 
-  const close = () => { setPanel('root'); setStatus(null); onClose(); };
+  const close = () => { setPanel('root'); setStatus(null); setProfileError(null); onClose(); };
   const chooseTheme = (glassTheme: GlassTheme) => { const updated = { ...themeSettings, glassTheme }; setThemeSettings(updated); applyTheme(updated); };
   const chooseAccent = (accentColor: AccentColorId) => { const updated = { ...themeSettings, accentColor }; setThemeSettings(updated); applyTheme(updated); };
   const unitPreset = WEIGHT_UNIT_PRESETS[preferences.units];
@@ -111,6 +119,11 @@ export function SettingsSheet({
     const result = await syncWithCloud();
     setIsSyncing(false);
     setStatus(result.ok ? { tone: 'success', text: t('settings.synced') } : { tone: 'error', text: syncErrorMessage(t, result.error.code) });
+  };
+
+  const handleGenderChange = async (gender: 'male' | 'female') => {
+    const saveError = await onSaveProfile({ gender });
+    setProfileError(saveError || null);
   };
 
   const handleExport = () => {
@@ -174,7 +187,7 @@ export function SettingsSheet({
   };
 
   const titles: Record<SettingsPanel, string> = {
-    root: t('settings.title'), training: t('settings.training'), appearance: t('settings.appearance'),
+    root: t('settings.title'), profile: t('settings.profileAccount'), training: t('settings.training'), appearance: t('settings.appearance'),
     theme: t('settings.theme'), accent: t('settings.accent'), language: t('settings.language'), data: t('settings.data')
   };
   const backTarget = panel === 'theme' || panel === 'accent' ? 'appearance' : 'root';
@@ -184,10 +197,37 @@ export function SettingsSheet({
       {panel !== 'root' && <Button variant="ghost" size="sm" onClick={() => setPanel(backTarget)} className="mb-3 -ml-2"><ChevronLeft aria-hidden="true" className="size-4" />{backTarget === 'appearance' ? t('settings.appearance') : t('common.back')}</Button>}
 
       {panel === 'root' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
+        <SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profileAccount')} onClick={() => setPanel('profile')} />
         <SettingsRow icon={<Dumbbell className="size-4" />} label={t('settings.training')} onClick={() => setPanel('training')} />
         <SettingsRow icon={<Palette className="size-4" />} label={t('settings.appearance')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('appearance')} />
         <SettingsRow icon={<Languages className="size-4" />} label={t('settings.language')} value={language === 'es' ? t('settings.spanish') : t('settings.english')} onClick={() => setPanel('language')} />
         <SettingsRow icon={<Database className="size-4" />} label={t('settings.data')} onClick={() => setPanel('data')} />
+      </div>}
+
+      {panel === 'profile' && <div className="space-y-5">
+        <section className="space-y-2" aria-labelledby="settings-profile-gender">
+          <h2 id="settings-profile-gender" className="px-1 text-xs font-extrabold uppercase tracking-wider text-text-secondary">{t('profile.gender')}</h2>
+          <SegmentedControl
+            value={profile.gender || ''}
+            label={t('profile.gender')}
+            options={[
+              { value: 'male', label: t('profile.male') },
+              { value: 'female', label: t('profile.female') }
+            ]}
+            onChange={async (gender) => { await handleGenderChange(gender as 'male' | 'female'); }}
+          />
+          {!profile.gender && <p className="text-xs text-text-muted">{t('profile.genderPrompt')}</p>}
+          {profileError && <p role="alert" className="rounded-ui-lg border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{profileError}</p>}
+        </section>
+        {auth.isAuthenticated && (
+          <section className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
+            <button type="button" onClick={onLogout} className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left text-danger transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-ui-md border border-danger/30 bg-danger-soft"><LogOut aria-hidden="true" className="size-4" /></span>
+              <span className="min-w-0 flex-1 text-sm font-bold">{t('auth.logout')}</span>
+              <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
+            </button>
+          </section>
+        )}
       </div>}
 
       {panel === 'training' && <div className="space-y-5">

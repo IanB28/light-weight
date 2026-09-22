@@ -191,6 +191,7 @@ test('StrengthRankBadge: renders image referencing /ranks/<rank>.png', () => {
 
     assert.ok(html.includes(`/ranks/${rank}.png`));
     assert.ok(html.includes(STRENGTH_RANK_VISUALS[rank].name));
+    assert.ok(html.includes('drop-shadow(0 0 10px'), 'The glow is applied to transparent badge artwork, not its container');
   }
 });
 

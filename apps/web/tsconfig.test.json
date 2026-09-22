@@ -58,6 +58,7 @@
     "src/features/profile/profile-backup.ts",
     "src/features/profile/profile-authority.ts",
     "src/features/profile/profile-surface-state.ts",
+    "src/features/profile/profile-friends.ts",
     "src/features/profile/profile-settings-separation.test.ts",
     "src/features/profile/profile-functional-hardening.test.ts",
     "src/features/profile/profile-gender.test.ts",
