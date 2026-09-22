@@ -6,6 +6,7 @@ import { estimateOneRm } from '@light-weight/domain';
 import { exerciseRouter } from './routes/exercises.js';
 import { syncRouter } from './routes/sync.js';
 import { authRouter } from './routes/auth.js';
+import type { Router } from 'express';
 import { friendsRouter } from './routes/friends.js';
 import { routineSharesRouter } from './routes/routine-shares.js';
 import { apiErrorHandler, asyncRoute, notFoundHandler } from './lib/api-error.js';
@@ -24,11 +25,13 @@ const helmet: HelmetFactory = helmetModule as unknown as HelmetFactory;
 export type AppDependencies = {
   testDbConnection?: typeof testDbConnection;
   verifySchemaCompatibility?: typeof verifySchemaCompatibility;
+  authRouter?: Router;
 };
 
 export function createApp(dependencies: AppDependencies = {}): Express {
   const checkDatabase = dependencies.testDbConnection ?? testDbConnection;
   const checkSchema = dependencies.verifySchemaCompatibility ?? verifySchemaCompatibility;
+  const resolvedAuthRouter = dependencies.authRouter ?? authRouter;
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
@@ -40,7 +43,7 @@ export function createApp(dependencies: AppDependencies = {}): Express {
       callback(null, false);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-CSRF-Token']
   }));
   app.use(express.json({ limit: '5mb' }));
@@ -68,7 +71,7 @@ export function createApp(dependencies: AppDependencies = {}): Express {
     }
     return res.json({ status: 'ready' });
   }));
-  app.use('/api/auth', authRouter);
+  app.use('/api/auth', resolvedAuthRouter);
   app.use('/api/friends', friendsRouter);
   app.use('/api/routine-shares', routineSharesRouter);
   app.use('/api/exercises', exerciseRouter);

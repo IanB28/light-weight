@@ -235,10 +235,14 @@ test('AnatomicalBodyMap: renders 9-rank colors in strength mode with profile pre
 
   // Leyenda fill color #1E90A8 should be present on SVG paths
   assert.ok(html.includes('#1E90A8'));
-  // 9-rank legend should be present (3x3 compact legend)
-  assert.ok(html.includes('Novato'));
-  assert.ok(html.includes('Dios'));
-  assert.ok(html.includes('Leyenda'));
+  // The responsive legend carries a real rank badge, color dot, and full
+  // localized name for each of the nine canonical ranks.
+  for (const rank of Object.keys(STRENGTH_RANK_VISUALS) as Array<keyof typeof STRENGTH_RANK_VISUALS>) {
+    assert.ok(html.includes(`/ranks/${rank}.png`));
+    assert.ok(html.includes(STRENGTH_RANK_VISUALS[rank].name));
+  }
+  assert.ok(html.includes('grid-cols-2'));
+  assert.ok(html.includes('min-[390px]:grid-cols-3'));
 });
 
 test('STRENGTH_RANK_VISUALS: final canonical rank tokens match approved specification', () => {

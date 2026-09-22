@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import { and, eq, ne } from 'drizzle-orm';
 import {
   isValidUsername,
@@ -18,13 +19,29 @@ import {
   setSessionCookies,
   toAuthUser
 } from '../lib/auth-session.js';
-import { authRateLimit, requireTrustedOrigin } from '../lib/request-security.js';
+import { authRateLimit, avatarUploadRateLimit, requireTrustedOrigin } from '../lib/request-security.js';
 import { mapIdentityUniqueViolation, parseBirthDate } from '../lib/auth-validation.js';
 import { authenticateIdentity, authenticateWithGoogle, registerIdentity } from '../lib/auth-service.js';
 import { verifyGoogleCredential } from '../lib/google-auth.js';
 import { identityRepository } from '../lib/identity-repository.js';
+import { AVATAR_PATH_PREFIX, type AvatarStorage, vercelBlobAvatarStorage } from '../lib/avatar-storage.js';
 
-export const authRouter: Router = Router();
+const MAX_AVATAR_BYTES = 1_000_000;
+
+export function isWebpAvatar(bytes: Uint8Array): boolean {
+  return bytes.length >= 12
+    && String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF'
+    && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+}
+
+function safelyDeleteAvatar(storage: AvatarStorage, url: string) {
+  return storage.delete(url).catch((error: unknown) => {
+    console.warn('[AVATAR_CLEANUP_FAILED]', { name: error instanceof Error ? error.name : 'UnknownError' });
+  });
+}
+
+export function createAuthRouter(storage: AvatarStorage = vercelBlobAvatarStorage): Router {
+  const authRouter: Router = Router();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -101,18 +118,10 @@ authRouter.patch('/profile', requireAuth, requireCsrf, asyncRoute(async (req, re
     if (gender !== null && gender !== 'male' && gender !== 'female') throw new ApiError(422, 'VALIDATION_ERROR');
     patch.gender = gender as UserGender | null;
   }
-  if ('avatarUrl' in req.body) {
-    const avatarUrl = req.body.avatarUrl;
-    if (avatarUrl !== null && typeof avatarUrl !== 'string') throw new ApiError(422, 'VALIDATION_ERROR');
-    if (typeof avatarUrl === 'string') {
-      if (avatarUrl.length > 2_048) throw new ApiError(422, 'VALIDATION_ERROR');
-      try {
-        const parsed = new URL(avatarUrl);
-        if (parsed.protocol !== 'https:' && !(process.env.NODE_ENV !== 'production' && parsed.protocol === 'http:')) throw new Error('invalid protocol');
-      } catch { throw new ApiError(422, 'VALIDATION_ERROR'); }
-    }
-    patch.avatarUrl = avatarUrl?.trim() || null;
-  }
+  // Avatar URLs are intentionally not accepted through the general profile
+  // patch. The authenticated WebP upload route below is the single user
+  // supplied avatar path; federated identity providers populate avatarUrl
+  // server-side when accounts are created.
   try {
     const [updated] = await db.update(users).set(patch).where(eq(users.id, req.auth!.userId)).returning();
     if (!updated) throw new ApiError(404, 'USER_NOT_FOUND');
@@ -122,3 +131,52 @@ authRouter.patch('/profile', requireAuth, requireCsrf, asyncRoute(async (req, re
     mapIdentityUniqueViolation(error);
   }
 }));
+
+authRouter.put('/avatar', requireAuth, requireCsrf, requireTrustedOrigin, avatarUploadRateLimit,
+  express.raw({ type: 'image/webp', limit: MAX_AVATAR_BYTES }),
+  asyncRoute(async (req, res) => {
+    if (!req.is('image/webp')) throw new ApiError(422, 'AVATAR_INVALID_TYPE');
+    const bytes = req.body;
+    if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > MAX_AVATAR_BYTES) {
+      throw new ApiError(422, 'AVATAR_TOO_LARGE');
+    }
+    if (!isWebpAvatar(bytes)) throw new ApiError(422, 'AVATAR_INVALID_IMAGE');
+
+    const pathname = `${AVATAR_PATH_PREFIX}${req.auth!.userId}/${randomUUID()}.webp`;
+    let uploaded: { url: string };
+    try {
+      uploaded = await storage.put(pathname, bytes);
+    } catch (error) {
+      console.error('[AVATAR_UPLOAD_FAILED]', {
+        name: error instanceof Error ? error.name : 'UnknownError',
+        code: typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : undefined
+      });
+      throw new ApiError(503, 'AVATAR_STORAGE_UNAVAILABLE');
+    }
+
+    const previousAvatarUrl = req.auth!.user.avatarUrl;
+    let updated: typeof users.$inferSelect | undefined;
+    try {
+      [updated] = await db.update(users)
+        .set({ avatarUrl: uploaded.url, updatedAt: new Date() })
+        .where(eq(users.id, req.auth!.userId))
+        .returning();
+    } catch (error) {
+      await safelyDeleteAvatar(storage, uploaded.url);
+      throw error;
+    }
+    if (!updated) {
+      await safelyDeleteAvatar(storage, uploaded.url);
+      throw new ApiError(404, 'USER_NOT_FOUND');
+    }
+    if (previousAvatarUrl && storage.isOwnedAvatarUrl(previousAvatarUrl, req.auth!.userId)) {
+      void safelyDeleteAvatar(storage, previousAvatarUrl);
+    }
+    res.json({ user: toAuthUser(updated) });
+  })
+);
+
+return authRouter;
+}
+
+export const authRouter = createAuthRouter();

@@ -48,13 +48,13 @@ function syncErrorMessage(t: (key: TranslationKey) => string, code: import('../l
   return t(keyByCode[code] || 'error.unknown');
 }
 
-function SettingsRow({ icon, label, value, onClick, disabled }: { icon: React.ReactNode; label: string; value?: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+function SettingsRow({ icon, label, value, onClick, disabled, showChevron = true }: { icon: React.ReactNode; label: string; value?: React.ReactNode; onClick: () => void; disabled?: boolean; showChevron?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} className="flex min-h-14 w-full items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-left last:border-b-0 hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-45">
       <span className="flex size-8 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">{icon}</span>
       <span className="min-w-0 flex-1 text-sm font-bold text-text-primary">{label}</span>
       {value && <span className="max-w-[45%] truncate text-xs text-text-muted">{value}</span>}
-      <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
+      {showChevron && <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />}
     </button>
   );
 }
@@ -187,7 +187,7 @@ export function SettingsSheet({
   };
 
   const titles: Record<SettingsPanel, string> = {
-    root: t('settings.title'), profile: t('settings.profileAccount'), training: t('settings.training'), appearance: t('settings.appearance'),
+    root: t('settings.title'), gender: t('profile.gender'), training: t('settings.training'), appearance: t('settings.appearance'),
     theme: t('settings.theme'), accent: t('settings.accent'), language: t('settings.language'), data: t('settings.data')
   };
   const backTarget = panel === 'theme' || panel === 'accent' ? 'appearance' : 'root';
@@ -196,15 +196,25 @@ export function SettingsSheet({
     <BottomSheet open={isOpen} onClose={close} title={titles[panel]} className="sm:max-w-md">
       {panel !== 'root' && <Button variant="ghost" size="sm" onClick={() => setPanel(backTarget)} className="mb-3 -ml-2"><ChevronLeft aria-hidden="true" className="size-4" />{backTarget === 'appearance' ? t('settings.appearance') : t('common.back')}</Button>}
 
-      {panel === 'root' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-        <SettingsRow icon={<UserRound className="size-4" />} label={t('settings.profileAccount')} onClick={() => setPanel('profile')} />
+      {panel === 'root' && <div className="space-y-4">
+        <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
+        <SettingsRow icon={<UserRound className="size-4" />} label={t('profile.gender')} value={profile.gender === 'male' ? t('profile.male') : profile.gender === 'female' ? t('profile.female') : t('profile.genderUnset')} onClick={() => setPanel('gender')} />
         <SettingsRow icon={<Dumbbell className="size-4" />} label={t('settings.training')} onClick={() => setPanel('training')} />
         <SettingsRow icon={<Palette className="size-4" />} label={t('settings.appearance')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('appearance')} />
         <SettingsRow icon={<Languages className="size-4" />} label={t('settings.language')} value={language === 'es' ? t('settings.spanish') : t('settings.english')} onClick={() => setPanel('language')} />
         <SettingsRow icon={<Database className="size-4" />} label={t('settings.data')} onClick={() => setPanel('data')} />
+        </div>
+        {auth.isAuthenticated && (
+          <div className="border-t border-border-subtle pt-3">
+            <button type="button" onClick={onLogout} className="flex min-h-14 w-full items-center gap-3 rounded-ui-xl border border-danger/30 bg-danger-soft px-4 py-2.5 text-left text-danger transition-colors hover:bg-danger-soft/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-ui-md border border-danger/30"><LogOut aria-hidden="true" className="size-4" /></span>
+              <span className="min-w-0 flex-1 text-sm font-bold">{t('auth.logout')}</span>
+            </button>
+          </div>
+        )}
       </div>}
 
-      {panel === 'profile' && <div className="space-y-5">
+      {panel === 'gender' && <div className="space-y-5">
         <section className="space-y-2" aria-labelledby="settings-profile-gender">
           <h2 id="settings-profile-gender" className="px-1 text-xs font-extrabold uppercase tracking-wider text-text-secondary">{t('profile.gender')}</h2>
           <SegmentedControl
@@ -219,15 +229,6 @@ export function SettingsSheet({
           {!profile.gender && <p className="text-xs text-text-muted">{t('profile.genderPrompt')}</p>}
           {profileError && <p role="alert" className="rounded-ui-lg border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{profileError}</p>}
         </section>
-        {auth.isAuthenticated && (
-          <section className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-            <button type="button" onClick={onLogout} className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left text-danger transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-ui-md border border-danger/30 bg-danger-soft"><LogOut aria-hidden="true" className="size-4" /></span>
-              <span className="min-w-0 flex-1 text-sm font-bold">{t('auth.logout')}</span>
-              <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
-            </button>
-          </section>
-        )}
       </div>}
 
       {panel === 'training' && <div className="space-y-5">

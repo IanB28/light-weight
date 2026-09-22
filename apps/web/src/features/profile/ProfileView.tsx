@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Award, Pencil, UserRound } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Award, Camera, Pencil, UserRound } from 'lucide-react';
 import {
   calculateAge,
   calculateSessionTotalVolume,
@@ -21,6 +21,9 @@ import { AppCard, Button, EmptyState, IconButton } from '../../components/ui/ind
 import { ProfileStrengthSection } from './ProfileStrengthSection.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { submitProfileDraft } from './profile-save.js';
+import { AvatarNormalizationError, normalizeAvatarFile } from './avatar-normalization.js';
+import type { AuthUser } from '@light-weight/domain';
+import type { OperationResult } from '../../lib/api-errors.js';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -31,6 +34,10 @@ interface ProfileViewProps {
   bodyweightKg?: number | null;
   bodyweightEntries?: BodyweightEntry[];
   onConfigureGender?: () => void;
+  /** Presentation-only content supplied by ProfileScreen (for example Friends). */
+  summaryAccessory?: React.ReactNode;
+  onUploadAvatar?: (avatar: Blob) => Promise<OperationResult<AuthUser>>;
+  avatarUploadAvailable?: boolean;
 }
 
 type ProfileMode = 'summary' | 'edit';
@@ -43,13 +50,24 @@ export function ProfileView({
   onSave,
   bodyweightKg,
   bodyweightEntries,
-  onConfigureGender
+  onConfigureGender,
+  summaryAccessory,
+  onUploadAvatar,
+  avatarUploadAvailable = false
 }: ProfileViewProps) {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
   const [mode, setMode] = useState<ProfileMode>('summary');
   const [draft, setDraft] = useState<UserProfile>(profile);
   const [error, setError] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const displayName = profile.displayName === 'Atleta'
     ? (userInfo.name && userInfo.name !== 'Atleta' ? userInfo.name : t('profile.athlete'))
@@ -76,7 +94,47 @@ export function ProfileView({
   const openEdit = () => {
     setDraft(createProfileDraft(profile, displayName));
     setError(null);
+    setAvatarError(null);
     setMode('edit');
+  };
+
+  const avatarErrorText = (code: AvatarNormalizationError['code']) => {
+    if (code === 'unsupported_type') return t('profile.avatarUnsupportedType');
+    if (code === 'source_too_large' || code === 'output_too_large') return t('profile.avatarTooLarge');
+    return t('profile.avatarNormalizationFailed');
+  };
+
+  const handleAvatarSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || isUploadingAvatar) return;
+    if (!onUploadAvatar || !avatarUploadAvailable) {
+      setAvatarError(t('profile.avatarOffline'));
+      return;
+    }
+    setAvatarError(null);
+    setIsUploadingAvatar(true);
+    try {
+      const normalized = await normalizeAvatarFile(file);
+      const localPreview = URL.createObjectURL(normalized);
+      setPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return localPreview;
+      });
+      const result = await onUploadAvatar(normalized);
+      if (!result.ok) {
+        setAvatarError(t(`auth.error.${result.error.code}` as Parameters<typeof t>[0]));
+        setPreviewUrl((current) => { if (current) URL.revokeObjectURL(current); return null; });
+        return;
+      }
+      setDraft((current) => ({ ...current, avatarUrl: result.data.avatarUrl }));
+      setPreviewUrl((current) => { if (current) URL.revokeObjectURL(current); return null; });
+    } catch (cause) {
+      setAvatarError(cause instanceof AvatarNormalizationError ? avatarErrorText(cause.code) : t('profile.avatarNormalizationFailed'));
+      setPreviewUrl((current) => { if (current) URL.revokeObjectURL(current); return null; });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handleSave = async (event: React.FormEvent) => {
@@ -90,8 +148,9 @@ export function ProfileView({
       setError(t('profile.invalidBirthDate'));
       return;
     }
+    const { avatarUrl: _uploadedAvatar, ...editableDraft } = draft;
     const result = await submitProfileDraft(onSave, {
-      ...draft,
+      ...editableDraft,
       displayName: draft.displayName.trim() || userInfo.name || t('profile.athlete'),
       username: username || undefined
     });
@@ -103,6 +162,16 @@ export function ProfileView({
   if (mode === 'edit') {
     return (
       <form onSubmit={handleSave} className="space-y-4">
+        <div className="flex flex-col items-center gap-2 pb-1 text-center">
+          <ProfileAvatar displayName={draft.displayName || displayName} avatarUrl={previewUrl || draft.avatarUrl || profile.avatarUrl} className="size-20 text-xl shadow-accent" />
+          <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label={t('profile.avatarFileInput')} onChange={(event) => void handleAvatarSelection(event)} />
+          <Button type="button" variant="secondary" size="sm" disabled={!avatarUploadAvailable || isUploadingAvatar} onClick={() => avatarInputRef.current?.click()} className="min-h-11">
+            <Camera aria-hidden="true" className="size-4" />
+            {isUploadingAvatar ? t('profile.avatarUploading') : t('profile.changePhoto')}
+          </Button>
+          {!avatarUploadAvailable && <p className="text-xs text-text-muted">{t('profile.avatarOffline')}</p>}
+          {avatarError && <p role="alert" className="max-w-sm text-xs font-semibold text-danger">{avatarError}</p>}
+        </div>
         <label className="block space-y-1.5 text-xs font-bold text-text-secondary">
           <span>{t('profile.displayName')}</span>
           <input value={draft.displayName} maxLength={100} onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25" />
@@ -120,8 +189,8 @@ export function ProfileView({
         </label>
         {error && <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</p>}
         <div className="grid grid-cols-2 gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={() => { setError(null); setMode('summary'); }}>{t('common.cancel')}</Button>
-          <Button type="submit">{t('common.save')}</Button>
+          <Button type="button" variant="secondary" disabled={isUploadingAvatar} onClick={() => { setError(null); setAvatarError(null); setMode('summary'); }}>{t('common.cancel')}</Button>
+          <Button type="submit" disabled={isUploadingAvatar}>{t('common.save')}</Button>
         </div>
       </form>
     );
@@ -153,6 +222,8 @@ export function ProfileView({
           [summary.streak, t('profile.weeks')]
         ].map(([value, label]) => <div key={String(label)} className="min-w-0 px-1.5"><p className="truncate font-mono text-base font-extrabold text-text-primary">{value}</p><p className="mt-0.5 text-[10px] leading-tight text-text-muted">{label}</p></div>)}
       </AppCard>
+
+      {summaryAccessory}
 
       <ProfileStrengthSection
         history={history}

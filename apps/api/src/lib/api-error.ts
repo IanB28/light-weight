@@ -29,6 +29,12 @@ function isMalformedJsonError(error: unknown): boolean {
   return parserError.type === 'entity.parse.failed' && parserError.status === 400;
 }
 
+function isRequestTooLarge(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const parserError = error as { type?: unknown; status?: unknown };
+  return parserError.type === 'entity.too.large' && parserError.status === 413;
+}
+
 export function apiErrorHandler(error: unknown, req: Request, res: Response, _next: NextFunction) {
   if (error instanceof ApiError) {
     res.status(error.status).json({ error: error.code });
@@ -36,6 +42,10 @@ export function apiErrorHandler(error: unknown, req: Request, res: Response, _ne
   }
   if (isMalformedJsonError(error)) {
     res.status(400).json({ error: 'INVALID_JSON' });
+    return;
+  }
+  if (isRequestTooLarge(error)) {
+    res.status(422).json({ error: req.originalUrl.startsWith('/api/auth/avatar') ? 'AVATAR_TOO_LARGE' : 'VALIDATION_ERROR' });
     return;
   }
   const failure = error as { name?: unknown; code?: unknown } | null;

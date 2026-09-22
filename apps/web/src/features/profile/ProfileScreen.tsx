@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, Settings, UsersRound } from 'lucide-react';
 import type { BodyweightEntry, Exercise, WorkoutSession } from '@light-weight/domain';
 import type { AuthStatus } from '../../lib/auth-session-state.js';
+import type { AuthUser } from '@light-weight/domain';
+import type { OperationResult } from '../../lib/api-errors.js';
 import type { UserInfo, UserProfile } from '../../lib/storage.js';
 import { useI18n } from '../../lib/i18n.js';
 import { IconButton } from '../../components/ui/index.js';
@@ -23,6 +25,8 @@ interface ProfileScreenProps {
   bodyweightKg?: number | null;
   bodyweightEntries?: BodyweightEntry[];
   onSave: (profile: UserProfile) => void | string | Promise<void | string>;
+  onUploadAvatar: (avatar: Blob) => Promise<OperationResult<AuthUser>>;
+  avatarUploadAvailable: boolean;
   onClose: () => void;
   onOpenSettings: (target?: SettingsTarget) => void;
 }
@@ -37,6 +41,8 @@ export function ProfileScreen({
   bodyweightKg,
   bodyweightEntries,
   onSave,
+  onUploadAvatar,
+  avatarUploadAvailable,
   onClose,
   onOpenSettings
 }: ProfileScreenProps) {
@@ -105,25 +111,26 @@ export function ProfileScreen({
             bodyweightKg={bodyweightKg}
             bodyweightEntries={bodyweightEntries}
             onSave={onSave}
-            onConfigureGender={() => onOpenSettings('profile')}
+            onUploadAvatar={onUploadAvatar}
+            avatarUploadAvailable={avatarUploadAvailable}
+            onConfigureGender={() => onOpenSettings('gender')}
+            summaryAccessory={isAuthenticated ? (
+              <button
+                type="button"
+                disabled={!friendsAvailable}
+                onClick={() => setPanel('friends')}
+                className="flex min-h-14 w-full items-center gap-3 rounded-ui-xl border border-border-subtle bg-surface px-4 py-2.5 text-left transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">
+                  <UsersRound aria-hidden="true" className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1 text-sm font-bold text-text-primary" aria-busy={friendsAvailable && friendCount === null}>
+                  {friendsAvailable ? t('profile.friendSummary', { count: friendCount ?? '—' }) : t('profile.friendsOffline')}
+                </span>
+                <ChevronLeft aria-hidden="true" className="size-4 shrink-0 rotate-180 text-text-muted" />
+              </button>
+            ) : undefined}
           />
-
-          {isAuthenticated && (
-            <button
-              type="button"
-              disabled={!friendsAvailable}
-              onClick={() => setPanel('friends')}
-              className="flex min-h-14 w-full items-center gap-3 rounded-ui-xl border border-border-subtle bg-surface px-4 py-2.5 text-left transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">
-                <UsersRound aria-hidden="true" className="size-4" />
-              </span>
-              <span className="min-w-0 flex-1 text-sm font-bold text-text-primary" aria-busy={friendsAvailable && friendCount === null}>
-                {friendsAvailable ? t('profile.friendSummary', { count: friendCount ?? '—' }) : t('profile.friendsOffline')}
-              </span>
-              <ChevronLeft aria-hidden="true" className="size-4 shrink-0 rotate-180 text-text-muted" />
-            </button>
-          )}
         </div>
       )}
     </section>

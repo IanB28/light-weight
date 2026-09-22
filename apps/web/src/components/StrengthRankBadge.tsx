@@ -5,7 +5,7 @@ import { Shield } from 'lucide-react';
 
 export interface StrengthRankBadgeProps {
   rank: StrengthRank;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   showGlow?: boolean;
   className?: string;
 }
@@ -20,6 +20,7 @@ export const StrengthRankBadge: React.FC<StrengthRankBadgeProps> = ({
   const visual = getStrengthRankVisual(rank);
 
   const sizeClasses = {
+    xs: 'size-5',
     sm: 'w-6 h-6',
     md: 'w-10 h-10',
     lg: 'w-16 h-16',
@@ -27,6 +28,7 @@ export const StrengthRankBadge: React.FC<StrengthRankBadgeProps> = ({
   }[size];
 
   const iconSizes = {
+    xs: 10,
     sm: 12,
     md: 18,
     lg: 28,

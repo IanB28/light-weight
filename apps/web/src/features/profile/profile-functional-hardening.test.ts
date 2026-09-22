@@ -189,7 +189,7 @@ test('strength configuration uses semantic gender intent and an honest bodyweigh
   const settings = source('components/SettingsSheet.tsx');
   const strength = source('features/profile/ProfileStrengthSection.tsx');
   assert.ok(profileView.includes('onConfigureGender={onConfigureGender}'));
-  assert.ok(profileScreen.includes("onConfigureGender={() => onOpenSettings('profile')}"));
+  assert.ok(profileScreen.includes("onConfigureGender={() => onOpenSettings('gender')}"));
   assert.ok(settings.includes('const handleGenderChange = async'));
   assert.ok(settings.includes('await onSaveProfile({ gender })'));
   assert.ok(strength.includes('onConfigureGender?: () => void'));

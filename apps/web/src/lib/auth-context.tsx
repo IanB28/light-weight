@@ -18,6 +18,7 @@ interface AuthContextValue {
   logout: () => Promise<OperationResult<void>>;
   refreshSession: () => Promise<void>;
   updateProfile: (patch: Partial<Pick<AuthUser, 'displayName' | 'username' | 'birthDate' | 'gender' | 'avatarUrl'>>) => Promise<AuthResult>;
+  uploadAvatar: (avatar: Blob) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -108,12 +109,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const uploadAvatar = useCallback(async (avatar: Blob): Promise<AuthResult> => {
+    try {
+      const result = await requestJson<{ user: AuthUser }>(apiEndpoint('/api/auth/avatar'), {
+        method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: avatar
+      }, 20_000);
+      setCachedAuthUser(result.user);
+      setUser(result.user);
+      setStatus('authenticated');
+      setError(null);
+      return { ok: true, data: result.user };
+    } catch (cause) {
+      const next = mapApiError(cause);
+      setError(next);
+      if (next.code === 'network' || next.code === 'aborted') setStatus('offline');
+      return { ok: false, error: next };
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => ({
     user, status, isAuthenticated: user !== null && status !== 'anonymous' && status !== 'loading', error,
     login: (email, password) => submit('login', { email, password }),
     loginWithGoogle: (credential) => submit('google', { credential }),
-    register: (input) => submit('register', input), logout, refreshSession, updateProfile
-  }), [error, logout, refreshSession, status, submit, updateProfile, user]);
+    register: (input) => submit('register', input), logout, refreshSession, updateProfile, uploadAvatar
+  }), [error, logout, refreshSession, status, submit, updateProfile, uploadAvatar, user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

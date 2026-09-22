@@ -1,6 +1,6 @@
 import type { TabType } from '../../components/BottomNav.js';
 
-export type SettingsTarget = 'root' | 'profile' | 'training' | 'appearance' | 'language' | 'data';
+export type SettingsTarget = 'root' | 'gender' | 'training' | 'appearance' | 'language' | 'data';
 
 export interface AppSurfaceState {
   currentTab: TabType;

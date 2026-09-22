@@ -8,8 +8,13 @@ import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Vercel supplies production variables through process.env. For local API
+// development, load the untracked app-level override as well so a Blob token
+// never has to be placed in the committed .env example or in the web app.
+dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
+
 if (!process.env.DATABASE_URL) {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
   dotenv.config({ path: path.resolve(__dirname, '../../.env') });
   dotenv.config({ path: path.resolve(__dirname, '../.env') });
 }

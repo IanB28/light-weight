@@ -15,6 +15,7 @@ import {
   STRENGTH_RANK_VISUALS,
   getStrengthRankVisual
 } from '../../lib/strength-rank-visuals.js';
+import { StrengthRankBadge } from '../StrengthRankBadge.js';
 import type { BalanceBodyPathData } from '../../lib/balance-anatomy.js';
 import type { FatigueBodyPathData } from '../../lib/fatigue-anatomy.js';
 import {
@@ -462,19 +463,20 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       )}
 
       {mode === 'strength' && (
-        <div className="grid grid-cols-3 gap-1.5 p-2 px-3 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono shadow-sm">
+        <div className="grid grid-cols-2 gap-1.5 rounded-ui-lg border border-border-subtle bg-surface-input p-2 text-[10px] font-mono shadow-sm min-[390px]:grid-cols-3">
           {(Object.keys(STRENGTH_RANK_VISUALS) as StrengthRank[]).map((r) => {
             const v = STRENGTH_RANK_VISUALS[r];
             return (
-              <div key={r} className="flex items-center gap-1.5 text-zinc-300 min-w-0" title={t(`ranks.${r}`)}>
+              <div key={r} className="flex min-w-0 items-center gap-1.5 text-text-secondary" title={t(`ranks.${r}`)}>
+                <StrengthRankBadge rank={r} size="xs" />
                 <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0 border"
+                  className="size-2 shrink-0 rounded-full border"
                   style={{
                     backgroundColor: v.fill,
                     borderColor: v.accent
                   }}
                 />
-                <span className="truncate">{t(`ranks.${r}`)}</span>
+                <span className="whitespace-nowrap leading-tight">{t(`ranks.${r}`)}</span>
               </div>
             );
           })}

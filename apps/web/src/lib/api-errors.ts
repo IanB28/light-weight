@@ -10,7 +10,8 @@ export type ApiErrorCode =
   | 'routine_not_owned' | 'routine_share_not_found' | 'csrf_invalid'
   | 'cannot_share_with_self' | 'friend_request_not_found'
   | 'origin_not_allowed' | 'invalid_birth_date' | 'routine_has_custom_exercises'
-  | 'routine_share_dismissed' | 'account_linking_required' | 'google_auth_failed' | 'schema_mismatch';
+  | 'routine_share_dismissed' | 'account_linking_required' | 'google_auth_failed' | 'schema_mismatch'
+  | 'avatar_invalid_type' | 'avatar_invalid_image' | 'avatar_too_large' | 'avatar_storage_unavailable';
 
 export interface ApiError { code: ApiErrorCode; status?: number; retryable: boolean }
 export type OperationResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
@@ -33,6 +34,8 @@ const SERVER_CODES: Record<string, ApiErrorCode> = {
   ORIGIN_NOT_ALLOWED: 'origin_not_allowed', INVALID_BIRTH_DATE: 'invalid_birth_date',
   ACCOUNT_LINKING_REQUIRED: 'account_linking_required',
   GOOGLE_AUTH_FAILED: 'google_auth_failed',
+  AVATAR_INVALID_TYPE: 'avatar_invalid_type', AVATAR_INVALID_IMAGE: 'avatar_invalid_image',
+  AVATAR_TOO_LARGE: 'avatar_too_large', AVATAR_STORAGE_UNAVAILABLE: 'avatar_storage_unavailable',
   UNVERIFIED_EMAIL: 'google_auth_failed',
   CSRF_INVALID: 'csrf_invalid', RATE_LIMITED: 'rate_limited', FORBIDDEN: 'forbidden',
   DB_SCHEMA_MISMATCH: 'schema_mismatch'

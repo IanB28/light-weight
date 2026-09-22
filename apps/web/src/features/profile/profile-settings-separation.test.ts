@@ -41,12 +41,12 @@ test('Bottom navigation selection closes secondary surfaces and navigates normal
   });
 });
 
-test('Profile to a deep Settings panel keeps Profile underneath when Settings closes', () => {
+test('Profile to the direct Gender Settings panel keeps Profile underneath when Settings closes', () => {
   const profile = appSurfaceReducer(INITIAL_APP_SURFACE_STATE, { type: 'open_profile' });
-  const settings = appSurfaceReducer(profile, { type: 'open_settings', target: 'profile' });
+  const settings = appSurfaceReducer(profile, { type: 'open_settings', target: 'gender' });
   assert.equal(settings.profileOpen, true);
   assert.equal(settings.settingsOpen, true);
-  assert.equal(settings.settingsTarget, 'profile');
+  assert.equal(settings.settingsTarget, 'gender');
 
   const closedSettings = appSurfaceReducer(settings, { type: 'close_settings' });
   assert.equal(closedSettings.profileOpen, true);
@@ -75,12 +75,13 @@ test('profile identity initials are stable for empty, single and long display na
   assert.equal(getProfileInitials('Ian Benjamin Rodriguez Longname'), 'IB');
 });
 
-test('SettingsSheet owns Profile and account controls without rendering Profile or Friends', () => {
+test('Settings exposes Gender directly and keeps Profile and Friends outside Settings', () => {
   const settings = source('components/SettingsSheet.tsx');
   assert.ok(!settings.includes("ProfileView"));
   assert.ok(!settings.includes("FriendsPanel"));
-  assert.ok(settings.includes("panel === 'profile'"));
-  assert.ok(settings.includes('settings.profileAccount'));
+  assert.ok(settings.includes("panel === 'gender'"));
+  assert.ok(settings.includes("setPanel('gender')"));
+  assert.ok(!settings.includes("panel === 'profile'"));
   assert.ok(settings.includes('onSaveProfile'));
   assert.ok(settings.includes('onLogout'));
   assert.ok(!settings.includes('bodyweightEntries'));
@@ -88,11 +89,12 @@ test('SettingsSheet owns Profile and account controls without rendering Profile 
   assert.match(settings, /if \(isOpen\) setPanel\(target\)/);
 });
 
-test('ProfileScreen owns Friends but moves account controls to Settings', () => {
+test('ProfileScreen owns Friends and places its presentation accessory below metrics', () => {
   const profileScreen = source('features/profile/ProfileScreen.tsx');
   assert.ok(profileScreen.includes("import { FriendsPanel }"));
   assert.ok(!profileScreen.includes("onOpenSettings('training')"));
-  assert.ok(profileScreen.includes("onOpenSettings('profile')"));
+  assert.ok(profileScreen.includes("onOpenSettings('gender')"));
+  assert.ok(profileScreen.includes('summaryAccessory={isAuthenticated ?'));
   assert.ok(!profileScreen.includes('onLogout: () => void;'));
   assert.ok(!profileScreen.includes('profile.social'));
   assert.ok(!profileScreen.includes('profile.account'));
@@ -121,6 +123,9 @@ test('ProfileView delegates social/account ownership and shares avatar fallback 
   assert.ok(!profileView.includes('SegmentedControl'));
   assert.ok(profileView.includes('aria-label={t(\'profile.edit\')}'));
   assert.ok(profileView.includes('className="absolute right-0 top-0 size-11"'));
+  assert.ok(profileView.includes('{summaryAccessory}'));
+  assert.ok(profileView.includes('type="file"'));
+  assert.ok(profileView.includes('normalizeAvatarFile'));
 });
 
 test('friend summary counts accepted friendships only', () => {
@@ -139,7 +144,6 @@ test('new Profile surface labels are complete in Spanish and English', () => {
     'header.profileTitle',
     'profile.close',
     'profile.backToProfile',
-    'settings.profileAccount',
     'profile.friendSummary',
     'profile.friendsDescription',
     'profile.friendsOffline',
@@ -149,6 +153,9 @@ test('new Profile surface labels are complete in Spanish and English', () => {
     'profile.bodyweightRequired',
     'profile.bodyweightEntryHint',
     'profile.addBodyweight'
+    ,'profile.changePhoto',
+    'profile.avatarUnsupportedType',
+    'profile.avatarTooLarge'
   ] as const;
   for (const key of keys) {
     assert.ok(dictionaries.es[key], `Missing Spanish translation for ${key}`);

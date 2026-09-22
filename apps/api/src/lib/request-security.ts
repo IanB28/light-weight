@@ -41,3 +41,19 @@ export function authRateLimit(req: Request, _res: Response, next: NextFunction) 
   current.count += 1;
   next();
 }
+
+const avatarUploads = new Map<string, Attempt>();
+
+/** A narrow per-user/IP guard for binary avatar writes. */
+export function avatarUploadRateLimit(req: Request, _res: Response, next: NextFunction) {
+  const now = Date.now();
+  const key = `${req.auth?.userId || req.ip}:avatar`;
+  const current = avatarUploads.get(key);
+  if (!current || current.resetAt <= now) {
+    avatarUploads.set(key, { count: 1, resetAt: now + 15 * 60_000 });
+    return next();
+  }
+  if (current.count >= 12) return next(new ApiError(429, 'RATE_LIMITED'));
+  current.count += 1;
+  next();
+}

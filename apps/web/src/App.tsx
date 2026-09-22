@@ -178,8 +178,10 @@ export function App() {
           isAuthenticated={auth.isAuthenticated}
           bodyweightKg={resolveBodyweightKgAtDate(data.bodyweightEntries)}
           bodyweightEntries={data.bodyweightEntries}
-          onSave={handleSaveProfile}
-          onClose={() => dispatchSurface({ type: 'close_profile' })}
+            onSave={handleSaveProfile}
+            onUploadAvatar={auth.uploadAvatar}
+            avatarUploadAvailable={auth.status === 'authenticated'}
+            onClose={() => dispatchSurface({ type: 'close_profile' })}
           onOpenSettings={openSettings}
         /> : <>
         {currentTab === 'home' && <HomeView
