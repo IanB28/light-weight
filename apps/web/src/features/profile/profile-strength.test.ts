@@ -242,7 +242,10 @@ test('AnatomicalBodyMap: renders 9-rank colors in strength mode with profile pre
     assert.ok(html.includes(STRENGTH_RANK_VISUALS[rank].name));
   }
   assert.ok(html.includes('grid-cols-2'));
-  assert.ok(html.includes('min-[390px]:grid-cols-3'));
+  assert.ok(html.includes('min-[380px]:grid-cols-3'), 'Legend must use min-[380px] responsive breakpoint');
+  assert.ok(!html.includes('whitespace-nowrap'), 'Legend must not use whitespace-nowrap');
+  assert.ok(!html.includes('truncate leading-tight'), 'Legend must not truncate rank names — all 9 must be fully readable');
+  assert.ok(html.includes('break-words'), 'Legend must use break-words to allow full names to wrap instead of clip');
 });
 
 test('STRENGTH_RANK_VISUALS: final canonical rank tokens match approved specification', () => {

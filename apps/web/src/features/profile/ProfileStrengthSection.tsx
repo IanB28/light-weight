@@ -162,14 +162,8 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
         <div className="space-y-4">
           {/* Overall Strength Hero Card */}
           <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-4.5 shadow-card">
-            {/* Background glowing gradient overlay */}
-            <div
-              className="pointer-events-none absolute -top-12 -right-12 size-40 rounded-full blur-3xl opacity-25"
-              style={{ backgroundColor: overallVisual?.color }}
-            />
-
             <div className="relative flex items-center gap-4">
-              {/* Hero Badge */}
+              {/* Hero Badge — glow is applied via drop-shadow filter on the transparent PNG image */}
               <div className="shrink-0">
                 <StrengthRankBadge
                   rank={overall.rank}

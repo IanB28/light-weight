@@ -21,3 +21,26 @@ export function AppCard({ elevated, interactive, compact, className, ...props }:
     />
   );
 }
+
+export interface ElevatedSurfaceProps extends React.HTMLAttributes<HTMLDivElement> {
+  as?: React.ElementType;
+}
+
+export function ElevatedSurface({
+  as: Component = 'div',
+  className,
+  children,
+  ...props
+}: ElevatedSurfaceProps) {
+  return (
+    <Component
+      className={cn(
+        'glass-surface rounded-ui-xl border border-border-glass bg-surface-elevated shadow-modal',
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </Component>
+  );
+}

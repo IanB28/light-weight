@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Camera, Pencil, UserRound } from 'lucide-react';
+import { Award, Camera, Pencil, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
   calculateSessionTotalVolume,
@@ -38,6 +38,8 @@ interface ProfileViewProps {
   summaryAccessory?: React.ReactNode;
   onUploadAvatar?: (avatar: Blob) => Promise<OperationResult<AuthUser>>;
   avatarUploadAvailable?: boolean;
+  onClose?: () => void;
+  titleRef?: React.Ref<HTMLHeadingElement>;
 }
 
 type ProfileMode = 'summary' | 'edit';
@@ -53,7 +55,9 @@ export function ProfileView({
   onConfigureGender,
   summaryAccessory,
   onUploadAvatar,
-  avatarUploadAvailable = false
+  avatarUploadAvailable = false,
+  onClose,
+  titleRef
 }: ProfileViewProps) {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
@@ -161,7 +165,24 @@ export function ProfileView({
 
   if (mode === 'edit') {
     return (
-      <form onSubmit={handleSave} className="space-y-4">
+      <div className="space-y-4">
+        <header className="flex min-h-12 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <IconButton
+              variant="ghost"
+              aria-label={t('common.cancel')}
+              onClick={() => { setError(null); setAvatarError(null); setMode('summary'); }}
+              className="-ml-1"
+            >
+              <X aria-hidden="true" className="size-5" />
+            </IconButton>
+            <h1 className="truncate text-lg font-extrabold text-text-primary outline-none">
+              {t('profile.edit')}
+            </h1>
+          </div>
+        </header>
+
+        <form onSubmit={handleSave} className="space-y-4">
         <div className="flex flex-col items-center gap-2 pb-1 text-center">
           <ProfileAvatar displayName={draft.displayName || displayName} avatarUrl={previewUrl || draft.avatarUrl || profile.avatarUrl} className="size-20 text-xl shadow-accent" />
           <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label={t('profile.avatarFileInput')} onChange={(event) => void handleAvatarSelection(event)} />
@@ -193,24 +214,41 @@ export function ProfileView({
           <Button type="submit" disabled={isUploadingAvatar}>{t('common.save')}</Button>
         </div>
       </form>
-    );
+    </div>);
   }
 
   return (
     <div className="space-y-5">
-      <div className="relative flex flex-col items-center text-center">
+      <header className="flex min-h-12 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {onClose && (
+            <IconButton
+              variant="ghost"
+              aria-label={t('profile.close')}
+              onClick={onClose}
+              className="-ml-1"
+            >
+              <X aria-hidden="true" className="size-5" />
+            </IconButton>
+          )}
+          <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-lg font-extrabold text-text-primary outline-none">
+            {t('profile.title')}
+          </h1>
+        </div>
         <IconButton
           variant="secondary"
           aria-label={t('profile.edit')}
           onClick={openEdit}
-          className="absolute right-0 top-0 size-11"
         >
           <Pencil aria-hidden="true" className="size-4" />
         </IconButton>
+      </header>
+
+      <div className="flex flex-col items-center text-center">
         <ProfileAvatar displayName={displayName} avatarUrl={profile.avatarUrl} className="size-20 text-xl shadow-accent" />
-        <h3 className="mt-3 max-w-[calc(100%-3.25rem)] break-words text-xl font-extrabold text-text-primary">{displayName}</h3>
-        {profile.username && <p className="text-sm text-text-muted">@{profile.username}</p>}
-        <p className="mt-1 text-xs font-semibold text-text-secondary">
+        <h3 className="mt-3 max-w-[calc(100%-3.25rem)] break-words text-lg font-extrabold text-text-primary sm:text-xl">{displayName}</h3>
+        {profile.username && <p className="text-xs text-text-muted sm:text-sm">@{profile.username}</p>}
+        <p className="mt-0.5 text-xs font-semibold text-text-secondary">
           {t('profile.athlete')}{age !== null ? ` · ${t('profile.years', { count: age })}` : ''}
         </p>
       </div>
