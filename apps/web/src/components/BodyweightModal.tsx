@@ -4,7 +4,7 @@ import { BottomSheet, Button } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
-import { WeightWidget } from './WeightWidget.js';
+import { WeightWidget, getBodyweightBounds } from './WeightWidget.js';
 
 export interface BodyweightModalProps {
   isOpen: boolean;
@@ -25,7 +25,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
   onSaveWeight,
   onSaveGoal
 }) => {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { preferences } = usePreferences();
   const units = preferences.bodyweightUnits;
   const unit = WEIGHT_UNIT_PRESETS[units].unit;
@@ -106,8 +106,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
     }
   };
 
-  const minWeight = units === 'imperial' ? 45 : 20;
-  const maxWeight = units === 'imperial' ? 660 : 300;
+  const { min: minWeight, max: maxWeight } = getBodyweightBounds(units);
 
   return (
     <BottomSheet open={isOpen} onClose={onClose} title={t('weight.title')} className="sm:max-w-sm">
@@ -140,7 +139,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
           </button>
         </div>
 
-        {/* Tactile Sliding WeightWidget */}
+        {/* Tactile Sliding WeightWidget Scale Module */}
         <WeightWidget
           value={activeMode === 'log' ? logValue : goalValue}
           min={minWeight}
@@ -148,6 +147,8 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
           step={0.1}
           unit={unit}
           label={activeMode === 'log' ? t('weight.current') : t('weight.target')}
+          locale={locale}
+          icon={activeMode === 'log' ? 'scale' : 'target'}
           onChange={(newVal) => {
             if (activeMode === 'log') {
               setLogValue(newVal);

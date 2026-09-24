@@ -1,13 +1,33 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useReducedMotion, type PanInfo } from 'motion/react';
+import { Scale, Target } from 'lucide-react';
+import { displayWeight } from '../lib/weight-units.js';
+
+export const CANONICAL_MIN_BODYWEIGHT_KG = 20;
+export const CANONICAL_MAX_BODYWEIGHT_KG = 300;
+
+export function getBodyweightBounds(units: 'metric' | 'imperial'): { min: number; max: number } {
+  if (units === 'imperial') {
+    return {
+      min: displayWeight(CANONICAL_MIN_BODYWEIGHT_KG, 'imperial'),
+      max: displayWeight(CANONICAL_MAX_BODYWEIGHT_KG, 'imperial')
+    };
+  }
+  return {
+    min: CANONICAL_MIN_BODYWEIGHT_KG,
+    max: CANONICAL_MAX_BODYWEIGHT_KG
+  };
+}
 
 export interface WeightWidgetProps {
   value: number;
-  min: number;
-  max: number;
+  min?: number;
+  max?: number;
   step?: number;
   unit: 'kg' | 'lb';
   label: string;
+  locale?: string;
+  icon?: 'scale' | 'target';
   onChange: (value: number) => void;
   disabled?: boolean;
   className?: string;
@@ -31,14 +51,20 @@ export function clampWeightValue(value: number, min: number, max: number): numbe
 }
 
 /**
- * Formats a weight value:
+ * Formats a weight value according to locale:
  * Whole numbers render without trailing .0 (e.g. 72 -> "72").
- * Decimal numbers render with decimal digits (e.g. 72.5 -> "72.5").
+ * Decimal numbers render with 1 decimal digit respecting locale (e.g. 72.5 -> "72,5" in es, "72.5" in en).
  */
-export function formatWeightValue(value: number): string {
+export function formatWeightValue(value: number, locale = 'es'): string {
   if (!Number.isFinite(value)) return '0';
   const rounded = Math.round(value * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  if (Number.isInteger(rounded)) {
+    return String(rounded);
+  }
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }).format(rounded);
 }
 
 /**
@@ -53,11 +79,13 @@ export function parseWeightInput(input: string): number | null {
 
 export const WeightWidget: React.FC<WeightWidgetProps> = ({
   value,
-  min,
-  max,
+  min: propMin,
+  max: propMax,
   step = 0.1,
   unit,
   label,
+  locale = 'es',
+  icon = 'scale',
   onChange,
   disabled = false,
   className = ''
@@ -65,6 +93,13 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
   const inputId = useId();
   const shouldReduceMotion = useReducedMotion();
   const pixelsPerUnit = 80; // ~8px per 0.1 unit
+
+  const defaultBounds = useMemo(() => {
+    return getBodyweightBounds(unit === 'lb' ? 'imperial' : 'metric');
+  }, [unit]);
+
+  const min = propMin ?? defaultBounds.min;
+  const max = propMax ?? defaultBounds.max;
 
   // Safe normalized initial value
   const safeValue = clampWeightValue(snapWeightValue(value, step), min, max);
@@ -76,7 +111,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
   const springX = useSpring(x, springConfig);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(formatWeightValue(safeValue));
+  const [editText, setEditText] = useState(formatWeightValue(safeValue, locale));
   const isDraggingRef = useRef(false);
   const dragStartX = useRef(x.get());
   const lastEmittedValue = useRef(safeValue);
@@ -89,8 +124,8 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       x.set(targetX);
     }
     lastEmittedValue.current = safeValue;
-    setEditText(formatWeightValue(safeValue));
-  }, [safeValue, pixelsPerUnit, x, isEditing]);
+    setEditText(formatWeightValue(safeValue, locale));
+  }, [safeValue, pixelsPerUnit, x, isEditing, locale]);
 
   // Subscribe to spring motion to update value during gesture
   useEffect(() => {
@@ -144,7 +179,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       x.set(-clamped * pixelsPerUnit);
       lastEmittedValue.current = clamped;
     } else {
-      setEditText(formatWeightValue(safeValue));
+      setEditText(formatWeightValue(safeValue, locale));
     }
     setIsEditing(false);
   };
@@ -202,19 +237,31 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={safeValue}
-      aria-valuetext={`${formatWeightValue(safeValue)} ${unit}`}
+      aria-valuetext={`${formatWeightValue(safeValue, locale)} ${unit}`}
       onKeyDown={handleKeyDown}
-      className={`relative flex flex-col items-center rounded-2xl border border-border-subtle bg-surface-input/60 p-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`relative flex flex-col items-center rounded-ui-2xl border border-border-subtle bg-surface-elevated/50 p-4 sm:p-5 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         disabled ? 'pointer-events-none opacity-50' : ''
       } ${className}`}
     >
-      {/* Label */}
-      <span className="text-xs font-mono font-bold uppercase tracking-wider text-text-muted">
-        {label}
-      </span>
+      {/* Scale Faceplate Top Header */}
+      <div className="flex w-full items-center justify-between pb-1 px-1">
+        <div className="flex items-center gap-1.5">
+          {icon === 'target' ? (
+            <Target className="size-3.5 text-accent stroke-[2.5]" />
+          ) : (
+            <Scale className="size-3.5 text-accent stroke-[2.5]" />
+          )}
+          <span className="font-sans text-[11px] font-bold uppercase tracking-wider text-text-muted">
+            {label}
+          </span>
+        </div>
+        <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-0.5 font-sans text-[10px] font-semibold text-text-muted tabular-nums">
+          ±{step} {unit}
+        </span>
+      </div>
 
-      {/* Central Value (Interactive Precision Entry) */}
-      <div className="my-2 flex min-h-14 items-center justify-center">
+      {/* Central Value (Digital Measurement Readout) */}
+      <div className="my-2 flex min-h-16 items-center justify-center">
         {isEditing ? (
           <form
             onSubmit={(e) => {
@@ -233,45 +280,49 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
               onBlur={commitDirectInput}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
-                  setEditText(formatWeightValue(safeValue));
+                  setEditText(formatWeightValue(safeValue, locale));
                   setIsEditing(false);
                 }
               }}
-              className="w-32 border-b-2 border-accent bg-transparent pb-0.5 text-center font-mono text-4xl sm:text-5xl font-black text-text-primary tabular-nums tracking-tight outline-none"
+              className="w-36 border-b-2 border-accent bg-transparent pb-0.5 text-center font-sans text-5xl sm:text-6xl font-extrabold text-text-primary tabular-nums tracking-tight outline-none"
             />
-            <span className="font-mono text-lg font-bold text-text-muted">{unit}</span>
+            <span className="font-sans text-lg sm:text-xl font-bold text-text-muted">{unit}</span>
           </form>
         ) : (
           <button
             type="button"
             onClick={() => {
-              setEditText(formatWeightValue(safeValue));
+              setEditText(formatWeightValue(safeValue, locale));
               setIsEditing(true);
             }}
             title="Toca para editar con teclado"
             className="group flex items-baseline justify-center gap-1.5 rounded-lg px-2 py-0.5 transition-transform active:scale-95 cursor-pointer"
           >
-            <span className="font-mono text-4xl sm:text-5xl font-black text-text-primary tabular-nums tracking-tight group-hover:text-accent transition-colors">
-              {formatWeightValue(safeValue)}
+            <span className="font-sans text-5xl sm:text-6xl font-extrabold text-text-primary tabular-nums tracking-tight group-hover:text-accent transition-colors">
+              {formatWeightValue(safeValue, locale)}
             </span>
-            <span className="font-mono text-lg font-bold text-text-muted">{unit}</span>
+            <span className="font-sans text-lg sm:text-xl font-bold text-text-muted">{unit}</span>
           </button>
         )}
       </div>
 
-      {/* Dial / Ruler Surface */}
-      <div className="relative h-20 w-full overflow-hidden rounded-xl bg-surface-elevated/40 select-none touch-pan-y">
+      {/* Measurement Track / Dial Aperture */}
+      <div className="relative h-20 w-full overflow-hidden rounded-ui-xl border border-border-subtle/70 bg-surface-input/70 shadow-inner select-none touch-pan-y">
         {/* Edge Gradient Fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-surface-elevated to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-surface-elevated to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-14 bg-gradient-to-r from-surface-elevated via-surface-elevated/70 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-surface-elevated via-surface-elevated/70 to-transparent" />
 
-        {/* Center Pointer Indicator */}
+        {/* Precision Measurement Reticle / Needle Indicator */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center">
-          <div className="size-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />
-          <div className="h-6 w-0.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />
+          {/* Top alignment notch */}
+          <div className="w-0 h-0 border-x-[4px] border-x-transparent border-t-[5px] border-t-accent shadow-[0_2px_8px_var(--accent-glow)]" />
+          {/* Center bead */}
+          <div className="size-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] -mt-0.5" />
+          {/* Vertical hairline */}
+          <div className="h-6 w-[2px] rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />
         </div>
 
-        {/* Sliding Ticks Container */}
+        {/* Sliding Ticks Measurement Base */}
         <motion.div
           onPanStart={handlePanStart}
           onPan={handlePan}
@@ -292,7 +343,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
               >
                 {/* Whole Number Numeric Label */}
                 {isInteger && (
-                  <span className="mb-1 font-mono text-[11px] font-bold text-text-secondary select-none">
+                  <span className="mb-1 font-sans text-[11px] font-bold text-text-secondary tabular-nums select-none">
                     {Math.round(val)}
                   </span>
                 )}

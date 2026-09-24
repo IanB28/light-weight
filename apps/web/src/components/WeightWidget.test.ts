@@ -7,6 +7,9 @@ import {
   clampWeightValue,
   formatWeightValue,
   parseWeightInput,
+  getBodyweightBounds,
+  CANONICAL_MIN_BODYWEIGHT_KG,
+  CANONICAL_MAX_BODYWEIGHT_KG,
   WeightWidget
 } from './WeightWidget.js';
 import { BodyweightModal } from './BodyweightModal.js';
@@ -14,10 +17,9 @@ import {
   saveBodyweightEntry,
   getStoredBodyweight,
   saveStoredTargetWeight,
-  getStoredTargetWeight,
-  saveStoredBodyweight
+  getStoredTargetWeight
 } from '../lib/storage.js';
-import { displayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
+import { displayWeight, parseDisplayWeight } from '../lib/weight-units.js';
 import { PreferencesProvider } from '../lib/preferences-context.js';
 import { I18nProvider } from '../lib/i18n.js';
 
@@ -53,7 +55,7 @@ function renderWithProviders(element: React.ReactElement): string {
 }
 
 // ============================================================================
-// 1. PURE VALUE LOGIC (Prompt Section 31)
+// 1. PURE VALUE LOGIC & LOCALE FORMATTING (Prompt Section 1 & 2)
 // ============================================================================
 
 test('pure logic: snapWeightValue snaps 72.04 -> 72.0 and 72.05 -> 72.1', () => {
@@ -85,31 +87,60 @@ test('pure logic: clampWeightValue bounds numbers correctly', () => {
   assert.equal(clampWeightValue(Number.NaN, 20, 300), 20);
 });
 
-test('pure logic: formatWeightValue formats integers without trailing .0 and decimals with 1 decimal place', () => {
-  assert.equal(formatWeightValue(72), '72');
-  assert.equal(formatWeightValue(72.0), '72');
-  assert.equal(formatWeightValue(72.5), '72.5');
-  assert.equal(formatWeightValue(72.7), '72.7');
-  assert.equal(formatWeightValue(152), '152');
-  assert.equal(formatWeightValue(152.5), '152.5');
-  assert.equal(formatWeightValue(Number.NaN), '0');
+test('locale formatting: formatWeightValue respects active locale and integer rules', () => {
+  // Integers remain integers in both locales without trailing .0
+  assert.equal(formatWeightValue(72, 'es'), '72');
+  assert.equal(formatWeightValue(72, 'en'), '72');
+  assert.equal(formatWeightValue(152, 'es'), '152');
+  assert.equal(formatWeightValue(152, 'en'), '152');
+
+  // Spanish formatting uses comma decimal separator
+  assert.equal(formatWeightValue(72.5, 'es'), '72,5');
+  assert.equal(formatWeightValue(72.7, 'es'), '72,7');
+  assert.equal(formatWeightValue(152.5, 'es'), '152,5');
+
+  // English formatting uses dot decimal separator
+  assert.equal(formatWeightValue(72.5, 'en'), '72.5');
+  assert.equal(formatWeightValue(72.7, 'en'), '72.7');
+  assert.equal(formatWeightValue(152.5, 'en'), '152.5');
+
+  // Fallbacks
+  assert.equal(formatWeightValue(Number.NaN, 'es'), '0');
 });
 
-test('pure logic: parseWeightInput normalizes commas, parses decimals, and rejects invalid input', () => {
+test('parsing: parseWeightInput accepts both comma and dot decimal input', () => {
   assert.equal(parseWeightInput('72'), 72);
   assert.equal(parseWeightInput('72.5'), 72.5);
   assert.equal(parseWeightInput('72,5'), 72.5);
-  assert.equal(parseWeightInput(' 80.4 '), 80.4);
+  assert.equal(parseWeightInput(' 152,4 '), 152.4);
   assert.equal(parseWeightInput(''), null);
   assert.equal(parseWeightInput('abc'), null);
   assert.equal(parseWeightInput('NaN'), null);
 });
 
 // ============================================================================
-// 2. DECIMAL ROUND-TRIP AUDIT & STORAGE PRECISION (Prompt Section 21 & 33)
+// 2. RANGE HARDENING & CANONICAL BOUNDS (Prompt Section 3)
 // ============================================================================
 
-test('round trip: 72.5 kg save -> load -> display 72.5', () => {
+test('range hardening: canonical metric bounds define single source of truth', () => {
+  assert.equal(CANONICAL_MIN_BODYWEIGHT_KG, 20);
+  assert.equal(CANONICAL_MAX_BODYWEIGHT_KG, 300);
+
+  const metricBounds = getBodyweightBounds('metric');
+  assert.equal(metricBounds.min, 20);
+  assert.equal(metricBounds.max, 300);
+
+  const imperialBounds = getBodyweightBounds('imperial');
+  // 20 kg in lb = 44.1, 300 kg in lb = 661.4
+  assert.equal(imperialBounds.min, 44.1);
+  assert.equal(imperialBounds.max, 661.4);
+});
+
+// ============================================================================
+// 3. DECIMAL ROUND-TRIP AUDIT & STORAGE PRECISION (Prompt Section 21 & 33)
+// ============================================================================
+
+test('round trip: 72.5 kg save -> load -> display 72,5 in es and 72.5 in en', () => {
   localStorage.clear();
   const inputDisplay = 72.5;
   const parsedKg = parseDisplayWeight(inputDisplay, 'metric');
@@ -122,7 +153,8 @@ test('round trip: 72.5 kg save -> load -> display 72.5', () => {
 
   const displayed = displayWeight(stored[0].weightKg, 'metric');
   assert.equal(displayed, 72.5);
-  assert.equal(formatWeightValue(displayed), '72.5');
+  assert.equal(formatWeightValue(displayed, 'es'), '72,5');
+  assert.equal(formatWeightValue(displayed, 'en'), '72.5');
 });
 
 test('round trip: 72 kg save -> load -> display 72 integer', () => {
@@ -138,7 +170,8 @@ test('round trip: 72 kg save -> load -> display 72 integer', () => {
 
   const displayed = displayWeight(stored[0].weightKg, 'metric');
   assert.equal(displayed, 72);
-  assert.equal(formatWeightValue(displayed), '72');
+  assert.equal(formatWeightValue(displayed, 'es'), '72');
+  assert.equal(formatWeightValue(displayed, 'en'), '72');
 });
 
 test('round trip: 152.5 lb save -> load -> display 152.5 without imperial precision drift', () => {
@@ -156,7 +189,7 @@ test('round trip: 152.5 lb save -> load -> display 152.5 without imperial precis
 
   const displayed = displayWeight(stored[0].weightKg, 'imperial');
   assert.equal(displayed, 152.5);
-  assert.equal(formatWeightValue(displayed), '152.5');
+  assert.equal(formatWeightValue(displayed, 'en'), '152.5');
 });
 
 test('round trip: 160 lb integer save -> load -> display 160 remains visually stable', () => {
@@ -171,7 +204,7 @@ test('round trip: 160 lb integer save -> load -> display 160 remains visually st
 
   const displayed = displayWeight(stored[0].weightKg, 'imperial');
   assert.equal(displayed, 160);
-  assert.equal(formatWeightValue(displayed), '160');
+  assert.equal(formatWeightValue(displayed, 'en'), '160');
 });
 
 test('round trip: target weight preserves metric and imperial decimal precision', () => {
@@ -190,10 +223,10 @@ test('round trip: target weight preserves metric and imperial decimal precision'
 });
 
 // ============================================================================
-// 3. COMPONENT & MODAL RENDERING CONTRACT (Prompt Section 32)
+// 4. TYPOGRAPHY & VISUAL METAPHOR CONTRACT (Prompt Section 1 & 4)
 // ============================================================================
 
-test('weight-widget: renders slider semantics, current value and unit', () => {
+test('typography hardening: primary readout uses font-sans and tabular-nums, never font-mono', () => {
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(WeightWidget, {
       value: 72.5,
@@ -202,20 +235,47 @@ test('weight-widget: renders slider semantics, current value and unit', () => {
       step: 0.1,
       unit: 'kg',
       label: 'Pesaje actual',
+      locale: 'es',
       onChange: () => {}
     })
   );
 
+  // Central button and text must use font-sans
+  assert.match(html, /font-sans/);
+  // Central readout must NOT use font-mono
+  assert.doesNotMatch(html, /font-mono/);
+  // Numeric values must preserve tabular-nums for vertical alignment
+  assert.match(html, /tabular-nums/);
+  // Spanish formatted decimal
+  assert.match(html, /72,5/);
+});
+
+test('scale visual metaphor: renders scale faceplate with status header, reticle notch, and measurement track', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(WeightWidget, {
+      value: 72.5,
+      unit: 'kg',
+      label: 'Pesaje actual',
+      locale: 'es',
+      icon: 'scale',
+      onChange: () => {}
+    })
+  );
+
+  // Scale faceplate precision badge
+  assert.match(html, /±0\.1 kg/);
+  // Slider semantics
   assert.match(html, /role="slider"/);
   assert.match(html, /aria-label="Pesaje actual"/);
   assert.match(html, /aria-valuenow="72\.5"/);
-  assert.match(html, /aria-valuemin="20"/);
-  assert.match(html, /aria-valuemax="300"/);
-  assert.match(html, /72\.5/);
-  assert.match(html, /kg/);
+  assert.match(html, /aria-valuetext="72,5 kg"/);
 });
 
-test('bodyweight-modal: renders WeightWidget in log mode with correct initial value and no legacy +/- controls', () => {
+// ============================================================================
+// 5. MODAL INTEGRATION & STATE SEPARATION (Prompt Section 5 & 8)
+// ============================================================================
+
+test('bodyweight-modal: header/title hierarchy matches intended sheet styling', () => {
   const html = renderWithProviders(
     React.createElement(BodyweightModal, {
       isOpen: true,
@@ -228,15 +288,13 @@ test('bodyweight-modal: renders WeightWidget in log mode with correct initial va
     })
   );
 
-  // Verify slider widget is rendered
-  assert.match(html, /role="slider"/);
-  // Verify legacy -0.5 / +0.5 buttons are NOT present
+  // Title styling hierarchy: h2 with text-lg font-extrabold text-text-primary
+  assert.match(html, /<h2[^>]*class="[^"]*text-lg[^"]*font-extrabold[^"]*text-text-primary[^"]*">Peso corporal<\/h2>/);
+  // Legacy buttons removed
   assert.doesNotMatch(html, />-0\.5</);
   assert.doesNotMatch(html, />\+0\.5</);
-  assert.doesNotMatch(html, />-1</);
-  assert.doesNotMatch(html, />\+1</);
-  // Verify value 72.5 is rendered
-  assert.match(html, /72\.5/);
+  // Formatted value in es
+  assert.match(html, /72,5/);
 });
 
 test('bodyweight-modal: renders WeightWidget in goal mode with currentGoal', () => {
@@ -253,7 +311,7 @@ test('bodyweight-modal: renders WeightWidget in goal mode with currentGoal', () 
   );
 
   assert.match(html, /role="slider"/);
-  assert.match(html, /68\.5/);
+  assert.match(html, /68,5/);
 });
 
 test('bodyweight-modal: fallback initial value hierarchy when currentWeightKg is missing', () => {
@@ -269,7 +327,7 @@ test('bodyweight-modal: fallback initial value hierarchy when currentWeightKg is
       onSaveGoal: () => {}
     })
   );
-  assert.match(htmlWithGoal, /71\.2/);
+  assert.match(htmlWithGoal, /71,2/);
 
   // 2. If both are null, use neutral fallback 75 kg
   const htmlDefault = renderWithProviders(
