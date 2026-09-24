@@ -183,15 +183,44 @@ test('ProfileStrengthSection: renders complete Overall card when all 11 muscles 
   assert.ok(html.includes('11 / 11 grupos evaluados'));
 });
 
-test('StrengthRankBadge: renders image referencing /ranks/<rank>.png', () => {
+test('StrengthRankBadge: renders image referencing /ranks/<rank>.png and silhouette aura when showGlow is true', () => {
   for (const rank of ['novato', 'gladiador', 'elite', 'dios'] as const) {
-    const html = ReactDOMServer.renderToStaticMarkup(
+    const visual = STRENGTH_RANK_VISUALS[rank];
+    const htmlWithGlow = ReactDOMServer.renderToStaticMarkup(
       React.createElement(StrengthRankBadge, { rank, size: 'lg', showGlow: true })
     );
 
-    assert.ok(html.includes(`/ranks/${rank}.png`));
-    assert.ok(html.includes(STRENGTH_RANK_VISUALS[rank].name));
-    assert.ok(html.includes('drop-shadow(0 0 10px'), 'The glow is applied to transparent badge artwork, not its container');
+    // Image reference and name
+    assert.ok(htmlWithGlow.includes(visual.assetPath));
+    assert.ok(htmlWithGlow.includes(visual.name));
+
+    // showGlow creates silhouette aura layer using visual.assetPath as mask
+    assert.ok(htmlWithGlow.includes('data-testid="strength-rank-aura"'), 'Aura layer must be created when showGlow is true');
+    assert.ok(htmlWithGlow.includes(`mask-image:url(&quot;${visual.assetPath}&quot;)`), 'Standard mask-image must use visual.assetPath');
+    assert.ok(htmlWithGlow.includes(`-webkit-mask-image:url(&quot;${visual.assetPath}&quot;)`), 'WebKit mask-image must use visual.assetPath');
+    assert.ok(htmlWithGlow.includes('mask-repeat:no-repeat'), 'Standard mask-repeat must be no-repeat');
+    assert.ok(htmlWithGlow.includes('-webkit-mask-repeat:no-repeat'), 'WebKit mask-repeat must be no-repeat');
+    assert.ok(htmlWithGlow.includes('mask-position:center'), 'Standard mask-position must be center');
+    assert.ok(htmlWithGlow.includes('-webkit-mask-position:center'), 'WebKit mask-position must be center');
+    assert.ok(htmlWithGlow.includes('mask-size:contain'), 'Standard mask-size must be contain');
+    assert.ok(htmlWithGlow.includes('-webkit-mask-size:contain'), 'WebKit mask-size must be contain');
+    assert.ok(htmlWithGlow.includes('blur('), 'Aura must use blur');
+
+    // No drop-shadow on image, no generic rectangular or circular orb
+    assert.ok(!htmlWithGlow.includes('drop-shadow'), 'Native drop-shadow must be replaced by mask-based aura');
+    assert.ok(!htmlWithGlow.includes('rounded-full bg-'), 'No generic orb background');
+
+    // Original PNG remains rendered above/after aura in DOM order
+    const auraIndex = htmlWithGlow.indexOf('data-testid="strength-rank-aura"');
+    const imgIndex = htmlWithGlow.indexOf('<img');
+    assert.ok(auraIndex !== -1 && imgIndex > auraIndex, 'Original PNG must be rendered above the aura in stacking order');
+
+    // showGlow=false does not render aura
+    const htmlWithoutGlow = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(StrengthRankBadge, { rank, size: 'lg', showGlow: false })
+    );
+    assert.ok(!htmlWithoutGlow.includes('data-testid="strength-rank-aura"'), 'Aura must not be rendered when showGlow is false');
+    assert.ok(!htmlWithoutGlow.includes('mask-image'), 'No mask layer when showGlow is false');
   }
 });
 

@@ -96,14 +96,14 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
       <div className="flex items-center justify-between">
         <h4
           id="profile-strength-heading"
-          className="flex items-center gap-2 text-sm font-extrabold text-text-primary"
+          className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-text-primary"
         >
           <Trophy aria-hidden="true" className="size-4 text-accent" />
           {t('profile.strengthTitle')}
         </h4>
         {overall && (
           <span
-            className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full border"
+            className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full border"
             style={{
               backgroundColor: `${overallVisual?.color}15`,
               borderColor: `${overallVisual?.color}40`,
@@ -161,9 +161,9 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
       ) : (
         <div className="space-y-4">
           {/* Overall Strength Hero Card */}
-          <div className="glass-surface relative rounded-ui-xl border border-border-subtle p-4.5 shadow-card">
+          <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-4.5 shadow-card">
             <div className="relative flex items-center gap-4">
-              {/* Hero Badge — glow is applied via drop-shadow filter on the transparent PNG image */}
+              {/* Hero Badge — silhouette aura is rendered via dual mask-image on a background layer */}
               <div className="shrink-0">
                 <StrengthRankBadge
                   rank={overall.rank}
@@ -175,7 +175,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
               {/* Hero Info */}
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                     {t('profile.overall')}
                   </span>
                   {overall.isComplete ? (
@@ -196,13 +196,13 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                   >
                     {t(`ranks.${overall.rank}`)}
                   </h3>
-                  <span className="font-mono text-sm font-bold text-text-secondary">
+                  <span className="text-sm font-bold tabular-nums text-text-secondary">
                     {overall.overallScore.toFixed(2)}
-                    <span className="text-[11px] text-text-muted"> / 9.00</span>
+                    <span className="text-[11px] font-normal text-text-muted"> / 9.00</span>
                   </span>
                 </div>
 
-                <p className="text-[11px] text-text-muted">
+                <p className="text-[11px] font-medium text-text-muted">
                   {t('profile.evaluatedGroups', {
                     rated: overall.ratedMuscleCount,
                     total: overall.totalMuscleCount
@@ -216,14 +216,14 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
               <div className="flex items-center justify-between text-xs">
                 {overall.nextRank ? (
                   <>
-                    <span className="text-[11px] text-text-muted truncate">
+                    <span className="text-[11px] font-medium text-text-muted truncate">
                       {t('profile.progressToward', {
                         pct: Math.round(overall.progressPctToNextRank),
                         nextRank: t(`ranks.${overall.nextRank}`)
                       })}
                     </span>
                     <span
-                      className="font-mono text-[11px] font-bold shrink-0 ml-2"
+                      className="text-[11px] font-bold tabular-nums shrink-0 ml-2"
                       style={{ color: nextOverallVisual?.color ?? overallVisual?.color }}
                     >
                       {Math.round(overall.progressPctToNextRank)}%
@@ -276,7 +276,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                     />
                   )}
                   <div className="min-w-0">
-                    <h4 className="truncate text-sm font-extrabold capitalize text-text-primary">
+                    <h4 className="truncate text-sm font-extrabold tracking-tight capitalize text-text-primary">
                       {muscleLabel(selectedMuscle)}
                     </h4>
                     {selectedEval && (
@@ -291,13 +291,13 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                 </div>
 
                 {selectedEval && (
-                  <div className="text-right font-mono shrink-0">
+                  <div className="text-right shrink-0">
                     <span
-                      className="text-xs font-bold block"
+                      className="text-xs font-bold tabular-nums block"
                       style={{ color: selectedMuscleVisual?.color }}
                     >
                       {selectedEval.strengthScore.toFixed(2)}
-                      <span className="text-[10px] text-text-muted"> / 9.00</span>
+                      <span className="text-[10px] font-normal text-text-muted"> / 9.00</span>
                     </span>
                     <span className="text-[10px] text-text-muted block">
                       {t('profile.strengthScore')}
@@ -314,7 +314,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                       <span className="text-[10px] text-text-muted block">
                         {t('profile.bestE1Rm')}
                       </span>
-                      <span className="mt-0.5 block text-xs font-mono font-bold text-text-primary">
+                      <span className="mt-0.5 block text-xs font-bold tabular-nums text-text-primary">
                         {formatDisplayWeight(selectedEval.oneRmKg, preferences.units)}
                       </span>
                     </div>
@@ -323,7 +323,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                       <span className="text-[10px] text-text-muted block">
                         {t('profile.relativeStrength')}
                       </span>
-                      <span className="text-xs font-mono font-bold text-accent block mt-0.5">
+                      <span className="text-xs font-bold tabular-nums text-accent block mt-0.5">
                         {selectedEval.currentRatio.toFixed(2)}× BW
                       </span>
                     </div>
@@ -342,7 +342,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                         </span>
                       </div>
                       {formattedDate && (
-                        <span className="text-[10px] font-mono text-text-muted shrink-0 flex items-center gap-1">
+                        <span className="text-[10px] text-text-muted shrink-0 flex items-center gap-1">
                           <Calendar className="size-3" />
                           {formattedDate}
                         </span>
@@ -361,7 +361,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                             })}
                           </span>
                           <span
-                            className="font-mono text-[11px] font-bold shrink-0 ml-2"
+                            className="text-[11px] font-bold tabular-nums shrink-0 ml-2"
                             style={{ color: selectedNextVisual?.color ?? selectedMuscleVisual?.color }}
                           >
                             → {t(`ranks.${selectedEval.nextRank}`)} ({Math.round(selectedEval.progressPctToNextRank)}%)

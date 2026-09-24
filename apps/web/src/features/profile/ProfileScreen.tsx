@@ -82,7 +82,7 @@ export function ProfileScreen({
               >
                 <X aria-hidden="true" className="size-5" />
               </IconButton>
-              <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-lg font-extrabold text-text-primary outline-none">{title}</h1>
+              <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-lg font-extrabold tracking-tight text-text-primary outline-none">{title}</h1>
             </div>
           </header>
 
@@ -117,7 +117,7 @@ export function ProfileScreen({
                   type="button"
                   disabled={!friendsAvailable}
                   onClick={() => setPanel('friends')}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border-subtle bg-surface-input px-3.5 py-2 text-sm font-bold text-text-primary transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border-subtle bg-surface-input px-3.5 py-2 text-sm font-bold tracking-tight text-text-primary transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <UsersRound aria-hidden="true" className="size-4 shrink-0 text-accent" />
                   <span aria-busy={friendsAvailable && friendCount === null}>

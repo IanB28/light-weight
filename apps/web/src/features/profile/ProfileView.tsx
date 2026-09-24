@@ -231,7 +231,7 @@ export function ProfileView({
               <X aria-hidden="true" className="size-5" />
             </IconButton>
           )}
-          <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-lg font-extrabold text-text-primary outline-none">
+          <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-lg font-extrabold tracking-tight text-text-primary outline-none">
             {t('profile.title')}
           </h1>
         </div>
@@ -246,7 +246,7 @@ export function ProfileView({
 
       <div className="flex flex-col items-center text-center">
         <ProfileAvatar displayName={displayName} avatarUrl={profile.avatarUrl} className="size-20 text-xl shadow-accent" />
-        <h3 className="mt-3 max-w-[calc(100%-3.25rem)] break-words text-lg font-extrabold text-text-primary sm:text-xl">{displayName}</h3>
+        <h3 className="mt-3 max-w-[calc(100%-3.25rem)] break-words text-lg font-extrabold tracking-tight text-text-primary sm:text-xl">{displayName}</h3>
         {profile.username && <p className="text-xs text-text-muted sm:text-sm">@{profile.username}</p>}
         <p className="mt-0.5 text-xs font-semibold text-text-secondary">
           {t('profile.athlete')}{age !== null ? ` · ${t('profile.years', { count: age })}` : ''}
@@ -258,7 +258,7 @@ export function ProfileView({
           [summary.totalWorkouts, t('profile.workouts')],
           [new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(displayWeight(summary.totalVolumeKg, preferences.units)), t('profile.volume', { unit: WEIGHT_UNIT_PRESETS[preferences.units].unit })],
           [summary.streak, t('profile.weeks')]
-        ].map(([value, label]) => <div key={String(label)} className="min-w-0 px-1.5"><p className="truncate font-mono text-base font-extrabold text-text-primary">{value}</p><p className="mt-0.5 text-[10px] leading-tight text-text-muted">{label}</p></div>)}
+        ].map(([value, label]) => <div key={String(label)} className="min-w-0 px-1.5"><p className="truncate text-base font-extrabold tracking-tight tabular-nums text-text-primary">{value}</p><p className="mt-0.5 text-[10px] font-medium leading-tight text-text-muted">{label}</p></div>)}
       </AppCard>
 
       {summaryAccessory}
@@ -273,7 +273,7 @@ export function ProfileView({
       />
 
       <section className="space-y-2" aria-labelledby="profile-records">
-        <h4 id="profile-records" className="flex items-center gap-2 text-sm font-extrabold text-text-primary"><Award aria-hidden="true" className="size-4 text-accent" />{t('profile.records')}</h4>
+        <h4 id="profile-records" className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-text-primary"><Award aria-hidden="true" className="size-4 text-accent" />{t('profile.records')}</h4>
         {summary.records.length === 0 ? (
           <EmptyState compact icon={<UserRound className="size-5" />} title={t('profile.noRecords')} />
         ) : (
@@ -281,7 +281,7 @@ export function ProfileView({
             {summary.records.map((record) => (
               <div key={record.exerciseId} className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle px-3 last:border-b-0">
                 <span className="min-w-0 truncate text-xs font-bold text-text-primary">{record.name}</span>
-                <span className="shrink-0 font-mono text-xs font-bold text-accent">{formatDisplayWeight(record.est1Rm, preferences.units)}</span>
+                <span className="shrink-0 text-xs font-bold tabular-nums text-accent">{formatDisplayWeight(record.est1Rm, preferences.units)}</span>
               </div>
             ))}
           </div>
