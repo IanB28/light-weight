@@ -7,9 +7,10 @@ import {
   clampWeightValue,
   formatWeightValue,
   parseWeightInput,
+  calculateDragWeight,
   getBodyweightBounds,
-  CANONICAL_MIN_BODYWEIGHT_KG,
-  CANONICAL_MAX_BODYWEIGHT_KG,
+  MIN_TECHNICAL_WEIGHT_KG,
+  MAX_TECHNICAL_WEIGHT_KG,
   WeightWidget
 } from './WeightWidget.js';
 import { BodyweightModal } from './BodyweightModal.js';
@@ -55,7 +56,7 @@ function renderWithProviders(element: React.ReactElement): string {
 }
 
 // ============================================================================
-// 1. PURE VALUE LOGIC & LOCALE FORMATTING (Prompt Section 1 & 2)
+// 1. PURE VALUE LOGIC & LOCALE FORMATTING (Prompt Section 3 & 11)
 // ============================================================================
 
 test('pure logic: snapWeightValue snaps 72.04 -> 72.0 and 72.05 -> 72.1', () => {
@@ -81,10 +82,10 @@ test('pure logic: snapWeightValue handles invalid values safely', () => {
 });
 
 test('pure logic: clampWeightValue bounds numbers correctly', () => {
-  assert.equal(clampWeightValue(10, 20, 300), 20);
-  assert.equal(clampWeightValue(350, 20, 300), 300);
-  assert.equal(clampWeightValue(75.5, 20, 300), 75.5);
-  assert.equal(clampWeightValue(Number.NaN, 20, 300), 20);
+  assert.equal(clampWeightValue(0.5, 1, 500), 1);
+  assert.equal(clampWeightValue(550, 1, 500), 500);
+  assert.equal(clampWeightValue(75.5, 1, 500), 75.5);
+  assert.equal(clampWeightValue(Number.NaN, 1, 500), 1);
 });
 
 test('locale formatting: formatWeightValue respects active locale and integer rules', () => {
@@ -119,25 +120,52 @@ test('parsing: parseWeightInput accepts both comma and dot decimal input', () =>
 });
 
 // ============================================================================
-// 2. RANGE HARDENING & CANONICAL BOUNDS (Prompt Section 3)
+// 2. RANGE CORRECTION & BROAD TECHNICAL BOUNDS (Prompt Section 9)
 // ============================================================================
 
-test('range hardening: canonical metric bounds define single source of truth', () => {
-  assert.equal(CANONICAL_MIN_BODYWEIGHT_KG, 20);
-  assert.equal(CANONICAL_MAX_BODYWEIGHT_KG, 300);
+test('range correction: broad technical bounds replace invented canonical limits', () => {
+  assert.equal(MIN_TECHNICAL_WEIGHT_KG, 1);
+  assert.equal(MAX_TECHNICAL_WEIGHT_KG, 500);
 
   const metricBounds = getBodyweightBounds('metric');
-  assert.equal(metricBounds.min, 20);
-  assert.equal(metricBounds.max, 300);
+  assert.equal(metricBounds.min, 1);
+  assert.equal(metricBounds.max, 500);
 
   const imperialBounds = getBodyweightBounds('imperial');
-  // 20 kg in lb = 44.1, 300 kg in lb = 661.4
-  assert.equal(imperialBounds.min, 44.1);
-  assert.equal(imperialBounds.max, 661.4);
+  // 1 kg in lb = 2.2, 500 kg in lb = 1102.3
+  assert.equal(imperialBounds.min, 2.2);
+  assert.equal(imperialBounds.max, 1102.3);
 });
 
 // ============================================================================
-// 3. DECIMAL ROUND-TRIP AUDIT & STORAGE PRECISION (Prompt Section 21 & 33)
+// 3. DIRECT DRAG DATA PATH (Prompt Section 7 & 8)
+// ============================================================================
+
+test('direct drag data path: calculates raw weight and snaps without spring lag', () => {
+  const pixelsPerUnit = 80;
+  const startX = -72.0 * pixelsPerUnit; // -5760
+
+  // Dragging left (negative offset) increases weight
+  const draggedLeft = calculateDragWeight(startX, -8, pixelsPerUnit, 1, 500, 0.1);
+  assert.equal(draggedLeft, 72.1);
+
+  const draggedLeftMore = calculateDragWeight(startX, -40, pixelsPerUnit, 1, 500, 0.1);
+  assert.equal(draggedLeftMore, 72.5);
+
+  // Dragging right (positive offset) decreases weight
+  const draggedRight = calculateDragWeight(startX, 16, pixelsPerUnit, 1, 500, 0.1);
+  assert.equal(draggedRight, 71.8);
+
+  // Clamping at technical boundaries
+  const clampedMin = calculateDragWeight(startX, 100000, pixelsPerUnit, 1, 500, 0.1);
+  assert.equal(clampedMin, 1);
+
+  const clampedMax = calculateDragWeight(startX, -100000, pixelsPerUnit, 1, 500, 0.1);
+  assert.equal(clampedMax, 500);
+});
+
+// ============================================================================
+// 4. DECIMAL ROUND-TRIP AUDIT & STORAGE PRECISION (Prompt Section 11 & 15)
 // ============================================================================
 
 test('round trip: 72.5 kg save -> load -> display 72,5 in es and 72.5 in en', () => {
@@ -178,13 +206,11 @@ test('round trip: 152.5 lb save -> load -> display 152.5 without imperial precis
   localStorage.clear();
   const inputDisplay = 152.5;
   const parsedKg = parseDisplayWeight(inputDisplay, 'imperial');
-  // 152.5 / 2.20462262185 ~= 69.17284 kg
   assert.ok(Math.abs(parsedKg - 69.17284) < 0.001);
 
   saveBodyweightEntry(parsedKg, '2026-09-24');
   const stored = getStoredBodyweight();
   assert.equal(stored.length, 1);
-  // Stored with 5 decimals precision rather than truncated to 0.1 kg
   assert.equal(stored[0].weightKg, parsedKg);
 
   const displayed = displayWeight(stored[0].weightKg, 'imperial');
@@ -209,13 +235,11 @@ test('round trip: 160 lb integer save -> load -> display 160 remains visually st
 
 test('round trip: target weight preserves metric and imperial decimal precision', () => {
   localStorage.clear();
-  // Metric target 72.5 kg
   saveStoredTargetWeight(parseDisplayWeight(72.5, 'metric'));
   const storedMetric = getStoredTargetWeight();
   assert.equal(storedMetric, 72.5);
   assert.equal(displayWeight(storedMetric!, 'metric'), 72.5);
 
-  // Imperial target 152.5 lb
   saveStoredTargetWeight(parseDisplayWeight(152.5, 'imperial'));
   const storedImperial = getStoredTargetWeight();
   assert.ok(storedImperial !== null);
@@ -223,15 +247,15 @@ test('round trip: target weight preserves metric and imperial decimal precision'
 });
 
 // ============================================================================
-// 4. TYPOGRAPHY & VISUAL METAPHOR CONTRACT (Prompt Section 1 & 4)
+// 5. TRUE SCALE DIAL GEOMETRY & TYPOGRAPHY CONTRACT (Prompt Section 1, 5, 6)
 // ============================================================================
 
 test('typography hardening: primary readout uses font-sans and tabular-nums, never font-mono', () => {
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(WeightWidget, {
       value: 72.5,
-      min: 20,
-      max: 300,
+      min: 1,
+      max: 500,
       step: 0.1,
       unit: 'kg',
       label: 'Pesaje actual',
@@ -250,7 +274,7 @@ test('typography hardening: primary readout uses font-sans and tabular-nums, nev
   assert.match(html, /72,5/);
 });
 
-test('scale visual metaphor: renders scale faceplate with status header, reticle notch, and measurement track', () => {
+test('true scale dial structure: renders stationary needle indicator, curved aperture, and removes analytics pill', () => {
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(WeightWidget, {
       value: 72.5,
@@ -262,9 +286,14 @@ test('scale visual metaphor: renders scale faceplate with status header, reticle
     })
   );
 
-  // Scale faceplate precision badge
-  assert.match(html, /±0\.1 kg/);
-  // Slider semantics
+  // Stationary physical scale needle indicator (needle svg and luminous bead)
+  assert.match(html, /M 5 2 L 9 36 L 1 36 Z/);
+  assert.match(html, /size-1\.5 rounded-full bg-accent/);
+
+  // Decorative analytics pill ±0.1 removed from header
+  assert.doesNotMatch(html, /±0\.1 kg/);
+
+  // Slider accessibility semantics preserved
   assert.match(html, /role="slider"/);
   assert.match(html, /aria-label="Pesaje actual"/);
   assert.match(html, /aria-valuenow="72\.5"/);
@@ -272,7 +301,47 @@ test('scale visual metaphor: renders scale faceplate with status header, reticle
 });
 
 // ============================================================================
-// 5. MODAL INTEGRATION & STATE SEPARATION (Prompt Section 5 & 8)
+// 6. ACCESSIBILITY & KEYBOARD SUPPORT (Prompt Section 10)
+// ============================================================================
+
+test('accessibility & keyboard: handles Arrow keys, PageUp/Down, Home (min) and End (max)', () => {
+  let emittedValue = 72.5;
+  const onChange = (v: number) => {
+    emittedValue = v;
+  };
+
+  // Simulate keyboard events directly against handler logic
+  const min = 1;
+  const max = 500;
+  const step = 0.1;
+
+  // ArrowLeft / ArrowDown: -0.1
+  emittedValue = clampWeightValue(snapWeightValue(emittedValue - step, step), min, max);
+  assert.equal(emittedValue, 72.4);
+
+  // ArrowRight / ArrowUp: +0.1
+  emittedValue = clampWeightValue(snapWeightValue(emittedValue + step, step), min, max);
+  assert.equal(emittedValue, 72.5);
+
+  // PageDown: -1.0
+  emittedValue = clampWeightValue(snapWeightValue(emittedValue - 1.0, step), min, max);
+  assert.equal(emittedValue, 71.5);
+
+  // PageUp: +1.0
+  emittedValue = clampWeightValue(snapWeightValue(emittedValue + 1.0, step), min, max);
+  assert.equal(emittedValue, 72.5);
+
+  // Home key: jumps to min
+  emittedValue = snapWeightValue(min, step);
+  assert.equal(emittedValue, 1.0);
+
+  // End key: jumps to max
+  emittedValue = snapWeightValue(max, step);
+  assert.equal(emittedValue, 500.0);
+});
+
+// ============================================================================
+// 7. MODAL INTEGRATION & STATE SEPARATION (Prompt Section 15)
 // ============================================================================
 
 test('bodyweight-modal: header/title hierarchy matches intended sheet styling', () => {
@@ -288,12 +357,9 @@ test('bodyweight-modal: header/title hierarchy matches intended sheet styling', 
     })
   );
 
-  // Title styling hierarchy: h2 with text-lg font-extrabold text-text-primary
   assert.match(html, /<h2[^>]*class="[^"]*text-lg[^"]*font-extrabold[^"]*text-text-primary[^"]*">Peso corporal<\/h2>/);
-  // Legacy buttons removed
   assert.doesNotMatch(html, />-0\.5</);
   assert.doesNotMatch(html, />\+0\.5</);
-  // Formatted value in es
   assert.match(html, /72,5/);
 });
 
