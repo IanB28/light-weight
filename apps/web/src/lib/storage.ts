@@ -257,7 +257,7 @@ export function saveBodyweightEntry(weightKg: number, dateStr?: string): Bodywei
     const entry: BodyweightEntry = {
       date: d,
       timestamp: new Date(d).getTime() || Date.now(),
-      weightKg: Math.round(weightKg * 10) / 10
+      weightKg: Math.round(weightKg * 100_000) / 100_000
     };
     // Replace if exists for today or append and sort
     const filtered = current.filter((b) => b.date !== d);

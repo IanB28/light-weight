@@ -165,6 +165,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
     return { label, days };
   }, [today, weekOffset, history, weeklySchedule, routines, locale, t]);
 
+  const latestWeightKg = useMemo(() => {
+    if (!bodyweightEntries || bodyweightEntries.length === 0) return null;
+    return bodyweightEntries[bodyweightEntries.length - 1]?.weightKg ?? null;
+  }, [bodyweightEntries]);
+
   // Modales de peso
   const handleOpenLogWeight = () => {
     setBwModalInitialMode('log');
@@ -390,6 +395,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         isOpen={isBwModalOpen}
         onClose={() => setIsBwModalOpen(false)}
         currentGoal={targetWeight}
+        currentWeightKg={latestWeightKg}
         initialMode={bwModalInitialMode}
         onSaveWeight={onSaveBodyweight}
         onSaveGoal={onSaveTargetWeight}

@@ -97,6 +97,9 @@
     "src/lib/machine-profiles.ts",
     "src/features/workouts/machine-profile.test.ts",
     "src/lib/plate-assets.ts",
-    "src/features/workouts/plate-assets.test.ts"
+    "src/features/workouts/plate-assets.test.ts",
+    "src/components/WeightWidget.tsx",
+    "src/components/BodyweightModal.tsx",
+    "src/components/WeightWidget.test.ts"
   ]
 }

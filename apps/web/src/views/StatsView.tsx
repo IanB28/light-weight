@@ -1498,6 +1498,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         isOpen={isBwModalOpen}
         onClose={() => setIsBwModalOpen(false)}
         currentGoal={targetWeight}
+        currentWeightKg={currentBodyweightKg}
         onSaveWeight={handleSaveWeight}
         onSaveGoal={handleSaveGoal}
       />
