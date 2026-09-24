@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Camera, Pencil, UserRound, X } from 'lucide-react';
+import { Award, Camera, Dumbbell, Pencil, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
   calculateSessionTotalVolume,
@@ -15,6 +15,7 @@ import {
 } from '../../lib/storage.js';
 import { useI18n } from '../../lib/i18n.js';
 import { resolveExerciseName } from '../../lib/exercise-names.js';
+import { findExerciseById, getExerciseImgUrl } from '../../lib/exercises.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { AppCard, Button, EmptyState, IconButton } from '../../components/ui/index.js';
@@ -278,12 +279,44 @@ export function ProfileView({
           <EmptyState compact icon={<UserRound className="size-5" />} title={t('profile.noRecords')} />
         ) : (
           <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-            {summary.records.map((record) => (
-              <div key={record.exerciseId} className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle px-3 last:border-b-0">
-                <span className="min-w-0 truncate text-xs font-bold text-text-primary">{record.name}</span>
-                <span className="shrink-0 text-xs font-bold tabular-nums text-accent">{formatDisplayWeight(record.est1Rm, preferences.units)}</span>
-              </div>
-            ))}
+            {summary.records.map((record) => {
+              const exercise = exercises.find((ex) => ex.id === record.exerciseId) || findExerciseById(record.exerciseId);
+              const imgUrl = getExerciseImgUrl(exercise);
+              return (
+                <div
+                  key={record.exerciseId}
+                  className="flex min-h-14 items-center gap-3 border-b border-border-subtle px-3 py-2 last:border-b-0"
+                >
+                  {/* LEFT: Compact Exercise Badge / Thumbnail */}
+                  <span
+                    aria-hidden="true"
+                    data-testid="pr-exercise-badge"
+                    className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted shadow-sm"
+                  >
+                    {imgUrl ? (
+                      <img
+                        src={imgUrl}
+                        alt=""
+                        loading="lazy"
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <Dumbbell className="size-4.5 stroke-[1.8] text-text-muted" />
+                    )}
+                  </span>
+
+                  {/* CENTER: Exercise Name (Flexible, single-line truncation) */}
+                  <span className="min-w-0 flex-1 truncate text-xs font-bold text-text-primary sm:text-sm">
+                    {record.name}
+                  </span>
+
+                  {/* RIGHT: PR Weight (Right-aligned, tabular-nums) */}
+                  <span className="shrink-0 text-right text-xs font-bold tabular-nums text-accent sm:text-sm">
+                    {formatDisplayWeight(record.est1Rm, preferences.units)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

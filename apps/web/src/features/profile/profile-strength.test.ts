@@ -183,7 +183,7 @@ test('ProfileStrengthSection: renders complete Overall card when all 11 muscles 
   assert.ok(html.includes('11 / 11 grupos evaluados'));
 });
 
-test('StrengthRankBadge: renders image referencing /ranks/<rank>.png and silhouette aura when showGlow is true', () => {
+test('StrengthRankBadge: renders image referencing /ranks/<rank>.png and dual silhouette aura layers when showGlow is true', () => {
   for (const rank of ['novato', 'gladiador', 'elite', 'dios'] as const) {
     const visual = STRENGTH_RANK_VISUALS[rank];
     const htmlWithGlow = ReactDOMServer.renderToStaticMarkup(
@@ -194,8 +194,11 @@ test('StrengthRankBadge: renders image referencing /ranks/<rank>.png and silhoue
     assert.ok(htmlWithGlow.includes(visual.assetPath));
     assert.ok(htmlWithGlow.includes(visual.name));
 
-    // showGlow creates silhouette aura layer using visual.assetPath as mask
-    assert.ok(htmlWithGlow.includes('data-testid="strength-rank-aura"'), 'Aura layer must be created when showGlow is true');
+    // showGlow creates dual silhouette aura layers using visual.assetPath as mask
+    assert.ok(htmlWithGlow.includes('data-testid="strength-rank-aura"'), 'Aura container must be created when showGlow is true');
+    assert.ok(htmlWithGlow.includes('data-testid="strength-rank-aura-inner"'), 'Inner contour aura layer must be created');
+    assert.ok(htmlWithGlow.includes('data-testid="strength-rank-aura-outer"'), 'Outer atmospheric halo aura layer must be created');
+
     assert.ok(htmlWithGlow.includes(`mask-image:url(&quot;${visual.assetPath}&quot;)`), 'Standard mask-image must use visual.assetPath');
     assert.ok(htmlWithGlow.includes(`-webkit-mask-image:url(&quot;${visual.assetPath}&quot;)`), 'WebKit mask-image must use visual.assetPath');
     assert.ok(htmlWithGlow.includes('mask-repeat:no-repeat'), 'Standard mask-repeat must be no-repeat');
@@ -326,4 +329,62 @@ test('ProfileView: renders ProfileStrengthSection within profile summary', () =>
   // Profile should include Nivel de Fuerza section
   assert.ok(html.includes('Nivel de Fuerza'));
   assert.ok(html.includes('Sin datos de fuerza'));
+});
+
+test('ProfileView: Personal Records renders compact horizontal row [badge] [name] [PR weight]', () => {
+  const mockSession: WorkoutSession = {
+    id: 'ws-1',
+    userId: 'u1',
+    startedAt: '2026-09-20T10:00:00.000Z',
+    endedAt: '2026-09-20T11:00:00.000Z',
+    sets: {
+      'ex-bench': [s(100, 5)]
+    }
+  };
+
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(ProfileView, {
+        profile: { ...DEFAULT_USER_PROFILE, gender: 'male' },
+        userInfo: { id: 'u1', name: 'Alex', email: 'alex@example.com' },
+        history: [mockSession],
+        exercises: [mockBenchExercise],
+        onSave: () => {},
+        bodyweightKg: 80
+      })
+    )
+  );
+
+  // Section heading
+  assert.ok(html.includes('Récords personales'));
+  // Compact exercise badge/icon container
+  assert.ok(html.includes('data-testid="pr-exercise-badge"'), 'Each PR row must include a compact exercise badge container');
+  // Exercise name in flexible center zone
+  assert.ok(html.includes('Bench Press'));
+  // Formatted PR weight in right zone
+  assert.ok(html.includes('tabular-nums'), 'PR weight must format with tabular-nums');
+  assert.ok(html.includes('112.5 kg') || html.includes('113 kg') || html.includes('kg'), 'PR weight with unit must be rendered');
+});
+
+test('ProfileView: Personal Records renders empty state when no records exist', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(ProfileView, {
+        profile: { ...DEFAULT_USER_PROFILE, gender: 'male' },
+        userInfo: { id: 'u1', name: 'Alex', email: 'alex@example.com' },
+        history: [],
+        exercises: [mockBenchExercise],
+        onSave: () => {},
+        bodyweightKg: 80
+      })
+    )
+  );
+
+  assert.ok(html.includes('Récords personales'));
+  assert.ok(html.includes('Completa entrenamientos para descubrir tus récords'));
+  assert.ok(!html.includes('data-testid="pr-exercise-badge"'));
 });
