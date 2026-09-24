@@ -68,3 +68,40 @@ export function resolvePlateAsset(weightKg: number, units: UnitSystem): string |
   const match = manifest.find((entry) => weightsMatch(entry.displayWeight, targetDisplayWeight, 0.05));
   return match?.assetPath ?? null;
 }
+
+/**
+ * In-memory registry tracking already preloaded image URLs to prevent redundant network fetches.
+ */
+const preloadedAssetUrls = new Set<string>();
+
+/**
+ * Preloads the plate PNG assets for the active unit system into the browser cache.
+ * Excludes non-plate assets (e.g. set.png).
+ * Deduplicates calls via an internal Set so each asset is preloaded at most once.
+ * Non-blocking: returns string[] of newly queued URLs for transparency and unit testing.
+ */
+export function preloadPlateAssets(units: UnitSystem): string[] {
+  const manifest = units === 'imperial' ? IMPERIAL_PLATE_ASSETS : METRIC_PLATE_ASSETS;
+  const queued: string[] = [];
+
+  for (const entry of manifest) {
+    if (!preloadedAssetUrls.has(entry.assetPath)) {
+      preloadedAssetUrls.add(entry.assetPath);
+      queued.push(entry.assetPath);
+      if (typeof window !== 'undefined' && typeof Image !== 'undefined') {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = entry.assetPath;
+      }
+    }
+  }
+
+  return queued;
+}
+
+/**
+ * Clears the preloaded asset cache (primarily for unit test isolation).
+ */
+export function _resetPreloadCache(): void {
+  preloadedAssetUrls.clear();
+}

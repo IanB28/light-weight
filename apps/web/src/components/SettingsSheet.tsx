@@ -20,7 +20,7 @@ import {
   weightsMatch,
   WEIGHT_UNIT_PRESETS
 } from '../lib/weight-units.js';
-import { getStandardPlateCatalogKg, resolvePlateAsset } from '../lib/plate-assets.js';
+import { getStandardPlateCatalogKg, preloadPlateAssets, resolvePlateAsset } from '../lib/plate-assets.js';
 import { useAuth } from '../lib/auth-context.js';
 import type { SettingsTarget } from '../features/profile/profile-surface-state.js';
 import { restoreProfileFromBackup } from '../features/profile/profile-backup.js';
@@ -92,6 +92,12 @@ export function SettingsSheet({
     }
   }, [isOpen, target]);
 
+  useEffect(() => {
+    if (isOpen && panel === 'training') {
+      preloadPlateAssets(preferences.units);
+    }
+  }, [isOpen, panel, preferences.units]);
+
   const close = () => { setPanel('root'); setStatus(null); setProfileError(null); onClose(); };
   const chooseTheme = (glassTheme: GlassTheme) => { const updated = { ...themeSettings, glassTheme }; setThemeSettings(updated); applyTheme(updated); };
   const chooseAccent = (accentColor: AccentColorId) => { const updated = { ...themeSettings, accentColor }; setThemeSettings(updated); applyTheme(updated); };
@@ -100,6 +106,7 @@ export function SettingsSheet({
 
   const changeUnits = (units: UnitSystem) => {
     if (units === preferences.units) return;
+    preloadPlateAssets(units);
     const shouldUseTargetDefaults = usesUnitDefaults(
       preferences.defaultBarWeightKg,
       preferences.availablePlatesKg,
@@ -256,7 +263,7 @@ export function SettingsSheet({
                         : [...preferences.availablePlatesKg, plate].sort((a, b) => b - a)
                     })
                   }
-                  className={`group relative flex aspect-square items-center justify-center rounded-ui-xl border p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  className={`group relative flex aspect-square items-center justify-center rounded-ui-xl border p-2 transition-[border-color,background-color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     active
                       ? 'border-accent bg-accent-soft shadow-accent'
                       : 'border-border-subtle bg-surface-input/50 hover:border-border-active'
@@ -266,7 +273,9 @@ export function SettingsSheet({
                     <img
                       src={assetUrl}
                       alt=""
-                      className={`size-full object-contain transition-opacity duration-150 ${
+                      loading="eager"
+                      decoding="async"
+                      className={`size-full object-contain transition-opacity duration-150 ease-out ${
                         active ? 'opacity-100' : 'opacity-60 group-hover:opacity-80'
                       }`}
                       draggable={false}

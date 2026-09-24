@@ -12,7 +12,9 @@ import {
   STANDARD_METRIC_PLATES_KG,
   STANDARD_IMPERIAL_PLATES_KG,
   getStandardPlateCatalogKg,
-  resolvePlateAsset
+  resolvePlateAsset,
+  preloadPlateAssets,
+  _resetPreloadCache
 } from '../../lib/plate-assets.js';
 import { WeightPlate } from './WeightPlate.js';
 import { weightsMatch, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
@@ -148,17 +150,33 @@ test('WeightPlate: selected state renders count badge, subtle aura, and NO persi
   assert.ok(html.includes('src="/discos/lbs/45.png"'));
   assert.ok(html.includes('aria-pressed="true"'));
 
-  // CRITICAL REQUIREMENT 7: Persistent colored selected border / ring / frame is REMOVED
+  // CRITICAL: Persistent colored selected border / ring / frame is REMOVED
   assert.ok(!html.includes('border-accent'), 'Selected plate button must NOT have persistent border-accent');
   assert.ok(!html.includes('shadow-accent'), 'Selected plate button must NOT have heavy shadow-accent frame');
 
-  // CRITICAL REQUIREMENT 7: Keyboard focus indication remains preserved
+  // CRITICAL: Keyboard focus indication remains preserved
   assert.ok(html.includes('focus-visible:ring-accent'), 'Keyboard focus-visible ring must remain preserved');
 
-  // CRITICAL REQUIREMENT 8 & 9: Subtle aura/glow and scale feedback
-  assert.ok(html.includes('drop-shadow-[0_0_8px_rgba(230,81,0,0.45)]'), 'Subtle aura must highlight selected plate');
-  assert.ok(html.includes('scale-[1.04]'), 'Subtle scale must indicate selection');
+  // CRITICAL: Dynamic semantic aura using var(--accent-glow)
+  assert.ok(html.includes('var(--accent-glow)'), 'Aura must use runtime CSS var --accent-glow');
+  assert.ok(html.includes('opacity-100'), 'Aura must be active (opacity-100) when selected');
+
+  // CRITICAL: No hardcoded orange or literal RGB glow
+  assert.ok(!html.includes('rgba(230,81,0'), 'Must NOT contain hardcoded orange rgba');
+  assert.ok(!html.includes('drop-shadow-[0_0_8px'), 'Must NOT use expensive CSS drop-shadow filter');
+
+  // CRITICAL: Count badge uses semantic accent tokens and entrance animation
+  assert.ok(html.includes('bg-accent'), 'Count badge must use semantic bg-accent');
+  assert.ok(html.includes('text-accent-fg'), 'Count badge must use semantic text-accent-fg');
+  assert.ok(!html.includes('text-white'), 'Count badge must NOT hardcode text-white');
+  assert.ok(html.includes('animate-badge-pop'), 'Count badge must use entrance animation');
   assert.ok(html.includes('×2'), 'Count badge must display current count');
+
+  // CRITICAL: Image performance attributes and no transition-all
+  assert.ok(html.includes('loading="eager"'), 'Picker images must load eagerly');
+  assert.ok(html.includes('decoding="async"'), 'Picker images must decode asynchronously');
+  assert.ok(html.includes('scale-[1.03]'), 'Subtle scale feedback on PNG');
+  assert.ok(!html.includes('transition-all'), 'Must NOT use transition-all');
 
   // Remove button must not be disabled when count > 0
   assert.ok(!html.includes('disabled=""'));
@@ -333,4 +351,50 @@ test('RoutineDetailSheet: replaces numeric order with exercise thumbnail and fal
   assert.ok(html.includes('Dominadas'));
   assert.ok(html.includes('chest · barbell'));
   assert.ok(html.includes('back · bodyweight'));
+});
+
+test('plate-assets: preloadPlateAssets preloads current-unit catalog only, excludes set.png, and deduplicates', () => {
+  _resetPreloadCache();
+
+  // 1. Preload metric catalog
+  const metricQueued = preloadPlateAssets('metric');
+  assert.strictEqual(metricQueued.length, 7, 'Must queue exactly 7 metric plate assets');
+  assert.ok(metricQueued.every((url) => url.startsWith('/discos/kg/')), 'All metric URLs must be in /discos/kg/');
+  assert.ok(!metricQueued.some((url) => url.includes('set.png')), 'set.png must NOT be preloaded');
+
+  // 2. Duplicate call should return empty array (deduplication)
+  const metricQueuedAgain = preloadPlateAssets('metric');
+  assert.strictEqual(metricQueuedAgain.length, 0, 'Subsequent call must deduplicate and queue 0 assets');
+
+  // 3. Preload imperial catalog
+  const imperialQueued = preloadPlateAssets('imperial');
+  assert.strictEqual(imperialQueued.length, 7, 'Must queue exactly 7 imperial plate assets');
+  assert.ok(imperialQueued.every((url) => url.startsWith('/discos/lbs/')), 'All imperial URLs must be in /discos/lbs/');
+  assert.ok(!imperialQueued.some((url) => url.includes('set.png')), 'set.png must NOT be preloaded');
+
+  // 4. Reset cache allows re-preloading
+  _resetPreloadCache();
+  const resetQueued = preloadPlateAssets('metric');
+  assert.strictEqual(resetQueued.length, 7, 'After cache reset, assets can be queued again');
+});
+
+test('SettingsSheet: plate selection uses semantic accent classes and targeted transitions without transition-all', () => {
+  const prefs: AppPreferences = {
+    ...DEFAULT_APP_PREFERENCES,
+    units: 'metric',
+    availablePlatesKg: [25, 20]
+  };
+  const html = renderSettingsWithPreferences(prefs);
+
+  // Must use semantic tokens for active plates
+  assert.ok(html.includes('border-accent'), 'Active plate in Settings must use border-accent');
+  assert.ok(html.includes('bg-accent-soft'), 'Active plate in Settings must use bg-accent-soft');
+  assert.ok(html.includes('shadow-accent'), 'Active plate in Settings must use shadow-accent');
+
+  // Must NOT use transition-all for plate selection buttons
+  assert.ok(!html.includes('transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'), 'Settings plate button must NOT use transition-all');
+
+  // Plate images must have eager loading and async decoding
+  assert.ok(html.includes('loading="eager"'), 'Settings plate images must have loading=eager');
+  assert.ok(html.includes('decoding="async"'), 'Settings plate images must have decoding=async');
 });

@@ -14,7 +14,15 @@ interface WeightPlateProps {
   onRemove: () => void;
 }
 
-export function WeightPlate({ weightKg, units, count, addLabel, removeLabel, onAdd, onRemove }: WeightPlateProps) {
+export const WeightPlate = React.memo(function WeightPlate({
+  weightKg,
+  units,
+  count,
+  addLabel,
+  removeLabel,
+  onAdd,
+  onRemove
+}: WeightPlateProps) {
   const selected = count > 0;
   const assetUrl = resolvePlateAsset(weightKg, units);
 
@@ -25,21 +33,32 @@ export function WeightPlate({ weightKg, units, count, addLabel, removeLabel, onA
         aria-label={addLabel}
         aria-pressed={selected}
         onClick={onAdd}
-        className={`relative flex size-20 items-center justify-center rounded-full transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-95 ${
-          selected ? 'scale-[1.04]' : 'hover:scale-[1.02]'
-        }`}
+        className="relative flex size-20 items-center justify-center rounded-full p-0 transition-transform duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-95 motion-reduce:transition-none"
       >
+        {/* Semantic non-layout aura layer behind the PNG */}
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 rounded-full transition-opacity duration-150 ease-out motion-reduce:transition-none ${
+            selected ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{
+            boxShadow: '0 0 16px var(--accent-glow)'
+          }}
+        />
+
         {assetUrl ? (
           <img
             src={assetUrl}
             alt=""
-            className={`size-full object-contain pointer-events-none select-none transition-all duration-150 ${
-              selected ? 'drop-shadow-[0_0_8px_rgba(230,81,0,0.45)]' : 'drop-shadow-sm'
+            loading="eager"
+            decoding="async"
+            className={`size-full object-contain pointer-events-none select-none transition-transform duration-150 ease-out motion-reduce:transition-none ${
+              selected ? 'scale-[1.03]' : 'scale-100'
             }`}
             draggable={false}
           />
         ) : (
-          <div className="flex size-full flex-col items-center justify-center rounded-full border border-border-subtle bg-surface-input p-2">
+          <div className="flex size-full flex-col items-center justify-center rounded-full border border-border-subtle bg-surface-input p-2 transition-transform duration-150 ease-out motion-reduce:transition-none">
             <span className="font-mono text-base font-black tabular-nums leading-none text-text-primary">
               {displayWeight(weightKg, units)}
             </span>
@@ -50,8 +69,9 @@ export function WeightPlate({ weightKg, units, count, addLabel, removeLabel, onA
         )}
         {selected && (
           <span
+            key={count}
             aria-hidden="true"
-            className="absolute -right-0.5 -top-0.5 flex min-h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 font-mono text-xs font-black text-white shadow-md"
+            className="absolute -right-0.5 -top-0.5 z-10 flex min-h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 font-mono text-xs font-black text-accent-fg shadow-md animate-badge-pop motion-reduce:animate-none"
           >
             {`×${count}`}
           </span>
@@ -68,4 +88,4 @@ export function WeightPlate({ weightKg, units, count, addLabel, removeLabel, onA
       </button>
     </div>
   );
-}
+});

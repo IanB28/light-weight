@@ -13,6 +13,7 @@ import { useI18n } from '../../lib/i18n.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import { BottomSheet, Button } from '../../components/ui/index.js';
 import { WeightPlate } from './WeightPlate.js';
+import { preloadPlateAssets } from '../../lib/plate-assets.js';
 
 export type { MachineSnapshot };
 
@@ -66,6 +67,9 @@ export function PlateWeightButton({ valueKg, units, label, prefix, onClick }: { 
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => preloadPlateAssets(units)}
+      onFocus={() => preloadPlateAssets(units)}
+      onTouchStart={() => preloadPlateAssets(units)}
       aria-label={label}
       className="flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
@@ -131,6 +135,7 @@ export function PlatePickerSheet({
 
   useEffect(() => {
     if (!open) return;
+    preloadPlateAssets(units);
     const baseIsRequired = loading.plateBase?.kind === 'fixed' || (isPlateMachine && !isUnknownMachineBase && baseWeightKg > 0);
     const effectiveBarWeightKg = isUnknownMachineBase
       ? 0
