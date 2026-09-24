@@ -409,3 +409,57 @@ test('bodyweight-modal: fallback initial value hierarchy when currentWeightKg is
   );
   assert.match(htmlDefault, /75/);
 });
+
+// ============================================================================
+// 8. GESTURE ARCHITECTURE & SEPARATION OF VISUAL MOTION (Prompt Block 19.5C)
+// ============================================================================
+
+test('gesture architecture: stationary gesture surface is decoupled from translated visual dial layer', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(WeightWidget, {
+      value: 72.5,
+      unit: 'kg',
+      label: 'Pesaje actual',
+      locale: 'es',
+      onChange: () => {}
+    })
+  );
+
+  // 1. Stationary gesture capture surface exists with data-testid="scale-gesture-surface"
+  assert.match(html, /data-testid="scale-gesture-surface"/);
+
+  // 2. Gesture capture surface is positioned fixed at inset-0, z-30, with touch-pan-y
+  assert.match(html, /data-testid="scale-gesture-surface"[^>]*class="[^"]*absolute inset-0 z-30[^"]*touch-pan-y[^"]*cursor-grab[^"]*"/);
+
+  // 3. Gesture capture surface explicitly enforces touchAction: pan-y inline
+  assert.match(html, /data-testid="scale-gesture-surface"[^>]*style="[^"]*touch-action:\s*pan-y[^"]*"/i);
+
+  // 4. Gesture capture surface is NOT translated by the MotionValue (does not have left: 50% or transform translateX)
+  const gestureSurfaceMatch = html.match(/<[^>]*data-testid="scale-gesture-surface"[^>]*>/);
+  assert.ok(gestureSurfaceMatch, 'Gesture surface element must be present');
+  assert.doesNotMatch(gestureSurfaceMatch[0], /left:\s*50%/i);
+  assert.doesNotMatch(gestureSurfaceMatch[0], /translateX/i);
+
+  // 5. Visual moving dial layer has pointer-events-none and aria-hidden="true"
+  assert.match(html, /aria-hidden="true"[^>]*class="[^"]*pointer-events-none absolute inset-0 select-none[^"]*"/);
+
+  // 6. Visual moving dial layer has left: 50% for centering springX
+  assert.match(html, /pointer-events-none absolute inset-0 select-none[^>]*style="[^"]*left:\s*50%[^"]*"/i);
+});
+
+test('gesture architecture: disabled mode disables pointer events on the gesture surface', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(WeightWidget, {
+      value: 72.5,
+      unit: 'kg',
+      label: 'Pesaje actual',
+      locale: 'es',
+      disabled: true,
+      onChange: () => {}
+    })
+  );
+
+  // When disabled, the gesture surface receives pointer-events-none and drops cursor-grab
+  assert.match(html, /data-testid="scale-gesture-surface"[^>]*class="[^"]*pointer-events-none[^"]*"/);
+  assert.doesNotMatch(html, /data-testid="scale-gesture-surface"[^>]*class="[^"]*cursor-grab[^"]*"/);
+});

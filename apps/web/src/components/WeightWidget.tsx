@@ -242,7 +242,9 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
   const handlePanStart = () => {
     if (disabled || isEditing) return;
     isDraggingRef.current = true;
-    dragStartX.current = x.get();
+    const currentTargetX = -safeValue * pixelsPerUnit;
+    x.set(currentTargetX);
+    dragStartX.current = currentTargetX;
   };
 
   const handlePan = (_: unknown, info: PanInfo) => {
@@ -455,12 +457,10 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
           </svg>
         </div>
 
-        {/* Sliding Arc Ticks Container */}
+        {/* Layer 1: Visual Moving Dial (pointer-events-none) */}
         <motion.div
-          onPanStart={handlePanStart}
-          onPan={handlePan}
-          onPanEnd={handlePanEnd}
-          className="absolute inset-0 cursor-grab active:cursor-grabbing"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 select-none"
           style={{ x: springX, left: '50%' }}
         >
           {ticks.map(({ val, isInteger, isHalf }) => (
@@ -475,6 +475,19 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
             />
           ))}
         </motion.div>
+
+        {/* Layer 2: Fixed Gesture Surface (captures all pointer/touch pan events) */}
+        <motion.div
+          data-testid="scale-gesture-surface"
+          aria-hidden="true"
+          onPanStart={handlePanStart}
+          onPan={handlePan}
+          onPanEnd={handlePanEnd}
+          className={`absolute inset-0 z-30 select-none touch-pan-y ${
+            disabled ? 'pointer-events-none' : 'cursor-grab active:cursor-grabbing'
+          }`}
+          style={{ touchAction: 'pan-y' }}
+        />
       </div>
     </div>
   );
