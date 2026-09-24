@@ -14,11 +14,13 @@ import { usePreferences } from '../lib/preferences-context.js';
 import { TranslationKey, useI18n } from '../lib/i18n.js';
 import {
   displayWeight,
+  formatDisplayWeight,
   parseDisplayWeight,
   usesUnitDefaults,
   weightsMatch,
   WEIGHT_UNIT_PRESETS
 } from '../lib/weight-units.js';
+import { resolvePlateAsset } from '../lib/plate-assets.js';
 import { useAuth } from '../lib/auth-context.js';
 import type { SettingsTarget } from '../features/profile/profile-surface-state.js';
 import { restoreProfileFromBackup } from '../features/profile/profile-backup.js';
@@ -94,10 +96,10 @@ export function SettingsSheet({
   const chooseTheme = (glassTheme: GlassTheme) => { const updated = { ...themeSettings, glassTheme }; setThemeSettings(updated); applyTheme(updated); };
   const chooseAccent = (accentColor: AccentColorId) => { const updated = { ...themeSettings, accentColor }; setThemeSettings(updated); applyTheme(updated); };
   const unitPreset = WEIGHT_UNIT_PRESETS[preferences.units];
-  const displayedPlateOptions = Array.from(new Set([
-    ...unitPreset.platesKg,
-    ...preferences.availablePlatesKg
-  ])).sort((a, b) => b - a);
+  const combinedPlates = [...unitPreset.platesKg, ...preferences.availablePlatesKg];
+  const displayedPlateOptions = combinedPlates
+    .filter((plate, index) => combinedPlates.findIndex((other) => weightsMatch(other, plate)) === index)
+    .sort((a, b) => b - a);
 
   const changeUnits = (units: UnitSystem) => {
     if (units === preferences.units) return;
@@ -237,7 +239,56 @@ export function SettingsSheet({
         <div className="space-y-2"><span className="text-xs font-bold text-text-secondary">{t('settings.rest')}</span><OptionPicker value={preferences.defaultRestSeconds} options={[60, 90, 120, 180].map((seconds) => ({ value: seconds, label: `${seconds}s` }))} onChange={(defaultRestSeconds) => updatePreferences({ defaultRestSeconds })} ariaLabel={t('settings.rest')} /></div>
         <div className="space-y-2"><SectionHeader title={t('settings.weightMode')} /><SegmentedControl value={preferences.weightInputMode} label={t('settings.weightMode')} options={[{ value: 'keyboard', label: t('settings.keyboard') }, { value: 'plates', label: t('settings.plates') }]} onChange={(weightInputMode) => updatePreferences({ weightInputMode })} /></div>
         <label className="block space-y-2"><span className="text-xs font-bold text-text-secondary">{t('settings.barWeight')}</span><div className="relative"><input type="number" inputMode="decimal" min="0" step="0.5" value={displayWeight(preferences.defaultBarWeightKg, preferences.units)} onChange={(event) => updatePreferences({ defaultBarWeightKg: parseDisplayWeight(Math.max(0, Number(event.target.value) || 0), preferences.units) })} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 pr-10 font-mono text-sm font-bold text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">{unitPreset.unit}</span></div></label>
-        <div className="space-y-2"><SectionHeader title={`${t('settings.availablePlates')} (${unitPreset.unit})`} /><div className="grid grid-cols-4 gap-2">{displayedPlateOptions.map((plate) => { const active = preferences.availablePlatesKg.some((value) => weightsMatch(value, plate)); return <button key={plate} type="button" aria-pressed={active} onClick={() => updatePreferences({ availablePlatesKg: active ? preferences.availablePlatesKg.filter((value) => !weightsMatch(value, plate)) : [...preferences.availablePlatesKg, plate].sort((a, b) => b - a) })} className={`min-h-11 rounded-ui-md border px-1 font-mono text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${active ? 'border-accent bg-accent-soft text-accent' : 'border-border-subtle bg-surface-input text-text-muted'}`}>{displayWeight(plate, preferences.units)}</button>; })}</div></div>
+        <div className="space-y-2">
+          <SectionHeader title={`${t('settings.availablePlates')} (${unitPreset.unit})`} />
+          <div className="grid grid-cols-4 gap-2">
+            {displayedPlateOptions.map((plate) => {
+              const active = preferences.availablePlatesKg.some((value) => weightsMatch(value, plate));
+              const assetUrl = resolvePlateAsset(plate, preferences.units);
+              const weightLabel = formatDisplayWeight(plate, preferences.units);
+              return (
+                <button
+                  key={plate}
+                  type="button"
+                  aria-label={weightLabel}
+                  aria-pressed={active}
+                  onClick={() =>
+                    updatePreferences({
+                      availablePlatesKg: active
+                        ? preferences.availablePlatesKg.filter((value) => !weightsMatch(value, plate))
+                        : [...preferences.availablePlatesKg, plate].sort((a, b) => b - a)
+                    })
+                  }
+                  className={`group relative flex aspect-square items-center justify-center rounded-ui-xl border p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                    active
+                      ? 'border-accent bg-accent-soft shadow-accent'
+                      : 'border-border-subtle bg-surface-input/50 hover:border-border-active'
+                  }`}
+                >
+                  {assetUrl ? (
+                    <img
+                      src={assetUrl}
+                      alt=""
+                      className={`size-full object-contain transition-opacity duration-150 ${
+                        active ? 'opacity-100' : 'opacity-60 group-hover:opacity-80'
+                      }`}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <span className="font-mono text-sm font-bold text-text-primary">
+                        {displayWeight(plate, preferences.units)}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase text-text-muted">
+                        {unitPreset.unit}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>}
 
       {panel === 'appearance' && <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface"><SettingsRow icon={<Sparkles className="size-4" />} label={t('settings.theme')} value={themeName(themeSettings.glassTheme)} onClick={() => setPanel('theme')} /><SettingsRow icon={<Palette className="size-4" />} label={t('settings.accent')} value={<span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ backgroundColor: ACCENT_PRESETS[themeSettings.accentColor].hex }} />{accentName(themeSettings.accentColor)}</span>} onClick={() => setPanel('accent')} /></div>}
