@@ -1,3 +1,4 @@
+import { poundsToKilograms } from '@light-weight/domain';
 import type { UnitSystem } from './preferences.js';
 import { displayWeight, weightsMatch } from './weight-units.js';
 
@@ -35,6 +36,25 @@ export const IMPERIAL_PLATE_ASSETS: readonly PlateAssetEntry[] = [
   { displayWeight: 5, assetPath: '/discos/lbs/5.png' },
   { displayWeight: 2.5, assetPath: '/discos/lbs/2,5.png' }
 ] as const;
+
+export const STANDARD_METRIC_PLATES_KG: readonly number[] = [25, 20, 15, 10, 5, 2.5, 1.25] as const;
+
+export const STANDARD_IMPERIAL_PLATES_KG: readonly number[] = [
+  poundsToKilograms(45),
+  poundsToKilograms(35),
+  poundsToKilograms(25),
+  poundsToKilograms(15),
+  poundsToKilograms(10),
+  poundsToKilograms(5),
+  poundsToKilograms(2.5)
+] as const;
+
+/**
+ * Returns the standard plate catalog weights (in kg) for the given unit system.
+ */
+export function getStandardPlateCatalogKg(units: UnitSystem): readonly number[] {
+  return units === 'imperial' ? STANDARD_IMPERIAL_PLATES_KG : STANDARD_METRIC_PLATES_KG;
+}
 
 /**
  * Resolves the public asset URL for a plate given its internal weight in kg

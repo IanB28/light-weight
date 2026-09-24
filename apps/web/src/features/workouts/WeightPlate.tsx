@@ -25,21 +25,21 @@ export function WeightPlate({ weightKg, units, count, addLabel, removeLabel, onA
         aria-label={addLabel}
         aria-pressed={selected}
         onClick={onAdd}
-        className={`relative flex size-20 items-center justify-center rounded-full border-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-          selected
-            ? 'border-accent shadow-accent'
-            : 'border-transparent hover:border-border-active/60'
+        className={`relative flex size-20 items-center justify-center rounded-full transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-95 ${
+          selected ? 'scale-[1.04]' : 'hover:scale-[1.02]'
         }`}
       >
         {assetUrl ? (
           <img
             src={assetUrl}
             alt=""
-            className="size-full object-contain pointer-events-none select-none p-1 transition-transform duration-150 active:scale-95"
+            className={`size-full object-contain pointer-events-none select-none transition-all duration-150 ${
+              selected ? 'drop-shadow-[0_0_8px_rgba(230,81,0,0.45)]' : 'drop-shadow-sm'
+            }`}
             draggable={false}
           />
         ) : (
-          <div className="flex size-[calc(100%-0.5rem)] flex-col items-center justify-center rounded-full border border-border-subtle bg-surface-input p-1">
+          <div className="flex size-full flex-col items-center justify-center rounded-full border border-border-subtle bg-surface-input p-2">
             <span className="font-mono text-base font-black tabular-nums leading-none text-text-primary">
               {displayWeight(weightKg, units)}
             </span>
@@ -51,7 +51,7 @@ export function WeightPlate({ weightKg, units, count, addLabel, removeLabel, onA
         {selected && (
           <span
             aria-hidden="true"
-            className="absolute -right-1 -top-1 flex min-h-6 min-w-6 items-center justify-center rounded-full border border-accent bg-surface-elevated px-1 font-mono text-[10px] font-black text-accent shadow-sm"
+            className="absolute -right-0.5 -top-0.5 flex min-h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 font-mono text-xs font-black text-white shadow-md"
           >
             {`×${count}`}
           </span>
@@ -62,7 +62,7 @@ export function WeightPlate({ weightKg, units, count, addLabel, removeLabel, onA
         disabled={!selected}
         aria-label={removeLabel}
         onClick={onRemove}
-        className="flex size-10 items-center justify-center rounded-full border border-border-subtle bg-surface text-text-secondary transition-colors hover:border-border-active hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-25"
+        className="flex size-9 items-center justify-center rounded-full border border-border-subtle bg-surface text-text-secondary transition-colors hover:border-border-active hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-25"
       >
         <Minus aria-hidden="true" className="size-4" />
       </button>

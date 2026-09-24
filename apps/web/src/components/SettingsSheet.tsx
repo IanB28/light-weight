@@ -20,7 +20,7 @@ import {
   weightsMatch,
   WEIGHT_UNIT_PRESETS
 } from '../lib/weight-units.js';
-import { resolvePlateAsset } from '../lib/plate-assets.js';
+import { getStandardPlateCatalogKg, resolvePlateAsset } from '../lib/plate-assets.js';
 import { useAuth } from '../lib/auth-context.js';
 import type { SettingsTarget } from '../features/profile/profile-surface-state.js';
 import { restoreProfileFromBackup } from '../features/profile/profile-backup.js';
@@ -71,7 +71,7 @@ export function SettingsSheet({
   onLogout
 }: SettingsSheetProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [panel, setPanel] = useState<SettingsPanel>('root');
+  const [panel, setPanel] = useState<SettingsPanel>(target);
   const [status, setStatus] = useState<StatusMessage>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -96,10 +96,7 @@ export function SettingsSheet({
   const chooseTheme = (glassTheme: GlassTheme) => { const updated = { ...themeSettings, glassTheme }; setThemeSettings(updated); applyTheme(updated); };
   const chooseAccent = (accentColor: AccentColorId) => { const updated = { ...themeSettings, accentColor }; setThemeSettings(updated); applyTheme(updated); };
   const unitPreset = WEIGHT_UNIT_PRESETS[preferences.units];
-  const combinedPlates = [...unitPreset.platesKg, ...preferences.availablePlatesKg];
-  const displayedPlateOptions = combinedPlates
-    .filter((plate, index) => combinedPlates.findIndex((other) => weightsMatch(other, plate)) === index)
-    .sort((a, b) => b - a);
+  const displayedPlateOptions = getStandardPlateCatalogKg(preferences.units);
 
   const changeUnits = (units: UnitSystem) => {
     if (units === preferences.units) return;

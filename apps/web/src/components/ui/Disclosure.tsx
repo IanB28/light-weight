@@ -69,7 +69,7 @@ export function Modal({ open, onClose, title, description, children, className }
     };
   }, [open]);
   if (!open) return null;
-  return createPortal(
+  const content = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xl"
       onMouseDown={(event) => {
@@ -99,9 +99,13 @@ export function Modal({ open, onClose, title, description, children, className }
         </div>
         {children}
       </div>
-    </div>,
-    document.body
+    </div>
   );
+
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return content;
+  }
+  return createPortal(content, document.body);
 }
 
 export function BottomSheet(props: ModalProps) {

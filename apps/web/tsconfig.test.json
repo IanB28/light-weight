@@ -84,6 +84,7 @@
     "src/components/CreateRoutineModal.tsx",
     "src/views/LibraryView.tsx",
     "src/views/WorkoutView.tsx",
+    "src/features/routines/RoutineDetailSheet.tsx",
     "src/features/routines/routine-creation.test.ts",
     "src/features/workouts/types.ts",
     "src/features/workouts/WeightPlate.tsx",

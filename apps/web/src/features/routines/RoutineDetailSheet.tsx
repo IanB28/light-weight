@@ -4,6 +4,7 @@ import { Exercise, Routine } from '@light-weight/domain';
 import { BottomSheet, Button, EmptyState } from '../../components/ui/index.js';
 import { useAuth } from '../../lib/auth-context.js';
 import { useI18n } from '../../lib/i18n.js';
+import { getExerciseImgUrl } from '../../lib/exercises.js';
 import { RoutineShareSheet } from './RoutineShareSheet.js';
 
 interface RoutineDetailSheetProps {
@@ -29,12 +30,24 @@ export function RoutineDetailSheet({ routine, exercises, onClose, onStart, onDel
         )}
         {routineExercises.length ? (
           <div className="divide-y divide-border-subtle overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input">
-            {routineExercises.map((exercise, index) => (
-              <div key={exercise.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft font-mono text-xs font-bold text-accent">{index + 1}</span>
-                <div className="min-w-0"><p className="truncate text-sm font-bold text-text-primary">{exercise.name}</p><p className="text-[11px] capitalize text-text-muted">{exercise.primaryMuscle} · {exercise.category}</p></div>
-              </div>
-            ))}
+            {routineExercises.map((exercise) => {
+              const imgUrl = getExerciseImgUrl(exercise);
+              return (
+                <div key={exercise.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
+                  <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted">
+                    {imgUrl ? (
+                      <img src={imgUrl} alt="" loading="lazy" className="size-full object-cover" />
+                    ) : (
+                      <Dumbbell className="size-4" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-text-primary">{exercise.name}</p>
+                    <p className="text-[11px] capitalize text-text-muted">{`${exercise.primaryMuscle} · ${exercise.category}`}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <EmptyState compact icon={<Dumbbell className="size-5" />} title="Esta rutina no tiene ejercicios disponibles" description="Puedes crear otra rutina desde la sección de planificación." />

@@ -5,14 +5,26 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
-import { poundsToKilograms } from '@light-weight/domain';
+import { poundsToKilograms, type Exercise, type Routine } from '@light-weight/domain';
 import {
   METRIC_PLATE_ASSETS,
   IMPERIAL_PLATE_ASSETS,
+  STANDARD_METRIC_PLATES_KG,
+  STANDARD_IMPERIAL_PLATES_KG,
+  getStandardPlateCatalogKg,
   resolvePlateAsset
 } from '../../lib/plate-assets.js';
 import { WeightPlate } from './WeightPlate.js';
-import { weightsMatch } from '../../lib/weight-units.js';
+import { weightsMatch, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
+import { SettingsSheet } from '../../components/SettingsSheet.js';
+import { PreferencesProvider } from '../../lib/preferences-context.js';
+import {
+  DEFAULT_APP_PREFERENCES,
+  PREFERENCES_STORAGE_KEY,
+  type AppPreferences
+} from '../../lib/preferences.js';
+import { AuthProvider } from '../../lib/auth-context.js';
+import { RoutineDetailSheet } from '../routines/RoutineDetailSheet.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,6 +83,16 @@ test('plate-assets: resolvePlateAsset resolves imperial plates correctly', () =>
   assert.equal(resolvePlateAsset(poundsToKilograms(2.5), 'imperial'), '/discos/lbs/2,5.png');
 });
 
+test('plate-assets: getStandardPlateCatalogKg provides active catalog without cross-unit contamination', () => {
+  const metric = getStandardPlateCatalogKg('metric');
+  assert.equal(metric.length, 7);
+  assert.deepEqual(metric, STANDARD_METRIC_PLATES_KG);
+
+  const imperial = getStandardPlateCatalogKg('imperial');
+  assert.equal(imperial.length, 7);
+  assert.deepEqual(imperial, STANDARD_IMPERIAL_PLATES_KG);
+});
+
 test('plate-assets: missing asset fallback returns null for unknown weights', () => {
   assert.equal(resolvePlateAsset(0, 'metric'), null);
   assert.equal(resolvePlateAsset(-5, 'metric'), null);
@@ -110,7 +132,7 @@ test('WeightPlate: renders real PNG image with object-contain and decorative alt
   assert.ok(html.includes('disabled=""'));
 });
 
-test('WeightPlate: selected state renders count badge and enables remove button', () => {
+test('WeightPlate: selected state renders count badge, subtle aura, and NO persistent colored border', () => {
   const html = ReactDOMServer.renderToString(
     React.createElement(WeightPlate, {
       weightKg: poundsToKilograms(45),
@@ -125,8 +147,19 @@ test('WeightPlate: selected state renders count badge and enables remove button'
 
   assert.ok(html.includes('src="/discos/lbs/45.png"'));
   assert.ok(html.includes('aria-pressed="true"'));
-  assert.ok(html.includes('border-accent'));
-  assert.ok(html.includes('×2'));
+
+  // CRITICAL REQUIREMENT 7: Persistent colored selected border / ring / frame is REMOVED
+  assert.ok(!html.includes('border-accent'), 'Selected plate button must NOT have persistent border-accent');
+  assert.ok(!html.includes('shadow-accent'), 'Selected plate button must NOT have heavy shadow-accent frame');
+
+  // CRITICAL REQUIREMENT 7: Keyboard focus indication remains preserved
+  assert.ok(html.includes('focus-visible:ring-accent'), 'Keyboard focus-visible ring must remain preserved');
+
+  // CRITICAL REQUIREMENT 8 & 9: Subtle aura/glow and scale feedback
+  assert.ok(html.includes('drop-shadow-[0_0_8px_rgba(230,81,0,0.45)]'), 'Subtle aura must highlight selected plate');
+  assert.ok(html.includes('scale-[1.04]'), 'Subtle scale must indicate selection');
+  assert.ok(html.includes('×2'), 'Count badge must display current count');
+
   // Remove button must not be disabled when count > 0
   assert.ok(!html.includes('disabled=""'));
   assert.ok(html.includes('aria-label="Remove 45 lb"'));
@@ -155,36 +188,149 @@ test('WeightPlate: missing asset fallback renders compact numeric representation
   assert.ok(html.includes('×1'));
 });
 
-test('SettingsSheet: available plates toggle logic adds/removes plates cleanly', () => {
-  const initialPlatesKg = [20, 10, 5];
-  const toggle = (plates: number[], target: number) => {
-    const active = plates.some((val) => weightsMatch(val, target));
-    return active
-      ? plates.filter((val) => !weightsMatch(val, target))
-      : [...plates, target].sort((a, b) => b - a);
+function renderSettingsWithPreferences(prefs: AppPreferences): string {
+  const store = new Map<string, string>();
+  store.set(PREFERENCES_STORAGE_KEY, JSON.stringify({ version: 1, data: prefs }));
+  (globalThis as unknown as { localStorage: unknown }).localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => store.set(k, v),
+    removeItem: (k: string) => store.delete(k),
+    clear: () => store.clear(),
+    key: () => null,
+    length: store.size
   };
 
-  // Remove existing
-  const afterRemove = toggle(initialPlatesKg, 10);
-  assert.deepEqual(afterRemove, [20, 5]);
+  return ReactDOMServer.renderToString(
+    React.createElement(AuthProvider, null,
+      React.createElement(PreferencesProvider, null,
+        React.createElement(SettingsSheet, {
+          isOpen: true,
+          target: 'training',
+          onClose: () => {},
+          profile: { displayName: 'Athlete', username: 'athlete', gender: 'male', units: prefs.units } as any,
+          onSaveProfile: () => {},
+          onLogout: () => {}
+        })
+      )
+    )
+  );
+}
 
-  // Add new
-  const afterAdd = toggle(afterRemove, 15);
-  assert.deepEqual(afterAdd, [20, 15, 5]);
+test('SettingsSheet: REAL metric → imperial → metric UI transition switches plate artwork cleanly', () => {
+  // 1. Initial Metric State
+  const metricPrefs: AppPreferences = {
+    ...DEFAULT_APP_PREFERENCES,
+    units: 'metric',
+    defaultBarWeightKg: 20,
+    availablePlatesKg: [...WEIGHT_UNIT_PRESETS.metric.platesKg]
+  };
+  const metricHtml = renderSettingsWithPreferences(metricPrefs);
 
-  // Toggle imperial plates with conversion
-  const imperialInitial = [poundsToKilograms(45), poundsToKilograms(25)];
-  const imperialTarget = poundsToKilograms(35);
-  const afterImperialAdd = toggle(imperialInitial, imperialTarget);
-  assert.equal(afterImperialAdd.length, 3);
-  assert.ok(afterImperialAdd.some((p) => weightsMatch(p, imperialTarget)));
+  // Metric artwork must be present
+  assert.ok(metricHtml.includes('/discos/kg/25.png'), 'Must render metric 25 kg');
+  assert.ok(metricHtml.includes('/discos/kg/20.png'), 'Must render metric 20 kg');
+  assert.ok(metricHtml.includes('/discos/kg/15.png'), 'Must render metric 15 kg');
+  assert.ok(metricHtml.includes('/discos/kg/10.png'), 'Must render metric 10 kg');
+  assert.ok(metricHtml.includes('/discos/kg/5.png'), 'Must render metric 5 kg');
+  assert.ok(metricHtml.includes('/discos/kg/2,5.png'), 'Must render metric 2.5 kg with comma');
+  assert.ok(metricHtml.includes('/discos/kg/1,25.png'), 'Must render metric 1.25 kg with comma');
+  // Imperial artwork must be completely absent in metric
+  assert.ok(!metricHtml.includes('/discos/lbs/'), 'Imperial images must NOT appear when units=metric');
+
+  // 2. Transition to Imperial State
+  const imperialPrefs: AppPreferences = {
+    ...DEFAULT_APP_PREFERENCES,
+    units: 'imperial',
+    defaultBarWeightKg: WEIGHT_UNIT_PRESETS.imperial.barWeightKg,
+    availablePlatesKg: [...WEIGHT_UNIT_PRESETS.imperial.platesKg]
+  };
+  const imperialHtml = renderSettingsWithPreferences(imperialPrefs);
+
+  // Imperial artwork must be present
+  assert.ok(imperialHtml.includes('/discos/lbs/45.png'), 'Must render imperial 45 lb');
+  assert.ok(imperialHtml.includes('/discos/lbs/35.png'), 'Must render imperial 35 lb');
+  assert.ok(imperialHtml.includes('/discos/lbs/25.png'), 'Must render imperial 25 lb');
+  assert.ok(imperialHtml.includes('/discos/lbs/15.png'), 'Must render imperial 15 lb');
+  assert.ok(imperialHtml.includes('/discos/lbs/10.png'), 'Must render imperial 10 lb');
+  assert.ok(imperialHtml.includes('/discos/lbs/5.png'), 'Must render imperial 5 lb');
+  assert.ok(imperialHtml.includes('/discos/lbs/2,5.png'), 'Must render imperial 2.5 lb with comma');
+  // Metric artwork must be completely absent in imperial
+  assert.ok(!imperialHtml.includes('/discos/kg/'), 'Metric images must NOT appear when units=imperial');
+
+  // 3. Transition Back to Metric State
+  const backToMetricHtml = renderSettingsWithPreferences(metricPrefs);
+  assert.ok(backToMetricHtml.includes('/discos/kg/25.png'));
+  assert.ok(backToMetricHtml.includes('/discos/kg/1,25.png'));
+  assert.ok(!backToMetricHtml.includes('/discos/lbs/'));
 });
 
-test('SettingsSheet: source code imports resolvePlateAsset and renders real plate assets', () => {
-  const settingsSource = fs.readFileSync(path.join(webRootDir, 'src/components/SettingsSheet.tsx'), 'utf8');
-  assert.ok(settingsSource.includes("import { resolvePlateAsset } from '../lib/plate-assets.js'"));
-  assert.ok(settingsSource.includes('resolvePlateAsset(plate, preferences.units)'));
-  assert.ok(settingsSource.includes('formatDisplayWeight(plate, preferences.units)'));
-  assert.ok(settingsSource.includes('aria-label={weightLabel}'));
-  assert.ok(settingsSource.includes('aria-pressed={active}'));
+test('RoutineDetailSheet: replaces numeric order with exercise thumbnail and fallback icon', () => {
+  const mockExercises: Exercise[] = [
+    {
+      id: 'ex-bench',
+      name: 'Press de banca con barra',
+      category: 'barbell',
+      primaryMuscle: 'chest',
+      img: '/exercises/bench.webp',
+      loading: {
+        mechanism: 'barbell',
+        loadMode: 'total',
+        supportsKeyboard: true,
+        supportsPlates: true,
+        supportsExternalLoad: true,
+        includeBarWeight: true
+      }
+    },
+    {
+      id: 'ex-pullup',
+      name: 'Dominadas',
+      category: 'bodyweight',
+      primaryMuscle: 'back',
+      loading: {
+        mechanism: 'bodyweight',
+        loadMode: 'added_weight',
+        supportsKeyboard: true,
+        supportsPlates: false,
+        supportsExternalLoad: true,
+        includeBarWeight: false
+      }
+    }
+  ];
+
+  const mockRoutine: Routine = {
+    id: 'routine-1',
+    userId: 'user-1',
+    name: 'Torso Fuerza',
+    exerciseIds: ['ex-bench', 'ex-pullup'],
+    description: 'Torso workout'
+  };
+
+  const html = ReactDOMServer.renderToString(
+    React.createElement(AuthProvider, null,
+      React.createElement(RoutineDetailSheet, {
+        routine: mockRoutine,
+        exercises: mockExercises,
+        onClose: () => {},
+        onStart: () => {},
+        onDelete: () => {}
+      })
+    )
+  );
+
+  // 1. Must render thumbnail image for exercise with img
+  assert.ok(html.includes('bench.webp"'), 'Must render exercise thumbnail img');
+  assert.ok(html.includes('object-cover'), 'Exercise image must use object-cover');
+
+  // 2. Must render neutral Dumbbell fallback for exercise without img
+  assert.ok(html.includes('lucide-dumbbell'), 'Must render Dumbbell icon fallback when no image');
+
+  // 3. Must NOT render numeric order indicators [1] or [2] in leading circles
+  assert.ok(!html.includes('bg-accent-soft font-mono text-xs font-bold text-accent">1<'), 'Order number 1 must NOT render');
+  assert.ok(!html.includes('bg-accent-soft font-mono text-xs font-bold text-accent">2<'), 'Order number 2 must NOT render');
+
+  // 4. Must render exercise name and muscle · category subtitle
+  assert.ok(html.includes('Press de banca con barra'));
+  assert.ok(html.includes('Dominadas'));
+  assert.ok(html.includes('chest · barbell'));
+  assert.ok(html.includes('back · bodyweight'));
 });
