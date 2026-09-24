@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Camera, Dumbbell, Pencil, UserRound, X } from 'lucide-react';
+import { Award, Camera, Dumbbell, Pencil, Shield, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
   calculateSessionTotalVolume,
   calculateWeeklyStreak,
+  evaluateRelativeStrength,
+  resolveBodyweightKgAtDate,
+  resolveExerciseStrengthTarget,
   Exercise,
   WorkoutSession,
-  BodyweightEntry
+  BodyweightEntry,
+  type StrengthRank
 } from '@light-weight/domain';
 import {
   calculateAllPersonalRecords,
@@ -20,6 +24,7 @@ import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../l
 import { usePreferences } from '../../lib/preferences-context.js';
 import { AppCard, Button, EmptyState, IconButton } from '../../components/ui/index.js';
 import { ProfileStrengthSection } from './ProfileStrengthSection.js';
+import { StrengthRankBadge } from '../../components/StrengthRankBadge.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { submitProfileDraft } from './profile-save.js';
 import { AvatarNormalizationError, normalizeAvatarFile } from './avatar-normalization.js';
@@ -89,12 +94,21 @@ export function ProfileView({
       records: Object.values(records)
         .sort((a, b) => b.est1Rm - a.est1Rm)
         .slice(0, 3)
-        .map((record) => ({
-          ...record,
-          name: resolveExerciseName(record.exerciseId, exercises, history, t('profile.exerciseUnavailable'))
-        }))
+        .map((record) => {
+          const exercise = exercisesById[record.exerciseId] || findExerciseById(record.exerciseId);
+          const targetMuscle = exercise ? (resolveExerciseStrengthTarget(exercise) ?? exercise.primaryMuscle) : null;
+          const sessionBw = resolveBodyweightKgAtDate(bodyweightEntries, record.date) ?? (bodyweightKg ?? null);
+          const evaluation = targetMuscle && sessionBw && profile.gender
+            ? evaluateRelativeStrength(targetMuscle, record.est1Rm, sessionBw, profile.gender)
+            : undefined;
+          return {
+            ...record,
+            name: resolveExerciseName(record.exerciseId, exercises, history, t('profile.exerciseUnavailable')),
+            rank: evaluation?.rank ?? null
+          };
+        })
     };
-  }, [bodyweightEntries, exercises, history, t]);
+  }, [bodyweightEntries, bodyweightKg, exercises, history, profile.gender, t]);
 
   const openEdit = () => {
     setDraft(createProfileDraft(profile, displayName));
@@ -177,7 +191,7 @@ export function ProfileView({
             >
               <X aria-hidden="true" className="size-5" />
             </IconButton>
-            <h1 className="truncate text-lg font-extrabold text-text-primary outline-none">
+            <h1 className="truncate text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary outline-none">
               {t('profile.edit')}
             </h1>
           </div>
@@ -232,7 +246,7 @@ export function ProfileView({
               <X aria-hidden="true" className="size-5" />
             </IconButton>
           )}
-          <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-lg font-extrabold tracking-tight text-text-primary outline-none">
+          <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary outline-none">
             {t('profile.title')}
           </h1>
         </div>
@@ -285,9 +299,9 @@ export function ProfileView({
               return (
                 <div
                   key={record.exerciseId}
-                  className="flex min-h-14 items-center gap-3 border-b border-border-subtle px-3 py-2 last:border-b-0"
+                  className="flex min-h-14 items-center gap-2.5 border-b border-border-subtle px-3 py-2 last:border-b-0 sm:gap-3"
                 >
-                  {/* LEFT: Compact Exercise Badge / Thumbnail */}
+                  {/* ZONE 1: THUMBNAIL (Fixed size, left) */}
                   <span
                     aria-hidden="true"
                     data-testid="pr-exercise-badge"
@@ -305,15 +319,39 @@ export function ProfileView({
                     )}
                   </span>
 
-                  {/* CENTER: Exercise Name (Flexible, single-line truncation) */}
-                  <span className="min-w-0 flex-1 truncate text-xs font-bold text-text-primary sm:text-sm">
+                  {/* ZONE 2: EXERCISE NAME (Flexible center, truncates cleanly) */}
+                  <span
+                    data-testid="pr-exercise-name"
+                    className="min-w-0 flex-1 truncate text-xs font-bold text-text-primary sm:text-sm"
+                  >
                     {record.name}
                   </span>
 
-                  {/* RIGHT: PR Weight (Right-aligned, tabular-nums) */}
-                  <span className="shrink-0 text-right text-xs font-bold tabular-nums text-accent sm:text-sm">
+                  {/* ZONE 3: FIXED RANK BADGE SLOT (Fixed reserved slot before PR weight) */}
+                  <div
+                    data-testid="pr-rank-slot"
+                    className="flex w-7 shrink-0 items-center justify-center"
+                  >
+                    {record.rank ? (
+                      <StrengthRankBadge rank={record.rank} size="xs" showGlow={false} />
+                    ) : (
+                      <span
+                        data-testid="pr-rank-placeholder"
+                        aria-hidden="true"
+                        className="flex size-5 items-center justify-center rounded-full text-text-muted/40"
+                      >
+                        <Shield className="size-3.5" />
+                      </span>
+                    )}
+                  </div>
+
+                  {/* ZONE 4: FIXED/STABLE PR WEIGHT SLOT (Right-aligned, tabular-nums) */}
+                  <div
+                    data-testid="pr-weight-slot"
+                    className="w-20 shrink-0 text-right text-xs font-bold tabular-nums text-accent sm:w-24 sm:text-sm"
+                  >
                     {formatDisplayWeight(record.est1Rm, preferences.units)}
-                  </span>
+                  </div>
                 </div>
               );
             })}

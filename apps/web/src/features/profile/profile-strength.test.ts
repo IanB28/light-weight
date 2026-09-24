@@ -331,7 +331,7 @@ test('ProfileView: renders ProfileStrengthSection within profile summary', () =>
   assert.ok(html.includes('Sin datos de fuerza'));
 });
 
-test('ProfileView: Personal Records renders compact horizontal row [badge] [name] [PR weight]', () => {
+test('ProfileView: Personal Records renders compact horizontal 4-zone row [thumb] [name] [rank] [PR weight]', () => {
   const mockSession: WorkoutSession = {
     id: 'ws-1',
     userId: 'u1',
@@ -359,13 +359,51 @@ test('ProfileView: Personal Records renders compact horizontal row [badge] [name
 
   // Section heading
   assert.ok(html.includes('Récords personales'));
-  // Compact exercise badge/icon container
+  // Zone 1: Compact exercise badge/icon thumbnail container
   assert.ok(html.includes('data-testid="pr-exercise-badge"'), 'Each PR row must include a compact exercise badge container');
-  // Exercise name in flexible center zone
+  // Zone 2: Exercise name in flexible center zone
+  assert.ok(html.includes('data-testid="pr-exercise-name"'), 'Each PR row must include flexible exercise name container');
   assert.ok(html.includes('Bench Press'));
-  // Formatted PR weight in right zone
+  // Zone 3: Fixed rank badge slot with strength rank badge
+  assert.ok(html.includes('data-testid="pr-rank-slot"'), 'Each PR row must include fixed rank slot');
+  assert.ok(html.includes('w-7 shrink-0'), 'Rank slot must have fixed w-7 shrink-0 geometry');
+  assert.ok(html.includes('/ranks/maestro.png') || html.includes('Maestro'), 'Bench press at 100x5 (80kg male) must render calculated strength rank badge');
+  // Zone 4: Formatted PR weight in right zone
+  assert.ok(html.includes('data-testid="pr-weight-slot"'), 'Each PR row must include fixed PR weight slot');
+  assert.ok(html.includes('w-20 shrink-0 text-right'), 'PR weight slot must have fixed/stable width with text-right');
   assert.ok(html.includes('tabular-nums'), 'PR weight must format with tabular-nums');
   assert.ok(html.includes('112.5 kg') || html.includes('113 kg') || html.includes('kg'), 'PR weight with unit must be rendered');
+
+  // DOM ordering: thumb < name < rank < weight
+  const thumbIdx = html.indexOf('data-testid="pr-exercise-badge"');
+  const nameIdx = html.indexOf('data-testid="pr-exercise-name"');
+  const rankIdx = html.indexOf('data-testid="pr-rank-slot"');
+  const weightIdx = html.indexOf('data-testid="pr-weight-slot"');
+  assert.ok(thumbIdx < nameIdx, 'Thumbnail must precede name');
+  assert.ok(nameIdx < rankIdx, 'Name must precede rank badge');
+  assert.ok(rankIdx < weightIdx, 'Rank badge must precede PR weight');
+});
+
+test('ProfileView: Profile header title matches ViewHeader scale', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(ProfileView, {
+        profile: { ...DEFAULT_USER_PROFILE, gender: 'male' },
+        userInfo: { id: 'u1', name: 'Alex', email: 'alex@example.com' },
+        history: [],
+        exercises: [],
+        onSave: () => {}
+      })
+    )
+  );
+
+  assert.ok(html.includes('id="profile-screen-title"'), 'Header must render profile-screen-title');
+  assert.ok(html.includes('text-[clamp(1.5rem,6.5vw,1.95rem)]'), 'Header title must use top-level ViewHeader fluid scale');
+  assert.ok(html.includes('font-extrabold'), 'Header title must use font-extrabold');
+  assert.ok(html.includes('leading-tight'), 'Header title must use leading-tight');
+  assert.ok(html.includes('tracking-tight'), 'Header title must use tracking-tight');
 });
 
 test('ProfileView: Personal Records renders empty state when no records exist', () => {

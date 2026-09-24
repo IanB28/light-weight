@@ -82,7 +82,7 @@ export function ProfileScreen({
               >
                 <X aria-hidden="true" className="size-5" />
               </IconButton>
-              <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-lg font-extrabold tracking-tight text-text-primary outline-none">{title}</h1>
+              <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary outline-none">{title}</h1>
             </div>
           </header>
 
