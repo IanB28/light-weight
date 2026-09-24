@@ -272,9 +272,13 @@ test('typography hardening: primary readout uses font-sans and tabular-nums, nev
   assert.match(html, /tabular-nums/);
   // Spanish formatted decimal
   assert.match(html, /72,5/);
+  // Primary readout scaled down to 28-36px range (text-3xl sm:text-4xl), not dominating text-5xl/text-6xl
+  assert.match(html, /text-3xl sm:text-4xl/);
+  assert.doesNotMatch(html, /text-5xl/);
+  assert.doesNotMatch(html, /text-6xl/);
 });
 
-test('true scale dial structure: renders stationary needle indicator, curved aperture, and removes analytics pill', () => {
+test('true scale dial structure: renders stationary needle indicator, compact centered aperture, and removes analytics pill', () => {
   const html = ReactDOMServer.renderToStaticMarkup(
     React.createElement(WeightWidget, {
       value: 72.5,
@@ -288,7 +292,10 @@ test('true scale dial structure: renders stationary needle indicator, curved ape
 
   // Stationary physical scale needle indicator (needle svg and luminous bead)
   assert.match(html, /M 5 2 L 9 36 L 1 36 Z/);
-  assert.match(html, /size-1\.5 rounded-full bg-accent/);
+  assert.match(html, /rounded-full bg-accent/);
+
+  // Compact centered dial aperture with responsive max-width constraint
+  assert.match(html, /max-w-\[270px\] sm:max-w-\[285px\] mx-auto/);
 
   // Decorative analytics pill ±0.1 removed from header
   assert.doesNotMatch(html, /±0\.1 kg/);
@@ -462,4 +469,35 @@ test('gesture architecture: disabled mode disables pointer events on the gesture
   // When disabled, the gesture surface receives pointer-events-none and drops cursor-grab
   assert.match(html, /data-testid="scale-gesture-surface"[^>]*class="[^"]*pointer-events-none[^"]*"/);
   assert.doesNotMatch(html, /data-testid="scale-gesture-surface"[^>]*class="[^"]*cursor-grab[^"]*"/);
+});
+
+// ============================================================================
+// 9. VISUAL COMPOSITION ALIGNMENT CONTRACT (Prompt Block 19.5D)
+// ============================================================================
+
+test('visual composition: dial numbers are restrained and aperture is compact & centered', () => {
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(WeightWidget, {
+      value: 72.5,
+      unit: 'kg',
+      label: 'Pesaje actual',
+      locale: 'es',
+      onChange: () => {}
+    })
+  );
+
+  // 1. Dial numerals use restrained font size (~26px base) with font-extrabold
+  assert.match(html, /text-\[26px\] font-extrabold text-text-primary/);
+
+  // 2. Dial numerals do NOT use giant Watermelon classes
+  assert.doesNotMatch(html, /text-6xl/);
+  assert.doesNotMatch(html, /text-7xl/);
+  assert.doesNotMatch(html, /text-8xl/);
+
+  // 3. Compact scale aperture with taller relative height and constrained max-width
+  assert.match(html, /h-\[185px\] sm:h-\[195px\]/);
+  assert.match(html, /max-w-\[270px\] sm:max-w-\[285px\] mx-auto/);
+
+  // 4. Primary readout touch target maintains minimum 44px
+  assert.match(html, /min-h-\[44px\]/);
 });

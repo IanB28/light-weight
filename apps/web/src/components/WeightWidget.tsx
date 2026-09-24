@@ -130,32 +130,36 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
   // Curved vertical offset (arc trajectory: downward offset as distance increases)
   const yOffset = useTransform(
     distance,
-    [0, pixelsPerUnit * 0.5, pixelsPerUnit, pixelsPerUnit * 1.5, pixelsPerUnit * 2, pixelsPerUnit * 2.5, pixelsPerUnit * 3],
-    [0, 2, 7, 16, 28, 44, 64]
+    [0, pixelsPerUnit * 0.5, pixelsPerUnit, pixelsPerUnit * 1.5, pixelsPerUnit * 2, pixelsPerUnit * 2.5],
+    [0, 3, 12, 26, 46, 72]
   );
 
   // Rotation: tilts outward/inward along arc
   const rotate = useTransform(signedOffset, (d: number) => {
-    return (d / pixelsPerUnit) * 8.5; // degrees
+    return (d / pixelsPerUnit) * 9.0; // degrees
   });
 
   // Opacity: center strongest, fading outward
   const opacity = useTransform(
     distance,
-    [0, pixelsPerUnit * 1.2, pixelsPerUnit * 2.2, pixelsPerUnit * 3],
-    [1, 0.85, 0.35, 0]
+    [0, pixelsPerUnit * 1.0, pixelsPerUnit * 1.8, pixelsPerUnit * 2.5],
+    [1, 0.85, 0.4, 0]
   );
 
-  // Scale: center 1, neighbors slightly smaller
+  // Scale: Center ~32px, near neighbors ~26px, outer neighbors ~20px
+  // Base font size is 26px (text-[26px]).
+  // At d=0: scale=1.23 => 32px
+  // At d=80: scale=1.00 => 26px
+  // At d=160: scale=0.77 => 20px
   const scale = useTransform(
     distance,
-    [0, pixelsPerUnit * 2],
-    [1, 0.86]
+    [0, pixelsPerUnit, pixelsPerUnit * 2],
+    [1.23, 1.0, 0.77]
   );
 
   return (
     <motion.div
-      className="absolute top-2.5 flex flex-col items-center pointer-events-none"
+      className="absolute top-5 sm:top-6 flex flex-col items-center pointer-events-none"
       style={{
         left: itemX,
         x: '-50%',
@@ -163,26 +167,26 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
         rotate: shouldReduceMotion ? 0 : rotate,
         opacity,
         scale,
-        transformOrigin: '50% 115px'
+        transformOrigin: '50% 160px'
       }}
     >
       {/* Number label for integer values */}
       {isInteger ? (
-        <span className="font-sans text-xs sm:text-sm font-bold text-text-muted tabular-nums select-none mb-1">
+        <span className="font-sans text-[26px] font-extrabold text-text-primary tabular-nums select-none leading-none tracking-tight mb-2.5">
           {Math.round(val)}
         </span>
       ) : (
-        <div className="h-4 sm:h-5 mb-1" />
+        <div className="h-[26px] mb-2.5" />
       )}
 
       {/* Tick mark */}
       <div
         className={`rounded-full transition-colors ${
           isInteger
-            ? 'h-8 w-[2px] bg-text-secondary'
+            ? 'h-7 w-[2px] bg-text-secondary'
             : isHalf
-              ? 'h-5 w-[1.5px] bg-text-muted/60'
-              : 'h-3 w-[1px] bg-text-muted/30'
+              ? 'h-4 w-[1.5px] bg-text-muted/60'
+              : 'h-2.5 w-[1px] bg-text-muted/30'
         }`}
       />
     </motion.div>
@@ -386,15 +390,15 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
         </span>
       </div>
 
-      {/* Central Value (Dominant Digital Measurement Readout) */}
-      <div className="my-1 sm:my-2 flex min-h-16 items-center justify-center">
+      {/* Central Value (Unified Precise Readout) */}
+      <div className="my-0.5 sm:my-1 flex items-center justify-center">
         {isEditing ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
               commitDirectInput();
             }}
-            className="flex items-baseline justify-center gap-1.5"
+            className="flex min-h-[44px] items-baseline justify-center gap-1"
           >
             <input
               id={inputId}
@@ -410,9 +414,9 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
                   setIsEditing(false);
                 }
               }}
-              className="w-36 border-b-2 border-accent bg-transparent pb-0.5 text-center font-sans text-5xl sm:text-6xl font-extrabold text-text-primary tabular-nums tracking-tight outline-none"
+              className="w-28 sm:w-32 border-b-2 border-accent bg-transparent pb-0.5 text-center font-sans text-3xl sm:text-4xl font-extrabold text-text-primary tabular-nums tracking-tight outline-none"
             />
-            <span className="font-sans text-lg sm:text-xl font-bold text-text-muted">{unit}</span>
+            <span className="font-sans text-base sm:text-lg font-bold text-text-muted">{unit}</span>
           </form>
         ) : (
           <button
@@ -422,27 +426,27 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
               setIsEditing(true);
             }}
             title="Toca para editar con teclado"
-            className="group flex items-baseline justify-center gap-1.5 rounded-lg px-2 py-0.5 transition-transform active:scale-95 cursor-pointer"
+            className="group flex min-h-[44px] items-baseline justify-center gap-1 rounded-xl px-3 py-1 transition-transform active:scale-95 cursor-pointer"
           >
-            <span className="font-sans text-5xl sm:text-6xl font-extrabold text-text-primary tabular-nums tracking-tight group-hover:text-accent transition-colors">
+            <span className="font-sans text-3xl sm:text-4xl font-extrabold text-text-primary tabular-nums tracking-tight group-hover:text-accent transition-colors">
               {formatWeightValue(safeValue, locale)}
             </span>
-            <span className="font-sans text-lg sm:text-xl font-bold text-text-muted">{unit}</span>
+            <span className="font-sans text-base sm:text-lg font-bold text-text-muted">{unit}</span>
           </button>
         )}
       </div>
 
-      {/* Curved Scale Dial Aperture */}
-      <div className="relative h-28 sm:h-32 w-full overflow-hidden rounded-ui-xl border border-border-subtle/50 bg-surface-input/40 shadow-inner select-none touch-pan-y">
+      {/* Curved Scale Dial Aperture (Compact Centered Scale Body) */}
+      <div className="relative mt-1 h-[185px] sm:h-[195px] w-full max-w-[270px] sm:max-w-[285px] mx-auto overflow-hidden rounded-2xl border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
         {/* Edge Gradient Fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-surface-elevated/90 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-surface-elevated/90 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-12 bg-gradient-to-r from-surface-elevated/95 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-12 bg-gradient-to-l from-surface-elevated/95 to-transparent" />
 
         {/* Fixed Scale Indicator (Stationary Needle) */}
-        <div className="pointer-events-none absolute bottom-2.5 inset-x-0 z-20 flex flex-col items-center">
-          <div className="size-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] mb-0.5" />
+        <div className="pointer-events-none absolute bottom-3 inset-x-0 z-20 flex flex-col items-center">
+          <div className="size-2 rounded-full bg-accent shadow-[0_0_8px_var(--color-accent,var(--accent-glow))] mb-1" />
           <svg
-            className="h-5 w-2 text-accent"
+            className="h-6 w-2.5 text-accent"
             viewBox="0 0 10 36"
             fill="none"
             preserveAspectRatio="none"

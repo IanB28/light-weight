@@ -110,7 +110,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
 
   return (
     <BottomSheet open={isOpen} onClose={onClose} title={t('weight.title')} className="sm:max-w-sm">
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         {/* Mode switcher */}
         <div className="p-1 rounded-2xl glass-subcard grid grid-cols-2 gap-1 text-xs">
           <button
