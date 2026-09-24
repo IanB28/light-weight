@@ -463,12 +463,12 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       )}
 
       {mode === 'strength' && (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-ui-lg border border-border-subtle bg-surface-input p-2 text-[10px] font-mono shadow-sm min-[380px]:grid-cols-3">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-2 rounded-ui-lg border border-border-subtle bg-surface-input p-2 text-[9.5px] font-sans shadow-sm min-[380px]:grid-cols-3 sm:text-[10px]">
           {(Object.keys(STRENGTH_RANK_VISUALS) as StrengthRank[]).map((r) => {
             return (
               <div key={r} className="flex min-w-0 items-center gap-1.5 text-text-secondary" title={t(`ranks.${r}`)}>
                 <StrengthRankBadge rank={r} size="xs" />
-                <span className="leading-snug break-words min-w-0">{t(`ranks.${r}`)}</span>
+                <span className="leading-tight break-words min-w-0 font-medium">{t(`ranks.${r}`)}</span>
               </div>
             );
           })}
