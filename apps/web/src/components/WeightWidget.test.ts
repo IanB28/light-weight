@@ -11,6 +11,12 @@ import {
   getBodyweightBounds,
   MIN_TECHNICAL_WEIGHT_KG,
   MAX_TECHNICAL_WEIGHT_KG,
+  GESTURE_PIXELS_PER_UNIT,
+  REFERENCE_DIAL_WIDTH,
+  REFERENCE_DIAL_HEIGHT,
+  DIAL_ASPECT_RATIO,
+  getVisualPixelsPerUnit,
+  getBaseNumeralPx,
   WeightWidget
 } from './WeightWidget.js';
 import { BodyweightModal } from './BodyweightModal.js';
@@ -294,7 +300,7 @@ test('true scale dial structure: renders stationary needle indicator, compact ce
   assert.match(html, /M 5 2 L 8 64 L 2 64 Z/);
   assert.match(html, /<circle cx="5" cy="5" r="3"/);
   assert.match(html, /rounded-full bg-accent/);
-  assert.match(html, /bottom-0 sm:bottom-0\.5/);
+  assert.match(html, /bottom-0/);
 
   // Outer "Pesaje actual" card has strongly rounded corners
   assert.match(html, /rounded-\[32px\] sm:rounded-\[36px\]/);
@@ -373,8 +379,8 @@ test('bodyweight-modal: header/title hierarchy matches intended sheet styling', 
   assert.doesNotMatch(html, />-0\.5</);
   assert.doesNotMatch(html, />\+0\.5</);
   assert.match(html, /72,5/);
-  assert.match(html, /min-h-\[66vh\]/);
-  assert.match(html, /max-h-\[72vh\]/);
+  assert.match(html, /min-h-\[66dvh\]/);
+  assert.match(html, /max-h-\[90dvh\]/);
 });
 
 test('bodyweight-modal: renders WeightWidget in goal mode with currentGoal', () => {
@@ -494,7 +500,8 @@ test('visual composition: dial numbers are restrained and aperture is compact & 
   );
 
   // 1. Dial numerals use restrained font size (~26px base) with font-extrabold and origin-bottom for proximity scaling
-  assert.match(html, /text-\[26px\] font-extrabold text-text-primary/);
+  assert.match(html, /font-extrabold text-text-primary/);
+  assert.match(html, /font-size:\s*26px/i);
   assert.match(html, /origin-bottom inline-block/);
 
   // 2. Dial numerals do NOT use giant Watermelon classes
@@ -505,13 +512,56 @@ test('visual composition: dial numbers are restrained and aperture is compact & 
   // 3. Outer "Pesaje actual" container is visibly rounded
   assert.match(html, /rounded-\[32px\] sm:rounded-\[36px\]/);
 
-  // 4. Compact scale aperture with proportional height, rounded corners, and full-width card layout
-  assert.match(html, /h-\[235px\] min-\[360px\]:h-\[245px\]/);
+  // 4. Compact scale aperture with source-of-truth aspect ratio and rounded corners
+  assert.match(html, /aspect-ratio:\s*322\s*\/\s*245/i);
   assert.match(html, /rounded-\[28px\] sm:rounded-\[32px\]/);
 
-  // 5. Dial ticks and numbers lowered into the dial body
-  assert.match(html, /top-\[76px\] sm:top-\[80px\]/);
+  // 5. Dial ticks and numbers positioned into the dial body
+  assert.match(html, /top:\s*76px/i);
 
   // 6. Primary readout touch target maintains minimum 44px
   assert.match(html, /min-h-\[44px\]/);
+});
+
+// ============================================================================
+// 10. RESPONSIVE GEOMETRY HELPERS (Prompt Section 5, 9, 10, 16, 30)
+// ============================================================================
+
+test('responsive geometry: visualPixelsPerUnit scales proportionally with dial width', () => {
+  // Reference: 322px dial -> exactly 80 visual pixels per 1.0 unit
+  assert.equal(Math.round(getVisualPixelsPerUnit(REFERENCE_DIAL_WIDTH)), 80);
+
+  // Smaller dial (e.g. 252px) -> proportionally smaller visual spacing (~62.6px)
+  const smallPPU = getVisualPixelsPerUnit(252);
+  assert.ok(smallPPU < 80);
+  assert.ok(Math.abs(smallPPU - 252 * (80 / 322)) < 0.01);
+
+  // Larger dial (e.g. 370px) -> proportionally larger visual spacing (~91.9px)
+  const largePPU = getVisualPixelsPerUnit(370);
+  assert.ok(largePPU > 80);
+  assert.ok(Math.abs(largePPU - 370 * (80 / 322)) < 0.01);
+
+  // Invalid / zero fallback
+  assert.equal(getVisualPixelsPerUnit(0), GESTURE_PIXELS_PER_UNIT);
+  assert.equal(getVisualPixelsPerUnit(-10), GESTURE_PIXELS_PER_UNIT);
+});
+
+test('responsive geometry: GESTURE_PIXELS_PER_UNIT remains fixed at 80', () => {
+  assert.equal(GESTURE_PIXELS_PER_UNIT, 80);
+});
+
+test('responsive geometry: DIAL_ASPECT_RATIO maintains 322 / 245 ratio', () => {
+  assert.equal(REFERENCE_DIAL_WIDTH, 322);
+  assert.equal(REFERENCE_DIAL_HEIGHT, 245);
+  assert.ok(Math.abs(DIAL_ASPECT_RATIO - (322 / 245)) < 0.0001);
+  assert.ok(DIAL_ASPECT_RATIO >= 1.29 && DIAL_ASPECT_RATIO <= 1.34);
+});
+
+test('responsive geometry: getBaseNumeralPx provides restrained font sizing', () => {
+  // 322px dial -> 26px base numeral
+  assert.equal(getBaseNumeralPx(322), 26);
+  // Compact dial (e.g. 250px) -> restrained minimum clamp (>= 21px)
+  assert.ok(getBaseNumeralPx(250) >= 21);
+  // Large dial (e.g. 400px) -> restrained maximum clamp (<= 28px)
+  assert.ok(getBaseNumeralPx(400) <= 28);
 });

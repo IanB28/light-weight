@@ -11,6 +11,29 @@ import {
 import { Scale, Target } from 'lucide-react';
 import { displayWeight } from '../lib/weight-units.js';
 
+export const GESTURE_PIXELS_PER_UNIT = 80;
+export const REFERENCE_DIAL_WIDTH = 322;
+export const REFERENCE_DIAL_HEIGHT = 245;
+export const DIAL_ASPECT_RATIO = REFERENCE_DIAL_WIDTH / REFERENCE_DIAL_HEIGHT; // ~1.3142857
+
+/**
+ * Derives visual spacing per 1.0 unit from the actual dial aperture width.
+ * Reference: 322px dial -> 80px visual spacing per 1.0 unit (~8px per 0.1).
+ */
+export function getVisualPixelsPerUnit(dialWidth: number): number {
+  if (!Number.isFinite(dialWidth) || dialWidth <= 0) return GESTURE_PIXELS_PER_UNIT;
+  return dialWidth * (GESTURE_PIXELS_PER_UNIT / REFERENCE_DIAL_WIDTH);
+}
+
+/**
+ * Derives restrained responsive numeral size from dial width.
+ * Reference: 322px dial -> 26px base numeral.
+ */
+export function getBaseNumeralPx(dialWidth: number): number {
+  if (!Number.isFinite(dialWidth) || dialWidth <= 0) return 26;
+  return Math.min(28, Math.max(21, Math.round(dialWidth * (26 / REFERENCE_DIAL_WIDTH))));
+}
+
 export const MIN_TECHNICAL_WEIGHT_KG = 1;
 export const MAX_TECHNICAL_WEIGHT_KG = 500;
 
@@ -110,6 +133,8 @@ interface DialTickItemProps {
   isInteger: boolean;
   isHalf: boolean;
   pixelsPerUnit: number;
+  geometryScale: number;
+  baseNumeralPx: number;
   scrollX: MotionValue<number>;
   shouldReduceMotion: boolean | null;
 }
@@ -119,6 +144,8 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
   isInteger,
   isHalf,
   pixelsPerUnit,
+  geometryScale,
+  baseNumeralPx,
   scrollX,
   shouldReduceMotion
 }) => {
@@ -127,11 +154,11 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
   const distance = useTransform(scrollX, (s: number) => Math.abs(s + itemX));
   const signedOffset = useTransform(scrollX, (s: number) => s + itemX);
 
-  // Curved vertical offset (arc trajectory: downward offset as distance increases)
+  // Curved vertical offset (arc trajectory: downward offset as distance increases, scaled by geometryScale)
   const yOffset = useTransform(
     distance,
     [0, pixelsPerUnit * 0.5, pixelsPerUnit, pixelsPerUnit * 1.5, pixelsPerUnit * 2, pixelsPerUnit * 2.5],
-    [0, 5, 22, 50, 88, 136]
+    [0, 5 * geometryScale, 22 * geometryScale, 50 * geometryScale, 88 * geometryScale, 136 * geometryScale]
   );
 
   // Rotation: tilts outward/inward along arc
@@ -164,23 +191,33 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
     [1, 0.85, 0.45, 0]
   );
 
+  const topOffset = Math.round(76 * geometryScale);
+  const transformOriginY = Math.round(160 * geometryScale);
+  const integerTickH = Math.round(40 * geometryScale);
+  const halfTickH = Math.round(24 * geometryScale);
+  const subTickH = Math.round(14 * geometryScale);
+  const numeralMarginB = Math.round(8 * geometryScale);
+
   return (
     <motion.div
-      className="absolute top-[76px] sm:top-[80px] flex flex-col items-center pointer-events-none"
+      className="absolute flex flex-col items-center pointer-events-none"
       style={{
+        top: `${topOffset}px`,
         left: itemX,
         x: '-50%',
         y: shouldReduceMotion ? 0 : yOffset,
         rotate: shouldReduceMotion ? 0 : rotate,
         opacity,
-        transformOrigin: '50% 160px'
+        transformOrigin: `50% ${transformOriginY}px`
       }}
     >
       {/* Number label for integer values with proximity scaling */}
       {isInteger ? (
         <motion.span
-          className="font-sans text-[26px] font-extrabold text-text-primary tabular-nums select-none leading-none tracking-tight mb-2 origin-bottom inline-block"
+          className="font-sans font-extrabold text-text-primary tabular-nums select-none leading-none tracking-tight origin-bottom inline-block"
           style={{
+            fontSize: `${baseNumeralPx}px`,
+            marginBottom: `${numeralMarginB}px`,
             scale: shouldReduceMotion ? 1 : numberScale,
             opacity: numberOpacity
           }}
@@ -188,17 +225,21 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
           {Math.round(val)}
         </motion.span>
       ) : (
-        <div className="h-[26px] mb-2" />
+        <div style={{ height: `${baseNumeralPx}px`, marginBottom: `${numeralMarginB}px` }} />
       )}
 
       {/* Tick mark */}
       <div
+        style={{
+          height: `${isInteger ? integerTickH : isHalf ? halfTickH : subTickH}px`,
+          width: `${isInteger ? 2 : isHalf ? 1.5 : 1}px`
+        }}
         className={`rounded-full transition-colors ${
           isInteger
-            ? 'h-10 w-[2px] bg-text-secondary'
+            ? 'bg-text-secondary'
             : isHalf
-              ? 'h-6 w-[1.5px] bg-text-muted/60'
-              : 'h-3.5 w-[1px] bg-text-muted/30'
+              ? 'bg-text-muted/60'
+              : 'bg-text-muted/30'
         }`}
       />
     </motion.div>
@@ -220,7 +261,6 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
 }) => {
   const inputId = useId();
   const shouldReduceMotion = useReducedMotion();
-  const pixelsPerUnit = 80; // ~8px per 0.1 unit
 
   const defaultBounds = useMemo(() => {
     return getBodyweightBounds(unit === 'lb' ? 'imperial' : 'metric');
@@ -232,11 +272,53 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
   // Safe normalized initial value
   const safeValue = clampWeightValue(snapWeightValue(value, step), min, max);
 
-  const x = useMotionValue(-safeValue * pixelsPerUnit);
+  const apertureRef = useRef<HTMLDivElement>(null);
+  const [apertureWidth, setApertureWidth] = useState<number>(REFERENCE_DIAL_WIDTH);
+
+  useEffect(() => {
+    const el = apertureRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0) {
+        setApertureWidth((prev) => (Math.abs(prev - rect.width) < 1 ? prev : rect.width));
+      }
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width } = entry.contentRect;
+        if (width > 0) {
+          setApertureWidth((prev) => (Math.abs(prev - width) < 1 ? prev : width));
+        }
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const visualPixelsPerUnit = getVisualPixelsPerUnit(apertureWidth);
+  const geometryScale = (apertureWidth > 0 ? apertureWidth : REFERENCE_DIAL_WIDTH) / REFERENCE_DIAL_WIDTH;
+  const baseNumeralPx = getBaseNumeralPx(apertureWidth);
+
+  // Gesture domain: fixed 80px per unit for consistent drag sensitivity across all viewports
+  const x = useMotionValue(-safeValue * GESTURE_PIXELS_PER_UNIT);
   const springConfig = shouldReduceMotion
     ? { stiffness: 1000, damping: 100, mass: 0.1 }
     : { stiffness: 450, damping: 45, mass: 0.8 };
   const springX = useSpring(x, springConfig);
+
+  // Visual domain: derived from actual dial width so visual spacing scales smoothly
+  const visualX = useTransform(
+    springX,
+    (val) => val * (visualPixelsPerUnit / GESTURE_PIXELS_PER_UNIT)
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(formatWeightValue(safeValue, locale));
@@ -247,18 +329,18 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
   // Synchronize when controlled `value` changes from parent (e.g. switching tabs log <-> goal or unit switch)
   useEffect(() => {
     if (isDraggingRef.current || isEditing) return;
-    const targetX = -safeValue * pixelsPerUnit;
+    const targetX = -safeValue * GESTURE_PIXELS_PER_UNIT;
     if (Math.abs(x.get() - targetX) > 0.5) {
       x.set(targetX);
     }
     lastEmittedValue.current = safeValue;
     setEditText(formatWeightValue(safeValue, locale));
-  }, [safeValue, pixelsPerUnit, x, isEditing, locale]);
+  }, [safeValue, x, isEditing, locale]);
 
   const handlePanStart = () => {
     if (disabled || isEditing) return;
     isDraggingRef.current = true;
-    const currentTargetX = -safeValue * pixelsPerUnit;
+    const currentTargetX = -safeValue * GESTURE_PIXELS_PER_UNIT;
     x.set(currentTargetX);
     dragStartX.current = currentTargetX;
   };
@@ -266,8 +348,8 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
   const handlePan = (_: unknown, info: PanInfo) => {
     if (disabled || isEditing || !isDraggingRef.current) return;
     const newX = dragStartX.current + info.offset.x;
-    const minX = -max * pixelsPerUnit;
-    const maxX = -min * pixelsPerUnit;
+    const minX = -max * GESTURE_PIXELS_PER_UNIT;
+    const maxX = -min * GESTURE_PIXELS_PER_UNIT;
     const clampedX = Math.max(minX, Math.min(maxX, newX));
 
     // Smooth visual motion
@@ -277,7 +359,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
     const snappedWeight = calculateDragWeight(
       dragStartX.current,
       info.offset.x,
-      pixelsPerUnit,
+      GESTURE_PIXELS_PER_UNIT,
       min,
       max,
       step
@@ -294,7 +376,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
     isDraggingRef.current = false;
 
     // Apply momentum with damping, then snap to nearest step
-    const currentVal = -x.get() / pixelsPerUnit;
+    const currentVal = -x.get() / GESTURE_PIXELS_PER_UNIT;
     const velocityOffset = shouldReduceMotion ? 0 : (info.velocity.x * 0.0006);
     const projectedVal = currentVal - velocityOffset;
     const clampedVal = clampWeightValue(projectedVal, min, max);
@@ -302,7 +384,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
 
     lastEmittedValue.current = targetVal;
     onChange(targetVal);
-    x.set(-targetVal * pixelsPerUnit);
+    x.set(-targetVal * GESTURE_PIXELS_PER_UNIT);
   };
 
   const commitDirectInput = () => {
@@ -310,7 +392,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
     if (parsed !== null && parsed > 0) {
       const clamped = clampWeightValue(snapWeightValue(parsed, step), min, max);
       onChange(clamped);
-      x.set(-clamped * pixelsPerUnit);
+      x.set(-clamped * GESTURE_PIXELS_PER_UNIT);
       lastEmittedValue.current = clamped;
     } else {
       setEditText(formatWeightValue(safeValue, locale));
@@ -324,32 +406,32 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       e.preventDefault();
       const next = clampWeightValue(snapWeightValue(safeValue - step, step), min, max);
       onChange(next);
-      x.set(-next * pixelsPerUnit);
+      x.set(-next * GESTURE_PIXELS_PER_UNIT);
     } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
       e.preventDefault();
       const next = clampWeightValue(snapWeightValue(safeValue + step, step), min, max);
       onChange(next);
-      x.set(-next * pixelsPerUnit);
+      x.set(-next * GESTURE_PIXELS_PER_UNIT);
     } else if (e.key === 'PageDown') {
       e.preventDefault();
       const next = clampWeightValue(snapWeightValue(safeValue - 1.0, step), min, max);
       onChange(next);
-      x.set(-next * pixelsPerUnit);
+      x.set(-next * GESTURE_PIXELS_PER_UNIT);
     } else if (e.key === 'PageUp') {
       e.preventDefault();
       const next = clampWeightValue(snapWeightValue(safeValue + 1.0, step), min, max);
       onChange(next);
-      x.set(-next * pixelsPerUnit);
+      x.set(-next * GESTURE_PIXELS_PER_UNIT);
     } else if (e.key === 'Home') {
       e.preventDefault();
       const next = snapWeightValue(min, step);
       onChange(next);
-      x.set(-next * pixelsPerUnit);
+      x.set(-next * GESTURE_PIXELS_PER_UNIT);
     } else if (e.key === 'End') {
       e.preventDefault();
       const next = snapWeightValue(max, step);
       onChange(next);
-      x.set(-next * pixelsPerUnit);
+      x.set(-next * GESTURE_PIXELS_PER_UNIT);
     } else if (e.key === 'Enter') {
       setIsEditing(true);
     }
@@ -376,6 +458,13 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
     return items;
   }, [centerInt, min, max]);
 
+  const needleDotSize = Math.min(13, Math.max(9, Math.round(11 * geometryScale)));
+  const needleH = Math.min(80, Math.max(52, Math.round(64 * geometryScale)));
+  const needleW = Math.min(12, Math.max(8, Math.round(9 * geometryScale)));
+  const needleBaseW = Math.min(20, Math.max(14, Math.round(16 * geometryScale)));
+  const needleBaseH = Math.min(6, Math.max(4, Math.round(4 * geometryScale)));
+  const fadeWidth = Math.round(apertureWidth * 0.115);
+
   return (
     <div
       role="slider"
@@ -386,7 +475,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       aria-valuenow={safeValue}
       aria-valuetext={`${formatWeightValue(safeValue, locale)} ${unit}`}
       onKeyDown={handleKeyDown}
-      className={`relative flex w-full flex-col items-center rounded-[32px] sm:rounded-[36px] border border-border-subtle bg-surface-elevated/40 p-3 sm:p-4 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`relative flex w-full flex-col items-center rounded-[32px] sm:rounded-[36px] border border-border-subtle bg-surface-elevated/40 px-2.5 py-3 sm:p-4 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         disabled ? 'pointer-events-none opacity-50' : ''
       } ${className}`}
     >
@@ -448,17 +537,31 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
         )}
       </div>
 
-      {/* Curved Scale Dial Aperture (Expanded Scale Body with Strongly Rounded Corners) */}
-      <div className="relative mt-1 h-[235px] min-[360px]:h-[245px] min-[400px]:h-[270px] sm:h-[280px] w-full overflow-hidden rounded-[28px] sm:rounded-[32px] border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
-        {/* Edge Gradient Fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-9 sm:w-11 bg-gradient-to-r from-surface-input/90 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-9 sm:w-11 bg-gradient-to-l from-surface-input/90 to-transparent" />
+      {/* Curved Scale Dial Aperture (Expanded Scale Body with Strongly Rounded Corners & Reference Aspect Ratio) */}
+      <div
+        ref={apertureRef}
+        style={{ aspectRatio: `${REFERENCE_DIAL_WIDTH} / ${REFERENCE_DIAL_HEIGHT}` }}
+        className="relative mt-1 w-full overflow-hidden rounded-[28px] sm:rounded-[32px] border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y"
+      >
+        {/* Edge Gradient Fades (Proportionally scaled to dial width ~11.5%) */}
+        <div
+          style={{ width: `${fadeWidth}px` }}
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 bg-gradient-to-r from-surface-input/90 to-transparent"
+        />
+        <div
+          style={{ width: `${fadeWidth}px` }}
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 bg-gradient-to-l from-surface-input/90 to-transparent"
+        />
 
-        {/* Fixed Scale Indicator (Stationary Slender Needle with Circular Tip) */}
-        <div className="pointer-events-none absolute bottom-0 sm:bottom-0.5 inset-x-0 z-20 flex flex-col items-center">
-          <div className="size-2.5 sm:size-3 rounded-full bg-accent shadow-[0_0_12px_var(--color-accent,var(--accent-glow))] -mb-1 z-10" />
+        {/* Fixed Scale Indicator (Stationary Slender Needle with Circular Tip, scaled mildly with geometryScale) */}
+        <div className="pointer-events-none absolute bottom-0 inset-x-0 z-20 flex flex-col items-center">
+          <div
+            style={{ width: `${needleDotSize}px`, height: `${needleDotSize}px` }}
+            className="rounded-full bg-accent shadow-[0_0_12px_var(--color-accent,var(--accent-glow))] -mb-1 z-10"
+          />
           <svg
-            className="h-16 sm:h-[70px] w-2 sm:w-2.5 text-accent"
+            style={{ height: `${needleH}px`, width: `${needleW}px` }}
+            className="text-accent"
             viewBox="0 0 10 64"
             fill="none"
             preserveAspectRatio="none"
@@ -472,14 +575,17 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
               strokeLinejoin="round"
             />
           </svg>
-          <div className="h-1 w-4 rounded-t-full bg-accent/40 -mt-0.5" />
+          <div
+            style={{ width: `${needleBaseW}px`, height: `${needleBaseH}px` }}
+            className="rounded-t-full bg-accent/40 -mt-0.5"
+          />
         </div>
 
         {/* Layer 1: Visual Moving Dial (pointer-events-none) */}
         <motion.div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 select-none"
-          style={{ x: springX, left: '50%' }}
+          style={{ x: visualX, left: '50%' }}
         >
           {ticks.map(({ val, isInteger, isHalf }) => (
             <DialTickItem
@@ -487,8 +593,10 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
               val={val}
               isInteger={isInteger}
               isHalf={isHalf}
-              pixelsPerUnit={pixelsPerUnit}
-              scrollX={springX}
+              pixelsPerUnit={visualPixelsPerUnit}
+              geometryScale={geometryScale}
+              baseNumeralPx={baseNumeralPx}
+              scrollX={visualX}
               shouldReduceMotion={shouldReduceMotion}
             />
           ))}
