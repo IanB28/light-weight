@@ -290,10 +290,14 @@ test('true scale dial structure: renders stationary needle indicator, compact ce
     })
   );
 
-  // Stationary physical scale needle indicator (needle svg and luminous bead)
-  assert.match(html, /M 8 2 L 15 48 L 1 48 Z/);
+  // Stationary physical scale needle indicator (tall slender needle svg with circular tip and luminous bead)
+  assert.match(html, /M 5 2 L 8 64 L 2 64 Z/);
+  assert.match(html, /<circle cx="5" cy="5" r="3"/);
   assert.match(html, /rounded-full bg-accent/);
   assert.match(html, /bottom-0 sm:bottom-0\.5/);
+
+  // Outer "Pesaje actual" card has strongly rounded corners
+  assert.match(html, /rounded-\[32px\] sm:rounded-\[36px\]/);
 
   // Compact centered dial aperture with responsive max-width constraint and strongly rounded corners
   assert.match(html, /max-w-\[325px\] sm:max-w-\[340px\] mx-auto/);
@@ -490,22 +494,26 @@ test('visual composition: dial numbers are restrained and aperture is compact & 
     })
   );
 
-  // 1. Dial numerals use restrained font size (~26px base) with font-extrabold
+  // 1. Dial numerals use restrained font size (~26px base) with font-extrabold and origin-bottom for proximity scaling
   assert.match(html, /text-\[26px\] font-extrabold text-text-primary/);
+  assert.match(html, /origin-bottom inline-block/);
 
   // 2. Dial numerals do NOT use giant Watermelon classes
   assert.doesNotMatch(html, /text-6xl/);
   assert.doesNotMatch(html, /text-7xl/);
   assert.doesNotMatch(html, /text-8xl/);
 
-  // 3. Compact scale aperture with taller relative height, rounded corners, and constrained max-width
+  // 3. Outer "Pesaje actual" container is visibly rounded
+  assert.match(html, /rounded-\[32px\] sm:rounded-\[36px\]/);
+
+  // 4. Compact scale aperture with taller relative height, rounded corners, and constrained max-width
   assert.match(html, /h-\[235px\] min-\[360px\]:h-\[245px\] sm:h-\[255px\]/);
   assert.match(html, /max-w-\[325px\] sm:max-w-\[340px\] mx-auto/);
   assert.match(html, /rounded-\[28px\] sm:rounded-\[32px\]/);
 
-  // 4. Dial ticks and numbers lowered into the dial body
+  // 5. Dial ticks and numbers lowered into the dial body
   assert.match(html, /top-\[76px\] sm:top-\[80px\]/);
 
-  // 5. Primary readout touch target maintains minimum 44px
+  // 6. Primary readout touch target maintains minimum 44px
   assert.match(html, /min-h-\[44px\]/);
 });

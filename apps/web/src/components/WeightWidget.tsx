@@ -146,15 +146,22 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
     [1, 0.9, 0.45, 0]
   );
 
-  // Scale: Center ~32px, near neighbors ~26px, outer neighbors ~20px
-  // Base font size is 26px (text-[26px]).
-  // At d=0: scale=1.23 => 32px
-  // At d=80: scale=1.00 => 26px
-  // At d=160: scale=0.77 => 20px
-  const scale = useTransform(
+  // Active number proximity-based continuous scaling:
+  // Center (d=0): scale = 1.30 (~33.8px) - dominant, clear active selection
+  // Near neighbor (d=80px): scale = 0.88 (~22.9px) - medium, clean contrast
+  // Outer neighbor (d=160px): scale = 0.68 (~17.7px) - progressively smaller
+  // Far boundary (d>=200px): scale = 0.56 (~14.6px) - tertiary
+  const numberScale = useTransform(
     distance,
-    [0, pixelsPerUnit, pixelsPerUnit * 2],
-    [1.23, 1.0, 0.77]
+    [0, pixelsPerUnit * 0.5, pixelsPerUnit, pixelsPerUnit * 1.5, pixelsPerUnit * 2, pixelsPerUnit * 2.5],
+    [1.30, 1.10, 0.88, 0.76, 0.68, 0.56]
+  );
+
+  // Number opacity: active number fully opaque, neighbors gracefully subdued
+  const numberOpacity = useTransform(
+    distance,
+    [0, pixelsPerUnit, pixelsPerUnit * 1.8, pixelsPerUnit * 2.5],
+    [1, 0.85, 0.45, 0]
   );
 
   return (
@@ -166,15 +173,20 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
         y: shouldReduceMotion ? 0 : yOffset,
         rotate: shouldReduceMotion ? 0 : rotate,
         opacity,
-        scale,
         transformOrigin: '50% 160px'
       }}
     >
-      {/* Number label for integer values */}
+      {/* Number label for integer values with proximity scaling */}
       {isInteger ? (
-        <span className="font-sans text-[26px] font-extrabold text-text-primary tabular-nums select-none leading-none tracking-tight mb-2">
+        <motion.span
+          className="font-sans text-[26px] font-extrabold text-text-primary tabular-nums select-none leading-none tracking-tight mb-2 origin-bottom inline-block"
+          style={{
+            scale: shouldReduceMotion ? 1 : numberScale,
+            opacity: numberOpacity
+          }}
+        >
           {Math.round(val)}
-        </span>
+        </motion.span>
       ) : (
         <div className="h-[26px] mb-2" />
       )}
@@ -374,7 +386,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       aria-valuenow={safeValue}
       aria-valuetext={`${formatWeightValue(safeValue, locale)} ${unit}`}
       onKeyDown={handleKeyDown}
-      className={`relative flex flex-col items-center rounded-ui-2xl border border-border-subtle bg-surface-elevated/40 p-3 sm:p-4 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`relative flex flex-col items-center rounded-[32px] sm:rounded-[36px] border border-border-subtle bg-surface-elevated/40 p-3 sm:p-4 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         disabled ? 'pointer-events-none opacity-50' : ''
       } ${className}`}
     >
@@ -442,24 +454,25 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-9 sm:w-11 bg-gradient-to-r from-surface-input/90 to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-9 sm:w-11 bg-gradient-to-l from-surface-input/90 to-transparent" />
 
-        {/* Fixed Scale Indicator (Stationary Needle Emerging From Bottom) */}
+        {/* Fixed Scale Indicator (Stationary Slender Needle with Circular Tip) */}
         <div className="pointer-events-none absolute bottom-0 sm:bottom-0.5 inset-x-0 z-20 flex flex-col items-center">
-          <div className="size-2.5 sm:size-3 rounded-full bg-accent shadow-[0_0_12px_var(--color-accent,var(--accent-glow))] mb-1" />
+          <div className="size-2.5 sm:size-3 rounded-full bg-accent shadow-[0_0_12px_var(--color-accent,var(--accent-glow))] -mb-1 z-10" />
           <svg
-            className="h-12 w-4 text-accent"
-            viewBox="0 0 16 48"
+            className="h-16 sm:h-[70px] w-2 sm:w-2.5 text-accent"
+            viewBox="0 0 10 64"
             fill="none"
             preserveAspectRatio="none"
           >
+            <circle cx="5" cy="5" r="3" fill="currentColor" />
             <path
-              d="M 8 2 L 15 48 L 1 48 Z"
+              d="M 5 2 L 8 64 L 2 64 Z"
               fill="currentColor"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="0.5"
               strokeLinejoin="round"
             />
           </svg>
-          <div className="h-1.5 w-6 rounded-t-full bg-accent/40 -mt-0.5" />
+          <div className="h-1 w-4 rounded-t-full bg-accent/40 -mt-0.5" />
         </div>
 
         {/* Layer 1: Visual Moving Dial (pointer-events-none) */}
