@@ -291,11 +291,11 @@ test('true scale dial structure: renders stationary needle indicator, compact ce
   );
 
   // Stationary physical scale needle indicator (needle svg and luminous bead)
-  assert.match(html, /M 5 2 L 9 36 L 1 36 Z/);
+  assert.match(html, /M 6 2 L 11 40 L 1 40 Z/);
   assert.match(html, /rounded-full bg-accent/);
 
   // Compact centered dial aperture with responsive max-width constraint
-  assert.match(html, /max-w-\[315px\] sm:max-w-\[335px\] mx-auto/);
+  assert.match(html, /max-w-\[325px\] sm:max-w-\[340px\] mx-auto/);
 
   // Decorative analytics pill ±0.1 removed from header
   assert.doesNotMatch(html, /±0\.1 kg/);
@@ -368,6 +368,8 @@ test('bodyweight-modal: header/title hierarchy matches intended sheet styling', 
   assert.doesNotMatch(html, />-0\.5</);
   assert.doesNotMatch(html, />\+0\.5</);
   assert.match(html, /72,5/);
+  assert.match(html, /min-h-\[66vh\]/);
+  assert.match(html, /max-h-\[72vh\]/);
 });
 
 test('bodyweight-modal: renders WeightWidget in goal mode with currentGoal', () => {
@@ -495,8 +497,8 @@ test('visual composition: dial numbers are restrained and aperture is compact & 
   assert.doesNotMatch(html, /text-8xl/);
 
   // 3. Compact scale aperture with taller relative height and constrained max-width
-  assert.match(html, /h-\[215px\] sm:h-\[225px\]/);
-  assert.match(html, /max-w-\[315px\] sm:max-w-\[335px\] mx-auto/);
+  assert.match(html, /h-\[235px\] min-\[360px\]:h-\[245px\] sm:h-\[255px\]/);
+  assert.match(html, /max-w-\[325px\] sm:max-w-\[340px\] mx-auto/);
 
   // 4. Primary readout touch target maintains minimum 44px
   assert.match(html, /min-h-\[44px\]/);

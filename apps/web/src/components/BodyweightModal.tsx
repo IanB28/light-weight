@@ -109,10 +109,15 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
   const { min: minWeight, max: maxWeight } = getBodyweightBounds(units);
 
   return (
-    <BottomSheet open={isOpen} onClose={onClose} title={t('weight.title')} className="sm:max-w-sm">
-      <div className="space-y-3.5">
+    <BottomSheet
+      open={isOpen}
+      onClose={onClose}
+      title={t('weight.title')}
+      className="flex flex-col min-h-[66vh] max-h-[72vh] sm:min-h-0 sm:max-h-[90dvh] sm:max-w-sm"
+    >
+      <div className="flex flex-1 flex-col justify-between space-y-3 sm:space-y-4">
         {/* Mode switcher */}
-        <div className="p-1 rounded-2xl glass-subcard grid grid-cols-2 gap-1 text-xs">
+        <div className="p-1 rounded-2xl glass-subcard grid grid-cols-2 gap-1 text-xs shrink-0">
           <button
             type="button"
             onClick={() => setActiveMode('log')}
@@ -163,7 +168,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
           type="button"
           onClick={handleSave}
           disabled={!canSave}
-          className="w-full"
+          className="w-full shrink-0"
         >
           <Check className="w-4 h-4 stroke-[3]" />
           {activeMode === 'log' ? t('weight.saveLog') : t('weight.updateGoal')}

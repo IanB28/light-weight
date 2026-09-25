@@ -131,19 +131,19 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
   const yOffset = useTransform(
     distance,
     [0, pixelsPerUnit * 0.5, pixelsPerUnit, pixelsPerUnit * 1.5, pixelsPerUnit * 2, pixelsPerUnit * 2.5],
-    [0, 2, 9, 21, 38, 60]
+    [0, 3, 12, 28, 50, 78]
   );
 
   // Rotation: tilts outward/inward along arc
   const rotate = useTransform(signedOffset, (d: number) => {
-    return (d / pixelsPerUnit) * 8.0; // degrees
+    return (d / pixelsPerUnit) * 8.5; // degrees
   });
 
   // Opacity: center strongest, fading outward
   const opacity = useTransform(
     distance,
     [0, pixelsPerUnit * 1.1, pixelsPerUnit * 1.9, pixelsPerUnit * 2.5],
-    [1, 0.88, 0.45, 0]
+    [1, 0.9, 0.45, 0]
   );
 
   // Scale: Center ~32px, near neighbors ~26px, outer neighbors ~20px
@@ -159,7 +159,7 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
 
   return (
     <motion.div
-      className="absolute top-7 sm:top-8 flex flex-col items-center pointer-events-none"
+      className="absolute top-14 sm:top-16 flex flex-col items-center pointer-events-none"
       style={{
         left: itemX,
         x: '-50%',
@@ -167,26 +167,26 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
         rotate: shouldReduceMotion ? 0 : rotate,
         opacity,
         scale,
-        transformOrigin: '50% 170px'
+        transformOrigin: '50% 190px'
       }}
     >
       {/* Number label for integer values */}
       {isInteger ? (
-        <span className="font-sans text-[26px] font-extrabold text-text-primary tabular-nums select-none leading-none tracking-tight mb-2.5">
+        <span className="font-sans text-[26px] font-extrabold text-text-primary tabular-nums select-none leading-none tracking-tight mb-2">
           {Math.round(val)}
         </span>
       ) : (
-        <div className="h-[26px] mb-2.5" />
+        <div className="h-[26px] mb-2" />
       )}
 
       {/* Tick mark */}
       <div
         className={`rounded-full transition-colors ${
           isInteger
-            ? 'h-7 w-[2px] bg-text-secondary'
+            ? 'h-8 w-[2px] bg-text-secondary'
             : isHalf
-              ? 'h-4 w-[1.5px] bg-text-muted/60'
-              : 'h-2.5 w-[1px] bg-text-muted/30'
+              ? 'h-5 w-[1.5px] bg-text-muted/60'
+              : 'h-3 w-[1px] bg-text-muted/30'
         }`}
       />
     </motion.div>
@@ -436,23 +436,23 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
         )}
       </div>
 
-      {/* Curved Scale Dial Aperture (Enlarged Scale Body) */}
-      <div className="relative mt-1 h-[215px] sm:h-[225px] w-full max-w-[315px] sm:max-w-[335px] mx-auto overflow-hidden rounded-2xl border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
+      {/* Curved Scale Dial Aperture (Expanded Scale Body) */}
+      <div className="relative mt-1 h-[235px] min-[360px]:h-[245px] sm:h-[255px] w-full max-w-[325px] sm:max-w-[340px] mx-auto overflow-hidden rounded-2xl border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
         {/* Edge Gradient Fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 sm:w-10 bg-gradient-to-r from-surface-input/90 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 sm:w-10 bg-gradient-to-l from-surface-input/90 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-9 sm:w-11 bg-gradient-to-r from-surface-input/90 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-9 sm:w-11 bg-gradient-to-l from-surface-input/90 to-transparent" />
 
-        {/* Fixed Scale Indicator (Stationary Needle) */}
-        <div className="pointer-events-none absolute bottom-3.5 sm:bottom-4 inset-x-0 z-20 flex flex-col items-center">
-          <div className="size-2 rounded-full bg-accent shadow-[0_0_8px_var(--color-accent,var(--accent-glow))] mb-1" />
+        {/* Fixed Scale Indicator (Stationary Enlarged Needle) */}
+        <div className="pointer-events-none absolute bottom-10 sm:bottom-11 inset-x-0 z-20 flex flex-col items-center">
+          <div className="size-2.5 sm:size-3 rounded-full bg-accent shadow-[0_0_10px_var(--color-accent,var(--accent-glow))] mb-1.5" />
           <svg
-            className="h-6 w-2.5 text-accent"
-            viewBox="0 0 10 36"
+            className="h-9 w-3.5 text-accent"
+            viewBox="0 0 12 40"
             fill="none"
             preserveAspectRatio="none"
           >
             <path
-              d="M 5 2 L 9 36 L 1 36 Z"
+              d="M 6 2 L 11 40 L 1 40 Z"
               fill="currentColor"
               stroke="currentColor"
               strokeWidth="1.5"
