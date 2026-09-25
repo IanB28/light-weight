@@ -113,7 +113,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
       open={isOpen}
       onClose={onClose}
       title={t('weight.title')}
-      className="flex flex-col min-h-[66vh] max-h-[72vh] sm:min-h-0 sm:max-h-[90dvh] sm:max-w-sm"
+      className="flex flex-col min-h-[66vh] max-h-[72vh] sm:min-h-0 sm:max-h-[90dvh] sm:max-w-md"
     >
       <div className="flex flex-1 flex-col justify-between space-y-3 sm:space-y-4">
         {/* Mode switcher */}

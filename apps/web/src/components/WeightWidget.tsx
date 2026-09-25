@@ -386,7 +386,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       aria-valuenow={safeValue}
       aria-valuetext={`${formatWeightValue(safeValue, locale)} ${unit}`}
       onKeyDown={handleKeyDown}
-      className={`relative flex flex-col items-center rounded-[32px] sm:rounded-[36px] border border-border-subtle bg-surface-elevated/40 p-3 sm:p-4 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`relative flex w-full flex-col items-center rounded-[32px] sm:rounded-[36px] border border-border-subtle bg-surface-elevated/40 p-3 sm:p-4 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         disabled ? 'pointer-events-none opacity-50' : ''
       } ${className}`}
     >
