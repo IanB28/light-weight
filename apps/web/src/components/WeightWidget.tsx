@@ -131,19 +131,19 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
   const yOffset = useTransform(
     distance,
     [0, pixelsPerUnit * 0.5, pixelsPerUnit, pixelsPerUnit * 1.5, pixelsPerUnit * 2, pixelsPerUnit * 2.5],
-    [0, 3, 12, 26, 46, 72]
+    [0, 2, 9, 21, 38, 60]
   );
 
   // Rotation: tilts outward/inward along arc
   const rotate = useTransform(signedOffset, (d: number) => {
-    return (d / pixelsPerUnit) * 9.0; // degrees
+    return (d / pixelsPerUnit) * 8.0; // degrees
   });
 
   // Opacity: center strongest, fading outward
   const opacity = useTransform(
     distance,
-    [0, pixelsPerUnit * 1.0, pixelsPerUnit * 1.8, pixelsPerUnit * 2.5],
-    [1, 0.85, 0.4, 0]
+    [0, pixelsPerUnit * 1.1, pixelsPerUnit * 1.9, pixelsPerUnit * 2.5],
+    [1, 0.88, 0.45, 0]
   );
 
   // Scale: Center ~32px, near neighbors ~26px, outer neighbors ~20px
@@ -159,7 +159,7 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
 
   return (
     <motion.div
-      className="absolute top-5 sm:top-6 flex flex-col items-center pointer-events-none"
+      className="absolute top-7 sm:top-8 flex flex-col items-center pointer-events-none"
       style={{
         left: itemX,
         x: '-50%',
@@ -167,7 +167,7 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
         rotate: shouldReduceMotion ? 0 : rotate,
         opacity,
         scale,
-        transformOrigin: '50% 160px'
+        transformOrigin: '50% 170px'
       }}
     >
       {/* Number label for integer values */}
@@ -374,7 +374,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       aria-valuenow={safeValue}
       aria-valuetext={`${formatWeightValue(safeValue, locale)} ${unit}`}
       onKeyDown={handleKeyDown}
-      className={`relative flex flex-col items-center rounded-ui-2xl border border-border-subtle bg-surface-elevated/40 p-4 sm:p-5 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`relative flex flex-col items-center rounded-ui-2xl border border-border-subtle bg-surface-elevated/40 p-3 sm:p-4 shadow-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         disabled ? 'pointer-events-none opacity-50' : ''
       } ${className}`}
     >
@@ -436,14 +436,14 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
         )}
       </div>
 
-      {/* Curved Scale Dial Aperture (Compact Centered Scale Body) */}
-      <div className="relative mt-1 h-[185px] sm:h-[195px] w-full max-w-[270px] sm:max-w-[285px] mx-auto overflow-hidden rounded-2xl border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
+      {/* Curved Scale Dial Aperture (Enlarged Scale Body) */}
+      <div className="relative mt-1 h-[215px] sm:h-[225px] w-full max-w-[315px] sm:max-w-[335px] mx-auto overflow-hidden rounded-2xl border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
         {/* Edge Gradient Fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-12 bg-gradient-to-r from-surface-elevated/95 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-12 bg-gradient-to-l from-surface-elevated/95 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 sm:w-10 bg-gradient-to-r from-surface-input/90 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 sm:w-10 bg-gradient-to-l from-surface-input/90 to-transparent" />
 
         {/* Fixed Scale Indicator (Stationary Needle) */}
-        <div className="pointer-events-none absolute bottom-3 inset-x-0 z-20 flex flex-col items-center">
+        <div className="pointer-events-none absolute bottom-3.5 sm:bottom-4 inset-x-0 z-20 flex flex-col items-center">
           <div className="size-2 rounded-full bg-accent shadow-[0_0_8px_var(--color-accent,var(--accent-glow))] mb-1" />
           <svg
             className="h-6 w-2.5 text-accent"

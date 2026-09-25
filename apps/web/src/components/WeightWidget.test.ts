@@ -295,7 +295,7 @@ test('true scale dial structure: renders stationary needle indicator, compact ce
   assert.match(html, /rounded-full bg-accent/);
 
   // Compact centered dial aperture with responsive max-width constraint
-  assert.match(html, /max-w-\[270px\] sm:max-w-\[285px\] mx-auto/);
+  assert.match(html, /max-w-\[315px\] sm:max-w-\[335px\] mx-auto/);
 
   // Decorative analytics pill ±0.1 removed from header
   assert.doesNotMatch(html, /±0\.1 kg/);
@@ -495,8 +495,8 @@ test('visual composition: dial numbers are restrained and aperture is compact & 
   assert.doesNotMatch(html, /text-8xl/);
 
   // 3. Compact scale aperture with taller relative height and constrained max-width
-  assert.match(html, /h-\[185px\] sm:h-\[195px\]/);
-  assert.match(html, /max-w-\[270px\] sm:max-w-\[285px\] mx-auto/);
+  assert.match(html, /h-\[215px\] sm:h-\[225px\]/);
+  assert.match(html, /max-w-\[315px\] sm:max-w-\[335px\] mx-auto/);
 
   // 4. Primary readout touch target maintains minimum 44px
   assert.match(html, /min-h-\[44px\]/);
