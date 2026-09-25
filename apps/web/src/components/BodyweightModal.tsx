@@ -113,9 +113,9 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
       open={isOpen}
       onClose={onClose}
       title={t('weight.title')}
-      className="flex flex-col min-h-[66vh] max-h-[72vh] sm:min-h-0 sm:max-h-[90dvh] sm:max-w-md"
+      className="flex flex-col min-h-[66dvh] max-h-[90dvh] sm:min-h-0 sm:max-h-[90dvh] sm:max-w-md"
     >
-      <div className="flex flex-1 flex-col justify-between space-y-3 sm:space-y-4">
+      <div className="flex flex-col gap-3 sm:gap-3.5 pb-1">
         {/* Mode switcher */}
         <div className="p-1 rounded-2xl glass-subcard grid grid-cols-2 gap-1 text-xs shrink-0">
           <button
@@ -168,7 +168,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
           type="button"
           onClick={handleSave}
           disabled={!canSave}
-          className="w-full shrink-0"
+          className="w-full shrink-0 mt-1.5 sm:mt-2"
         >
           <Check className="w-4 h-4 stroke-[3]" />
           {activeMode === 'log' ? t('weight.saveLog') : t('weight.updateGoal')}
