@@ -449,7 +449,7 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       </div>
 
       {/* Curved Scale Dial Aperture (Expanded Scale Body with Strongly Rounded Corners) */}
-      <div className="relative mt-1 h-[235px] min-[360px]:h-[245px] sm:h-[255px] w-full max-w-[325px] sm:max-w-[340px] mx-auto overflow-hidden rounded-[28px] sm:rounded-[32px] border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
+      <div className="relative mt-1 h-[235px] min-[360px]:h-[245px] min-[400px]:h-[270px] sm:h-[280px] w-full overflow-hidden rounded-[28px] sm:rounded-[32px] border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
         {/* Edge Gradient Fades */}
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-9 sm:w-11 bg-gradient-to-r from-surface-input/90 to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-9 sm:w-11 bg-gradient-to-l from-surface-input/90 to-transparent" />

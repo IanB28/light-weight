@@ -299,8 +299,7 @@ test('true scale dial structure: renders stationary needle indicator, compact ce
   // Outer "Pesaje actual" card has strongly rounded corners
   assert.match(html, /rounded-\[32px\] sm:rounded-\[36px\]/);
 
-  // Compact centered dial aperture with responsive max-width constraint and strongly rounded corners
-  assert.match(html, /max-w-\[325px\] sm:max-w-\[340px\] mx-auto/);
+  // Scale dial aperture with full-width card layout and strongly rounded corners
   assert.match(html, /rounded-\[28px\] sm:rounded-\[32px\]/);
 
   // Decorative analytics pill ±0.1 removed from header
@@ -506,9 +505,8 @@ test('visual composition: dial numbers are restrained and aperture is compact & 
   // 3. Outer "Pesaje actual" container is visibly rounded
   assert.match(html, /rounded-\[32px\] sm:rounded-\[36px\]/);
 
-  // 4. Compact scale aperture with taller relative height, rounded corners, and constrained max-width
-  assert.match(html, /h-\[235px\] min-\[360px\]:h-\[245px\] sm:h-\[255px\]/);
-  assert.match(html, /max-w-\[325px\] sm:max-w-\[340px\] mx-auto/);
+  // 4. Compact scale aperture with proportional height, rounded corners, and full-width card layout
+  assert.match(html, /h-\[235px\] min-\[360px\]:h-\[245px\]/);
   assert.match(html, /rounded-\[28px\] sm:rounded-\[32px\]/);
 
   // 5. Dial ticks and numbers lowered into the dial body
