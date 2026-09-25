@@ -131,12 +131,12 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
   const yOffset = useTransform(
     distance,
     [0, pixelsPerUnit * 0.5, pixelsPerUnit, pixelsPerUnit * 1.5, pixelsPerUnit * 2, pixelsPerUnit * 2.5],
-    [0, 3, 12, 28, 50, 78]
+    [0, 5, 22, 50, 88, 136]
   );
 
   // Rotation: tilts outward/inward along arc
   const rotate = useTransform(signedOffset, (d: number) => {
-    return (d / pixelsPerUnit) * 8.5; // degrees
+    return (d / pixelsPerUnit) * 11.0; // degrees
   });
 
   // Opacity: center strongest, fading outward
@@ -159,7 +159,7 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
 
   return (
     <motion.div
-      className="absolute top-14 sm:top-16 flex flex-col items-center pointer-events-none"
+      className="absolute top-[76px] sm:top-[80px] flex flex-col items-center pointer-events-none"
       style={{
         left: itemX,
         x: '-50%',
@@ -167,7 +167,7 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
         rotate: shouldReduceMotion ? 0 : rotate,
         opacity,
         scale,
-        transformOrigin: '50% 190px'
+        transformOrigin: '50% 160px'
       }}
     >
       {/* Number label for integer values */}
@@ -183,10 +183,10 @@ export const DialTickItem: React.FC<DialTickItemProps> = React.memo(({
       <div
         className={`rounded-full transition-colors ${
           isInteger
-            ? 'h-8 w-[2px] bg-text-secondary'
+            ? 'h-10 w-[2px] bg-text-secondary'
             : isHalf
-              ? 'h-5 w-[1.5px] bg-text-muted/60'
-              : 'h-3 w-[1px] bg-text-muted/30'
+              ? 'h-6 w-[1.5px] bg-text-muted/60'
+              : 'h-3.5 w-[1px] bg-text-muted/30'
         }`}
       />
     </motion.div>
@@ -436,29 +436,30 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
         )}
       </div>
 
-      {/* Curved Scale Dial Aperture (Expanded Scale Body) */}
-      <div className="relative mt-1 h-[235px] min-[360px]:h-[245px] sm:h-[255px] w-full max-w-[325px] sm:max-w-[340px] mx-auto overflow-hidden rounded-2xl border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
+      {/* Curved Scale Dial Aperture (Expanded Scale Body with Strongly Rounded Corners) */}
+      <div className="relative mt-1 h-[235px] min-[360px]:h-[245px] sm:h-[255px] w-full max-w-[325px] sm:max-w-[340px] mx-auto overflow-hidden rounded-[28px] sm:rounded-[32px] border border-border-subtle/60 bg-surface-input/50 shadow-inner select-none touch-pan-y">
         {/* Edge Gradient Fades */}
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-9 sm:w-11 bg-gradient-to-r from-surface-input/90 to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-9 sm:w-11 bg-gradient-to-l from-surface-input/90 to-transparent" />
 
-        {/* Fixed Scale Indicator (Stationary Enlarged Needle) */}
-        <div className="pointer-events-none absolute bottom-10 sm:bottom-11 inset-x-0 z-20 flex flex-col items-center">
-          <div className="size-2.5 sm:size-3 rounded-full bg-accent shadow-[0_0_10px_var(--color-accent,var(--accent-glow))] mb-1.5" />
+        {/* Fixed Scale Indicator (Stationary Needle Emerging From Bottom) */}
+        <div className="pointer-events-none absolute bottom-0 sm:bottom-0.5 inset-x-0 z-20 flex flex-col items-center">
+          <div className="size-2.5 sm:size-3 rounded-full bg-accent shadow-[0_0_12px_var(--color-accent,var(--accent-glow))] mb-1" />
           <svg
-            className="h-9 w-3.5 text-accent"
-            viewBox="0 0 12 40"
+            className="h-12 w-4 text-accent"
+            viewBox="0 0 16 48"
             fill="none"
             preserveAspectRatio="none"
           >
             <path
-              d="M 6 2 L 11 40 L 1 40 Z"
+              d="M 8 2 L 15 48 L 1 48 Z"
               fill="currentColor"
               stroke="currentColor"
               strokeWidth="1.5"
               strokeLinejoin="round"
             />
           </svg>
+          <div className="h-1.5 w-6 rounded-t-full bg-accent/40 -mt-0.5" />
         </div>
 
         {/* Layer 1: Visual Moving Dial (pointer-events-none) */}
