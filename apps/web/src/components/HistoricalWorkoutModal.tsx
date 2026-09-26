@@ -7,7 +7,6 @@ import {
   type Exercise,
   type MachineBaseSelection,
   type MachineSnapshot,
-  type MuscleGroup,
   type Routine,
   type WorkoutSession,
   type WorkoutSetType
@@ -53,7 +52,6 @@ interface HistoricalWorkoutModalProps {
   routines: Routine[];
   initialDate?: Date;
   initialRoutineId?: string;
-  onCreateCustomExercise?: (name: string, muscle: MuscleGroup) => void;
 }
 
 export function HistoricalWorkoutModal({
@@ -65,8 +63,7 @@ export function HistoricalWorkoutModal({
   history,
   routines,
   initialDate,
-  initialRoutineId,
-  onCreateCustomExercise
+  initialRoutineId
 }: HistoricalWorkoutModalProps) {
   const { t } = useI18n();
   const { preferences } = usePreferences();
@@ -551,7 +548,6 @@ export function HistoricalWorkoutModal({
         availableExercises={exercises}
         history={history}
         onSelectExercise={handleAddExercise}
-        onCreateCustomExercise={onCreateCustomExercise}
       />
 
       <PlatePickerSheet

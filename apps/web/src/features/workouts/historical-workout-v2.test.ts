@@ -24,6 +24,7 @@ import type { ActiveExerciseSession } from './types.js';
 import { ExerciseSessionCard } from './WorkoutSessionComponents.js';
 import { HistoricalWorkoutModal } from '../../components/HistoricalWorkoutModal.js';
 import { DayDetailModal } from '../../components/DayDetailModal.js';
+import { AddExerciseModal } from '../../components/AddExerciseModal.js';
 import { dictionaries } from '../../lib/i18n.js';
 
 const benchPress: Exercise = {
@@ -710,4 +711,92 @@ test('15. Block 19.6B: Visual polish copy, exercise position indicator, and hook
     })
   );
   assert.equal(closedDayDetail, '');
+});
+
+test('16. Block 19.6C Custom exercise isolation: AddExerciseModal contract and active workout isolation', () => {
+  // 16.1 AddExerciseModal without onCreateCustomExercise (Historical mode)
+  // When available exercises is empty, EmptyState is rendered, but NO custom creation panel or button exists
+  const historicalEmptyHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(AddExerciseModal, {
+      isOpen: true,
+      onClose: () => {},
+      availableExercises: [],
+      history: [],
+      onSelectExercise: () => {}
+    })
+  );
+  assert.equal(historicalEmptyHtml.includes('No encontramos ejercicios'), true);
+  assert.equal(historicalEmptyHtml.includes('Crear ejercicio personalizado'), false);
+  assert.equal(historicalEmptyHtml.includes('Crear y añadir'), false);
+
+  // 16.2 AddExerciseModal with onCreateCustomExercise (Live mode)
+  // When available exercises is empty, custom creation panel AND "Crear y añadir" button ARE rendered
+  const liveEmptyHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(AddExerciseModal, {
+      isOpen: true,
+      onClose: () => {},
+      availableExercises: [],
+      history: [],
+      onSelectExercise: () => {},
+      onCreateCustomExercise: () => {}
+    })
+  );
+  assert.equal(liveEmptyHtml.includes('No encontramos ejercicios'), true);
+  assert.equal(liveEmptyHtml.includes('Crear ejercicio personalizado'), true);
+  assert.equal(liveEmptyHtml.includes('Crear y añadir'), true);
+
+  // 16.3 Active Workout Isolation: registering a historical workout never mutates ACTIVE_WORKOUT
+  const memory = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => memory.set(key, value),
+    removeItem: (key: string) => memory.delete(key)
+  };
+
+  const activeWorkout = {
+    isWorkoutActive: true,
+    workoutStartTime: '2026-09-25T10:00:00.000Z',
+    activeRoutineName: 'Active Push Day',
+    exerciseSessions: [
+      {
+        exercise: benchPress,
+        targetRepRange: [6, 10] as [number, number],
+        sets: [
+          { setIndex: 1, weightKg: 100, reps: 8, completed: true, setType: 'working' as const, isWarmup: false }
+        ]
+      }
+    ]
+  };
+  saveActiveWorkout(activeWorkout, storage);
+
+  const snapshotBefore = JSON.stringify(getStoredActiveWorkout(storage));
+
+  // User opens historical registration and adds catalog Exercise B (inclinePress)
+  const historicalExerciseSessions: ActiveExerciseSession[] = [
+    {
+      exercise: inclinePress,
+      targetRepRange: [8, 12] as [number, number],
+      sets: [
+        { setIndex: 1, weightKg: 70, reps: 10, completed: true, setType: 'working' as const, isWarmup: false }
+      ]
+    }
+  ];
+
+  const historicalSession = createHistoricalWorkoutSessionFromActive({
+    userId: 'user-isolation-test',
+    performedDate: '2026-09-20',
+    performedTime: '14:30',
+    exerciseSessions: historicalExerciseSessions
+  });
+
+  // Verify historical session contains catalog Exercise B
+  assert.equal(Boolean(historicalSession.sets['incline-press']), true);
+  assert.equal(historicalSession.sets['incline-press'].length, 1);
+  assert.equal(historicalSession.sets['incline-press'][0].weightKg, 70);
+  assert.equal(historicalSession.sets['bench-press'], undefined);
+
+  // Verify active workout in storage remains STRICTLY IDENTICAL and untouched
+  const snapshotAfter = JSON.stringify(getStoredActiveWorkout(storage));
+  assert.equal(snapshotAfter, snapshotBefore);
+  assert.deepEqual(getStoredActiveWorkout(storage), activeWorkout);
 });
