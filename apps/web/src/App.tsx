@@ -80,13 +80,22 @@ export function App() {
   };
 
   const finishWorkout = () => {
-    const result = workout.finish();
-    if (!result) return;
-    restTimer.cancel();
-    data.setHistory(result.history);
-    navigateToTab('stats');
-    showFeedback(t('feedback.workoutSaved'));
-    void data.sync();
+    try {
+      const result = workout.finish();
+      if (!result) return;
+      if (!result.ok) {
+        showFeedback(t('workout.saveError') || t('historical.saveError') || 'No se pudo guardar el entrenamiento');
+        return;
+      }
+      restTimer.cancel();
+      data.setHistory(result.history);
+      navigateToTab('stats');
+      showFeedback(t('feedback.workoutSaved'));
+      void data.sync();
+    } catch (err) {
+      console.error('finishWorkout unexpected error', err);
+      showFeedback(t('workout.saveError') || t('historical.saveError') || 'No se pudo guardar el entrenamiento');
+    }
   };
 
   const cancelWorkout = () => {

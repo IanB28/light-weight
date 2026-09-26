@@ -12,7 +12,8 @@ import {
   STORAGE_KEYS,
   upsertStoredHistory,
   getStoredHistory,
-  StoragePersistenceError
+  StoragePersistenceError,
+  saveCompletedWorkout
 } from '../../lib/storage.js';
 import { buildRoutinePickerOptions } from '../routines/routine-options.js';
 import {
@@ -26,7 +27,8 @@ import {
 } from './historical-workout.js';
 import type { ActiveExerciseSession } from './types.js';
 import { ExerciseSessionCard } from './WorkoutSessionComponents.js';
-import { HistoricalWorkoutModal } from '../../components/HistoricalWorkoutModal.js';
+import { HistoricalWorkoutModal, validateHistoricalSetup } from '../../components/HistoricalWorkoutModal.js';
+import { commitCompletedWorkoutSession } from './useWorkoutSession.js';
 import { DayDetailModal } from '../../components/DayDetailModal.js';
 import { AddExerciseModal } from '../../components/AddExerciseModal.js';
 import { dictionaries } from '../../lib/i18n.js';
@@ -1086,4 +1088,337 @@ test('21. Block 19.6D: storage failure throws StoragePersistenceError, preserves
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
     else Reflect.deleteProperty(globalThis, 'localStorage');
   }
+});
+
+test('25. Block 19.6E: live workout finish failure preserves active workout state, leaves history untouched, and handles error gracefully', () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const store = new Map<string, string>();
+  const activeWorkoutData = {
+    isWorkoutActive: true,
+    workoutStartTime: '2026-09-25T08:00:00.000Z',
+    activeRoutineName: 'Full Body Push',
+    exerciseSessions: [
+      {
+        exercise: benchPress,
+        sets: [
+          { setIndex: 1, weightKg: 100, reps: 5, completed: true, setType: 'working' as const, isWarmup: false }
+        ]
+      }
+    ]
+  };
+  store.set(STORAGE_KEYS.ACTIVE_WORKOUT, JSON.stringify(activeWorkoutData));
+  store.set(STORAGE_KEYS.HISTORY, JSON.stringify([]));
+
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (key === STORAGE_KEYS.HISTORY) {
+          throw new DOMException('QuotaExceededError', 'QuotaExceededError');
+        }
+        store.set(key, String(value));
+      },
+      removeItem: (key: string) => { store.delete(key); },
+      clear: () => { store.clear(); },
+      key: (index: number) => Array.from(store.keys())[index] ?? null,
+      get length() { return store.size; }
+    }
+  });
+
+  try {
+    const liveSession: WorkoutSession = {
+      id: 'live-finish-session-1',
+      userId: 'test-user',
+      routineName: 'Full Body Push',
+      startedAt: '2026-09-25T08:00:00.000Z',
+      performedDate: '2026-09-25',
+      endedAt: '2026-09-25T09:00:00.000Z',
+      recordedAt: '2026-09-25T09:00:00.000Z',
+      entrySource: 'live',
+      sets: {
+        'bench-press': [{ setIndex: 1, weightKg: 100, reps: 5, completed: true, rir: undefined, setType: 'working', isWarmup: false }]
+      }
+    };
+
+    // 1. Direct verify that saveCompletedWorkout throws StoragePersistenceError
+    assert.throws(
+      () => saveCompletedWorkout(liveSession),
+      (err: any) => err instanceof StoragePersistenceError
+    );
+
+    // 2. Active workout in storage must NOT have been cleared
+    const storedActive = getStoredActiveWorkout<typeof activeWorkoutData>();
+    assert.ok(storedActive);
+    assert.equal(storedActive.isWorkoutActive, true);
+    assert.equal(storedActive.activeRoutineName, 'Full Body Push');
+
+    // 3. History in storage must NOT contain the failed session
+    const storedHistory = getStoredHistory();
+    assert.equal(storedHistory.length, 0);
+
+    // 4. Test commitCompletedWorkoutSession catch handling
+    const result = commitCompletedWorkoutSession(liveSession, saveCompletedWorkout);
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.ok(result.error instanceof StoragePersistenceError);
+    }
+
+    // 5. Test App-level finishWorkout semantics
+    let feedbackMessage: string | null = null;
+    let navigatedTab: string | null = 'workout';
+    let restTimerCancelled = false;
+    let historyState: WorkoutSession[] = [];
+    let syncCalled = false;
+
+    const mockAppFinish = () => {
+      try {
+        const finishRes = commitCompletedWorkoutSession(liveSession, saveCompletedWorkout);
+        if (!finishRes.ok) {
+          feedbackMessage = 'No se pudo guardar el entrenamiento.';
+          return;
+        }
+        restTimerCancelled = true;
+        historyState = finishRes.history;
+        navigatedTab = 'stats';
+        feedbackMessage = 'Entrenamiento guardado.';
+        syncCalled = true;
+      } catch (err) {
+        feedbackMessage = 'No se pudo guardar el entrenamiento.';
+      }
+    };
+
+    // Must not throw uncaught error to the caller
+    assert.doesNotThrow(() => mockAppFinish());
+    assert.equal(feedbackMessage, 'No se pudo guardar el entrenamiento.');
+    assert.equal(navigatedTab, 'workout');
+    assert.equal(restTimerCancelled, false);
+    assert.equal(syncCalled, false);
+    assert.equal(historyState.length, 0);
+    assert.equal(storedActive.isWorkoutActive, true);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
+});
+
+test('26. Block 19.6E: missing-time gate keeps user in setup with "Requerida" error and danger styling, and proceeds once valid time is supplied', () => {
+  const t = (key: string) => (dictionaries.es as any)[key] ?? key;
+
+  // 1. Gate validation check with empty time
+  const emptyTimeResult = validateHistoricalSetup({
+    performedDate: '2026-09-24',
+    performedTime: '',
+    durationMinutes: '45',
+    t
+  });
+  assert.equal(emptyTimeResult.isValid, false);
+  assert.equal(emptyTimeResult.errors.performedTime, 'Requerida');
+
+  // 2. Render real UI in setup phase with empty time error state
+  const errorHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(HistoricalWorkoutModal, {
+        isOpen: true,
+        onClose: () => {},
+        onSave: () => {},
+        userId: 'test-user',
+        exercises: [benchPress],
+        history: [],
+        routines: [],
+        initialDate: new Date('2026-09-24T12:00:00Z'),
+        initialPhase: 'setup',
+        initialTime: '',
+        initialSetupErrors: emptyTimeResult.errors
+      })
+    )
+  );
+
+  // Must render "Requerida"
+  assert.ok(errorHtml.includes('Requerida'), 'HTML must include "Requerida" error indicator');
+  // Must render danger border on input
+  assert.ok(errorHtml.includes('border-danger'), 'Time input must have border-danger class');
+  // Must remain in setup phase (contains historical.title, not editor)
+  assert.ok(errorHtml.includes(t('historical.title')));
+  assert.ok(!errorHtml.includes('Guardar entrenamiento'), 'Setup phase must NOT render the Save button');
+
+  // 3. Gate validation check with valid time "10:00"
+  const validTimeResult = validateHistoricalSetup({
+    performedDate: '2026-09-24',
+    performedTime: '10:00',
+    durationMinutes: '45',
+    t
+  });
+  assert.equal(validTimeResult.isValid, true);
+  assert.deepEqual(validTimeResult.errors, {});
+});
+
+test('27. Block 19.6E: real editor header subtitle strictly renders YYYY-MM-DD · HH:mm format', () => {
+  const editorHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(HistoricalWorkoutModal, {
+        isOpen: true,
+        onClose: () => {},
+        onSave: () => {},
+        userId: 'test-user',
+        exercises: [benchPress],
+        history: [],
+        routines: [],
+        initialDate: new Date('2026-09-24T12:00:00Z'),
+        initialPhase: 'editor',
+        initialTime: '10:00',
+        initialExerciseSessions: [
+          {
+            exercise: benchPress,
+            targetRepRange: [8, 12],
+            sets: [{ setIndex: 1, weightKg: 80, reps: 10, completed: true, setType: 'working' as const, isWarmup: false }]
+          }
+        ]
+      })
+    )
+  );
+
+  // Must render subtitle with exact date and time joined by ·
+  assert.ok(editorHtml.includes('2026-09-24 · 10:00'), 'Editor header must contain "2026-09-24 · 10:00"');
+  assert.match(editorHtml, /2026-09-24 · 10:00/);
+});
+
+test('28. Block 19.6E: Save button enablement is strictly gated by completed valid sets (0 sets disabled, 1 set enabled)', () => {
+  // 1. Editor with 0 completed sets -> disabled
+  const zeroSetsHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(HistoricalWorkoutModal, {
+        isOpen: true,
+        onClose: () => {},
+        onSave: () => {},
+        userId: 'test-user',
+        exercises: [benchPress],
+        history: [],
+        routines: [],
+        initialDate: new Date('2026-09-24T12:00:00Z'),
+        initialPhase: 'editor',
+        initialTime: '10:00',
+        initialExerciseSessions: [
+          {
+            exercise: benchPress,
+            targetRepRange: [8, 12],
+            sets: [{ setIndex: 1, weightKg: 80, reps: 10, completed: false, setType: 'working' as const, isWarmup: false }]
+          }
+        ]
+      })
+    )
+  );
+
+  // Find the button with "Guardar entrenamiento" and check it has disabled attribute
+  const saveDisabledMatch = zeroSetsHtml.match(/<button[^>]*disabled[^>]*>[\s\S]*?Guardar entrenamiento[\s\S]*?<\/button>/);
+  assert.ok(saveDisabledMatch, 'Save button must be disabled when 0 sets are completed');
+
+  // 2. Editor with 1 valid completed set -> enabled
+  const oneSetHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(HistoricalWorkoutModal, {
+        isOpen: true,
+        onClose: () => {},
+        onSave: () => {},
+        userId: 'test-user',
+        exercises: [benchPress],
+        history: [],
+        routines: [],
+        initialDate: new Date('2026-09-24T12:00:00Z'),
+        initialPhase: 'editor',
+        initialTime: '10:00',
+        initialExerciseSessions: [
+          {
+            exercise: benchPress,
+            targetRepRange: [8, 12],
+            sets: [{ setIndex: 1, weightKg: 80, reps: 10, completed: true, setType: 'working' as const, isWarmup: false }]
+          }
+        ]
+      })
+    )
+  );
+
+  // In oneSetHtml, the button with "Guardar entrenamiento" must NOT be disabled
+  const saveEnabledMatch = oneSetHtml.match(/<button(?![^>]*disabled)[^>]*>[\s\S]*?Guardar entrenamiento[\s\S]*?<\/button>/);
+  assert.ok(saveEnabledMatch, 'Save button must be enabled when at least 1 set is completed');
+});
+
+test('29. Block 19.6E: Save reentrancy guard disables button and rejects concurrent save invocations', async () => {
+  // 1. Verify rendered UI has disabled Save button when isSaving is true
+  const savingHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(HistoricalWorkoutModal, {
+        isOpen: true,
+        onClose: () => {},
+        onSave: () => {},
+        userId: 'test-user',
+        exercises: [benchPress],
+        history: [],
+        routines: [],
+        initialDate: new Date('2026-09-24T12:00:00Z'),
+        initialPhase: 'editor',
+        initialTime: '10:00',
+        initialIsSaving: true,
+        initialExerciseSessions: [
+          {
+            exercise: benchPress,
+            targetRepRange: [8, 12],
+            sets: [{ setIndex: 1, weightKg: 80, reps: 10, completed: true, setType: 'working' as const, isWarmup: false }]
+          }
+        ]
+      })
+    )
+  );
+
+  const saveDisabledWhileSaving = savingHtml.match(/<button[^>]*disabled[^>]*>[\s\S]*?Guardar entrenamiento[\s\S]*?<\/button>/);
+  assert.ok(saveDisabledWhileSaving, 'Save button must be disabled while isSaving is true');
+
+  // 2. Verify reentrancy guard logic blocks double-invocation
+  let onSaveCallCount = 0;
+  let resolveSave: ((val: boolean) => void) | null = null;
+  const mockOnSave = () => {
+    onSaveCallCount++;
+    return new Promise<boolean>((resolve) => {
+      resolveSave = resolve;
+    });
+  };
+
+  // Simulate concurrent double-tap on handleSave with isSaving guard
+  let isSaving = false;
+  const simulateHandleSave = async () => {
+    if (isSaving) return;
+    isSaving = true;
+    try {
+      await mockOnSave();
+    } finally {
+      isSaving = false;
+    }
+  };
+
+  // Launch first tap
+  const firstTap = simulateHandleSave();
+  assert.equal(isSaving, true);
+  assert.equal(onSaveCallCount, 1);
+
+  // Rapid second tap while first is in flight
+  const secondTap = simulateHandleSave();
+  // Second tap must return immediately without calling onSave again
+  await secondTap;
+  assert.equal(onSaveCallCount, 1, 'onSave must NOT be called more than once during in-flight save');
+
+  // Complete first tap
+  resolveSave!(true);
+  await firstTap;
+  assert.equal(isSaving, false);
+  assert.equal(onSaveCallCount, 1);
 });

@@ -60,9 +60,21 @@ export interface UseWorkoutSessionOptions {
   bodyweightEntries?: import('@light-weight/domain').BodyweightEntry[];
 }
 
-export interface WorkoutFinishResult {
-  session: WorkoutSession;
-  history: WorkoutSession[];
+export type WorkoutFinishResult =
+  | { ok: true; session: WorkoutSession; history: WorkoutSession[] }
+  | { ok: false; error: Error };
+
+export function commitCompletedWorkoutSession(
+  session: WorkoutSession,
+  saveFn: (session: WorkoutSession) => WorkoutSession[] = saveCompletedWorkout
+): WorkoutFinishResult {
+  try {
+    const updatedHistory = saveFn(session);
+    return { ok: true, session, history: updatedHistory };
+  } catch (error) {
+    console.error('Failed to save completed workout session', error);
+    return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+  }
 }
 
 const FALLBACK_USER_ID = 'local-anonymous';
@@ -852,14 +864,17 @@ export function useWorkoutSession({
       entrySource: 'live',
       sets
     };
-    const updatedHistory = saveCompletedWorkout(session);
+    const result = commitCompletedWorkoutSession(session, saveCompletedWorkout);
+    if (!result.ok) {
+      return result;
+    }
     clearActiveWorkout();
     setIsWorkoutActive(false);
     setExerciseSessions([]);
     setWorkoutStartedAt(null);
     setWorkoutPerformedDate(null);
     setActiveRoutineName('Entrenamiento Libre');
-    return { session, history: updatedHistory };
+    return result;
   };
 
   const cancel = () => {

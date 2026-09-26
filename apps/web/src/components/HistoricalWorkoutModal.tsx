@@ -1,3 +1,33 @@
+export function validateHistoricalSetup({
+  performedDate,
+  performedTime,
+  durationMinutes,
+  t
+}: {
+  performedDate: string;
+  performedTime: string;
+  durationMinutes: string;
+  t: (key: any) => string;
+}): { isValid: boolean; errors: { performedDate?: string; performedTime?: string; duration?: string } } {
+  const errors: { performedDate?: string; performedTime?: string; duration?: string } = {};
+
+  if (!performedDate || !isStrictlyPastDateKey(performedDate)) {
+    errors.performedDate = t('historical.invalidDate');
+  }
+
+  if (!performedTime) {
+    errors.performedTime = t('historical.timeRequired');
+  } else if (!isValidPerformedTime(performedTime)) {
+    errors.performedTime = t('historical.invalidTime');
+  }
+
+  if (!isValidHistoricalDuration(durationMinutes)) {
+    errors.duration = t('historical.invalidDuration');
+  }
+
+  return { isValid: Object.keys(errors).length === 0, errors };
+}
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarPlus, ChevronRight, Dumbbell, Plus, X, AlertTriangle } from 'lucide-react';
 import {
@@ -42,7 +72,7 @@ import {
   HistoricalWorkoutValidationError
 } from '../features/workouts/historical-workout.js';
 
-interface HistoricalWorkoutModalProps {
+export interface HistoricalWorkoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (session: WorkoutSession) => boolean | { ok: boolean; error?: string } | void | Promise<boolean | { ok: boolean; error?: string } | void>;
@@ -52,6 +82,11 @@ interface HistoricalWorkoutModalProps {
   routines: Routine[];
   initialDate?: Date;
   initialRoutineId?: string;
+  initialPhase?: 'setup' | 'editor';
+  initialTime?: string;
+  initialExerciseSessions?: ActiveExerciseSession[];
+  initialSetupErrors?: { performedDate?: string; performedTime?: string; duration?: string };
+  initialIsSaving?: boolean;
 }
 
 export function HistoricalWorkoutModal({
@@ -63,7 +98,12 @@ export function HistoricalWorkoutModal({
   history,
   routines,
   initialDate,
-  initialRoutineId
+  initialRoutineId,
+  initialPhase,
+  initialTime,
+  initialExerciseSessions,
+  initialSetupErrors,
+  initialIsSaving
 }: HistoricalWorkoutModalProps) {
   const { t } = useI18n();
   const { preferences } = usePreferences();
@@ -82,14 +122,21 @@ export function HistoricalWorkoutModal({
   const timeInputRef = useRef<HTMLInputElement>(null);
   const durationInputRef = useRef<HTMLInputElement>(null);
 
-  const [phase, setPhase] = useState<'setup' | 'editor'>('setup');
-  const [performedDate, setPerformedDate] = useState(() => getLatestHistoricalDateKey());
-  const [performedTime, setPerformedTime] = useState('');
+  const [phase, setPhase] = useState<'setup' | 'editor'>(initialPhase || 'setup');
+  const [performedDate, setPerformedDate] = useState(() => {
+    if (initialDate) {
+      const candidateKey = formatLocalWorkoutDateKey(initialDate);
+      if (isStrictlyPastDateKey(candidateKey)) return candidateKey;
+    }
+    return getLatestHistoricalDateKey();
+  });
+  const [performedTime, setPerformedTime] = useState(initialTime || '');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [routineName, setRoutineName] = useState('');
   const [routineId, setRoutineId] = useState('');
-  const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>([]);
+  const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>(initialExerciseSessions || []);
   const [editorDirty, setEditorDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(initialIsSaving ?? false);
 
   // Sub-modal states
   const [plateTarget, setPlateTarget] = useState<PlateTarget | null>(null);
@@ -99,7 +146,7 @@ export function HistoricalWorkoutModal({
   const [showConfirmChangeRoutine, setShowConfirmChangeRoutine] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [setupErrors, setSetupErrors] = useState<{ performedDate?: string; performedTime?: string; duration?: string }>({});
+  const [setupErrors, setSetupErrors] = useState<{ performedDate?: string; performedTime?: string; duration?: string }>(initialSetupErrors || {});
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Initialize draft when modal opens
@@ -109,13 +156,14 @@ export function HistoricalWorkoutModal({
     const candidateKey = initialDate ? formatLocalWorkoutDateKey(initialDate) : yesterdayKey;
     const initialKey = isStrictlyPastDateKey(candidateKey) ? candidateKey : yesterdayKey;
     setPerformedDate(initialKey);
-    setPerformedTime('');
+    setPerformedTime(initialTime || '');
     setDurationMinutes('');
-    setPhase('setup');
+    setPhase(initialPhase || 'setup');
     setError(null);
-    setSetupErrors({});
+    setSetupErrors(initialSetupErrors || {});
     setSaveError(null);
     setEditorDirty(false);
+    setIsSaving(initialIsSaving ?? false);
 
     if (initialRoutineId) {
       const routine = routines.find((r) => r.id === initialRoutineId);
@@ -132,10 +180,15 @@ export function HistoricalWorkoutModal({
       }
     }
 
+    if (initialExerciseSessions) {
+      setExerciseSessions(initialExerciseSessions);
+      return;
+    }
+
     setRoutineName('');
     setRoutineId('');
     setExerciseSessions([]);
-  }, [initialDate, initialRoutineId, isOpen, routines, exercisesById, historyIndex, preferences]);
+  }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences]);
 
   const routinePickerOptions = useMemo(() => {
     return buildRoutinePickerOptions(routines, {
@@ -284,23 +337,14 @@ export function HistoricalWorkoutModal({
   const canSave = Boolean(isPastDate && isValidTime && isValidDuration && hasValidCompletedSet);
 
   const handleProceedFromSetup = () => {
-    const errors: { performedDate?: string; performedTime?: string; duration?: string } = {};
+    const { isValid, errors } = validateHistoricalSetup({
+      performedDate,
+      performedTime,
+      durationMinutes,
+      t
+    });
 
-    if (!performedDate || !isStrictlyPastDateKey(performedDate)) {
-      errors.performedDate = t('historical.invalidDate');
-    }
-
-    if (!performedTime) {
-      errors.performedTime = t('historical.timeRequired');
-    } else if (!isValidPerformedTime(performedTime)) {
-      errors.performedTime = t('historical.invalidTime');
-    }
-
-    if (!isValidHistoricalDuration(durationMinutes)) {
-      errors.duration = t('historical.invalidDuration');
-    }
-
-    if (Object.keys(errors).length > 0) {
+    if (!isValid) {
       setSetupErrors(errors);
       if (errors.performedDate) {
         dateInputRef.current?.focus();
@@ -321,6 +365,8 @@ export function HistoricalWorkoutModal({
   };
 
   const handleSave = async () => {
+    if (isSaving || !canSave) return;
+    setIsSaving(true);
     try {
       setSaveError(null);
       const session = createHistoricalWorkoutSessionFromActive({
@@ -349,6 +395,8 @@ export function HistoricalWorkoutModal({
       }
     } catch (cause) {
       setSaveError(cause instanceof HistoricalWorkoutValidationError ? t(`historical.error.${cause.code}` as any) : t('historical.saveError'));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -622,7 +670,7 @@ export function HistoricalWorkoutModal({
                 </div>
                 <Button
                   onClick={handleSave}
-                  disabled={!canSave}
+                  disabled={!canSave || isSaving}
                   className="w-full"
                 >
                   <CalendarPlus className="size-4" />
