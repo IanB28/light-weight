@@ -187,7 +187,8 @@ export function App() {
           isAuthenticated={auth.isAuthenticated}
           bodyweightKg={resolveBodyweightKgAtDate(data.bodyweightEntries)}
           bodyweightEntries={data.bodyweightEntries}
-            onSave={handleSaveProfile}
+          historicalPersonalRecords={data.historicalPersonalRecords}
+          onSave={handleSaveProfile}
             onUploadAvatar={auth.uploadAvatar}
             avatarUploadAvailable={auth.status === 'authenticated'}
             onClose={() => dispatchSurface({ type: 'close_profile' })}
@@ -229,6 +230,18 @@ export function App() {
           availableExercises={data.exercises}
           history={data.history}
           currentBodyweightKg={resolveBodyweightKgAtDate(data.bodyweightEntries)}
+          bodyweightEntries={data.bodyweightEntries}
+          gender={effectiveProfile.gender}
+          userId={auth.user?.id || data.userInfo.id}
+          historicalPersonalRecords={data.historicalPersonalRecords}
+          onSaveHistoricalPersonalRecord={(record) => {
+            const result = data.saveHistoricalPersonalRecord(record);
+            if (result.ok) {
+              showFeedback(t('historicalPr.saved'));
+              return true;
+            }
+            return false;
+          }}
           onToggleSet={workout.toggleSet}
           onUpdateSet={workout.updateSet}
           onUpdateSetRir={workout.updateSetRir}
@@ -255,6 +268,7 @@ export function App() {
         {currentTab === 'stats' && <StatsView
           history={data.history}
           exercises={data.exercises}
+          historicalPersonalRecords={data.historicalPersonalRecords}
           isWorkoutActive={workout.isWorkoutActive}
           activeWorkoutDuration={workout.duration}
           onNavigateToWorkout={() => navigateToTab('workout')}

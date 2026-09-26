@@ -8,11 +8,13 @@ import {
   userProfiles,
   exercises,
   routines,
-  users
+  users,
+  historicalPersonalRecords
 } from '../db/schema.js';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
   estimateOneRm,
+  normalizeHistoricalPersonalRecord,
   shouldCountForPersonalRecord,
   shouldCountForVolume,
   type BaseResistanceStatus
@@ -36,11 +38,15 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       sessions: rawSessions = [],
       bodyweightLogs: bLogs = [],
       routines: incomingRoutines = [],
-      deletedRoutineIds: rawDeletedRoutineIds = []
+      deletedRoutineIds: rawDeletedRoutineIds = [],
+      historicalPersonalRecords: rawHprs = []
     } = req.body || {};
     const userId = req.auth!.userId;
     // Validate and normalize canonical set semantics before performing any write.
     const sessions = normalizeIncomingSyncSessions(rawSessions);
+    const validIncomingHprs = (Array.isArray(rawHprs) ? rawHprs : [])
+      .map(normalizeHistoricalPersonalRecord)
+      .filter((hpr): hpr is NonNullable<typeof hpr> => hpr !== null);
     const deletedRoutineIds = [...new Set((Array.isArray(rawDeletedRoutineIds) ? rawDeletedRoutineIds : [])
       .filter((id): id is string => typeof id === 'string' && id.length > 0)
       .slice(0, 250))];
@@ -62,7 +68,10 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       ...sessions.flatMap((session) => session.routineId ? [toDatabaseUuid(session.routineId)] : [])
     ]);
     const sessionDbIds = sessions.map((session) => toDatabaseUuid(session.id));
-    const exerciseIds = [...new Set(sessions.flatMap((session) => Object.keys(session.sets || {})))];
+    const exerciseIds = [...new Set([
+      ...sessions.flatMap((session) => Object.keys(session.sets || {})),
+      ...validIncomingHprs.map((hpr) => hpr.exerciseId)
+    ])];
 
     const result = await db.transaction(async (tx) => {
       const [existingBodyweightLogs, existingPrs, existingSessions, existingRoutines, existingExercises] = await Promise.all([
@@ -272,6 +281,72 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       syncedSessionIds.push(sessionUuid);
       }
 
+      for (const hpr of validIncomingHprs) {
+        const hprUuid = toDatabaseUuid(hpr.id);
+        const exerciseId = hpr.exerciseId;
+        await tx
+          .insert(exercises)
+          .values({
+            id: exerciseId,
+            userId,
+            name: exerciseId,
+            category: 'other',
+            primaryMuscle: 'core',
+            loadMechanism: DEFAULT_EXERCISE_LOADING_PROFILE.mechanism,
+            loadMode: DEFAULT_EXERCISE_LOADING_PROFILE.loadMode,
+            supportsKeyboard: DEFAULT_EXERCISE_LOADING_PROFILE.supportsKeyboard,
+            supportsPlates: DEFAULT_EXERCISE_LOADING_PROFILE.supportsPlates,
+            supportsExternalLoad: DEFAULT_EXERCISE_LOADING_PROFILE.supportsExternalLoad,
+            includeBarWeight: DEFAULT_EXERCISE_LOADING_PROFILE.includeBarWeight,
+            isCustom: true,
+          })
+          .onConflictDoNothing();
+        if (!exerciseOwnerById.has(exerciseId)) exerciseOwnerById.set(exerciseId, userId);
+
+        await tx.insert(historicalPersonalRecords).values({
+          id: hprUuid,
+          userId,
+          exerciseId,
+          performedDate: hpr.performedDate,
+          recordedAt: new Date(hpr.recordedAt),
+          bodyweightKg: String(hpr.bodyweightKg),
+          weightKg: String(hpr.set.weightKg),
+          reps: hpr.set.reps,
+          rir: hpr.set.rir ?? null,
+          rpe: hpr.set.rpe !== undefined ? String(hpr.set.rpe) : null,
+          setType: hpr.set.setType,
+          machineProfileId: hpr.set.machineProfileId || null,
+          machineProfileLabel: hpr.set.machineProfileLabel || null,
+          machineBaseResistanceKg: hpr.set.machineBaseResistanceKg !== undefined ? String(hpr.set.machineBaseResistanceKg) : null,
+          machineBaseResistanceStatus: (hpr.set.machineBaseResistanceStatus as BaseResistanceStatus) || null,
+          machineBaseSourceLabel: hpr.set.machineBaseSourceLabel || null,
+          machineBaseSourceUrl: hpr.set.machineBaseSourceUrl || null,
+          machineManufacturer: hpr.set.machineManufacturer || null,
+          machineModel: hpr.set.machineModel || null,
+          source: 'historical_manual',
+          updatedAt: new Date(),
+        }).onConflictDoUpdate({
+          target: historicalPersonalRecords.id,
+          set: {
+            bodyweightKg: String(hpr.bodyweightKg),
+            weightKg: String(hpr.set.weightKg),
+            reps: hpr.set.reps,
+            rir: hpr.set.rir ?? null,
+            rpe: hpr.set.rpe !== undefined ? String(hpr.set.rpe) : null,
+            setType: hpr.set.setType,
+            machineProfileId: hpr.set.machineProfileId || null,
+            machineProfileLabel: hpr.set.machineProfileLabel || null,
+            machineBaseResistanceKg: hpr.set.machineBaseResistanceKg !== undefined ? String(hpr.set.machineBaseResistanceKg) : null,
+            machineBaseResistanceStatus: (hpr.set.machineBaseResistanceStatus as BaseResistanceStatus) || null,
+            machineBaseSourceLabel: hpr.set.machineBaseSourceLabel || null,
+            machineBaseSourceUrl: hpr.set.machineBaseSourceUrl || null,
+            machineManufacturer: hpr.set.machineManufacturer || null,
+            machineModel: hpr.set.machineModel || null,
+            updatedAt: new Date(),
+          }
+        });
+      }
+
       return {
         success: true,
         syncedCount: syncedSessionIds.length,
@@ -398,6 +473,39 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
       .orderBy(desc(bodyweightLogs.loggedAt))
       .limit(1_000);
 
+    const userHprs = await db
+      .select()
+      .from(historicalPersonalRecords)
+      .where(eq(historicalPersonalRecords.userId, userId))
+      .orderBy(desc(historicalPersonalRecords.performedDate));
+
+    const hydratedHprs = userHprs.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      exerciseId: row.exerciseId,
+      performedDate: row.performedDate,
+      recordedAt: row.recordedAt.toISOString(),
+      bodyweightKg: Number(row.bodyweightKg),
+      source: 'historical_manual' as const,
+      set: {
+        setIndex: 1,
+        weightKg: Number(row.weightKg),
+        reps: row.reps,
+        rir: row.rir ?? undefined,
+        rpe: row.rpe ? Number(row.rpe) : undefined,
+        setType: row.setType,
+        completed: true,
+        machineProfileId: row.machineProfileId ?? undefined,
+        machineProfileLabel: row.machineProfileLabel ?? undefined,
+        machineBaseResistanceKg: row.machineBaseResistanceKg !== null && row.machineBaseResistanceKg !== undefined ? Number(row.machineBaseResistanceKg) : undefined,
+        machineBaseResistanceStatus: row.machineBaseResistanceStatus ?? undefined,
+        machineBaseSourceLabel: row.machineBaseSourceLabel ?? undefined,
+        machineBaseSourceUrl: row.machineBaseSourceUrl ?? undefined,
+        machineManufacturer: row.machineManufacturer ?? undefined,
+        machineModel: row.machineModel ?? undefined,
+      }
+    }));
+
     res.json({
       user: userRecord ? toAuthUser(userRecord) : null,
       profile,
@@ -408,6 +516,7 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
         loggedAt: entry.loggedAt.toISOString()
       })),
       personalRecords: prs,
+      historicalPersonalRecords: hydratedHprs,
     });
   } catch (error) {
     throw error;

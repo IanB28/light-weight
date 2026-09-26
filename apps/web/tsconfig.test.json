@@ -104,6 +104,8 @@
     "src/components/WeightWidget.test.ts",
     "src/components/DayDetailModal.tsx",
     "src/components/HistoricalWorkoutModal.tsx",
-    "src/features/workouts/historical-workout-v2.test.ts"
+    "src/features/workouts/historical-workout-v2.test.ts",
+    "src/components/HistoricalPersonalRecordModal.tsx",
+    "src/features/workouts/historical-pr.test.ts"
   ]
 }

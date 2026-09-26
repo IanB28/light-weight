@@ -1,6 +1,8 @@
 import {
+  normalizeHistoricalPersonalRecord,
   normalizeLoggedSet,
   normalizeWorkoutSession,
+  type HistoricalPersonalRecord,
   type LegacyWorkoutSession,
   type Routine,
   type WorkoutSession
@@ -20,7 +22,8 @@ export const STORAGE_KEYS = {
   USER_INFO: 'lightweight_user_info',
   DELETED_ROUTINE_IDS: 'lightweight_deleted_routine_ids',
   MACHINE_PROFILES: 'lightweight_machine_profiles',
-  LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles'
+  LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles',
+  HISTORICAL_PERSONAL_RECORDS: 'lightweight_historical_personal_records'
 };
 
 const PRIVATE_STORAGE_KEYS = Object.values(STORAGE_KEYS);
@@ -358,6 +361,53 @@ export function saveStoredHistory(history: WorkoutSession[]): void {
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history.map(normalizeWorkoutSession)));
   } catch (err) {
     console.error('Failed to save history:', err);
+  }
+}
+
+export function normalizeStoredHistoricalPersonalRecords(value: unknown): HistoricalPersonalRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(normalizeHistoricalPersonalRecord)
+    .filter((record): record is HistoricalPersonalRecord => record !== null);
+}
+
+export function getStoredHistoricalPersonalRecords(): HistoricalPersonalRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.HISTORICAL_PERSONAL_RECORDS);
+    if (!raw) return [];
+    return normalizeStoredHistoricalPersonalRecords(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredHistoricalPersonalRecords(records: HistoricalPersonalRecord[]): void {
+  try {
+    const normalized = normalizeStoredHistoricalPersonalRecords(records);
+    localStorage.setItem(STORAGE_KEYS.HISTORICAL_PERSONAL_RECORDS, JSON.stringify(normalized));
+  } catch (err) {
+    console.error('Failed to save historical personal records to storage:', err);
+    throw new StoragePersistenceError('Failed to save historical personal records to storage', err);
+  }
+}
+
+export function upsertStoredHistoricalPersonalRecord(record: HistoricalPersonalRecord): HistoricalPersonalRecord[] {
+  const normalized = normalizeHistoricalPersonalRecord(record);
+  if (!normalized) {
+    throw new StoragePersistenceError('Invalid historical personal record');
+  }
+  const current = getStoredHistoricalPersonalRecords();
+  const filtered = current.filter((item) => item.id !== normalized.id);
+  const updated = [normalized, ...filtered].sort((left, right) => {
+    const chronological = Date.parse(right.performedDate) - Date.parse(left.performedDate);
+    return chronological !== 0 ? chronological : right.recordedAt.localeCompare(left.recordedAt);
+  });
+  try {
+    localStorage.setItem(STORAGE_KEYS.HISTORICAL_PERSONAL_RECORDS, JSON.stringify(updated));
+    return updated;
+  } catch (err) {
+    console.error('Failed to upsert historical personal record to storage:', err);
+    throw new StoragePersistenceError('Failed to upsert historical personal record to storage', err);
   }
 }
 

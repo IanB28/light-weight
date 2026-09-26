@@ -22,7 +22,7 @@ function runVerifier(env) {
   });
 }
 
-const PRODUCTION_LEDGER_0000_TO_0006 = Object.freeze([
+const PRODUCTION_LEDGER_0000_TO_0007 = Object.freeze([
   ['1789279804495', 'f11126bd1ba7d5eb2d5cc3f939a489098969671073eb9d14f8d70565021a88ff'],
   ['1789415100420', 'bb5906bde1e8ebd5c9d9c396d1f3601b7c8f51a7db7c97d206dad6514c4c6863'],
   ['1789500000000', 'cbeff05f643ccbe03371cfb81bd73fe7e427aa4908238b0ad68a1b43088f46c4'],
@@ -30,6 +30,7 @@ const PRODUCTION_LEDGER_0000_TO_0006 = Object.freeze([
   ['1789700000000', '40670b6896b21cd8a673443fd026931644858496e93df70e333622fca7dd8def'],
   ['1789800000000', '25d259bb35ed746762dc991d1d2be78756a14ce0192e11228166067e2549fad9'],
   ['1789900000000', '46f2283b77e54f10855cd47ae14a652e267567156f43d318d162941d43342b6b'],
+  ['1790000000000', '89800f68da2dcf6a91561cfecf66fbe0e8bd861a1af3e409d308eefd10495a3a'],
 ].map(([created_at, hash]) => ({ created_at, hash })));
 
 test('deployment verifier accepts canonical and explicitly approved historical 0002 hashes only', () => {
@@ -39,12 +40,12 @@ test('deployment verifier accepts canonical and explicitly approved historical 0
   assert.ok(legacy0002);
   assert.equal(expected[2].hash, legacy0002.canonicalSourceHash);
 
-  // Canonical Linux/Git source and the actual production 0000–0006 ledger pass.
+  // Canonical Linux/Git source and the actual production 0000–0007 ledger pass.
   assert.equal(evaluateSchemaCompatibility(expected, matching).ok, true);
-  assert.equal(evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0006).ok, true);
+  assert.equal(evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0007).ok, true);
 
   // A same-timestamp hash passes only when it is in the explicit manifest.
-  const unknown0002 = evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0006.map((entry) => (
+  const unknown0002 = evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0007.map((entry) => (
     entry.created_at === '1789500000000' ? { ...entry, hash: 'not-an-approved-historical-hash' } : entry
   )));
   assert.equal(unknown0002.ok, false);
@@ -64,7 +65,7 @@ test('deployment verifier accepts canonical and explicitly approved historical 0
   assert.deepEqual(wrongHash.hashMismatches.map((entry) => entry.tag), [expected[4].tag]);
 
   // A newer DB migration does not block an older compatible build.
-  assert.equal(evaluateSchemaCompatibility(expected, [...matching, { created_at: '1790000000000', hash: 'future' }]).ok, true);
+  assert.equal(evaluateSchemaCompatibility(expected, [...matching, { created_at: '1790100000000', hash: 'future' }]).ok, true);
 });
 
 test('compatibility aliases never permit a modified local 0002 source file', async () => {

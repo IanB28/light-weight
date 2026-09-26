@@ -1,4 +1,4 @@
-import type { Exercise, ExerciseLoadMode, LoggedSet, WorkoutSession, WorkoutSetType } from './types.js';
+import type { Exercise, ExerciseLoadMode, HistoricalPersonalRecord, LoggedSet, WorkoutSession, WorkoutSetType } from './types.js';
 import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
 import { normalizeRirValue, normalizeRpeValue } from './effort.js';
 import { isValidBaseResistanceStatus, isAuthoritativeProvenance } from './machineProfile.js';
@@ -262,4 +262,67 @@ export function isSetEligibleForPersonalRecord({
   }
 
   return Number.isFinite(set.weightKg) && Number(set.weightKg) > 0 && effectiveLoad > 0;
+}
+
+export function isValidHistoricalPersonalRecord(record: unknown): record is HistoricalPersonalRecord {
+  if (!record || typeof record !== 'object') return false;
+  const candidate = record as Partial<HistoricalPersonalRecord>;
+  if (typeof candidate.id !== 'string' || candidate.id.trim() === '') return false;
+  if (typeof candidate.userId !== 'string' || candidate.userId.trim() === '') return false;
+  if (typeof candidate.exerciseId !== 'string' || candidate.exerciseId.trim() === '') return false;
+  if (typeof candidate.performedDate !== 'string' || !isValidWorkoutDateKey(candidate.performedDate)) return false;
+  if (typeof candidate.recordedAt !== 'string' || !isValidWorkoutTimestamp(candidate.recordedAt)) return false;
+  if (typeof candidate.bodyweightKg !== 'number' || !Number.isFinite(candidate.bodyweightKg) || candidate.bodyweightKg <= 0) return false;
+  if (!candidate.set || typeof candidate.set !== 'object') return false;
+  if (!isValidWorkoutSet(candidate.set)) return false;
+  if (candidate.source !== 'historical_manual') return false;
+  return true;
+}
+
+export function normalizeHistoricalPersonalRecord(record: unknown): HistoricalPersonalRecord | null {
+  if (!record || typeof record !== 'object') return null;
+  const candidate = record as Record<string, unknown>;
+  const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+  const userId = typeof candidate.userId === 'string' ? candidate.userId.trim() : '';
+  const exerciseId = typeof candidate.exerciseId === 'string' ? candidate.exerciseId.trim() : '';
+  const performedDate = typeof candidate.performedDate === 'string' ? candidate.performedDate.trim() : '';
+  const recordedAt = typeof candidate.recordedAt === 'string' ? candidate.recordedAt.trim() : '';
+  const bodyweightKg = typeof candidate.bodyweightKg === 'number' && Number.isFinite(candidate.bodyweightKg) && candidate.bodyweightKg > 0
+    ? candidate.bodyweightKg
+    : (typeof candidate.bodyweightKg === 'string' && Number.isFinite(Number(candidate.bodyweightKg)) && Number(candidate.bodyweightKg) > 0 ? Number(candidate.bodyweightKg) : null);
+
+  if (!id || !userId || !exerciseId || !performedDate || !isValidWorkoutDateKey(performedDate) || !recordedAt || !isValidWorkoutTimestamp(recordedAt) || bodyweightKg === null) {
+    return null;
+  }
+
+  const rawSet = candidate.set as Record<string, unknown> | undefined;
+  if (!rawSet || typeof rawSet !== 'object') return null;
+  const weightKg = typeof rawSet.weightKg === 'number' && Number.isFinite(rawSet.weightKg) && rawSet.weightKg >= 0
+    ? rawSet.weightKg
+    : (typeof rawSet.weightKg === 'string' && Number.isFinite(Number(rawSet.weightKg)) && Number(rawSet.weightKg) >= 0 ? Number(rawSet.weightKg) : null);
+  const reps = typeof rawSet.reps === 'number' && Number.isInteger(rawSet.reps) && rawSet.reps > 0
+    ? rawSet.reps
+    : (typeof rawSet.reps === 'string' && Number.isInteger(Number(rawSet.reps)) && Number(rawSet.reps) > 0 ? Number(rawSet.reps) : null);
+
+  if (weightKg === null || reps === null) return null;
+
+  const normalizedSet = normalizeLoggedSet({
+    ...rawSet,
+    setIndex: 1,
+    weightKg,
+    reps,
+    completed: true,
+    setType: 'working'
+  });
+
+  return {
+    id,
+    userId,
+    exerciseId,
+    performedDate,
+    recordedAt,
+    bodyweightKg,
+    set: normalizedSet,
+    source: 'historical_manual'
+  };
 }

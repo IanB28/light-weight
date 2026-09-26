@@ -232,3 +232,41 @@ export const authIdentities = pgTable('auth_identities', {
   index('auth_identities_user_id_idx').on(table.userId),
   check('auth_identities_provider_check', sql`${table.provider} IN ('google')`)
 ]);
+
+// 9. Récords personales históricos manuales (independientes de WorkoutSession)
+export const historicalPersonalRecords = pgTable('historical_personal_records', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  exerciseId: varchar('exercise_id', { length: 100 })
+    .references(() => exercises.id, { onDelete: 'cascade' })
+    .notNull(),
+  performedDate: date('performed_date').notNull(),
+  recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull(),
+  bodyweightKg: numeric('bodyweight_kg', { precision: 5, scale: 2 }).notNull(),
+  weightKg: numeric('weight_kg', { precision: 6, scale: 2 }).notNull(),
+  reps: integer('reps').notNull(),
+  rir: integer('rir'),
+  rpe: numeric('rpe', { precision: 3, scale: 1 }),
+  setType: varchar('set_type', { length: 16 }).$type<WorkoutSetType>().default('working').notNull(),
+  machineProfileId: varchar('machine_profile_id', { length: 100 }),
+  machineProfileLabel: varchar('machine_profile_label', { length: 100 }),
+  machineBaseResistanceKg: numeric('machine_base_resistance_kg', { precision: 6, scale: 2 }),
+  machineBaseResistanceStatus: varchar('machine_base_resistance_status', { length: 20 }).$type<BaseResistanceStatus>(),
+  machineBaseSourceLabel: varchar('machine_base_source_label', { length: 255 }),
+  machineBaseSourceUrl: text('machine_base_source_url'),
+  machineManufacturer: varchar('machine_manufacturer', { length: 255 }),
+  machineModel: varchar('machine_model', { length: 255 }),
+  source: varchar('source', { length: 32 }).default('historical_manual').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('hpr_user_id_idx').on(table.userId),
+  index('hpr_exercise_id_idx').on(table.exerciseId),
+  index('hpr_user_exercise_idx').on(table.userId, table.exerciseId),
+  check('hpr_bodyweight_positive_check', sql`${table.bodyweightKg} > 0`),
+  check('hpr_reps_positive_check', sql`${table.reps} > 0`),
+  check('hpr_weight_non_negative_check', sql`${table.weightKg} >= 0`),
+  check('hpr_source_check', sql`${table.source} IN ('historical_manual')`),
+]);

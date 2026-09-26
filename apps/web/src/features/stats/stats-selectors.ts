@@ -17,7 +17,8 @@ import {
   type Gender,
   type MuscleGroup,
   type StrengthEvaluation,
-  type WorkoutSession
+  type WorkoutSession,
+  type HistoricalPersonalRecord
 } from '@light-weight/domain';
 import {
   SPANISH_MUSCLE_NAMES,
@@ -72,6 +73,7 @@ export interface SelectStrengthSnapshotOptions {
   bodyweightKg: number | null;
   gender?: Gender;
   bodyweightEntries?: BodyweightEntry[];
+  historicalPersonalRecords?: HistoricalPersonalRecord[];
 }
 
 interface BestMuscleStrengthRecord {
@@ -103,10 +105,51 @@ export function selectStrengthSnapshot(
   exercisesById: Record<string, Exercise>,
   options: SelectStrengthSnapshotOptions
 ): StrengthSnapshot {
-  const { bodyweightKg, gender, bodyweightEntries } = options;
+  const { bodyweightKg, gender, bodyweightEntries, historicalPersonalRecords } = options;
   const bestByMuscle = new Map<MuscleGroup, BestMuscleStrengthRecord>();
 
   if (gender === 'male' || gender === 'female') {
+    const considerCandidate = (
+      targetMuscle: MuscleGroup,
+      set1Rm: number,
+      exercise: Exercise,
+      performedAt: string,
+      evaluation: StrengthEvaluation
+    ) => {
+      const currentBest = bestByMuscle.get(targetMuscle);
+      if (!currentBest) {
+        bestByMuscle.set(targetMuscle, {
+          top1Rm: set1Rm,
+          exerciseId: exercise.id,
+          exerciseName: exercise.name,
+          performedAt,
+          evaluation
+        });
+        return;
+      }
+
+      const isHigherScore = evaluation.strengthScore > currentBest.evaluation.strengthScore;
+      const isSameScore = evaluation.strengthScore === currentBest.evaluation.strengthScore;
+      const isHigher1Rm = evaluation.oneRmKg > currentBest.top1Rm;
+      const isSame1Rm = evaluation.oneRmKg === currentBest.top1Rm;
+      const isNewerDate = Date.parse(performedAt) > Date.parse(currentBest.performedAt);
+
+      const isWinner =
+        isHigherScore ||
+        (isSameScore && isHigher1Rm) ||
+        (isSameScore && isSame1Rm && isNewerDate);
+
+      if (isWinner) {
+        bestByMuscle.set(targetMuscle, {
+          top1Rm: set1Rm,
+          exerciseId: exercise.id,
+          exerciseName: exercise.name,
+          performedAt,
+          evaluation
+        });
+      }
+    };
+
     for (const session of history) {
       const sessionDate = session.startedAt;
       const sessionCalendarDate = resolveWorkoutDateKey(session);
@@ -145,38 +188,45 @@ export function selectStrengthSnapshot(
           const evaluation = evaluateRelativeStrength(targetMuscle, set1Rm, sessionBw, gender);
           if (!evaluation) continue;
 
-          const currentBest = bestByMuscle.get(targetMuscle);
-          if (!currentBest) {
-            bestByMuscle.set(targetMuscle, {
-              top1Rm: set1Rm,
-              exerciseId: exercise.id,
-              exerciseName: exercise.name,
-              performedAt: sessionDate,
-              evaluation
-            });
-          } else {
-            const isHigherScore = evaluation.strengthScore > currentBest.evaluation.strengthScore;
-            const isSameScore = evaluation.strengthScore === currentBest.evaluation.strengthScore;
-            const isHigher1Rm = evaluation.oneRmKg > currentBest.top1Rm;
-            const isSame1Rm = evaluation.oneRmKg === currentBest.top1Rm;
-            const isNewerDate = Date.parse(sessionDate) > Date.parse(currentBest.performedAt);
-
-            const isWinner =
-              isHigherScore ||
-              (isSameScore && isHigher1Rm) ||
-              (isSameScore && isSame1Rm && isNewerDate);
-
-            if (isWinner) {
-              bestByMuscle.set(targetMuscle, {
-                top1Rm: set1Rm,
-                exerciseId: exercise.id,
-                exerciseName: exercise.name,
-                performedAt: sessionDate,
-                evaluation
-              });
-            }
-          }
+          considerCandidate(targetMuscle, set1Rm, exercise, sessionDate, evaluation);
         }
+      }
+    }
+
+    if (Array.isArray(historicalPersonalRecords)) {
+      for (const record of historicalPersonalRecords) {
+        const sessionBw = record.bodyweightKg;
+        if (!Number.isFinite(sessionBw) || sessionBw <= 0) {
+          continue;
+        }
+
+        const exercise = exercisesById[record.exerciseId];
+        if (!exercise) continue;
+
+        const targetMuscle = resolveExerciseStrengthTarget(exercise);
+        if (!targetMuscle) continue;
+
+        const set = record.set;
+        if (!isSetEligibleForPersonalRecord({ set, exercise, bodyweightKg: sessionBw })) {
+          continue;
+        }
+
+        if (!Number.isFinite(set.reps) || set.reps < 1 || set.reps > REP_CAP) {
+          continue;
+        }
+
+        const set1Rm = calculateSetOneRm(set, {
+          exercise,
+          bodyweightKg: sessionBw,
+          formula: 'average'
+        });
+
+        if (!set1Rm || set1Rm <= 0) continue;
+
+        const evaluation = evaluateRelativeStrength(targetMuscle, set1Rm, sessionBw, gender);
+        if (!evaluation) continue;
+
+        considerCandidate(targetMuscle, set1Rm, exercise, record.performedDate, evaluation);
       }
     }
   }
@@ -218,7 +268,8 @@ export function selectMuscleAnalytics(
   windowDays: number,
   bodyweightKg: number | null,
   gender?: Gender,
-  bodyweightEntries?: BodyweightEntry[]
+  bodyweightEntries?: BodyweightEntry[],
+  historicalPersonalRecords?: HistoricalPersonalRecord[]
 ): {
   muscleAnalysis: ReturnType<typeof getNeglectedMuscles>;
   fatigueMap: ReturnType<typeof calculateMuscleFatigue>;
@@ -235,7 +286,8 @@ export function selectMuscleAnalytics(
   const strengthSnapshot = selectStrengthSnapshot(history, exercisesById, {
     bodyweightKg,
     gender,
-    bodyweightEntries
+    bodyweightEntries,
+    historicalPersonalRecords
   });
 
   const cutoffTime = windowDays > 0 ? Date.now() - windowDays * 24 * 60 * 60 * 1000 : 0;
@@ -375,7 +427,8 @@ export function selectStatsSnapshot(
   windowDays: number,
   bodyweightKg: number | null,
   gender?: Gender,
-  bodyweightEntries?: BodyweightEntry[]
+  bodyweightEntries?: BodyweightEntry[],
+  historicalPersonalRecords?: HistoricalPersonalRecord[]
 ) {
   const exercisesById = buildExercisesById(exercises);
   const totalVolumeTonnage = history.reduce((total, session) => {
@@ -388,7 +441,8 @@ export function selectStatsSnapshot(
   const strength = selectStrengthSnapshot(history, exercisesById, {
     bodyweightKg,
     gender,
-    bodyweightEntries
+    bodyweightEntries,
+    historicalPersonalRecords
   });
 
   return {
@@ -400,7 +454,8 @@ export function selectStatsSnapshot(
       windowDays,
       bodyweightKg,
       gender,
-      bodyweightEntries
+      bodyweightEntries,
+      historicalPersonalRecords
     ),
     progressSummary: selectProgressSummary(history, exercisesById, bodyweightEntries),
     totalVolumeTonnage,

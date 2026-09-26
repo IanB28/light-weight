@@ -28,7 +28,7 @@ import { StrengthRankBadge } from '../../components/StrengthRankBadge.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { submitProfileDraft } from './profile-save.js';
 import { AvatarNormalizationError, normalizeAvatarFile } from './avatar-normalization.js';
-import type { AuthUser } from '@light-weight/domain';
+import type { AuthUser, HistoricalPersonalRecord } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
 
 interface ProfileViewProps {
@@ -39,6 +39,7 @@ interface ProfileViewProps {
   onSave: (profile: UserProfile) => void | string | Promise<void | string>;
   bodyweightKg?: number | null;
   bodyweightEntries?: BodyweightEntry[];
+  historicalPersonalRecords?: HistoricalPersonalRecord[];
   onConfigureGender?: () => void;
   /** Presentation-only content supplied by ProfileScreen (for example Friends). */
   summaryAccessory?: React.ReactNode;
@@ -58,6 +59,7 @@ export function ProfileView({
   onSave,
   bodyweightKg,
   bodyweightEntries,
+  historicalPersonalRecords = [],
   onConfigureGender,
   summaryAccessory,
   onUploadAvatar,
@@ -86,7 +88,11 @@ export function ProfileView({
 
   const summary = useMemo(() => {
     const exercisesById = Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise]));
-    const records = calculateAllPersonalRecords(history, { exercisesById, bodyweightEntries });
+    const records = calculateAllPersonalRecords(history, {
+      exercisesById,
+      bodyweightEntries,
+      historicalPersonalRecords
+    });
     return {
       totalWorkouts: history.length,
       totalVolumeKg: history.reduce((total, session) => total + calculateSessionTotalVolume(session), 0),
@@ -97,7 +103,7 @@ export function ProfileView({
         .map((record) => {
           const exercise = exercisesById[record.exerciseId] || findExerciseById(record.exerciseId);
           const targetMuscle = exercise ? (resolveExerciseStrengthTarget(exercise) ?? exercise.primaryMuscle) : null;
-          const sessionBw = resolveBodyweightKgAtDate(bodyweightEntries, record.date) ?? (bodyweightKg ?? null);
+          const sessionBw = record.bodyweightKg ?? resolveBodyweightKgAtDate(bodyweightEntries, record.date) ?? (bodyweightKg ?? null);
           const evaluation = targetMuscle && sessionBw && profile.gender
             ? evaluateRelativeStrength(targetMuscle, record.est1Rm, sessionBw, profile.gender)
             : undefined;
@@ -108,7 +114,7 @@ export function ProfileView({
           };
         })
     };
-  }, [bodyweightEntries, bodyweightKg, exercises, history, profile.gender, t]);
+  }, [bodyweightEntries, bodyweightKg, exercises, history, profile.gender, t, historicalPersonalRecords]);
 
   const openEdit = () => {
     setDraft(createProfileDraft(profile, displayName));
@@ -284,6 +290,7 @@ export function ProfileView({
         bodyweightKg={bodyweightKg}
         gender={profile.gender}
         bodyweightEntries={bodyweightEntries}
+        historicalPersonalRecords={historicalPersonalRecords}
         onConfigureGender={onConfigureGender}
       />
 

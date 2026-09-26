@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Dumbbell, Plus } from 'lucide-react';
+import { Award, Dumbbell, Plus } from 'lucide-react';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
   calculateEffectiveLoadKg,
   calculateSetOneRm,
   isSetEligibleForPersonalRecord,
   shouldCountForVolume,
+  type BodyweightEntry,
   type Exercise,
+  type Gender,
+  type HistoricalPersonalRecord,
   type LoggedSet,
   type MuscleGroup,
   type Routine,
@@ -16,6 +19,7 @@ import { AddExerciseModal } from '../components/AddExerciseModal.js';
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
 import { WorkoutSummaryModal, type CompletedWorkoutSummary } from '../components/WorkoutSummaryModal.js';
 import { AppCard, Button, EmptyState, MachineProfileModal, Modal } from '../components/ui/index.js';
+import { HistoricalPersonalRecordModal } from '../components/HistoricalPersonalRecordModal.js';
 import type { AppPreferences, WeightInputMode } from '../lib/preferences.js';
 import { useI18n } from '../lib/i18n.js';
 import { formatDisplayWeight } from '../lib/weight-units.js';
@@ -34,6 +38,11 @@ interface WorkoutViewProps {
   availableExercises: Exercise[];
   history: import('@light-weight/domain').WorkoutSession[];
   currentBodyweightKg?: number | null;
+  bodyweightEntries?: BodyweightEntry[];
+  gender?: Gender | null;
+  userId?: string;
+  historicalPersonalRecords?: HistoricalPersonalRecord[];
+  onSaveHistoricalPersonalRecord?: (record: HistoricalPersonalRecord) => boolean | { ok: boolean } | Promise<boolean | { ok: boolean }>;
   onToggleSet: (exerciseId: string, setIndex: number) => void;
   onUpdateSet: (exerciseId: string, setIndex: number, field: 'weightKg' | 'reps' | 'rir', value: number) => void;
   onUpdateSetRir?: (exerciseId: string, setIndex: number, rir: number | undefined) => void;
@@ -76,6 +85,11 @@ export const calculateEffectiveTotalSets = (exerciseSessions: ActiveExerciseSess
 export const WorkoutView: React.FC<WorkoutViewProps> = ({
   isWorkoutActive, routines, routineName, sessionDuration, exerciseSessions, availableExercises, history,
   currentBodyweightKg,
+  bodyweightEntries = [],
+  gender,
+  userId,
+  historicalPersonalRecords = [],
+  onSaveHistoricalPersonalRecord,
   onToggleSet, onUpdateSet, onUpdateSetRir, onAddSet, onRemoveSet, onAddExercise, onRemoveExercise, onSkipExercise, onResumeExercise, onCreateCustomExercise,
   onFinishWorkout, onCancelWorkout, onStartRestTimer, onStartRoutine, preferences, onUpdateWeightInputMode,
   onToggleAddedWeight, onUpdateBarInclusion, onUpdatePlateBaseWeight, onUpdateMachineProfile,
@@ -83,6 +97,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 }) => {
   const { t } = useI18n();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isHistoricalPrOpen, setIsHistoricalPrOpen] = useState(false);
   const [replacementMuscle, setReplacementMuscle] = useState<string | null>(null);
   const [selectedMediaExercise, setSelectedMediaExercise] = useState<Exercise | null>(null);
   const [summaryData, setSummaryData] = useState<CompletedWorkoutSummary | null>(null);
@@ -175,6 +190,18 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     {exerciseSessions.length === 0 ? <AppCard className="space-y-4">
       <EmptyState icon={<Dumbbell className="size-5" />} title={t('workout.emptyTitle')} description={isWorkoutActive ? t('workout.emptyActive') : t('workout.emptyInactive')} actionLabel={t('exercise.add')} onAction={() => { setReplacementMuscle(null); setIsAddModalOpen(true); }} />
       {routines.length > 0 && <div className="space-y-2 border-t border-border-subtle pt-4"><p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('workout.useRoutine')}</p>{routines.slice(0, 3).map((routine) => <button key={routine.id} type="button" onClick={() => onStartRoutine(routine.id)} className="flex min-h-11 w-full items-center justify-between rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left text-sm font-bold text-text-primary hover:border-border-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><span className="truncate">{routine.name}</span><span className="text-xs font-medium text-text-muted">{routine.exerciseIds.length} {routine.exerciseIds.length === 1 ? t('library.exercise') : t('library.exercises')}</span></button>)}</div>}
+      {!isWorkoutActive && onSaveHistoricalPersonalRecord && (
+        <div className="border-t border-border-subtle pt-4">
+          <Button
+            variant="secondary"
+            onClick={() => setIsHistoricalPrOpen(true)}
+            className="w-full border-border-subtle hover:border-border-active flex items-center justify-center gap-2"
+          >
+            <Award className="size-4 text-accent" />
+            <span>{t('historicalPr.action')}</span>
+          </Button>
+        </div>
+      )}
     </AppCard> : exerciseSessions.map((session, index) => <ExerciseSessionCard key={session.exercise.id} session={session} exerciseIndex={index} totalExercises={exerciseSessions.length} preferences={preferences} onViewTechnique={setSelectedMediaExercise} onRemoveExercise={onRemoveExercise} onSkipExercise={onSkipExercise} onResumeExercise={onResumeExercise} onAddReplacement={handleAddReplacement} onUpdateSet={onUpdateSet} onUpdateSetRir={onUpdateSetRir} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={setPlateTarget} onAddSet={onAddSet} onRemoveSet={onRemoveSet} onUpdateWeightInputMode={onUpdateWeightInputMode} onToggleAddedWeight={onToggleAddedWeight} onUpdateMachineProfile={onUpdateMachineProfile} />)}
     {exerciseSessions.length > 0 && <div className="pt-4"><Button variant="secondary" onClick={() => { setReplacementMuscle(null); setIsAddModalOpen(true); }} className="w-full border-accent/30 bg-accent/15 text-accent hover:bg-accent/25"><Plus className="size-5 stroke-[2.5]" />{t('workout.addToSession')}</Button></div>}
     <AddExerciseModal isOpen={isAddModalOpen} onClose={() => { setReplacementMuscle(null); setIsAddModalOpen(false); }} availableExercises={availableExercises} history={history} onSelectExercise={(exercise) => { setReplacementMuscle(null); onAddExercise(exercise); }} onCreateCustomExercise={onCreateCustomExercise} initialMuscleFilter={replacementMuscle || getDefaultMuscleFilter(routineName)} />
@@ -228,6 +255,21 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         onSelectProfile={(selection) => {
           onUpdateMachineProfile?.(calibratingMachineSession.exercise.id, selection);
           setCalibratingMachineSession(null);
+        }}
+      />
+    )}
+    {isHistoricalPrOpen && onSaveHistoricalPersonalRecord && (
+      <HistoricalPersonalRecordModal
+        isOpen={isHistoricalPrOpen}
+        onClose={() => setIsHistoricalPrOpen(false)}
+        exercises={availableExercises}
+        bodyweightEntries={bodyweightEntries}
+        currentBodyweightKg={currentBodyweightKg}
+        gender={gender}
+        userId={userId || 'anonymous'}
+        onSave={async (record) => {
+          const res = await onSaveHistoricalPersonalRecord(record);
+          return res;
         }}
       />
     )}
