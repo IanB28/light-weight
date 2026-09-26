@@ -419,7 +419,13 @@ export function getStoredRoutines(): Routine[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return normalizeStoredRoutines(parsed as Routine[]);
+    const normalized = normalizeStoredRoutines(parsed as Routine[]);
+    if (parsed.length !== normalized.length) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(normalized));
+      } catch {}
+    }
+    return normalized;
   } catch {
     return [];
   }

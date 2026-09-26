@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarPlus, ChevronRight, Dumbbell, Plus, X, AlertTriangle } from 'lucide-react';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
+  formatLocalWorkoutDateKey,
   isValidWorkoutSet,
   type Exercise,
   type MachineBaseSelection,
@@ -34,6 +35,10 @@ import {
 } from '../features/workouts/useWorkoutSession.js';
 import {
   createHistoricalWorkoutSessionFromActive,
+  getLatestHistoricalDateKey,
+  isStrictlyPastDateKey,
+  isValidPerformedTime,
+  isValidHistoricalDuration,
   HistoricalWorkoutValidationError
 } from '../features/workouts/historical-workout.js';
 
@@ -47,13 +52,6 @@ interface HistoricalWorkoutModalProps {
   routines: Routine[];
   initialDate?: Date;
   initialRoutineId?: string;
-}
-
-function localDateKey(date = new Date()): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
 }
 
 export function HistoricalWorkoutModal({
@@ -81,12 +79,13 @@ export function HistoricalWorkoutModal({
   );
 
   const [phase, setPhase] = useState<'setup' | 'editor'>('setup');
-  const [performedDate, setPerformedDate] = useState(localDateKey());
+  const [performedDate, setPerformedDate] = useState(() => getLatestHistoricalDateKey());
   const [performedTime, setPerformedTime] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [routineName, setRoutineName] = useState('');
   const [routineId, setRoutineId] = useState('');
   const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>([]);
+  const [editorDirty, setEditorDirty] = useState(false);
 
   // Sub-modal states
   const [plateTarget, setPlateTarget] = useState<PlateTarget | null>(null);
@@ -100,12 +99,15 @@ export function HistoricalWorkoutModal({
   // Initialize draft when modal opens
   useEffect(() => {
     if (!isOpen) return;
-    const initialKey = localDateKey(initialDate || new Date());
+    const yesterdayKey = getLatestHistoricalDateKey();
+    const candidateKey = initialDate ? formatLocalWorkoutDateKey(initialDate) : yesterdayKey;
+    const initialKey = isStrictlyPastDateKey(candidateKey) ? candidateKey : yesterdayKey;
     setPerformedDate(initialKey);
     setPerformedTime('');
     setDurationMinutes('');
     setPhase('setup');
     setError(null);
+    setEditorDirty(false);
 
     if (initialRoutineId) {
       const routine = routines.find((r) => r.id === initialRoutineId);
@@ -130,7 +132,8 @@ export function HistoricalWorkoutModal({
   const routinePickerOptions = useMemo(() => {
     return buildRoutinePickerOptions(routines, {
       emptyLabel: t('historical.noRoutine'),
-      exerciseLabel: (count) => `${count} ${count === 1 ? t('library.exercise') : t('library.exercises')}`
+      exerciseLabel: (count) => `${count} ${count === 1 ? t('library.exercise') : t('library.exercises')}`,
+      variantLabel: (idx) => t('historical.variantLabel', { count: idx })
     });
   }, [routines, t]);
 
@@ -154,11 +157,12 @@ export function HistoricalWorkoutModal({
       }
       setExerciseSessions([]);
     }
+    setEditorDirty(false);
   };
 
   const handleRoutineSelect = (selectedId: string) => {
     if (selectedId === routineId) return;
-    if (exerciseSessions.length > 0) {
+    if (editorDirty) {
       setPendingRoutineId(selectedId);
       setShowConfirmChangeRoutine(true);
     } else {
@@ -171,6 +175,7 @@ export function HistoricalWorkoutModal({
       applyRoutineSelection(pendingRoutineId);
       setPendingRoutineId(null);
     }
+    setEditorDirty(false);
     setShowConfirmChangeRoutine(false);
   };
 
@@ -180,14 +185,20 @@ export function HistoricalWorkoutModal({
       const newSession = createDefaultExerciseSession(exercise, { historyIndex, preferences });
       return [...current, newSession];
     });
+    setEditorDirty(true);
     setIsAddModalOpen(false);
+    if (phase === 'setup') {
+      setPhase('editor');
+    }
   };
 
   const handleRemoveExercise = (exerciseId: string) => {
     setExerciseSessions((current) => current.filter((s) => s.exercise.id !== exerciseId));
+    setEditorDirty(true);
   };
 
   const handleUpdateSet = (exerciseId: string, setIndex: number, field: 'weightKg' | 'reps' | 'rir' | 'setType', value: any) => {
+    setEditorDirty(true);
     if (field === 'setType') {
       setExerciseSessions((current) => current.map((s) => s.exercise.id !== exerciseId ? s : {
         ...s,
@@ -199,35 +210,43 @@ export function HistoricalWorkoutModal({
   };
 
   const handleUpdateSetRir = (exerciseId: string, setIndex: number, rir?: number) => {
+    setEditorDirty(true);
     setExerciseSessions((current) => updateSetRirInSessions(current, exerciseId, setIndex, rir));
   };
 
   const handleToggleSet = (exerciseId: string, setIndex: number) => {
+    setEditorDirty(true);
     setExerciseSessions((current) => toggleSetInSessions(current, exerciseId, setIndex).sessions);
   };
 
   const handleAddSet = (exerciseId: string, setType: WorkoutSetType = 'working') => {
+    setEditorDirty(true);
     setExerciseSessions((current) => addSetToSessions(current, exerciseId, setType));
   };
 
   const handleRemoveSet = (exerciseId: string) => {
+    setEditorDirty(true);
     setExerciseSessions((current) => removeSetFromSessions(current, exerciseId));
   };
 
   const handleUpdateWeightInputMode = (exerciseId: string, mode: WeightInputMode) => {
+    setEditorDirty(true);
     setExerciseSessions((current) => current.map((s) => s.exercise.id === exerciseId ? { ...s, weightInputModeOverride: mode } : s));
   };
 
   const handleToggleAddedWeight = (exerciseId: string, enabled: boolean) => {
+    setEditorDirty(true);
     setExerciseSessions((current) => current.map((s) => s.exercise.id === exerciseId ? { ...s, usesAddedWeight: enabled } : s));
   };
 
   const handleUpdateMachineProfile = (exerciseId: string, selection: MachineBaseSelection) => {
+    setEditorDirty(true);
     setExerciseSessions((current) => updateMachineProfileInSessions(current, exerciseId, selection));
   };
 
   const handleApplyPlates = (valueKg: number, includeBarWeight: boolean, baseWeightKg: number, machineSnapshot?: MachineSnapshot) => {
     if (!plateTarget) return;
+    setEditorDirty(true);
     setExerciseSessions((current) => applyPlateWeightInSessions(
       current,
       plateTarget.exerciseId,
@@ -249,8 +268,10 @@ export function HistoricalWorkoutModal({
   }, [exerciseSessions]);
 
   const hasValidCompletedSet = totalCompletedSets > 0;
-  const isValidTime = Boolean(performedTime && /^\d{2}:\d{2}$/.test(performedTime));
-  const canSave = Boolean(performedDate && isValidTime && hasValidCompletedSet);
+  const isPastDate = isStrictlyPastDateKey(performedDate);
+  const isValidTime = isValidPerformedTime(performedTime);
+  const isValidDuration = isValidHistoricalDuration(durationMinutes);
+  const canSave = Boolean(isPastDate && isValidTime && isValidDuration && hasValidCompletedSet);
 
   const handleSave = () => {
     try {
@@ -271,7 +292,7 @@ export function HistoricalWorkoutModal({
   };
 
   const handleRequestClose = () => {
-    if (exerciseSessions.length > 0 || routineName.trim() || performedTime) {
+    if (editorDirty || exerciseSessions.length > 0 || routineName.trim() || performedTime || durationMinutes.trim()) {
       setShowDiscardConfirm(true);
     } else {
       onClose();
@@ -287,7 +308,7 @@ export function HistoricalWorkoutModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="historical-modal-title"
-          className="w-full max-w-2xl bg-app border border-border-subtle rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88dvh] overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
+          className="w-full max-w-md bg-app border border-border-subtle rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88dvh] overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
         >
           {/* iOS Grab Handle */}
           <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto mt-3 mb-1 sm:hidden shrink-0" />
@@ -348,12 +369,12 @@ export function HistoricalWorkoutModal({
             {phase === 'setup' ? (
               /* Phase A: Setup Content (Strictly no exercise cards or set rows) */
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="space-y-1.5 text-xs font-bold text-text-secondary">
                     <span>{t('historical.performedDate')}</span>
                     <input
                       type="date"
-                      max={localDateKey()}
+                      max={getLatestHistoricalDateKey()}
                       value={performedDate}
                       onChange={(e) => setPerformedDate(e.target.value)}
                       className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
@@ -373,7 +394,7 @@ export function HistoricalWorkoutModal({
                   </label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="space-y-1.5 text-xs font-bold text-text-secondary">
                     <span>{t('historical.sessionName')}</span>
                     <input
@@ -490,7 +511,13 @@ export function HistoricalWorkoutModal({
           <div className="p-4 border-t border-border-subtle bg-app/95 backdrop-blur-md shrink-0">
             {phase === 'setup' ? (
               <Button
-                onClick={() => setPhase('editor')}
+                onClick={() => {
+                  if (exerciseSessions.length === 0) {
+                    setIsAddModalOpen(true);
+                  } else {
+                    setPhase('editor');
+                  }
+                }}
                 className="w-full justify-center"
               >
                 <span>{exerciseSessions.length > 0 ? t('historical.continueToExercises') : t('historical.addExerciseAndSets')}</span>
