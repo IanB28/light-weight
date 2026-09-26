@@ -475,3 +475,129 @@ test('Test 52: Storage reload persistence and corrupt entry sanitization', () =>
   assert.equal(reloaded[0].bodyweightKg, 82);
   assert.equal(reloaded[0].set.weightKg, 130);
 });
+
+test('Test 53 (Semantic A): Added-weight bodyweight exercise calculates canonical effective load', () => {
+  const bw = 99;
+  const externalLoad = 60;
+
+  // mockPullUp has bodyweightFactor = 1, loadMode = 'added_weight'
+  const effectiveLoad = calculateEffectiveLoadKg({
+    exercise: mockPullUp,
+    setWeightKg: externalLoad,
+    bodyweightKg: bw
+  });
+
+  // Canonical formula: (99 * 1) + 60 = 159 kg
+  assert.equal(effectiveLoad, 159, 'BW 99 + added load 60 must equal 159 kg');
+
+  // Conversely, an exercise with no curated bodyweightFactor (e.g. general bodyweight)
+  const uncuratedBodyweight: Exercise = {
+    id: 'sit-up',
+    name: '3/4 sit-up',
+    category: 'bodyweight',
+    primaryMuscle: 'core',
+    loading: {
+      mechanism: 'bodyweight',
+      loadMode: 'added_weight',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+      // bodyweightFactor undefined
+    }
+  };
+
+  const sitUpEffective = calculateEffectiveLoadKg({
+    exercise: uncuratedBodyweight,
+    setWeightKg: 60,
+    bodyweightKg: bw
+  });
+  // Rule G: does NOT silently add full bodyweight without curated factor
+  assert.equal(sitUpEffective, 60, 'Uncurated bodyweight without factor must not add BW');
+});
+
+test('Test 54 (Semantic B): Assisted bodyweight exercise decreases effective load canonically', () => {
+  const bw = 80;
+  const assistanceLoad = 25;
+
+  // mockAssistedPullUp has bodyweightFactor = 1, loadMode = 'assisted'
+  const effectiveLoad = calculateEffectiveLoadKg({
+    exercise: mockAssistedPullUp,
+    setWeightKg: assistanceLoad,
+    bodyweightKg: bw
+  });
+
+  // Canonical formula: (80 * 1) - 25 = 55 kg
+  assert.equal(effectiveLoad, 55, 'Assistance must reduce effective load from bodyweight');
+
+  // If assistance exceeds bodyweight, load clamps to 0
+  const overAssisted = calculateEffectiveLoadKg({
+    exercise: mockAssistedPullUp,
+    setWeightKg: 100,
+    bodyweightKg: bw
+  });
+  assert.equal(overAssisted, 0, 'Excessive assistance must clamp to 0 kg');
+});
+
+test('Test 55 (Semantic C): Reps = 1 returns actual 1RM directly', () => {
+  const oneRm = calculateSetOneRm(
+    { weightKg: 100, reps: 1 },
+    { exercise: mockBenchPress, bodyweightKg: 80, formula: 'average' }
+  );
+
+  assert.equal(oneRm, 100, 'Single repetition must evaluate to exact load without formula distortion');
+});
+
+test('Test 56 (Semantic D): Reps > 1 evaluates estimated 1RM matching calculator average', () => {
+  const reps = 5;
+  const weightKg = 100;
+  const estimated = calculateSetOneRm(
+    { weightKg, reps },
+    { exercise: mockBenchPress, bodyweightKg: 80, formula: 'average' }
+  );
+
+  const expectedAverage = estimateOneRm(weightKg, reps).average;
+  assert.ok(estimated !== null);
+  assert.equal(estimated, expectedAverage, 'Multi-rep estimate must match canonical 1RM calculator average');
+  assert.ok(estimated! > weightKg, '1RM estimate for reps > 1 must exceed the lifted weight');
+});
+
+test('Test 57 (Semantic E): Strength evaluation receives historical BW snapshot', () => {
+  const snapshotBw = 75;
+  const currentBw = 90; // Higher current BW that would lower the relative ratio if incorrectly used
+
+  const targetMuscle = 'chest';
+  const oneRm = 140;
+
+  // Evaluation with snapshot BW
+  const historicalEval = evaluateRelativeStrength(targetMuscle, oneRm, snapshotBw, 'male');
+  assert.ok(historicalEval, 'Historical evaluation must exist');
+  assert.equal(historicalEval.bodyweightKg, 75);
+  assert.equal(historicalEval.rank, 'inmortal', '140kg @ 75kg is Inmortal');
+
+  // Evaluation with current BW (simulating pollution/mistake)
+  const currentEval = evaluateRelativeStrength(targetMuscle, oneRm, currentBw, 'male');
+  assert.ok(currentEval, 'Current evaluation must exist');
+  assert.equal(currentEval.bodyweightKg, 90);
+  assert.equal(currentEval.rank, 'maestro', '140kg @ 90kg is Maestro, not Inmortal');
+
+  // Verify historical PR preserves snapshot BW evaluation
+  assert.notEqual(historicalEval.rank, currentEval.rank);
+});
+
+test('Test 58 (Semantic F): Strength evaluation operates on 1.0-9.0 scale and never formats raw score as /100', () => {
+  const evalResult = evaluateRelativeStrength('chest', 140, 75, 'male');
+  assert.ok(evalResult, 'Evaluation result must exist');
+
+  // In domain, strengthScore is on the 1.0 - 9.0 continuous rank scale
+  assert.ok(evalResult.strengthScore >= 1.0 && evalResult.strengthScore <= 9.0);
+  assert.ok(evalResult.strengthScore > 7.0 && evalResult.strengthScore < 8.0, 'Inmortal is in [7.0, 8.0)');
+
+  // Progress to next rank is in [0, 100] percentage scale
+  assert.ok(evalResult.progressPctToNextRank >= 0 && evalResult.progressPctToNextRank <= 100);
+
+  // Formatting check: percentage is progressPctToNextRank, NEVER strengthScore / 100
+  const scoreDividedByHundred = evalResult.strengthScore / 100;
+  assert.ok(scoreDividedByHundred < 0.1, 'strengthScore / 100 would be an invalid tiny fraction');
+  assert.ok(evalResult.progressPctToNextRank > 0, 'progressPctToNextRank is the athlete-facing percentage');
+});

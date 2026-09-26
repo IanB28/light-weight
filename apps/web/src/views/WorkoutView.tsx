@@ -263,6 +263,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         isOpen={isHistoricalPrOpen}
         onClose={() => setIsHistoricalPrOpen(false)}
         exercises={availableExercises}
+        history={history}
         bodyweightEntries={bodyweightEntries}
         currentBodyweightKg={currentBodyweightKg}
         gender={gender}
