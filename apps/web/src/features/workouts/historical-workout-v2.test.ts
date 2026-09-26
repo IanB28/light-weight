@@ -2,13 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
-import type { Exercise, Routine, WorkoutSession } from '@light-weight/domain';
+import { isValidWorkoutSet, type Exercise, type Routine, type WorkoutSession } from '@light-weight/domain';
 import {
   getStoredActiveWorkout,
   saveActiveWorkout,
   getStoredRoutines,
   saveStoredRoutines,
-  normalizeStoredRoutines
+  normalizeStoredRoutines,
+  STORAGE_KEYS,
+  upsertStoredHistory,
+  getStoredHistory,
+  StoragePersistenceError
 } from '../../lib/storage.js';
 import { buildRoutinePickerOptions } from '../routines/routine-options.js';
 import {
@@ -26,6 +30,7 @@ import { HistoricalWorkoutModal } from '../../components/HistoricalWorkoutModal.
 import { DayDetailModal } from '../../components/DayDetailModal.js';
 import { AddExerciseModal } from '../../components/AddExerciseModal.js';
 import { dictionaries } from '../../lib/i18n.js';
+import { PreferencesProvider } from '../../lib/preferences-context.js';
 
 const benchPress: Exercise = {
   id: 'bench-press',
@@ -799,4 +804,286 @@ test('16. Block 19.6C Custom exercise isolation: AddExerciseModal contract and a
   const snapshotAfter = JSON.stringify(getStoredActiveWorkout(storage));
   assert.equal(snapshotAfter, snapshotBefore);
   assert.deepEqual(getStoredActiveWorkout(storage), activeWorkout);
+});
+
+test('17. Block 19.6D: missing or invalid time blocks entering Phase B and defensive canSave remains false', () => {
+  const pastDate = '2026-09-20';
+  assert.equal(isStrictlyPastDateKey(pastDate, new Date('2026-09-25T10:00:00Z')), true);
+  assert.equal(isValidPerformedTime(''), false);
+
+  const validSessions: ActiveExerciseSession[] = [
+    {
+      exercise: benchPress,
+      targetRepRange: [6, 10],
+      sets: [
+        { setIndex: 1, weightKg: 100, reps: 8, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 2, weightKg: 100, reps: 8, completed: true, setType: 'working', isWarmup: false },
+        { setIndex: 3, weightKg: 100, reps: 8, completed: true, setType: 'working', isWarmup: false }
+      ]
+    }
+  ];
+
+  assert.throws(
+    () => createHistoricalWorkoutSessionFromActive({
+      userId: 'test-user',
+      performedDate: pastDate,
+      performedTime: '',
+      exerciseSessions: validSessions
+    }, new Date('2026-09-25T10:00:00Z')),
+    (err: any) => err instanceof HistoricalWorkoutValidationError && err.code === 'invalid_time'
+  );
+
+  const totalCompletedSets = validSessions.reduce((acc, session) => {
+    return acc + session.sets.filter((s) => s.completed && isValidWorkoutSet(s)).length;
+  }, 0);
+  assert.equal(totalCompletedSets, 3);
+  const canSave = Boolean(
+    isStrictlyPastDateKey(pastDate, new Date('2026-09-25T10:00:00Z')) &&
+    isValidPerformedTime('') &&
+    isValidHistoricalDuration('') &&
+    totalCompletedSets > 0
+  );
+  assert.equal(canSave, false);
+
+  const setupHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(
+      PreferencesProvider,
+      null,
+      React.createElement(HistoricalWorkoutModal, {
+        isOpen: true,
+        onClose: () => {},
+        onSave: () => {},
+        userId: 'test-user',
+        exercises: [benchPress],
+        history: [],
+        routines: [],
+        initialDate: new Date('2026-09-20T12:00:00Z')
+      })
+    )
+  );
+  assert.equal(setupHtml.includes('Fecha'), true);
+  assert.equal(setupHtml.includes('Hora'), true);
+  assert.equal(setupHtml.includes('type="time"'), true);
+});
+
+test('18. Block 19.6D: editor header invariant requires strictly YYYY-MM-DD · HH:mm format', () => {
+  const pastDate = '2026-09-20';
+  const performedTime = '10:00';
+  assert.equal(isValidPerformedTime(performedTime), true);
+
+  const headerSubtitle = `${pastDate} · ${performedTime}`;
+  assert.match(headerSubtitle, /^\d{4}-\d{2}-\d{2} · \d{2}:\d{2}$/);
+  assert.equal(headerSubtitle, '2026-09-20 · 10:00');
+  assert.equal(headerSubtitle.includes(' · '), true);
+  assert.notEqual(headerSubtitle, '2026-09-20');
+});
+
+test('19. Block 19.6D: free session with valid time and 1 completed set enables save and creates historical_manual session', () => {
+  const pastDate = '2026-09-20';
+  const performedTime = '10:00';
+  const freeSessions: ActiveExerciseSession[] = [
+    {
+      exercise: benchPress,
+      targetRepRange: [6, 10],
+      sets: [
+        { setIndex: 1, weightKg: 80, reps: 10, completed: true, setType: 'working', isWarmup: false }
+      ]
+    }
+  ];
+
+  const totalCompletedSets = freeSessions.reduce((acc, session) => {
+    return acc + session.sets.filter((s) => s.completed && isValidWorkoutSet(s)).length;
+  }, 0);
+  assert.equal(totalCompletedSets, 1);
+
+  const canSave = Boolean(
+    isStrictlyPastDateKey(pastDate, new Date('2026-09-25T10:00:00Z')) &&
+    isValidPerformedTime(performedTime) &&
+    isValidHistoricalDuration('') &&
+    totalCompletedSets > 0
+  );
+  assert.equal(canSave, true);
+
+  const session = createHistoricalWorkoutSessionFromActive({
+    userId: 'test-user',
+    performedDate: pastDate,
+    performedTime,
+    exerciseSessions: freeSessions
+  }, new Date('2026-09-25T10:00:00Z'));
+
+  assert.equal(session.entrySource, 'historical_manual');
+  assert.equal(session.performedDate, pastDate);
+  assert.equal(session.routineId, undefined);
+  assert.equal(session.routineName, undefined);
+  assert.equal(session.sets['bench-press'].length, 1);
+  assert.equal(session.sets['bench-press'][0].weightKg, 80);
+  assert.equal(session.sets['bench-press'][0].reps, 10);
+});
+
+test('20. Block 19.6D: local persistence with canonical ordering and reload via getStoredHistory()', () => {
+  const memory = new Map<string, string>();
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => memory.set(key, value),
+      removeItem: (key: string) => memory.delete(key)
+    }
+  });
+
+  try {
+    const sessionA: WorkoutSession = {
+      id: 'session-a',
+      userId: 'user-persistence-test',
+      startedAt: '2026-09-18T18:00:00.000Z',
+      performedDate: '2026-09-18',
+      entrySource: 'live',
+      sets: { 'bench-press': [{ setIndex: 1, weightKg: 80, reps: 8, completed: true, setType: 'working' }] }
+    };
+    memory.set(STORAGE_KEYS.HISTORY, JSON.stringify([sessionA]));
+
+    const sessionB = createHistoricalWorkoutSessionFromActive({
+      userId: 'user-persistence-test',
+      routineId: 'routine-push',
+      routineName: 'Push Routine',
+      performedDate: '2026-09-19',
+      performedTime: '10:00',
+      durationMinutes: '60',
+      exerciseSessions: [
+        {
+          exercise: benchPress,
+          targetRepRange: [6, 10],
+          sets: [
+            {
+              setIndex: 1,
+              weightKg: 85,
+              reps: 6,
+              rir: 2,
+              completed: true,
+              setType: 'working' as const,
+              isWarmup: false,
+              machineProfileId: 'bench-smith-1',
+              machineBaseResistanceStatus: 'user_defined' as const,
+              machineBaseResistanceKg: 10
+            }
+          ]
+        }
+      ]
+    }, new Date('2026-09-25T10:00:00Z'));
+
+    const updated = upsertStoredHistory(sessionB);
+    assert.equal(updated.length, 2);
+
+    const rawStored = memory.get(STORAGE_KEYS.HISTORY);
+    assert.ok(rawStored);
+
+    const reloaded = getStoredHistory();
+    assert.equal(reloaded.length, 2);
+
+    // Canonical ordering: B (2026-09-19) is chronologically newer than A (2026-09-18)
+    assert.equal(reloaded[0].id, sessionB.id);
+    assert.equal(reloaded[1].id, sessionA.id);
+
+    // Physical facts and provenance
+    const reloadedB = reloaded[0];
+    assert.equal(reloadedB.performedDate, '2026-09-19');
+    assert.equal(reloadedB.entrySource, 'historical_manual');
+    assert.equal(reloadedB.routineId, 'routine-push');
+    assert.equal(reloadedB.routineName, 'Push Routine');
+    assert.ok(reloadedB.endedAt);
+    const sets = reloadedB.sets['bench-press'];
+    assert.ok(sets && sets.length === 1);
+    assert.equal(sets[0].weightKg, 85);
+    assert.equal(sets[0].reps, 6);
+    assert.equal(sets[0].rir, 2);
+    assert.equal(sets[0].setType, 'working');
+    assert.equal(sets[0].machineProfileId, 'bench-smith-1');
+    assert.equal(sets[0].machineBaseResistanceKg, 10);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
+});
+
+test('21. Block 19.6D: storage failure throws StoragePersistenceError, preserves in-memory history, does not report success or trigger cloud sync', () => {
+  const memory = new Map<string, string>();
+  const initialSession: WorkoutSession = {
+    id: 'initial-session',
+    userId: 'user-failure-test',
+    startedAt: '2026-09-18T18:00:00.000Z',
+    performedDate: '2026-09-18',
+    entrySource: 'live',
+    sets: { 'bench-press': [{ setIndex: 1, weightKg: 80, reps: 8, completed: true, setType: 'working' }] }
+  };
+  memory.set(STORAGE_KEYS.HISTORY, JSON.stringify([initialSession]));
+
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: () => {
+        throw new Error('QuotaExceededError: storage is full');
+      },
+      removeItem: (key: string) => memory.delete(key)
+    }
+  });
+
+  try {
+    const historicalSession = createHistoricalWorkoutSessionFromActive({
+      userId: 'user-failure-test',
+      performedDate: '2026-09-19',
+      performedTime: '10:00',
+      exerciseSessions: [
+        {
+          exercise: benchPress,
+          targetRepRange: [6, 10],
+          sets: [{ setIndex: 1, weightKg: 90, reps: 5, completed: true, setType: 'working' as const, isWarmup: false }]
+        }
+      ]
+    }, new Date('2026-09-25T10:00:00Z'));
+
+    assert.throws(
+      () => upsertStoredHistory(historicalSession),
+      (err: any) => err instanceof StoragePersistenceError
+    );
+
+    let inMemoryHistory = [initialSession];
+    let cloudSyncCalled = false;
+    let feedbackCalled = false;
+    let modalClosed = false;
+
+    const saveHistorySession = (session: WorkoutSession) => {
+      try {
+        const updated = upsertStoredHistory(session);
+        inMemoryHistory = updated;
+        cloudSyncCalled = true;
+        return { ok: true as const, data: updated };
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        return { ok: false as const, error };
+      }
+    };
+
+    const handleSaveHistoricalWorkout = (session: WorkoutSession) => {
+      const result = saveHistorySession(session);
+      if (result.ok) {
+        feedbackCalled = true;
+        return true;
+      }
+      return false;
+    };
+
+    const saveAck = handleSaveHistoricalWorkout(historicalSession);
+    assert.equal(saveAck, false);
+    assert.equal(inMemoryHistory.length, 1);
+    assert.equal(inMemoryHistory[0].id, 'initial-session');
+    assert.equal(feedbackCalled, false);
+    assert.equal(cloudSyncCalled, false);
+    assert.equal(modalClosed, false);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
 });

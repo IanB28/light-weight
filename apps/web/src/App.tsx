@@ -201,7 +201,14 @@ export function App() {
           onOpenSettings={openRootSettings}
           exercises={data.exercises}
           userId={auth.user?.id || data.userInfo.id}
-          onSaveHistoricalWorkout={(session) => { data.saveHistorySession(session); showFeedback(t('feedback.workoutSaved')); }}
+          onSaveHistoricalWorkout={(session) => {
+            const result = data.saveHistorySession(session);
+            if (result.ok) {
+              showFeedback(t('feedback.workoutSaved'));
+              return true;
+            }
+            return false;
+          }}
         />}
 
         {currentTab === 'workout' && <WorkoutView

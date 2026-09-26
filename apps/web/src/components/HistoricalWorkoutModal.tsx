@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarPlus, ChevronRight, Dumbbell, Plus, X, AlertTriangle } from 'lucide-react';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
@@ -45,7 +45,7 @@ import {
 interface HistoricalWorkoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (session: WorkoutSession) => void;
+  onSave: (session: WorkoutSession) => boolean | { ok: boolean; error?: string } | void | Promise<boolean | { ok: boolean; error?: string } | void>;
   userId: string;
   exercises: Exercise[];
   history: WorkoutSession[];
@@ -78,6 +78,10 @@ export function HistoricalWorkoutModal({
     [history, exercisesById]
   );
 
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
+  const durationInputRef = useRef<HTMLInputElement>(null);
+
   const [phase, setPhase] = useState<'setup' | 'editor'>('setup');
   const [performedDate, setPerformedDate] = useState(() => getLatestHistoricalDateKey());
   const [performedTime, setPerformedTime] = useState('');
@@ -95,6 +99,8 @@ export function HistoricalWorkoutModal({
   const [showConfirmChangeRoutine, setShowConfirmChangeRoutine] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [setupErrors, setSetupErrors] = useState<{ performedDate?: string; performedTime?: string; duration?: string }>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Initialize draft when modal opens
   useEffect(() => {
@@ -107,6 +113,8 @@ export function HistoricalWorkoutModal({
     setDurationMinutes('');
     setPhase('setup');
     setError(null);
+    setSetupErrors({});
+    setSaveError(null);
     setEditorDirty(false);
 
     if (initialRoutineId) {
@@ -188,7 +196,9 @@ export function HistoricalWorkoutModal({
     setEditorDirty(true);
     setIsAddModalOpen(false);
     if (phase === 'setup') {
-      setPhase('editor');
+      if (isStrictlyPastDateKey(performedDate) && isValidPerformedTime(performedTime) && isValidHistoricalDuration(durationMinutes)) {
+        setPhase('editor');
+      }
     }
   };
 
@@ -273,8 +283,46 @@ export function HistoricalWorkoutModal({
   const isValidDuration = isValidHistoricalDuration(durationMinutes);
   const canSave = Boolean(isPastDate && isValidTime && isValidDuration && hasValidCompletedSet);
 
-  const handleSave = () => {
+  const handleProceedFromSetup = () => {
+    const errors: { performedDate?: string; performedTime?: string; duration?: string } = {};
+
+    if (!performedDate || !isStrictlyPastDateKey(performedDate)) {
+      errors.performedDate = t('historical.invalidDate');
+    }
+
+    if (!performedTime) {
+      errors.performedTime = t('historical.timeRequired');
+    } else if (!isValidPerformedTime(performedTime)) {
+      errors.performedTime = t('historical.invalidTime');
+    }
+
+    if (!isValidHistoricalDuration(durationMinutes)) {
+      errors.duration = t('historical.invalidDuration');
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setSetupErrors(errors);
+      if (errors.performedDate) {
+        dateInputRef.current?.focus();
+      } else if (errors.performedTime) {
+        timeInputRef.current?.focus();
+      } else if (errors.duration) {
+        durationInputRef.current?.focus();
+      }
+      return;
+    }
+
+    setSetupErrors({});
+    if (exerciseSessions.length === 0) {
+      setIsAddModalOpen(true);
+    } else {
+      setPhase('editor');
+    }
+  };
+
+  const handleSave = async () => {
     try {
+      setSaveError(null);
       const session = createHistoricalWorkoutSessionFromActive({
         userId,
         routineId: routineId || undefined,
@@ -284,10 +332,23 @@ export function HistoricalWorkoutModal({
         routineName: routineName.trim() || undefined,
         exerciseSessions
       });
-      onSave(session);
-      onClose();
+      const saveResult = await onSave(session);
+      const isSuccess = typeof saveResult === 'boolean'
+        ? saveResult
+        : saveResult && typeof saveResult === 'object' && 'ok' in saveResult
+          ? saveResult.ok
+          : true;
+
+      if (isSuccess) {
+        onClose();
+      } else {
+        const errorMsg = (typeof saveResult === 'object' && saveResult && 'error' in saveResult && typeof saveResult.error === 'string')
+          ? saveResult.error
+          : t('historical.saveError');
+        setSaveError(errorMsg);
+      }
     } catch (cause) {
-      setError(cause instanceof HistoricalWorkoutValidationError ? t(`historical.error.${cause.code}` as any) : t('historical.saveError'));
+      setSaveError(cause instanceof HistoricalWorkoutValidationError ? t(`historical.error.${cause.code}` as any) : t('historical.saveError'));
     }
   };
 
@@ -350,7 +411,7 @@ export function HistoricalWorkoutModal({
                   {routineName || t('historical.freeWorkout')}
                 </h2>
                 <p className="text-[11px] font-mono text-text-muted truncate">
-                  {performedDate} {performedTime ? `· ${performedTime}` : ''}
+                  {performedDate} · {performedTime}
                 </p>
               </div>
               <button
@@ -371,24 +432,46 @@ export function HistoricalWorkoutModal({
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="space-y-1.5 text-xs font-bold text-text-secondary">
-                    <span>{t('historical.performedDate')}</span>
+                    <div className="flex items-center justify-between">
+                      <span>{t('historical.performedDate')}</span>
+                      {setupErrors.performedDate && (
+                        <span className="text-[11px] font-semibold text-danger">{setupErrors.performedDate}</span>
+                      )}
+                    </div>
                     <input
+                      ref={dateInputRef}
                       type="date"
                       max={getLatestHistoricalDateKey()}
                       value={performedDate}
-                      onChange={(e) => setPerformedDate(e.target.value)}
-                      className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                      onChange={(e) => {
+                        setPerformedDate(e.target.value);
+                        if (setupErrors.performedDate) setSetupErrors((prev) => ({ ...prev, performedDate: undefined }));
+                      }}
+                      className={`h-11 w-full rounded-ui-lg border bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 ${
+                        setupErrors.performedDate ? 'border-danger focus:ring-danger' : 'border-border-subtle focus:ring-accent'
+                      }`}
                     />
                   </label>
                   <label className="space-y-1.5 text-xs font-bold text-text-secondary">
-                    <span>
-                      {t('historical.performedTime')} <span className="text-accent">*</span>
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span>
+                        {t('historical.performedTime')} <span className="text-accent">*</span>
+                      </span>
+                      {setupErrors.performedTime && (
+                        <span className="text-[11px] font-semibold text-danger">{setupErrors.performedTime}</span>
+                      )}
+                    </div>
                     <input
+                      ref={timeInputRef}
                       type="time"
                       value={performedTime}
-                      onChange={(e) => setPerformedTime(e.target.value)}
-                      className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                      onChange={(e) => {
+                        setPerformedTime(e.target.value);
+                        if (setupErrors.performedTime) setSetupErrors((prev) => ({ ...prev, performedTime: undefined }));
+                      }}
+                      className={`h-11 w-full rounded-ui-lg border bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 ${
+                        setupErrors.performedTime ? 'border-danger focus:ring-danger' : 'border-border-subtle focus:ring-accent'
+                      }`}
                       required
                     />
                   </label>
@@ -406,13 +489,24 @@ export function HistoricalWorkoutModal({
                     />
                   </label>
                   <label className="space-y-1.5 text-xs font-bold text-text-secondary">
-                    <span>{t('historical.duration')}</span>
+                    <div className="flex items-center justify-between">
+                      <span>{t('historical.duration')}</span>
+                      {setupErrors.duration && (
+                        <span className="text-[11px] font-semibold text-danger">{setupErrors.duration}</span>
+                      )}
+                    </div>
                     <input
+                      ref={durationInputRef}
                       inputMode="numeric"
                       value={durationMinutes}
-                      onChange={(e) => setDurationMinutes(e.target.value)}
+                      onChange={(e) => {
+                        setDurationMinutes(e.target.value);
+                        if (setupErrors.duration) setSetupErrors((prev) => ({ ...prev, duration: undefined }));
+                      }}
                       placeholder={t('historical.optionalPlaceholder')}
-                      className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                      className={`h-11 w-full rounded-ui-lg border bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 ${
+                        setupErrors.duration ? 'border-danger focus:ring-danger' : 'border-border-subtle focus:ring-accent'
+                      }`}
                     />
                   </label>
                 </div>
@@ -506,13 +600,7 @@ export function HistoricalWorkoutModal({
           <div className="p-4 border-t border-border-subtle bg-app/95 backdrop-blur-md shrink-0">
             {phase === 'setup' ? (
               <Button
-                onClick={() => {
-                  if (exerciseSessions.length === 0) {
-                    setIsAddModalOpen(true);
-                  } else {
-                    setPhase('editor');
-                  }
-                }}
+                onClick={handleProceedFromSetup}
                 className="w-full justify-center"
               >
                 <span>{exerciseSessions.length > 0 ? t('historical.continueToExercises') : t('historical.addExerciseAndSets')}</span>
@@ -520,6 +608,11 @@ export function HistoricalWorkoutModal({
               </Button>
             ) : (
               <div className="space-y-2">
+                {saveError && (
+                  <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-2.5 text-xs font-semibold text-danger">
+                    {saveError}
+                  </p>
+                )}
                 <div className="text-xs text-text-muted px-1">
                   <span>
                     {totalCompletedSets === 1

@@ -21,7 +21,8 @@ import {
   type BodyweightEntry,
   type UserProfile,
   type UserInfo,
-  type WeeklySchedule
+  type WeeklySchedule,
+  type StorageOperationResult
 } from './storage.js';
 import { useCloudSync } from './useCloudSync.js';
 import { useAuth } from './auth-context.js';
@@ -106,11 +107,17 @@ export function useAppData() {
   }, [sync]);
 
   /** Shared offline-first history write used by live and historical entry flows. */
-  const saveHistorySession = useCallback((session: WorkoutSession) => {
-    const updated = upsertStoredHistory(session);
-    setHistory(updated);
-    void sync();
-    return updated;
+  const saveHistorySession = useCallback((session: WorkoutSession): StorageOperationResult<WorkoutSession[]> => {
+    try {
+      const updated = upsertStoredHistory(session);
+      setHistory(updated);
+      void sync();
+      return { ok: true, data: updated };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Failed to persist workout session to local storage:', error);
+      return { ok: false, error };
+    }
   }, [sync]);
 
   const deleteRoutine = useCallback((routineId: string) => {

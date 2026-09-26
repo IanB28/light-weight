@@ -330,15 +330,26 @@ export function upsertHistoryByStartedAt(history: WorkoutSession[], session: Wor
     });
 }
 
-/** Single local history write boundary for live, imported, and historical sessions. */
+export class StoragePersistenceError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = 'StoragePersistenceError';
+  }
+}
+
+export type StorageOperationResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: Error };
+
+/** Single local history write boundary for live, imported, and historical sessions. Throws StoragePersistenceError on failure. */
 export function upsertStoredHistory(session: WorkoutSession): WorkoutSession[] {
+  const updated = upsertHistoryByStartedAt(getStoredHistory(), session);
   try {
-    const updated = upsertHistoryByStartedAt(getStoredHistory(), session);
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updated));
     return updated;
   } catch (err) {
     console.error('Failed to save workout session to storage:', err);
-    return [];
+    throw new StoragePersistenceError('Failed to save workout session to storage', err);
   }
 }
 

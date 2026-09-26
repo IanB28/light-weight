@@ -49,7 +49,7 @@ interface HomeViewProps {
   onOpenSettings?: () => void;
   exercises?: import('@light-weight/domain').Exercise[];
   userId?: string;
-  onSaveHistoricalWorkout?: (session: WorkoutSession) => void;
+  onSaveHistoricalWorkout?: (session: WorkoutSession) => boolean | void | Promise<boolean | void>;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
