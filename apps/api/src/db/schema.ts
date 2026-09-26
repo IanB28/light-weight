@@ -266,7 +266,7 @@ export const historicalPersonalRecords = pgTable('historical_personal_records', 
   index('hpr_exercise_id_idx').on(table.exerciseId),
   index('hpr_user_exercise_idx').on(table.userId, table.exerciseId),
   check('hpr_bodyweight_positive_check', sql`${table.bodyweightKg} > 0`),
-  check('hpr_reps_positive_check', sql`${table.reps} > 0`),
+  check('hpr_reps_range_check', sql`${table.reps} BETWEEN 1 AND 12`),
   check('hpr_weight_non_negative_check', sql`${table.weightKg} >= 0`),
   check('hpr_source_check', sql`${table.source} IN ('historical_manual')`),
 ]);

@@ -57,6 +57,13 @@
       "when": 1790000000000,
       "tag": "0007_historical_personal_records",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790100000000,
+      "tag": "0008_hpr_reps_cap_constraint",
+      "breakpoints": true
     }
   ]
 }

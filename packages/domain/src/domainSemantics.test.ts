@@ -11,13 +11,15 @@ import {
   calculateEffectiveLoadKg,
   isEffectiveSet,
   isSetEligibleForPersonalRecord,
+  isValidHistoricalPersonalRecord,
+  normalizeHistoricalPersonalRecord,
   normalizeLoggedSet,
   normalizeWorkoutSetType,
   shouldCountForPersonalRecord,
   shouldCountForVolume
 } from './setSemantics.js';
 import { calculateVolume } from './progression.js';
-import { bestSetOf, calculateSetOneRm, is1RMRecord } from './onerm.js';
+import { bestSetOf, calculateCanonicalStrengthOneRm, calculateSetOneRm, estimateOneRm, is1RMRecord, REP_CAP } from './onerm.js';
 import { getExerciseProgressSeries } from './history.js';
 import { formatLocalWorkoutDateKey, isValidWorkoutDateKey, resolveWorkoutDateKey } from './workoutTemporal.js';
 import type { Exercise, ExerciseLoadingProfile, LoggedSet } from './types.js';
@@ -608,4 +610,69 @@ test('Test K: Legacy database hydration restores bodyweightFactor for full-bodyw
     calculateEffectiveLoadKg({ exercise: customExercise, setWeightKg: 20, bodyweightKg: 100 }),
     105 // (100 * 0.85) + 20 = 85 + 20 = 105
   );
+});
+
+test('calculateCanonicalStrengthOneRm: 1-rep collapses to exact effective load and multi-reps match calculator average', () => {
+  const bench = exercise({ id: 'bench', name: 'Bench Press', primaryMuscle: 'chest' });
+
+  // 1-rep: exact load
+  const oneRep = calculateCanonicalStrengthOneRm({ weightKg: 100, reps: 1 }, { exercise: bench, bodyweightKg: 80 });
+  assert.equal(oneRep, 100);
+
+  // 5 reps @ 100kg: matches estimateOneRm average (115.6 kg)
+  const fiveReps = calculateCanonicalStrengthOneRm({ weightKg: 100, reps: 5 }, { exercise: bench, bodyweightKg: 80 });
+  const calculatorEstimate = estimateOneRm(100, 5).average;
+  assert.equal(fiveReps, calculatorEstimate);
+  assert.equal(fiveReps, 115.6);
+
+  // reps > 12: returns null (refuses fantasy extrapolation)
+  const thirteenReps = calculateCanonicalStrengthOneRm({ weightKg: 100, reps: 13 }, { exercise: bench, bodyweightKg: 80 });
+  assert.equal(thirteenReps, null);
+});
+
+test('HistoricalPersonalRecord: REP_CAP data integrity is strictly enforced in validator and normalizer', () => {
+  const validRecord = {
+    id: 'hpr-1',
+    userId: 'u-1',
+    exerciseId: 'ex-bench',
+    performedDate: '2026-05-15',
+    recordedAt: '2026-05-15T12:00:00.000Z',
+    bodyweightKg: 75,
+    set: {
+      setIndex: 1,
+      weightKg: 100,
+      reps: 1,
+      completed: true,
+      setType: 'working'
+    },
+    source: 'historical_manual'
+  };
+
+  // Valid 1 rep and 12 reps
+  assert.equal(isValidHistoricalPersonalRecord(validRecord), true);
+  assert.ok(normalizeHistoricalPersonalRecord(validRecord) !== null);
+
+  const atRepCap = { ...validRecord, set: { ...validRecord.set, reps: 12 } };
+  assert.equal(isValidHistoricalPersonalRecord(atRepCap), true);
+  assert.equal(normalizeHistoricalPersonalRecord(atRepCap)?.set.reps, 12);
+
+  // 0 reps: rejected
+  const zeroReps = { ...validRecord, set: { ...validRecord.set, reps: 0 } };
+  assert.equal(isValidHistoricalPersonalRecord(zeroReps), false);
+  assert.equal(normalizeHistoricalPersonalRecord(zeroReps), null);
+
+  // 13 reps (> REP_CAP): rejected (never silently clamped)
+  const thirteenReps = { ...validRecord, set: { ...validRecord.set, reps: 13 } };
+  assert.equal(isValidHistoricalPersonalRecord(thirteenReps), false);
+  assert.equal(normalizeHistoricalPersonalRecord(thirteenReps), null);
+
+  // Fractional reps: rejected
+  const fractionalReps = { ...validRecord, set: { ...validRecord.set, reps: 5.5 } };
+  assert.equal(isValidHistoricalPersonalRecord(fractionalReps), false);
+  assert.equal(normalizeHistoricalPersonalRecord(fractionalReps), null);
+
+  // NaN / non-finite: rejected
+  const nanReps = { ...validRecord, set: { ...validRecord.set, reps: NaN } };
+  assert.equal(isValidHistoricalPersonalRecord(nanReps), false);
+  assert.equal(normalizeHistoricalPersonalRecord(nanReps), null);
 });

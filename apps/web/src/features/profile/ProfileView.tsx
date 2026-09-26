@@ -102,7 +102,7 @@ export function ProfileView({
         .slice(0, 3)
         .map((record) => {
           const exercise = exercisesById[record.exerciseId] || findExerciseById(record.exerciseId);
-          const targetMuscle = exercise ? (resolveExerciseStrengthTarget(exercise) ?? exercise.primaryMuscle) : null;
+          const targetMuscle = exercise ? resolveExerciseStrengthTarget(exercise) : null;
           const sessionBw = record.bodyweightKg ?? resolveBodyweightKgAtDate(bodyweightEntries, record.date) ?? (bodyweightKg ?? null);
           const evaluation = targetMuscle && sessionBw && profile.gender
             ? evaluateRelativeStrength(targetMuscle, record.est1Rm, sessionBw, profile.gender)

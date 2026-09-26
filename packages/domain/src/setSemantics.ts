@@ -3,6 +3,7 @@ import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
 import { normalizeRirValue, normalizeRpeValue } from './effort.js';
 import { isValidBaseResistanceStatus, isAuthoritativeProvenance } from './machineProfile.js';
 import { isValidWorkoutDateKey, isWorkoutEntrySource, isValidWorkoutTimestamp } from './workoutTemporal.js';
+import { REP_CAP } from './onerm.js';
 
 export const WORKOUT_SET_TYPES = ['working', 'warmup', 'drop', 'backoff'] as const;
 
@@ -275,6 +276,7 @@ export function isValidHistoricalPersonalRecord(record: unknown): record is Hist
   if (typeof candidate.bodyweightKg !== 'number' || !Number.isFinite(candidate.bodyweightKg) || candidate.bodyweightKg <= 0) return false;
   if (!candidate.set || typeof candidate.set !== 'object') return false;
   if (!isValidWorkoutSet(candidate.set)) return false;
+  if (!Number.isInteger(candidate.set.reps) || candidate.set.reps < 1 || candidate.set.reps > REP_CAP) return false;
   if (candidate.source !== 'historical_manual') return false;
   return true;
 }
@@ -300,9 +302,12 @@ export function normalizeHistoricalPersonalRecord(record: unknown): HistoricalPe
   const weightKg = typeof rawSet.weightKg === 'number' && Number.isFinite(rawSet.weightKg) && rawSet.weightKg >= 0
     ? rawSet.weightKg
     : (typeof rawSet.weightKg === 'string' && Number.isFinite(Number(rawSet.weightKg)) && Number(rawSet.weightKg) >= 0 ? Number(rawSet.weightKg) : null);
-  const reps = typeof rawSet.reps === 'number' && Number.isInteger(rawSet.reps) && rawSet.reps > 0
+  const rawReps = typeof rawSet.reps === 'number'
     ? rawSet.reps
-    : (typeof rawSet.reps === 'string' && Number.isInteger(Number(rawSet.reps)) && Number(rawSet.reps) > 0 ? Number(rawSet.reps) : null);
+    : (typeof rawSet.reps === 'string' && rawSet.reps.trim() !== '' ? Number(rawSet.reps) : null);
+  const reps = rawReps !== null && Number.isInteger(rawReps) && rawReps >= 1 && rawReps <= REP_CAP
+    ? rawReps
+    : null;
 
   if (weightKg === null || reps === null) return null;
 

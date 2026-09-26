@@ -1,4 +1,5 @@
 import {
+  calculateCanonicalStrengthOneRm,
   calculateMuscleFatigue,
   calculateOverallStrength,
   calculateSessionTotalVolume,
@@ -177,10 +178,9 @@ export function selectStrengthSnapshot(
             continue;
           }
 
-          const set1Rm = calculateSetOneRm(set, {
+          const set1Rm = calculateCanonicalStrengthOneRm(set, {
             exercise,
-            bodyweightKg: sessionBw,
-            formula: 'average'
+            bodyweightKg: sessionBw
           });
 
           if (!set1Rm || set1Rm <= 0) continue;
@@ -215,10 +215,9 @@ export function selectStrengthSnapshot(
           continue;
         }
 
-        const set1Rm = calculateSetOneRm(set, {
+        const set1Rm = calculateCanonicalStrengthOneRm(set, {
           exercise,
-          bodyweightKg: sessionBw,
-          formula: 'average'
+          bodyweightKg: sessionBw
         });
 
         if (!set1Rm || set1Rm <= 0) continue;

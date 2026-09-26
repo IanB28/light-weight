@@ -99,6 +99,26 @@ export function calculateSetOneRm(
 }
 
 /**
+ * Canonical helper for athlete-facing strength 1RM evaluation.
+ * Evaluates the mechanical effective load using the 3-formula calculator average.
+ *
+ * Invariants:
+ * - For reps === 1: collapses directly to the exact mechanical effective load.
+ * - For reps 2..12: returns the exact 3-formula calculator average (no Epley divergence).
+ * - For reps > 12 or effective load <= 0: returns null.
+ */
+export function calculateCanonicalStrengthOneRm(
+  set: Pick<LoggedSet, 'weightKg' | 'reps'>,
+  options?: Pick<SetOneRmOptions, 'exercise' | 'bodyweightKg'>
+): number | null {
+  return calculateSetOneRm(set, {
+    exercise: options?.exercise,
+    bodyweightKg: options?.bodyweightKg,
+    formula: 'average'
+  });
+}
+
+/**
  * Full estimate across all 3 formulas and average using effective mechanical load.
  */
 export function estimateSetOneRm(

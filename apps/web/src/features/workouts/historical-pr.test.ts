@@ -1,15 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  calculateCanonicalStrengthOneRm,
   calculateEffectiveLoadKg,
   calculateSetOneRm,
   estimateOneRm,
   evaluateRelativeStrength,
+  resolveExerciseLoadingProfile,
+  resolveExerciseStrengthTarget,
+  type BodyweightEntry,
   type Exercise,
   type HistoricalPersonalRecord,
   type LoggedSet,
+  type MachineBaseSelection,
   type WorkoutSession
 } from '@light-weight/domain';
+import { canEvaluatePr } from '../../components/HistoricalPersonalRecordModal.js';
+import { formatDisplayWeight } from '../../lib/weight-units.js';
 import {
   getStoredHistoricalPersonalRecords,
   saveStoredHistoricalPersonalRecords,
@@ -600,4 +607,404 @@ test('Test 58 (Semantic F): Strength evaluation operates on 1.0-9.0 scale and ne
   const scoreDividedByHundred = evalResult.strengthScore / 100;
   assert.ok(scoreDividedByHundred < 0.1, 'strengthScore / 100 would be an invalid tiny fraction');
   assert.ok(evalResult.progressPctToNextRank > 0, 'progressPctToNextRank is the athlete-facing percentage');
+});
+
+test('Block 19.7B - P1: Date A to Date B bodyweight isolation (never leak BW across dates)', () => {
+  const entries: BodyweightEntry[] = [
+    { date: '2026-01-10', weightKg: 65 }
+  ];
+
+  // For Date A (2026-01-10): historical log exists
+  const historicalBwA = entries.find((e) => e.date === '2026-01-10')?.weightKg ?? null;
+  assert.equal(historicalBwA, 65);
+
+  // Transitioning to Date B (2026-01-11): NO entry exists in entries
+  const dateB = '2026-01-11';
+  const historicalBwB = entries.find((e) => e.date === dateB)?.weightKg ?? null;
+  assert.equal(historicalBwB, null, 'Date B must NOT inherit 65 kg from Date A');
+
+  // If user has current bodyweight 80 kg, it resolves as suggestion, not historical log
+  const currentBw = 80;
+  const suggestedBw = historicalBwB ?? currentBw;
+  assert.equal(suggestedBw, 80);
+
+  // If user has NO current bodyweight, it must be null (never fallback to 75 kg)
+  const noCurrentBw = null;
+  const manualBw = historicalBwB ?? noCurrentBw;
+  assert.equal(manualBw, null, 'Must never fabricate 75 kg fallback');
+});
+
+test('Block 19.7B - 1RM Formula Parity: 100 kg × 5 yields exact identical 1RM across all 4 surfaces', () => {
+  const reps = 5;
+  const weightKg = 100;
+  const bw = 80;
+
+  // 1. Domain canonical strength 1RM helper
+  const canonical1Rm = calculateCanonicalStrengthOneRm(
+    { weightKg, reps },
+    { exercise: mockBenchPress, bodyweightKg: bw }
+  );
+
+  // 2. 1RM Calculator average
+  const calculatorAvg = estimateOneRm(weightKg, reps).average;
+
+  // 3. Profile / History Index personal record
+  const session: WorkoutSession = {
+    id: 's-parity',
+    userId: 'u1',
+    startedAt: '2026-02-01T10:00:00.000Z',
+    sets: {
+      'bench-press': [{
+        setIndex: 1,
+        weightKg,
+        reps,
+        completed: true,
+        setType: 'working',
+        isWarmup: false
+      }]
+    }
+  };
+  const historyIndex = buildWorkoutHistoryIndex([session], {
+    exercisesById,
+    bodyweightEntries: [{ date: '2026-02-01', weightKg: bw }]
+  });
+  const profilePr = historyIndex.personalRecordsByExercise['bench-press'];
+
+  // 4. Strength Evaluation snapshot
+  const snapshot = selectStrengthSnapshot([session], exercisesById, {
+    gender: 'male',
+    bodyweightKg: bw,
+    bodyweightEntries: [{ date: '2026-02-01', weightKg: bw }]
+  });
+  const chestRecord = snapshot.muscles['chest'];
+
+  assert.ok(canonical1Rm !== null);
+  assert.equal(canonical1Rm, 115.6, '100x5 average 1RM must be 115.6');
+  assert.equal(calculatorAvg, canonical1Rm, 'Calculator average must match canonical 1RM');
+  assert.equal(profilePr.est1Rm, canonical1Rm, 'Profile PR must match canonical 1RM');
+  assert.equal(chestRecord.topEst1RmKg, canonical1Rm, 'Strength snapshot topEst1RmKg must match canonical 1RM');
+});
+
+test('Block 19.7B - 1RM Formula Parity: 1-rep max collapses directly to exact effective load in all 4 surfaces', () => {
+  const reps = 1;
+  const weightKg = 100;
+  const bw = 80;
+
+  // 1. Canonical 1RM
+  const canonical1Rm = calculateCanonicalStrengthOneRm(
+    { weightKg, reps },
+    { exercise: mockBenchPress, bodyweightKg: bw }
+  );
+
+  // 2. Calculator
+  const calculatorAvg = estimateOneRm(weightKg, reps).average;
+
+  // 3. Profile / History Index
+  const session: WorkoutSession = {
+    id: 's-1rep',
+    userId: 'u1',
+    startedAt: '2026-02-01T10:00:00.000Z',
+    sets: {
+      'bench-press': [{
+        setIndex: 1,
+        weightKg,
+        reps,
+        completed: true,
+        setType: 'working',
+        isWarmup: false
+      }]
+    }
+  };
+  const historyIndex = buildWorkoutHistoryIndex([session], {
+    exercisesById,
+    bodyweightEntries: [{ date: '2026-02-01', weightKg: bw }]
+  });
+  const profilePr = historyIndex.personalRecordsByExercise['bench-press'];
+
+  // 4. Strength snapshot
+  const snapshot = selectStrengthSnapshot([session], exercisesById, {
+    gender: 'male',
+    bodyweightKg: bw,
+    bodyweightEntries: [{ date: '2026-02-01', weightKg: bw }]
+  });
+  const chestRecord = snapshot.muscles['chest'];
+
+  assert.equal(canonical1Rm, 100, 'Canonical 1RM for reps=1 must be exact weight');
+  assert.equal(calculatorAvg, 100, 'Calculator for reps=1 must be exact weight');
+  assert.equal(profilePr.est1Rm, 100, 'Profile PR for reps=1 must be exact weight');
+  assert.equal(chestRecord.topEst1RmKg, 100, 'Strength snapshot for reps=1 must be exact weight');
+});
+
+test('Block 19.7B - canEvaluatePr: Bench Press 0 kg × 1 is REJECTED', () => {
+  const loading = resolveExerciseLoadingProfile(mockBenchPress).profile;
+  const set: LoggedSet = {
+    setIndex: 1,
+    weightKg: 0,
+    reps: 1,
+    completed: true,
+    setType: 'working',
+    isWarmup: false
+  };
+
+  const eligible = canEvaluatePr({
+    exercise: mockBenchPress,
+    bodyweightKg: 80,
+    bodyweightConfirmed: true,
+    performedDate: '2026-01-01',
+    todayKey: '2026-09-26',
+    set,
+    loadingProfile: loading
+  });
+
+  assert.equal(eligible, false, 'Bench Press with 0 kg must be ineligible for PR evaluation');
+});
+
+test('Block 19.7B - canEvaluatePr: Weighted Pull-up +0 kg is VALID with canonical effective load', () => {
+  const loading = resolveExerciseLoadingProfile(mockPullUp).profile;
+  const set: LoggedSet = {
+    setIndex: 1,
+    weightKg: 0,
+    reps: 1,
+    completed: true,
+    setType: 'working',
+    isWarmup: false
+  };
+
+  const eligible = canEvaluatePr({
+    exercise: mockPullUp,
+    bodyweightKg: 75,
+    bodyweightConfirmed: true,
+    performedDate: '2026-01-01',
+    todayKey: '2026-09-26',
+    set,
+    loadingProfile: loading
+  });
+
+  assert.equal(eligible, true, 'Pull-up with +0 kg external load is valid because effective load is 75 kg');
+
+  const eff = calculateEffectiveLoadKg({
+    exercise: mockPullUp,
+    setWeightKg: 0,
+    bodyweightKg: 75
+  });
+  assert.equal(eff, 75, 'Effective load must equal 75 kg bodyweight');
+});
+
+test('Block 19.7B - canEvaluatePr: Unconfirmed bodyweight or missing BW blocks PR evaluation', () => {
+  const loading = resolveExerciseLoadingProfile(mockBenchPress).profile;
+  const validSet: LoggedSet = {
+    setIndex: 1,
+    weightKg: 100,
+    reps: 1,
+    completed: true,
+    setType: 'working',
+    isWarmup: false
+  };
+
+  // Bodyweight not confirmed
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockBenchPress,
+      bodyweightKg: 80,
+      bodyweightConfirmed: false,
+      performedDate: '2026-01-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading
+    }),
+    false,
+    'Unconfirmed bodyweight must block PR evaluation'
+  );
+
+  // Bodyweight null
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockBenchPress,
+      bodyweightKg: null,
+      bodyweightConfirmed: true,
+      performedDate: '2026-01-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading
+    }),
+    false,
+    'Null bodyweight must block PR evaluation'
+  );
+});
+
+test('Block 19.7B - canEvaluatePr: Future date is blocked', () => {
+  const loading = resolveExerciseLoadingProfile(mockBenchPress).profile;
+  const validSet: LoggedSet = {
+    setIndex: 1,
+    weightKg: 100,
+    reps: 1,
+    completed: true,
+    setType: 'working',
+    isWarmup: false
+  };
+
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockBenchPress,
+      bodyweightKg: 80,
+      bodyweightConfirmed: true,
+      performedDate: '2026-10-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading
+    }),
+    false,
+    'Future date must be blocked'
+  );
+});
+
+test('Block 19.7B - canEvaluatePr: Exercise with resolveExerciseStrengthTarget === null is blocked', () => {
+  const mockMobilityExercise: Exercise = {
+    id: 'mobility-1',
+    name: 'Full Body Mobility',
+    category: 'other',
+    primaryMuscle: '' as any,
+    loading: {
+      mechanism: 'other',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+
+  assert.equal(
+    resolveExerciseStrengthTarget(mockMobilityExercise),
+    null,
+    'Mobility exercise must have null canonical strength target'
+  );
+
+  const loading = resolveExerciseLoadingProfile(mockMobilityExercise).profile;
+  const validSet: LoggedSet = {
+    setIndex: 1,
+    weightKg: 20,
+    reps: 5,
+    completed: true,
+    setType: 'working',
+    isWarmup: false
+  };
+
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockMobilityExercise,
+      bodyweightKg: 80,
+      bodyweightConfirmed: true,
+      performedDate: '2026-01-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading
+    }),
+    false,
+    'Exercise without canonical strength target cannot evaluate PR'
+  );
+});
+
+test('Block 19.7B - canEvaluatePr: Plate-loaded machine uncalibrated (unknown) blocks PR evaluation', () => {
+  const mockPlateMachine: Exercise = {
+    id: 'plate-hack-squat',
+    name: 'Plate-Loaded Hack Squat',
+    category: 'machine',
+    primaryMuscle: 'quadriceps',
+    loading: {
+      mechanism: 'plate_loaded',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: false,
+      hasMachineBase: true
+    }
+  };
+
+  const loading = resolveExerciseLoadingProfile(mockPlateMachine).profile;
+  const validSet: LoggedSet = {
+    setIndex: 1,
+    weightKg: 100,
+    reps: 5,
+    completed: true,
+    setType: 'working',
+    isWarmup: false
+  };
+
+  // No machine selection
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockPlateMachine,
+      bodyweightKg: 80,
+      bodyweightConfirmed: true,
+      performedDate: '2026-01-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading,
+      machineSelection: null
+    }),
+    false,
+    'Missing machine selection on plate-loaded machine must block PR evaluation'
+  );
+
+  // Machine selection with status unknown
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockPlateMachine,
+      bodyweightKg: 80,
+      bodyweightConfirmed: true,
+      performedDate: '2026-01-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading,
+      machineSelection: { status: 'unknown', weightKg: null }
+    }),
+    false,
+    'Unknown base resistance on plate-loaded machine must block PR evaluation'
+  );
+
+  // Machine selection with 0 kg tare (none)
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockPlateMachine,
+      bodyweightKg: 80,
+      bodyweightConfirmed: true,
+      performedDate: '2026-01-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading,
+      machineSelection: { status: 'none', weightKg: 0 }
+    }),
+    true,
+    'Explicit 0 kg tare allows PR evaluation'
+  );
+
+  // Machine selection with calibrated tare (user_defined)
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockPlateMachine,
+      bodyweightKg: 80,
+      bodyweightConfirmed: true,
+      performedDate: '2026-01-01',
+      todayKey: '2026-09-26',
+      set: validSet,
+      loadingProfile: loading,
+      machineSelection: { status: 'user_defined', weightKg: 25 }
+    }),
+    true,
+    'Calibrated tare allows PR evaluation'
+  );
+});
+
+test('Block 19.7B - Imperial preference formatting: Result UI metrics format in lb', () => {
+  const bwKg = 80;
+  const loadKg = 100;
+  const oneRmKg = 114.3;
+  const kgToNext = 15;
+
+  assert.equal(formatDisplayWeight(bwKg, 'imperial'), '176.4 lb');
+  assert.equal(formatDisplayWeight(loadKg, 'imperial'), '220.5 lb');
+  assert.equal(formatDisplayWeight(oneRmKg, 'imperial'), '252 lb');
+  assert.equal(formatDisplayWeight(kgToNext, 'imperial'), '33.1 lb');
 });

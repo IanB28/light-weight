@@ -1,4 +1,5 @@
 import {
+  calculateCanonicalStrengthOneRm,
   calculateSetOneRm,
   isSetEligibleForPersonalRecord,
   resolveBodyweightKgAtDate,
@@ -97,7 +98,7 @@ export function buildWorkoutHistoryIndex(
 
       for (const set of sets) {
         if (!isSetEligibleForPersonalRecord({ set, exercise, bodyweightKg: sessionBw })) continue;
-        const est1Rm = calculateSetOneRm(set, { exercise, bodyweightKg: sessionBw, formula: 'epley' });
+        const est1Rm = calculateCanonicalStrengthOneRm(set, { exercise, bodyweightKg: sessionBw });
         if (est1Rm === null) continue;
         const existing = index.personalRecordsByExercise[exerciseId];
         if (!existing || est1Rm > existing.est1Rm) {
@@ -119,7 +120,7 @@ export function buildWorkoutHistoryIndex(
     for (const record of options.historicalPersonalRecords) {
       const exercise = options?.exercisesById?.[record.exerciseId];
       if (!isSetEligibleForPersonalRecord({ set: record.set, exercise, bodyweightKg: record.bodyweightKg })) continue;
-      const est1Rm = calculateSetOneRm(record.set, { exercise, bodyweightKg: record.bodyweightKg, formula: 'epley' });
+      const est1Rm = calculateCanonicalStrengthOneRm(record.set, { exercise, bodyweightKg: record.bodyweightKg });
       if (est1Rm === null) continue;
       const existing = index.personalRecordsByExercise[record.exerciseId];
       if (!existing || est1Rm > existing.est1Rm) {
