@@ -1,17 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import { CalendarPlus, Dumbbell, Plus, Trash2 } from 'lucide-react';
-import { isPlateLoadedMachine, isValidRirValue, resolveExerciseLoadingProfile, type Exercise, type Routine, type WorkoutSession, type WorkoutSetType } from '@light-weight/domain';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, CalendarPlus, ChevronRight, Dumbbell, Plus, X, AlertTriangle } from 'lucide-react';
+import {
+  DEFAULT_EXERCISE_LOADING_PROFILE,
+  isValidWorkoutSet,
+  type Exercise,
+  type MachineBaseSelection,
+  type MachineSnapshot,
+  type Routine,
+  type WorkoutSession,
+  type WorkoutSetType
+} from '@light-weight/domain';
 import { AddExerciseModal } from './AddExerciseModal.js';
+import { PlatePickerSheet } from '../features/workouts/WeightEntry.js';
+import { ExerciseMediaModal } from './ExerciseMediaModal.js';
+import { ExerciseSessionCard, type PlateTarget } from '../features/workouts/WorkoutSessionComponents.js';
 import { Button, Modal, OptionPicker } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
-import { parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
-import { getMachineProfilesForExercise } from '../lib/machine-profiles.js';
+import { buildWorkoutHistoryIndex } from '../lib/workout-history-index.js';
+import { buildRoutinePickerOptions } from '../features/routines/routine-options.js';
+import type { WeightInputMode } from '../lib/preferences.js';
+import type { ActiveExerciseSession } from '../features/workouts/types.js';
 import {
-  createHistoricalWorkoutSession,
-  HistoricalWorkoutValidationError,
-  type HistoricalExerciseDraft,
-  type HistoricalSetDraft
+  createDefaultExerciseSession,
+  buildRoutineExerciseSessions,
+  updateSetInSessions,
+  updateSetRirInSessions,
+  toggleSetInSessions,
+  addSetToSessions,
+  removeSetFromSessions,
+  applyPlateWeightInSessions,
+  updateMachineProfileInSessions
+} from '../features/workouts/useWorkoutSession.js';
+import {
+  createHistoricalWorkoutSessionFromActive,
+  HistoricalWorkoutValidationError
 } from '../features/workouts/historical-workout.js';
 
 interface HistoricalWorkoutModalProps {
@@ -23,112 +46,559 @@ interface HistoricalWorkoutModalProps {
   history: WorkoutSession[];
   routines: Routine[];
   initialDate?: Date;
+  initialRoutineId?: string;
 }
 
 function localDateKey(date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
-const emptySet = (): HistoricalSetDraft => ({ weight: '', reps: '', rir: '', setType: 'working' });
-
-export function HistoricalWorkoutModal({ isOpen, onClose, onSave, userId, exercises, history, routines, initialDate }: HistoricalWorkoutModalProps) {
+export function HistoricalWorkoutModal({
+  isOpen,
+  onClose,
+  onSave,
+  userId,
+  exercises,
+  history,
+  routines,
+  initialDate,
+  initialRoutineId
+}: HistoricalWorkoutModalProps) {
   const { t } = useI18n();
   const { preferences } = usePreferences();
-  const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
-  const setTypeOptions: Array<{ value: WorkoutSetType; label: string }> = [
-    { value: 'working', label: t('workout.workingSet') },
-    { value: 'warmup', label: t('workout.warmupSet') },
-    { value: 'drop', label: t('workout.dropSet') },
-    { value: 'backoff', label: t('workout.backoffSet') }
-  ];
+
+  const exercisesById = useMemo(
+    () => Object.fromEntries(exercises.map((e) => [e.id, e])),
+    [exercises]
+  );
+
+  const historyIndex = useMemo(
+    () => buildWorkoutHistoryIndex(history, { exercisesById }),
+    [history, exercisesById]
+  );
+
+  const [phase, setPhase] = useState<'setup' | 'editor'>('setup');
   const [performedDate, setPerformedDate] = useState(localDateKey());
   const [performedTime, setPerformedTime] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [routineName, setRoutineName] = useState('');
   const [routineId, setRoutineId] = useState('');
-  const [draftExercises, setDraftExercises] = useState<HistoricalExerciseDraft[]>([]);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>([]);
+
+  // Sub-modal states
+  const [plateTarget, setPlateTarget] = useState<PlateTarget | null>(null);
+  const [selectedMediaExercise, setSelectedMediaExercise] = useState<Exercise | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [pendingRoutineId, setPendingRoutineId] = useState<string | null>(null);
+  const [showConfirmChangeRoutine, setShowConfirmChangeRoutine] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Initialize draft when modal opens
   useEffect(() => {
     if (!isOpen) return;
-    setPerformedDate(localDateKey(initialDate || new Date()));
+    const initialKey = localDateKey(initialDate || new Date());
+    setPerformedDate(initialKey);
     setPerformedTime('');
     setDurationMinutes('');
+    setPhase('setup');
+    setError(null);
+
+    if (initialRoutineId) {
+      const routine = routines.find((r) => r.id === initialRoutineId);
+      if (routine) {
+        setRoutineId(routine.id);
+        setRoutineName(routine.name);
+        const sessions = buildRoutineExerciseSessions(
+          routine,
+          exercisesById,
+          (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+        );
+        setExerciseSessions(sessions);
+        return;
+      }
+    }
+
     setRoutineName('');
     setRoutineId('');
-    setDraftExercises([]);
-    setError(null);
-  }, [initialDate, isOpen]);
+    setExerciseSessions([]);
+  }, [initialDate, initialRoutineId, isOpen, routines, exercisesById, historyIndex, preferences]);
 
-  const hasExercises = draftExercises.length > 0;
-  const hasValidPhysicalSet = draftExercises.some(({ exercise, sets, machineProfile }) => {
-    const isPlateMachine = isPlateLoadedMachine(resolveExerciseLoadingProfile(exercise).profile);
-    return sets.some((set) => {
-      const displayWeight = Number(set.weight.trim());
-      const reps = Number(set.reps.trim());
-      const rir = set.rir.trim() === '' ? undefined : Number(set.rir);
-      const weightKg = Number.isFinite(displayWeight) && displayWeight >= 0 ? parseDisplayWeight(displayWeight, preferences.units) : NaN;
-      return set.weight.trim() !== '' && set.reps.trim() !== '' && Number.isFinite(displayWeight) && displayWeight >= 0 && Number.isFinite(reps) && Number.isInteger(reps) && reps > 0 && (rir === undefined || isValidRirValue(rir)) && (!isPlateMachine || !machineProfile?.baseResistanceKg || weightKg >= machineProfile.baseResistanceKg);
+  const routinePickerOptions = useMemo(() => {
+    return buildRoutinePickerOptions(routines, {
+      emptyLabel: t('historical.noRoutine'),
+      exerciseLabel: (count) => `${count} ${count === 1 ? t('library.exercise') : t('library.exercises')}`
     });
-  });
-  const addExercise = (exercise: Exercise) => setDraftExercises((current) => current.some((item) => item.exercise.id === exercise.id)
-    ? current
-    : [...current, { exercise, sets: [emptySet()] }]);
-  const updateSet = (exerciseId: string, setIndex: number, patch: Partial<HistoricalSetDraft>) => setDraftExercises((current) => current.map((exercise) => exercise.exercise.id !== exerciseId
-    ? exercise
-    : { ...exercise, sets: exercise.sets.map((set, index) => index === setIndex ? { ...set, ...patch } : set) }));
-  const addSet = (exerciseId: string) => setDraftExercises((current) => current.map((exercise) => exercise.exercise.id === exerciseId ? { ...exercise, sets: [...exercise.sets, emptySet()] } : exercise));
-  const updateMachineProfile = (exerciseId: string, profileId: string) => setDraftExercises((current) => current.map((exercise) => {
-    if (exercise.exercise.id !== exerciseId) return exercise;
-    const profile = getMachineProfilesForExercise(exerciseId).find((item) => item.id === profileId);
-    return { ...exercise, machineProfile: profile };
-  }));
-  const selectRoutine = (selectedId: string) => {
-    const routine = routines.find((item) => item.id === selectedId);
-    setRoutineId(selectedId);
-    if (routine) setRoutineName(routine.name);
-  };
-  const removeSet = (exerciseId: string, setIndex: number) => setDraftExercises((current) => current.map((exercise) => exercise.exercise.id === exerciseId ? { ...exercise, sets: exercise.sets.filter((_, index) => index !== setIndex) } : exercise).filter((exercise) => exercise.sets.length > 0));
+  }, [routines, t]);
 
-  const save = () => {
-    try {
-      const session = createHistoricalWorkoutSession({ userId, routineId: routineId || undefined, performedDate, performedTime, durationMinutes, routineName, exercises: draftExercises, units: preferences.units });
-      onSave(session);
-      onClose();
-    } catch (cause) {
-      setError(cause instanceof HistoricalWorkoutValidationError ? t(`historical.error.${cause.code}`) : t('historical.saveError'));
+  const applyRoutineSelection = (selectedId: string) => {
+    setRoutineId(selectedId);
+    if (selectedId) {
+      const routine = routines.find((r) => r.id === selectedId);
+      if (routine) {
+        setRoutineName(routine.name);
+        const sessions = buildRoutineExerciseSessions(
+          routine,
+          exercisesById,
+          (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+        );
+        setExerciseSessions(sessions);
+      }
+    } else {
+      // Switched to "Sin rutina": clear routineId, user can keep or customize name
+      if (!routineName.trim() || routines.some((r) => r.name === routineName)) {
+        setRoutineName('');
+      }
+      setExerciseSessions([]);
     }
   };
 
-  return <>
-    <Modal open={isOpen} onClose={onClose} title={t('historical.title')} description={t('historical.description')}>
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1 text-xs font-bold text-text-secondary"><span>{t('historical.performedDate')}</span><input type="date" max={localDateKey()} value={performedDate} onChange={(event) => setPerformedDate(event.target.value)} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent" /></label>
-          <label className="space-y-1 text-xs font-bold text-text-secondary"><span>{t('historical.performedTime')}</span><input type="time" value={performedTime} onChange={(event) => setPerformedTime(event.target.value)} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent" /></label>
+  const handleRoutineSelect = (selectedId: string) => {
+    if (selectedId === routineId) return;
+    if (exerciseSessions.length > 0) {
+      setPendingRoutineId(selectedId);
+      setShowConfirmChangeRoutine(true);
+    } else {
+      applyRoutineSelection(selectedId);
+    }
+  };
+
+  const confirmRoutineChange = () => {
+    if (pendingRoutineId !== null) {
+      applyRoutineSelection(pendingRoutineId);
+      setPendingRoutineId(null);
+    }
+    setShowConfirmChangeRoutine(false);
+  };
+
+  const handleAddExercise = (exercise: Exercise) => {
+    setExerciseSessions((current) => {
+      if (current.some((s) => s.exercise.id === exercise.id)) return current;
+      const newSession = createDefaultExerciseSession(exercise, { historyIndex, preferences });
+      return [...current, newSession];
+    });
+    setIsAddModalOpen(false);
+  };
+
+  const handleRemoveExercise = (exerciseId: string) => {
+    setExerciseSessions((current) => current.filter((s) => s.exercise.id !== exerciseId));
+  };
+
+  const handleUpdateSet = (exerciseId: string, setIndex: number, field: 'weightKg' | 'reps' | 'rir' | 'setType', value: any) => {
+    if (field === 'setType') {
+      setExerciseSessions((current) => current.map((s) => s.exercise.id !== exerciseId ? s : {
+        ...s,
+        sets: s.sets.map((set) => set.setIndex === setIndex ? { ...set, setType: value, isWarmup: value === 'warmup' } : set)
+      }));
+      return;
+    }
+    setExerciseSessions((current) => updateSetInSessions(current, exerciseId, setIndex, field, value));
+  };
+
+  const handleUpdateSetRir = (exerciseId: string, setIndex: number, rir?: number) => {
+    setExerciseSessions((current) => updateSetRirInSessions(current, exerciseId, setIndex, rir));
+  };
+
+  const handleToggleSet = (exerciseId: string, setIndex: number) => {
+    setExerciseSessions((current) => toggleSetInSessions(current, exerciseId, setIndex).sessions);
+  };
+
+  const handleAddSet = (exerciseId: string, setType: WorkoutSetType = 'working') => {
+    setExerciseSessions((current) => addSetToSessions(current, exerciseId, setType));
+  };
+
+  const handleRemoveSet = (exerciseId: string) => {
+    setExerciseSessions((current) => removeSetFromSessions(current, exerciseId));
+  };
+
+  const handleUpdateWeightInputMode = (exerciseId: string, mode: WeightInputMode) => {
+    setExerciseSessions((current) => current.map((s) => s.exercise.id === exerciseId ? { ...s, weightInputModeOverride: mode } : s));
+  };
+
+  const handleToggleAddedWeight = (exerciseId: string, enabled: boolean) => {
+    setExerciseSessions((current) => current.map((s) => s.exercise.id === exerciseId ? { ...s, usesAddedWeight: enabled } : s));
+  };
+
+  const handleUpdateMachineProfile = (exerciseId: string, selection: MachineBaseSelection) => {
+    setExerciseSessions((current) => updateMachineProfileInSessions(current, exerciseId, selection));
+  };
+
+  const handleApplyPlates = (valueKg: number, includeBarWeight: boolean, baseWeightKg: number, machineSnapshot?: MachineSnapshot) => {
+    if (!plateTarget) return;
+    setExerciseSessions((current) => applyPlateWeightInSessions(
+      current,
+      plateTarget.exerciseId,
+      plateTarget.setIndex,
+      valueKg,
+      includeBarWeight,
+      baseWeightKg,
+      machineSnapshot
+    ));
+    setPlateTarget(null);
+  };
+
+  // Completion metrics
+  const totalCompletedSets = useMemo(() => {
+    return exerciseSessions.reduce((acc, session) => {
+      if (session.skipped) return acc;
+      return acc + session.sets.filter((s) => s.completed && isValidWorkoutSet(s)).length;
+    }, 0);
+  }, [exerciseSessions]);
+
+  const hasValidCompletedSet = totalCompletedSets > 0;
+  const isValidTime = Boolean(performedTime && /^\d{2}:\d{2}$/.test(performedTime));
+  const canSave = Boolean(performedDate && isValidTime && hasValidCompletedSet);
+
+  const handleSave = () => {
+    try {
+      const session = createHistoricalWorkoutSessionFromActive({
+        userId,
+        routineId: routineId || undefined,
+        performedDate,
+        performedTime,
+        durationMinutes: durationMinutes.trim() || undefined,
+        routineName: routineName.trim() || undefined,
+        exerciseSessions
+      });
+      onSave(session);
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof HistoricalWorkoutValidationError ? t(`historical.error.${cause.code}` as any) : t('historical.saveError'));
+    }
+  };
+
+  const handleRequestClose = () => {
+    if (exerciseSessions.length > 0 || routineName.trim() || performedTime) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="historical-modal-title"
+          className="w-full max-w-2xl bg-app border border-border-subtle rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88dvh] overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
+        >
+          {/* iOS Grab Handle */}
+          <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto mt-3 mb-1 sm:hidden shrink-0" />
+
+          {/* Phase A: Setup Header */}
+          {phase === 'setup' ? (
+            <div className="flex items-center justify-between px-5 pt-3 pb-3 border-b border-border-subtle shrink-0">
+              <div className="min-w-0 pr-3">
+                <h2 id="historical-modal-title" className="text-lg font-extrabold text-text-primary truncate">
+                  {t('historical.title')}
+                </h2>
+                <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
+                  {t('historical.description')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRequestClose}
+                aria-label={t('workout.discard')}
+                className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-text-muted transition-all hover:text-text-primary active:scale-[0.96]"
+              >
+                <X className="w-4 h-4 stroke-[2.2]" />
+              </button>
+            </div>
+          ) : (
+            /* Phase B: Editor Header */
+            <div className="flex items-center justify-between px-4 sm:px-5 pt-3 pb-3 border-b border-border-subtle shrink-0">
+              <button
+                type="button"
+                onClick={() => setPhase('setup')}
+                className="flex items-center gap-1.5 rounded-ui-md px-2.5 py-1.5 text-xs font-bold text-accent transition-colors hover:bg-accent-soft active:scale-[0.97]"
+                aria-label={t('historical.backToSetup')}
+              >
+                <ArrowLeft className="size-4" />
+                <span>{t('historical.backToSetup')}</span>
+              </button>
+              <div className="min-w-0 text-center px-2">
+                <h2 id="historical-modal-title" className="text-sm font-extrabold text-text-primary truncate">
+                  {routineName || t('historical.freeWorkout')}
+                </h2>
+                <p className="text-[11px] font-mono text-text-muted truncate">
+                  {performedDate} {performedTime ? `· ${performedTime}` : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRequestClose}
+                aria-label={t('workout.discard')}
+                className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-text-muted transition-all hover:text-text-primary active:scale-[0.96]"
+              >
+                <X className="w-4 h-4 stroke-[2.2]" />
+              </button>
+            </div>
+          )}
+
+          {/* Modal Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            {phase === 'setup' ? (
+              /* Phase A: Setup Content (Strictly no exercise cards or set rows) */
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="space-y-1.5 text-xs font-bold text-text-secondary">
+                    <span>{t('historical.performedDate')}</span>
+                    <input
+                      type="date"
+                      max={localDateKey()}
+                      value={performedDate}
+                      onChange={(e) => setPerformedDate(e.target.value)}
+                      className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-xs font-bold text-text-secondary">
+                    <span>
+                      {t('historical.performedTime')} <span className="text-accent">*</span>
+                    </span>
+                    <input
+                      type="time"
+                      value={performedTime}
+                      onChange={(e) => setPerformedTime(e.target.value)}
+                      className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                      required
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="space-y-1.5 text-xs font-bold text-text-secondary">
+                    <span>{t('historical.sessionName')}</span>
+                    <input
+                      value={routineName}
+                      maxLength={255}
+                      onChange={(e) => setRoutineName(e.target.value)}
+                      placeholder={t('historical.freeWorkout')}
+                      className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-xs font-bold text-text-secondary">
+                    <span>{t('historical.duration')}</span>
+                    <input
+                      inputMode="numeric"
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                      placeholder="—"
+                      className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                  </label>
+                </div>
+
+                {routines.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-bold text-text-secondary">{t('historical.routine')}</span>
+                    <OptionPicker
+                      value={routineId}
+                      options={routinePickerOptions}
+                      onChange={handleRoutineSelect}
+                      ariaLabel={t('historical.routine')}
+                    />
+                  </div>
+                )}
+
+                {error && (
+                  <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">
+                    {error}
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* Phase B: Shared Live Workout Editor Content */
+              <div className="space-y-4">
+                <div className="rounded-ui-lg border border-accent/20 bg-accent-soft p-3 text-xs text-text-secondary flex items-start gap-2">
+                  <span className="font-bold text-accent shrink-0">ℹ</span>
+                  <span>{t('historical.completedSetsNotice')}</span>
+                </div>
+
+                {exerciseSessions.length === 0 ? (
+                  <div className="p-6 text-center space-y-3 rounded-ui-xl border border-dashed border-border-subtle bg-surface-input">
+                    <Dumbbell className="size-8 text-text-muted mx-auto" />
+                    <p className="text-sm font-bold text-text-primary">
+                      {t('workout.emptyTitle')}
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {t('workout.emptyInactive')}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setIsAddModalOpen(true)}
+                      className="mx-auto"
+                    >
+                      <Plus className="size-4" />
+                      {t('historical.addExercise')}
+                    </Button>
+                  </div>
+                ) : (
+                  exerciseSessions.map((session, index) => (
+                    <ExerciseSessionCard
+                      key={session.exercise.id}
+                      session={session}
+                      exerciseIndex={index}
+                      totalExercises={exerciseSessions.length}
+                      preferences={preferences}
+                      mode="historical"
+                      onViewTechnique={(ex) => setSelectedMediaExercise(ex)}
+                      onRemoveExercise={handleRemoveExercise}
+                      onUpdateSet={handleUpdateSet}
+                      onUpdateSetRir={handleUpdateSetRir}
+                      onToggleSet={handleToggleSet}
+                      onStartRestTimer={() => {}}
+                      onOpenPlates={(target) => setPlateTarget(target)}
+                      onAddSet={handleAddSet}
+                      onRemoveSet={handleRemoveSet}
+                      onUpdateWeightInputMode={handleUpdateWeightInputMode}
+                      onToggleAddedWeight={handleToggleAddedWeight}
+                      onUpdateMachineProfile={handleUpdateMachineProfile}
+                    />
+                  ))
+                )}
+
+                {exerciseSessions.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="w-full border-accent/30 bg-accent/15 text-accent hover:bg-accent/25"
+                  >
+                    <Plus className="size-4" />
+                    {t('historical.addExercise')}
+                  </Button>
+                )}
+
+                {error && (
+                  <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">
+                    {error}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sticky Modal Footer */}
+          <div className="p-4 border-t border-border-subtle bg-app/95 backdrop-blur-md shrink-0">
+            {phase === 'setup' ? (
+              <Button
+                onClick={() => setPhase('editor')}
+                className="w-full justify-center"
+              >
+                <span>{exerciseSessions.length > 0 ? t('historical.continueToExercises') : t('historical.addExerciseAndSets')}</span>
+                <ChevronRight className="size-4" />
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-text-muted px-1">
+                  <span>
+                    {totalCompletedSets === 1
+                      ? t('historical.completedSetsCount_one')
+                      : t('historical.completedSetsCount', { count: totalCompletedSets })}
+                  </span>
+                  {!hasValidCompletedSet && (
+                    <span className="text-amber-400 font-semibold">
+                      {t('historical.atLeastOneSetRequired')}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  onClick={handleSave}
+                  disabled={!canSave}
+                  className="w-full"
+                >
+                  <CalendarPlus className="size-4" />
+                  {t('historical.save')}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1 text-xs font-bold text-text-secondary"><span>{t('historical.sessionName')}</span><input value={routineName} maxLength={255} onChange={(event) => { setRoutineName(event.target.value); setRoutineId(''); }} placeholder={t('historical.freeWorkout')} className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent" /></label>
-          <label className="space-y-1 text-xs font-bold text-text-secondary"><span>{t('historical.duration')}</span><input inputMode="numeric" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} placeholder="—" className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent" /></label>
-        </div>
-        {routines.length > 0 && <OptionPicker value={routineId} options={[{ value: '', label: t('historical.noRoutine') }, ...routines.map((routine) => ({ value: routine.id, label: routine.name }))]} onChange={selectRoutine} ariaLabel={t('historical.routine')} />}
-        <div className="space-y-2">
-          {draftExercises.map(({ exercise, sets, machineProfile }) => <section key={exercise.id} className="rounded-ui-lg border border-border-subtle bg-surface p-3">
-            <div className="mb-2 flex items-center justify-between gap-2"><div className="min-w-0"><h3 className="truncate text-sm font-bold text-text-primary">{exercise.name}</h3><p className="text-[11px] text-text-muted">{exercise.primaryMuscle} · {exercise.category}</p></div><Button variant="ghost" size="sm" onClick={() => setDraftExercises((current) => current.filter((item) => item.exercise.id !== exercise.id))} aria-label={t('historical.removeExercise', { name: exercise.name })}><Trash2 className="size-4" /></Button></div>
-            {isPlateLoadedMachine(resolveExerciseLoadingProfile(exercise).profile) && (() => {
-              const profiles = getMachineProfilesForExercise(exercise.id);
-              if (profiles.length === 0) return <p className="mb-2 text-[11px] text-text-muted">{t('historical.machineManual')}</p>;
-              return <div className="mb-2"><OptionPicker value={machineProfile?.id || ''} options={[{ value: '', label: t('historical.noMachine') }, ...profiles.map((profile) => ({ value: profile.id, label: profile.label }))]} onChange={(profileId) => updateMachineProfile(exercise.id, profileId)} ariaLabel={t('historical.machineProfile')} /></div>;
-            })()}
-            <div className="space-y-2">{sets.map((set, index) => <div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2"><input aria-label={t('historical.setWeight', { set: index + 1 })} inputMode="decimal" value={set.weight} onChange={(event) => updateSet(exercise.id, index, { weight: event.target.value })} placeholder={weightUnit} className="h-10 min-w-0 rounded-ui-md border border-border-subtle bg-surface-input px-2 text-sm text-text-primary" /><input aria-label={t('historical.setReps', { set: index + 1 })} inputMode="numeric" value={set.reps} onChange={(event) => updateSet(exercise.id, index, { reps: event.target.value })} placeholder="reps" className="h-10 min-w-0 rounded-ui-md border border-border-subtle bg-surface-input px-2 text-sm text-text-primary" /><input aria-label={t('historical.setRir', { set: index + 1 })} inputMode="numeric" value={set.rir} onChange={(event) => updateSet(exercise.id, index, { rir: event.target.value })} placeholder="RIR" className="h-10 min-w-0 rounded-ui-md border border-border-subtle bg-surface-input px-2 text-sm text-text-primary" /><button type="button" onClick={() => removeSet(exercise.id, index)} aria-label={t('historical.removeSet', { set: index + 1 })} className="flex size-10 items-center justify-center rounded-ui-md text-text-muted hover:bg-surface-active"><Trash2 className="size-4" /></button><div className="col-span-4"><OptionPicker value={set.setType} options={setTypeOptions} onChange={(setType) => updateSet(exercise.id, index, { setType })} ariaLabel={t('historical.setType')} /></div></div>)}</div>
-            <Button variant="secondary" size="sm" onClick={() => addSet(exercise.id)} className="mt-3 w-full"><Plus className="size-4" />{t('workout.addSet')}</Button>
-          </section>)}</div>
-        <Button variant="secondary" onClick={() => setPickerOpen(true)} className="w-full"><Dumbbell className="size-4" />{hasExercises ? t('historical.addExercise') : t('historical.addExerciseAndSets')}</Button>
-        {error && <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{error}</p>}
-        <Button onClick={save} disabled={!performedTime || !hasValidPhysicalSet} className="w-full"><CalendarPlus className="size-4" />{t('historical.save')}</Button>
       </div>
-    </Modal>
-    <AddExerciseModal isOpen={pickerOpen} onClose={() => setPickerOpen(false)} availableExercises={exercises} history={history} onSelectExercise={addExercise} onCreateCustomExercise={() => undefined} />
-  </>;
+
+      {/* Sub-modals */}
+      <AddExerciseModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        availableExercises={exercises}
+        history={history}
+        onSelectExercise={handleAddExercise}
+        onCreateCustomExercise={() => undefined}
+      />
+
+      <PlatePickerSheet
+        open={Boolean(plateTarget)}
+        onClose={() => setPlateTarget(null)}
+        valueKg={plateTarget?.valueKg || 0}
+        units={preferences.units}
+        baseWeightKg={plateTarget?.baseWeightKg || 0}
+        availablePlatesKg={preferences.availablePlatesKg}
+        includeBarWeight={plateTarget?.includeBarWeight ?? false}
+        allowBarToggle={plateTarget?.allowBarToggle ?? false}
+        loading={plateTarget?.loading ?? DEFAULT_EXERCISE_LOADING_PROFILE}
+        machineProfileId={plateTarget?.machineProfileId}
+        machineStatus={plateTarget?.machineStatus}
+        machineProfileLabel={plateTarget?.machineProfileLabel}
+        machineBaseSourceLabel={plateTarget?.machineBaseSourceLabel}
+        machineBaseSourceUrl={plateTarget?.machineBaseSourceUrl}
+        machineManufacturer={plateTarget?.machineManufacturer}
+        machineModel={plateTarget?.machineModel}
+        onApply={handleApplyPlates}
+      />
+
+      <ExerciseMediaModal
+        exercise={selectedMediaExercise}
+        isOpen={Boolean(selectedMediaExercise)}
+        onClose={() => setSelectedMediaExercise(null)}
+      />
+
+      {/* Confirm Routine Change Modal */}
+      <Modal
+        open={showConfirmChangeRoutine}
+        onClose={() => setShowConfirmChangeRoutine(false)}
+        title={t('historical.confirmChangeRoutineTitle')}
+        description={t('historical.confirmChangeRoutine')}
+      >
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <Button variant="secondary" onClick={() => setShowConfirmChangeRoutine(false)}>
+            {t('workout.continue')}
+          </Button>
+          <Button variant="danger" onClick={confirmRoutineChange}>
+            {t('workout.discard')}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Discard Draft Modal */}
+      <Modal
+        open={showDiscardConfirm}
+        onClose={() => setShowDiscardConfirm(false)}
+        title={t('historical.confirmDiscardDraftTitle')}
+        description={t('historical.confirmDiscardDraftDesc')}
+      >
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <Button variant="secondary" onClick={() => setShowDiscardConfirm(false)}>
+            {t('historical.continueEditing')}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              setShowDiscardConfirm(false);
+              onClose();
+            }}
+          >
+            {t('historical.discardDraft')}
+          </Button>
+        </div>
+      </Modal>
+    </>
+  );
 }

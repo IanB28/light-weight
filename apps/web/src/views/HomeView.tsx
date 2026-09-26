@@ -82,9 +82,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [isBwModalOpen, setIsBwModalOpen] = useState(false);
   const [bwModalInitialMode, setBwModalInitialMode] = useState<'log' | 'goal'>('log');
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
+  const [selectedDaySource, setSelectedDaySource] = useState<'weekly' | 'month' | null>(null);
   const [inspectedSession, setInspectedSession] = useState<WorkoutSession | null>(null);
   const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
   const [historicalDate, setHistoricalDate] = useState<Date | undefined>();
+  const [historicalRoutineId, setHistoricalRoutineId] = useState<string | undefined>();
   const [isHistoricalOpen, setIsHistoricalOpen] = useState(false);
 
   // Keep the calendar dependency stable for all renders within the same local day.
@@ -266,7 +268,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <button
               type="button"
               key={idx}
-              onClick={() => setSelectedDayDate(item.date)}
+              onClick={() => {
+                setSelectedDayDate(item.date);
+                setSelectedDaySource('weekly');
+              }}
               aria-label={`${item.dayShort} ${item.dayNum}${item.completed ? `, ${t('home.completed')}` : item.routine ? `, ${item.routine.name}` : `, ${t('home.rest')}`}`}
               aria-current={item.isToday ? 'date' : undefined}
               className="group flex min-h-11 flex-col items-center rounded-ui-md py-1 transition-transform active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -347,7 +352,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {t('home.trainOther')}
             </Button>
           )}
-          {onSaveHistoricalWorkout && <Button variant="ghost" size="sm" onClick={() => { setHistoricalDate(today); setIsHistoricalOpen(true); }} className="w-full text-text-muted hover:text-text-primary">Registrar entrenamiento pasado</Button>}
         </div>
       </AppCard>
 
@@ -408,14 +412,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
         history={history}
         weeklySchedule={weeklySchedule}
         routines={routines}
-        onSelectDay={(date) => setSelectedDayDate(date)}
+        onSelectDay={(date) => {
+          setSelectedDayDate(date);
+          setSelectedDaySource('month');
+        }}
       />
 
       {/* Modal: Detalle del Día al pulsar en el Calendario */}
       {selectedDayInfo && (
         <DayDetailModal
           isOpen={Boolean(selectedDayDate)}
-          onClose={() => setSelectedDayDate(null)}
+          onClose={() => {
+            setSelectedDayDate(null);
+            setSelectedDaySource(null);
+          }}
           date={selectedDayInfo.date}
           completedSessions={selectedDayInfo.completedSessions}
           scheduledRoutine={selectedDayInfo.scheduledRoutine}
@@ -424,7 +434,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
           onStartFreeWorkout={() => setIsFocusModalOpen(true)}
           onAssignRoutine={handleAssignRoutineToDay}
           onViewSessionDetail={(session) => setInspectedSession(session)}
-          onRegisterHistorical={(date) => { setHistoricalDate(date); setIsHistoricalOpen(true); }}
+          onRegisterHistorical={
+            selectedDaySource === 'weekly' &&
+            selectedDayInfo.date.getTime() < new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() &&
+            onSaveHistoricalWorkout
+              ? (date, routineId) => {
+                  setHistoricalDate(date);
+                  setHistoricalRoutineId(routineId);
+                  setIsHistoricalOpen(true);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -433,7 +453,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
         session={inspectedSession}
         onClose={() => setInspectedSession(null)}
       />
-      {onSaveHistoricalWorkout && <HistoricalWorkoutModal isOpen={isHistoricalOpen} onClose={() => setIsHistoricalOpen(false)} onSave={onSaveHistoricalWorkout} userId={userId} exercises={exercises} history={history} routines={routines} initialDate={historicalDate} />}
+      {onSaveHistoricalWorkout && (
+        <HistoricalWorkoutModal
+          isOpen={isHistoricalOpen}
+          onClose={() => {
+            setIsHistoricalOpen(false);
+            setHistoricalRoutineId(undefined);
+          }}
+          onSave={onSaveHistoricalWorkout}
+          userId={userId}
+          exercises={exercises}
+          history={history}
+          routines={routines}
+          initialDate={historicalDate}
+          initialRoutineId={historicalRoutineId}
+        />
+      )}
 
     </div>
   );

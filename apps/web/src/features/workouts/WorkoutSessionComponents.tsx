@@ -159,6 +159,7 @@ interface ExerciseSessionCardProps {
   exerciseIndex: number;
   totalExercises: number;
   preferences: AppPreferences;
+  mode?: 'live' | 'historical';
   onViewTechnique: (session: ActiveExerciseSession['exercise']) => void;
   onRemoveExercise: (exerciseId: string) => void;
   onSkipExercise?: (exerciseId: string) => void;
@@ -181,6 +182,7 @@ export function ExerciseSessionCard({
   exerciseIndex,
   totalExercises,
   preferences,
+  mode = 'live',
   onViewTechnique,
   onRemoveExercise,
   onSkipExercise,
@@ -205,6 +207,7 @@ export function ExerciseSessionCard({
   const isPlateMachine = loading.mechanism === 'plate_loaded' || Boolean(loading.hasMachineBase);
   const imgUrl = getExerciseImgUrl(exercise);
   const hasCompletedSets = session.sets.some((set) => set.completed && isValidWorkoutSet(set));
+  const effectiveStartRestTimer = mode === 'historical' ? () => {} : onStartRestTimer;
 
   if (skipped) {
     return (
@@ -310,7 +313,7 @@ export function ExerciseSessionCard({
               {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
             </span>
             <div className="flex items-center gap-1">
-              {onSkipExercise && !hasCompletedSets && (
+              {mode !== 'historical' && onSkipExercise && !hasCompletedSets && (
                 <IconButton
                   variant="ghost"
                   size="sm"
@@ -393,7 +396,7 @@ export function ExerciseSessionCard({
         onUpdateSet={onUpdateSet}
         onUpdateSetRir={onUpdateSetRir}
         onToggleSet={onToggleSet}
-        onStartRestTimer={onStartRestTimer}
+        onStartRestTimer={effectiveStartRestTimer}
         onOpenPlates={onOpenPlates}
         onAddSet={onAddSet}
         onRemoveSet={onRemoveSet}

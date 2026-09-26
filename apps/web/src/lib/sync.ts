@@ -2,7 +2,7 @@ import { Routine, WorkoutSession } from '@light-weight/domain';
 import {
   getStoredBodyweight, getStoredHistory, getStoredRoutines, saveStoredHistory,
   saveStoredBodyweight, saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo,
-  getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds
+  getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds, normalizeStoredRoutines
 } from './storage.js';
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
 import { apiEndpoint } from './api-base.js';
@@ -68,10 +68,10 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
       if (Array.isArray(data.routines) && data.routines.length > 0) {
         const local = getStoredRoutines();
         const existing = new Set(local.map((routine) => routine.id));
-        const incoming = excludePendingRoutineTombstones(
+        const incoming = normalizeStoredRoutines(excludePendingRoutineTombstones(
           data.routines.filter((routine): routine is Routine => Boolean(routine.id && routine.name && Array.isArray(routine.exerciseIds))),
           getStoredDeletedRoutineIds()
-        );
+        ));
         // Pull never overwrites local edits, but immutable share attribution is
         // server-authored metadata and can safely repair an older local copy.
         const incomingById = new Map(incoming.map((routine) => [routine.id, routine]));

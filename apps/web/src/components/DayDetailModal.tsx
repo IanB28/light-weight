@@ -14,7 +14,7 @@ interface DayDetailModalProps {
   onStartFreeWorkout: () => void;
   onAssignRoutine: (routineId: string | null) => void;
   onViewSessionDetail?: (session: WorkoutSession) => void;
-  onRegisterHistorical?: (date: Date) => void;
+  onRegisterHistorical?: (date: Date, routineId?: string) => void;
 }
 
 export const DayDetailModal: React.FC<DayDetailModalProps> = ({
@@ -32,13 +32,16 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const isPastDay = date.getTime() < startOfToday;
+  const isToday = now.toDateString() === date.toDateString();
+
   const dateFormatted = date.toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long'
   });
-
-  const isToday = new Date().toDateString() === date.toDateString();
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
@@ -80,7 +83,18 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-none py-1">
-          {onRegisterHistorical && date <= new Date() && <button type="button" onClick={() => { onRegisterHistorical(date); onClose(); }} className="w-full rounded-xl border border-border-subtle bg-surface-active px-3 py-2.5 text-sm font-bold text-text-secondary hover:text-text-primary">Registrar entrenamiento pasado</button>}
+          {onRegisterHistorical && isPastDay && (
+            <button
+              type="button"
+              onClick={() => {
+                onRegisterHistorical(date, scheduledRoutine?.id);
+                onClose();
+              }}
+              className="w-full rounded-xl border border-accent/40 bg-accent/15 px-3 py-2.5 text-sm font-bold text-accent hover:bg-accent/25 transition-colors"
+            >
+              Registrar entrenamiento pasado
+            </button>
+          )}
           {/* Si ya se completó un entrenamiento este día */}
           {completedSessions.length > 0 ? (
             completedSessions.map((completedSession) => <div key={completedSession.id} className="p-4 rounded-2xl glass-subcard border-accent/30 space-y-3 relative overflow-hidden">
@@ -182,17 +196,32 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                   </div>
 
                   {/* Botón Iniciar */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onStartRoutine(scheduledRoutine.id);
-                      onClose();
-                    }}
-                    className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer mt-2"
-                  >
-                    <Play className="w-4 h-4 fill-current stroke-current" />
-                    Iniciar Rutina de este Día
-                  </button>
+                  {isPastDay ? (
+                    onRegisterHistorical && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRegisterHistorical(date, scheduledRoutine.id);
+                          onClose();
+                        }}
+                        className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer mt-2"
+                      >
+                        Registrar esta rutina como pasada
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onStartRoutine(scheduledRoutine.id);
+                        onClose();
+                      }}
+                      className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer mt-2"
+                    >
+                      <Play className="w-4 h-4 fill-current stroke-current" />
+                      Iniciar Rutina de este Día
+                    </button>
+                  )}
                 </div>
               ) : (
                 /* Día de Descanso */
@@ -205,19 +234,23 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                       Día de Descanso Programado
                     </h4>
                     <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
-                      Permite que tus fibras musculares se regeneren. O si lo prefieres, puedes iniciar una sesión libre o asignar una rutina.
+                      {isPastDay
+                        ? 'No se registraron entrenamientos este día de descanso.'
+                        : 'Permite que tus fibras musculares se regeneren. O si lo prefieres, puedes iniciar una sesión libre o asignar una rutina.'}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onStartFreeWorkout();
-                      onClose();
-                    }}
-                    className="px-4 py-2.5 rounded-2xl glass-subcard hover:border-white/20 active:scale-[0.96] text-white font-bold text-xs transition-all cursor-pointer"
-                  >
-                    Entrenar de todos modos (Sesión Libre)
-                  </button>
+                  {!isPastDay && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onStartFreeWorkout();
+                        onClose();
+                      }}
+                      className="px-4 py-2.5 rounded-2xl glass-subcard hover:border-white/20 active:scale-[0.96] text-white font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Entrenar de todos modos (Sesión Libre)
+                    </button>
+                  )}
                 </div>
               )}
 

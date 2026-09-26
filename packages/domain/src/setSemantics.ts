@@ -20,6 +20,10 @@ export type LegacyWorkoutSession = Omit<WorkoutSession, 'sets'> & {
   sets: Record<string, LegacyLoggedSet[]>;
 };
 
+export function isValidWorkoutSet(set: { weightKg: number; reps: number }): boolean {
+  return Number.isFinite(set.weightKg) && set.weightKg >= 0 && Number.isFinite(set.reps) && set.reps > 0;
+}
+
 export function isWorkoutSetType(value: unknown): value is WorkoutSetType {
   return typeof value === 'string' && (WORKOUT_SET_TYPES as readonly string[]).includes(value);
 }

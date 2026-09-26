@@ -397,12 +397,29 @@ export function clearActiveWorkout(adapter: StorageAdapter = browserStorageAdapt
   } catch {}
 }
 
+/**
+ * Normalizes routines by deduplicating entries by their unique routine ID.
+ * Invalid or empty IDs are discarded. When duplicate IDs exist, the latest entry is preserved.
+ * Distinct IDs sharing the same display name are intentionally preserved.
+ */
+export function normalizeStoredRoutines(routines: Routine[]): Routine[] {
+  if (!Array.isArray(routines)) return [];
+  const map = new Map<string, Routine>();
+  for (const routine of routines) {
+    if (routine && typeof routine.id === 'string' && routine.id.trim().length > 0) {
+      map.set(routine.id.trim(), routine);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export function getStoredRoutines(): Routine[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ROUTINES);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return normalizeStoredRoutines(parsed as Routine[]);
   } catch {
     return [];
   }
@@ -410,7 +427,8 @@ export function getStoredRoutines(): Routine[] {
 
 export function saveStoredRoutines(routines: Routine[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+    const normalized = normalizeStoredRoutines(routines);
+    localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(normalized));
   } catch {}
 }
 

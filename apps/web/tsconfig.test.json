@@ -98,8 +98,12 @@
     "src/features/workouts/machine-profile.test.ts",
     "src/lib/plate-assets.ts",
     "src/features/workouts/plate-assets.test.ts",
+    "src/features/routines/routine-options.ts",
     "src/components/WeightWidget.tsx",
     "src/components/BodyweightModal.tsx",
-    "src/components/WeightWidget.test.ts"
+    "src/components/WeightWidget.test.ts",
+    "src/components/DayDetailModal.tsx",
+    "src/components/HistoricalWorkoutModal.tsx",
+    "src/features/workouts/historical-workout-v2.test.ts"
   ]
 }
