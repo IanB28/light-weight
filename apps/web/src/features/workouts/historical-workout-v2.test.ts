@@ -24,6 +24,7 @@ import type { ActiveExerciseSession } from './types.js';
 import { ExerciseSessionCard } from './WorkoutSessionComponents.js';
 import { HistoricalWorkoutModal } from '../../components/HistoricalWorkoutModal.js';
 import { DayDetailModal } from '../../components/DayDetailModal.js';
+import { dictionaries } from '../../lib/i18n.js';
 
 const benchPress: Exercise = {
   id: 'bench-press',
@@ -594,4 +595,119 @@ test('14. Storage self-healing: getStoredRoutines heals corrupted duplicate rout
     if (orig) Object.defineProperty(globalThis, 'localStorage', orig);
     else Reflect.deleteProperty(globalThis, 'localStorage');
   }
+});
+
+test('15. Block 19.6B: Visual polish copy, exercise position indicator, and hook order invariant', () => {
+  // 15.1 Exercise position indicator behavior
+  const mockPreferences = {
+    theme: 'midnight' as const,
+    accent: 'lime' as const,
+    language: 'es' as const,
+    units: 'metric' as const,
+    bodyweightUnits: 'metric' as const,
+    defaultRestSeconds: 90,
+    weightInputMode: 'keyboard' as const,
+    defaultBarWeightKg: 20,
+    availablePlatesKg: [25, 20, 15, 10, 5, 2.5, 1.25]
+  };
+
+  const singleExerciseSession: ActiveExerciseSession = {
+    exercise: benchPress,
+    targetRepRange: [6, 12],
+    sets: [{ setIndex: 1, weightKg: 80, reps: 8, completed: false, setType: 'working', isWarmup: false }]
+  };
+
+  // When totalExercises === 1: position indicator must NOT be shown
+  const singleHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(ExerciseSessionCard, {
+      session: singleExerciseSession,
+      exerciseIndex: 0,
+      totalExercises: 1,
+      preferences: mockPreferences,
+      onViewTechnique: () => {},
+      onRemoveExercise: () => {},
+      onUpdateSet: () => {},
+      onToggleSet: () => {},
+      onStartRestTimer: () => {},
+      onOpenPlates: () => {},
+      onAddSet: () => {},
+      onRemoveSet: () => {},
+      onUpdateWeightInputMode: () => {},
+      onToggleAddedWeight: () => {}
+    })
+  );
+  assert.equal(singleHtml.includes('1 de 1'), false);
+  assert.equal(singleHtml.includes('Ejercicio 1'), false);
+
+  // When totalExercises > 1: compact position indicator is shown
+  const multiHtml = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(ExerciseSessionCard, {
+      session: singleExerciseSession,
+      exerciseIndex: 0,
+      totalExercises: 3,
+      preferences: mockPreferences,
+      onViewTechnique: () => {},
+      onRemoveExercise: () => {},
+      onUpdateSet: () => {},
+      onToggleSet: () => {},
+      onStartRestTimer: () => {},
+      onOpenPlates: () => {},
+      onAddSet: () => {},
+      onRemoveSet: () => {},
+      onUpdateWeightInputMode: () => {},
+      onToggleAddedWeight: () => {}
+    })
+  );
+  assert.equal(multiHtml.includes('1 de 3'), true);
+  assert.equal(multiHtml.includes('EJERCICIO 1 DE 3'), false); // No uppercase sentence
+
+  // 15.2 Spanish concise copy audit
+  const es = dictionaries.es;
+  assert.equal(es['historical.description'], 'Registra una sesión anterior.');
+  assert.equal(es['historical.performedDate'], 'Fecha');
+  assert.equal(es['historical.performedTime'], 'Hora');
+  assert.equal(es['historical.sessionName'], 'Nombre');
+  assert.equal(es['historical.duration'], 'Duración');
+  assert.equal(es['historical.routine'], 'Rutina');
+  assert.equal(es['historical.optionalPlaceholder'], 'Opcional');
+  assert.equal(es['historical.addExerciseAndSets'], 'Agregar ejercicio');
+  assert.equal(es['historical.continueToExercises'], 'Continuar');
+  assert.equal(es['historical.backToSetup'], 'Datos');
+  assert.equal(es['historical.save'], 'Guardar entrenamiento');
+  assert.equal(es['historical.completedSetsCount'], '{{count}} series');
+  assert.equal(es['historical.completedSetsCount_one'], '1 serie');
+  assert.equal(es['workout.weightMode'], 'Peso');
+  assert.equal(es['workout.removeLastSet'], 'Quitar última');
+
+  // 15.3 English concise copy audit
+  const en = dictionaries.en;
+  assert.equal(en['historical.description'], 'Log a past session.');
+  assert.equal(en['historical.performedDate'], 'Date');
+  assert.equal(en['historical.performedTime'], 'Time');
+  assert.equal(en['historical.sessionName'], 'Name');
+  assert.equal(en['historical.duration'], 'Duration');
+  assert.equal(en['historical.routine'], 'Routine');
+  assert.equal(en['historical.optionalPlaceholder'], 'Optional');
+  assert.equal(en['historical.addExerciseAndSets'], 'Add exercise');
+  assert.equal(en['historical.continueToExercises'], 'Continue');
+  assert.equal(en['historical.backToSetup'], 'Details');
+  assert.equal(en['historical.save'], 'Save workout');
+  assert.equal(en['historical.completedSetsCount'], '{{count}} sets');
+  assert.equal(en['historical.completedSetsCount_one'], '1 set');
+  assert.equal(en['workout.weightMode'], 'Weight');
+  assert.equal(en['workout.removeLastSet'], 'Remove last');
+
+  // 15.4 DayDetailModal hook order safety (renders null when closed without breaking React hook rules)
+  const closedDayDetail = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(DayDetailModal, {
+      isOpen: false,
+      onClose: () => {},
+      date: new Date('2026-09-20'),
+      availableRoutines: [],
+      onStartRoutine: () => {},
+      onStartFreeWorkout: () => {},
+      onAssignRoutine: () => {}
+    })
+  );
+  assert.equal(closedDayDetail, '');
 });

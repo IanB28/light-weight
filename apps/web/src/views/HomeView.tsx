@@ -50,6 +50,7 @@ interface HomeViewProps {
   exercises?: import('@light-weight/domain').Exercise[];
   userId?: string;
   onSaveHistoricalWorkout?: (session: WorkoutSession) => void;
+  onCreateCustomExercise?: (name: string, muscle: MuscleGroup) => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -69,7 +70,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenSettings,
   exercises = [],
   userId = 'local-anonymous',
-  onSaveHistoricalWorkout
+  onSaveHistoricalWorkout,
+  onCreateCustomExercise
 }) => {
   const { locale, t } = useI18n();
   const [weekOffset, setWeekOffset] = useState<number>(0);
@@ -467,6 +469,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           routines={routines}
           initialDate={historicalDate}
           initialRoutineId={historicalRoutineId}
+          onCreateCustomExercise={onCreateCustomExercise}
         />
       )}
 

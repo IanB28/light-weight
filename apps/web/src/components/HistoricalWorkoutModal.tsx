@@ -7,6 +7,7 @@ import {
   type Exercise,
   type MachineBaseSelection,
   type MachineSnapshot,
+  type MuscleGroup,
   type Routine,
   type WorkoutSession,
   type WorkoutSetType
@@ -52,6 +53,7 @@ interface HistoricalWorkoutModalProps {
   routines: Routine[];
   initialDate?: Date;
   initialRoutineId?: string;
+  onCreateCustomExercise?: (name: string, muscle: MuscleGroup) => void;
 }
 
 export function HistoricalWorkoutModal({
@@ -63,7 +65,8 @@ export function HistoricalWorkoutModal({
   history,
   routines,
   initialDate,
-  initialRoutineId
+  initialRoutineId,
+  onCreateCustomExercise
 }: HistoricalWorkoutModalProps) {
   const { t } = useI18n();
   const { preferences } = usePreferences();
@@ -335,17 +338,17 @@ export function HistoricalWorkoutModal({
             </div>
           ) : (
             /* Phase B: Editor Header */
-            <div className="flex items-center justify-between px-4 sm:px-5 pt-3 pb-3 border-b border-border-subtle shrink-0">
+            <div className="flex items-center justify-between px-3 sm:px-5 pt-3 pb-3 border-b border-border-subtle shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => setPhase('setup')}
-                className="flex items-center gap-1.5 rounded-ui-md px-2.5 py-1.5 text-xs font-bold text-accent transition-colors hover:bg-accent-soft active:scale-[0.97]"
+                className="flex items-center gap-1 rounded-ui-md px-2 py-1.5 text-xs font-bold text-accent transition-colors hover:bg-accent-soft active:scale-[0.97] shrink-0"
                 aria-label={t('historical.backToSetup')}
               >
                 <ArrowLeft className="size-4" />
                 <span>{t('historical.backToSetup')}</span>
               </button>
-              <div className="min-w-0 text-center px-2">
+              <div className="min-w-0 flex-1 text-center px-1">
                 <h2 id="historical-modal-title" className="text-sm font-extrabold text-text-primary truncate">
                   {routineName || t('historical.freeWorkout')}
                 </h2>
@@ -357,7 +360,7 @@ export function HistoricalWorkoutModal({
                 type="button"
                 onClick={handleRequestClose}
                 aria-label={t('workout.discard')}
-                className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-text-muted transition-all hover:text-text-primary active:scale-[0.96]"
+                className="flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-text-muted transition-all hover:text-text-primary active:scale-[0.96]"
               >
                 <X className="w-4 h-4 stroke-[2.2]" />
               </button>
@@ -401,7 +404,7 @@ export function HistoricalWorkoutModal({
                       value={routineName}
                       maxLength={255}
                       onChange={(e) => setRoutineName(e.target.value)}
-                      placeholder={t('historical.freeWorkout')}
+                      placeholder={t('historical.optionalPlaceholder')}
                       className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                   </label>
@@ -411,7 +414,7 @@ export function HistoricalWorkoutModal({
                       inputMode="numeric"
                       value={durationMinutes}
                       onChange={(e) => setDurationMinutes(e.target.value)}
-                      placeholder="—"
+                      placeholder={t('historical.optionalPlaceholder')}
                       className="h-11 w-full rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                   </label>
@@ -438,11 +441,6 @@ export function HistoricalWorkoutModal({
             ) : (
               /* Phase B: Shared Live Workout Editor Content */
               <div className="space-y-4">
-                <div className="rounded-ui-lg border border-accent/20 bg-accent-soft p-3 text-xs text-text-secondary flex items-start gap-2">
-                  <span className="font-bold text-accent shrink-0">ℹ</span>
-                  <span>{t('historical.completedSetsNotice')}</span>
-                </div>
-
                 {exerciseSessions.length === 0 ? (
                   <div className="p-6 text-center space-y-3 rounded-ui-xl border border-dashed border-border-subtle bg-surface-input">
                     <Dumbbell className="size-8 text-text-muted mx-auto" />
@@ -525,17 +523,12 @@ export function HistoricalWorkoutModal({
               </Button>
             ) : (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-text-muted px-1">
+                <div className="text-xs text-text-muted px-1">
                   <span>
                     {totalCompletedSets === 1
                       ? t('historical.completedSetsCount_one')
                       : t('historical.completedSetsCount', { count: totalCompletedSets })}
                   </span>
-                  {!hasValidCompletedSet && (
-                    <span className="text-amber-400 font-semibold">
-                      {t('historical.atLeastOneSetRequired')}
-                    </span>
-                  )}
                 </div>
                 <Button
                   onClick={handleSave}
@@ -558,7 +551,7 @@ export function HistoricalWorkoutModal({
         availableExercises={exercises}
         history={history}
         onSelectExercise={handleAddExercise}
-        onCreateCustomExercise={() => undefined}
+        onCreateCustomExercise={onCreateCustomExercise}
       />
 
       <PlatePickerSheet

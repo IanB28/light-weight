@@ -31,9 +31,9 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
   onViewSessionDetail,
   onRegisterHistorical
 }) => {
-  if (!isOpen) return null;
-
   const { t, locale } = useI18n();
+
+  if (!isOpen) return null;
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

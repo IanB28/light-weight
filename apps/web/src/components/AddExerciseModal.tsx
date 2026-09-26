@@ -17,7 +17,7 @@ interface AddExerciseModalProps {
   availableExercises: Exercise[];
   history: WorkoutSession[];
   onSelectExercise: (exercise: Exercise) => void;
-  onCreateCustomExercise: (name: string, muscle: MuscleGroup) => void;
+  onCreateCustomExercise?: (name: string, muscle: MuscleGroup) => void;
   initialMuscleFilter?: string;
 }
 
@@ -51,7 +51,7 @@ export function AddExerciseModal({ isOpen, onClose, availableExercises, history,
   const choose = (exercise: Exercise) => { onSelectExercise(exercise); onClose(); };
   const createCustom = () => {
     const name = query.trim();
-    if (!name) return;
+    if (!name || !onCreateCustomExercise) return;
     onCreateCustomExercise(name, customMuscle);
     onClose();
   };

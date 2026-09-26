@@ -202,6 +202,7 @@ export function App() {
           exercises={data.exercises}
           userId={auth.user?.id || data.userInfo.id}
           onSaveHistoricalWorkout={(session) => { data.saveHistorySession(session); showFeedback(t('feedback.workoutSaved')); }}
+          onCreateCustomExercise={createCustomExercise}
         />}
 
         {currentTab === 'workout' && <WorkoutView
