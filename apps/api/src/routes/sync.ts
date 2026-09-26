@@ -68,18 +68,20 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       ...sessions.flatMap((session) => session.routineId ? [toDatabaseUuid(session.routineId)] : [])
     ]);
     const sessionDbIds = sessions.map((session) => toDatabaseUuid(session.id));
+    const hprDbIds = validIncomingHprs.map((hpr) => toDatabaseUuid(hpr.id));
     const exerciseIds = [...new Set([
       ...sessions.flatMap((session) => Object.keys(session.sets || {})),
       ...validIncomingHprs.map((hpr) => hpr.exerciseId)
     ])];
 
     const result = await db.transaction(async (tx) => {
-      const [existingBodyweightLogs, existingPrs, existingSessions, existingRoutines, existingExercises] = await Promise.all([
+      const [existingBodyweightLogs, existingPrs, existingSessions, existingRoutines, existingExercises, existingHprs] = await Promise.all([
         tx.select().from(bodyweightLogs).where(eq(bodyweightLogs.userId, userId)),
         tx.select().from(personalRecords).where(eq(personalRecords.userId, userId)),
         sessionDbIds.length ? tx.select({ id: workoutSessions.id, userId: workoutSessions.userId }).from(workoutSessions).where(inArray(workoutSessions.id, sessionDbIds)) : [],
         routineDbIds.size ? tx.select({ id: routines.id, userId: routines.userId }).from(routines).where(inArray(routines.id, [...routineDbIds])) : [],
-        exerciseIds.length ? tx.select({ id: exercises.id, userId: exercises.userId }).from(exercises).where(inArray(exercises.id, exerciseIds)) : []
+        exerciseIds.length ? tx.select({ id: exercises.id, userId: exercises.userId }).from(exercises).where(inArray(exercises.id, exerciseIds)) : [],
+        hprDbIds.length ? tx.select({ id: historicalPersonalRecords.id, userId: historicalPersonalRecords.userId }).from(historicalPersonalRecords).where(inArray(historicalPersonalRecords.id, hprDbIds)) : []
       ]);
       const existingBodyweightByDate = new Map(existingBodyweightLogs.map((entry) => [entry.loggedAt.toISOString(), entry]));
       const routineOwnerById = new Map(existingRoutines.map(
@@ -90,6 +92,9 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       ));
       const exerciseOwnerById = new Map(existingExercises.map(
         (exercise): [string, string | null] => [exercise.id, exercise.userId]
+      ));
+      const historicalPrOwnerById = new Map(existingHprs.map(
+        (hpr): [string, string] => [hpr.id, hpr.userId]
       ));
       // Personal records are loaded once for the entire sync. The map tracks
       // deterministic in-request updates instead of selecting per physical set.
@@ -283,7 +288,13 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
 
       for (const hpr of validIncomingHprs) {
         const hprUuid = toDatabaseUuid(hpr.id);
+        const owner = historicalPrOwnerById.get(hprUuid);
+        if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
+
         const exerciseId = hpr.exerciseId;
+        const exerciseOwner = exerciseOwnerById.get(exerciseId);
+        if (exerciseOwner && exerciseOwner !== userId) throw new ApiError(403, 'FORBIDDEN');
+
         await tx
           .insert(exercises)
           .values({
@@ -327,6 +338,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
           updatedAt: new Date(),
         }).onConflictDoUpdate({
           target: historicalPersonalRecords.id,
+          setWhere: eq(historicalPersonalRecords.userId, userId),
           set: {
             bodyweightKg: String(hpr.bodyweightKg),
             weightKg: String(hpr.set.weightKg),
@@ -345,6 +357,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
             updatedAt: new Date(),
           }
         });
+        historicalPrOwnerById.set(hprUuid, userId);
       }
 
       return {

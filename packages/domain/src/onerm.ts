@@ -7,11 +7,9 @@ export interface SetOneRmOptions {
   formula?: OneRmFormula | 'average';
 }
 
-/**
- * Above 12 reps, an estimate says more about work capacity/aerobic endurance than
- * about maximal strength. In openGym, refusing to guess above 12 beats printing a fantasy.
- */
-export const REP_CAP = 12;
+import { REP_CAP } from './oneRmConstants.js';
+
+export { REP_CAP };
 
 export const FORMULAS: Record<OneRmFormula, (w: number, r: number) => number> = {
   // Epley 1985 — w * (1 + r / 30)

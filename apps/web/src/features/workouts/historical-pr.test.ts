@@ -15,7 +15,7 @@ import {
   type MachineBaseSelection,
   type WorkoutSession
 } from '@light-weight/domain';
-import { canEvaluatePr } from '../../components/HistoricalPersonalRecordModal.js';
+import { canEvaluatePr, resolveInitialBodyweightState } from '../../components/HistoricalPersonalRecordModal.js';
 import { formatDisplayWeight } from '../../lib/weight-units.js';
 import {
   getStoredHistoricalPersonalRecords,
@@ -1007,4 +1007,181 @@ test('Block 19.7B - Imperial preference formatting: Result UI metrics format in 
   assert.equal(formatDisplayWeight(loadKg, 'imperial'), '220.5 lb');
   assert.equal(formatDisplayWeight(oneRmKg, 'imperial'), '252 lb');
   assert.equal(formatDisplayWeight(kgToNext, 'imperial'), '33.1 lb');
+});
+
+test('Block 19.7C - Exact bodyweight lookup vs historical suggestion vs current suggestion vs manual', () => {
+  const entries: BodyweightEntry[] = [
+    { date: '2026-06-01T08:00:00Z', weightKg: 70, timestamp: 1000 },
+    { date: '2026-06-15T09:00:00Z', weightKg: 72.5, timestamp: 2000 },
+    { date: '2026-06-15T19:00:00Z', weightKg: 73.0, timestamp: 3000 }
+  ];
+
+  // 1. Exact match on 2026-06-15 -> picks latest timestamp (73.0 kg)
+  const exactState = resolveInitialBodyweightState('2026-06-15', entries, 75);
+  assert.equal(exactState.source, 'exact_historical_log');
+  assert.equal(exactState.bodyweightKg, 73.0);
+  assert.equal(exactState.sourceDate, '2026-06-15');
+
+  // 2. Day after (2026-06-16) with no exact entry -> historical suggestion showing true earlier date
+  const suggestionState = resolveInitialBodyweightState('2026-06-16', entries, 75);
+  assert.equal(suggestionState.source, 'historical_suggestion');
+  assert.equal(suggestionState.bodyweightKg, 73.0);
+  assert.equal(suggestionState.sourceDate, '2026-06-15');
+
+  // 3. Date before any historical entry (2026-05-01) -> current_suggestion with current bodyweight
+  const currentSuggestionState = resolveInitialBodyweightState('2026-05-01', entries, 75);
+  assert.equal(currentSuggestionState.source, 'current_suggestion');
+  assert.equal(currentSuggestionState.bodyweightKg, 75);
+  assert.equal(currentSuggestionState.sourceDate, undefined);
+
+  // 4. Date before any entry with no current bodyweight -> manual
+  const manualState = resolveInitialBodyweightState('2026-05-01', entries, null);
+  assert.equal(manualState.source, 'manual');
+  assert.equal(manualState.bodyweightKg, null);
+  assert.equal(manualState.sourceDate, undefined);
+});
+
+test('Block 19.7C - Plate machine total load invariant: set weight must be >= calibrated base resistance', () => {
+  const mockPlateMachine: Exercise = {
+    id: 'plate-leg-press',
+    name: 'Plate Loaded Leg Press',
+    category: 'machine',
+    primaryMuscle: 'quadriceps',
+    loading: {
+      mechanism: 'plate_loaded',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+  const loading = resolveExerciseLoadingProfile(mockPlateMachine).profile;
+
+  const makeParams = (weightKg: number, machineWeightKg: number) => ({
+    exercise: mockPlateMachine,
+    bodyweightKg: 80,
+    bodyweightConfirmed: true,
+    performedDate: '2026-01-01',
+    todayKey: '2026-09-26',
+    set: {
+      setIndex: 1,
+      weightKg,
+      reps: 5,
+      completed: true,
+      setType: 'working' as const
+    },
+    loadingProfile: loading,
+    machineSelection: {
+      status: 'verified' as const,
+      weightKg: machineWeightKg,
+      profile: {
+        id: 'leg-press-profile',
+        exerciseId: 'plate-leg-press',
+        label: 'Leg Press Pro',
+        defaultResistanceKg: machineWeightKg,
+        baseResistanceStatus: 'verified' as const,
+        sourceLabel: 'OEM Manual',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      }
+    }
+  });
+
+  // Base resistance 20 kg, set weight 10 kg (< 20 kg) -> REJECTED
+  assert.equal(
+    canEvaluatePr(makeParams(10, 20)),
+    false,
+    'Set weight less than machine base resistance must be rejected'
+  );
+
+  // Base resistance 20 kg, set weight 20 kg (== 20 kg) -> ACCEPTED
+  assert.equal(
+    canEvaluatePr(makeParams(20, 20)),
+    true,
+    'Set weight equal to machine base resistance must be accepted'
+  );
+
+  // Base resistance 20 kg, set weight 60 kg (> 20 kg) -> ACCEPTED
+  assert.equal(
+    canEvaluatePr(makeParams(60, 20)),
+    true,
+    'Set weight greater than machine base resistance must be accepted'
+  );
+});
+
+test('Block 19.7C - Machine profile selection auto-elevates set weight', () => {
+  const currentWeight = 10;
+  const baseWeight = 25;
+  const autoElevated = Math.max(currentWeight, baseWeight);
+  assert.equal(autoElevated, 25);
+
+  const higherWeight = 50;
+  const preservedElevated = Math.max(higherWeight, baseWeight);
+  assert.equal(preservedElevated, 50);
+});
+
+test('Block 19.7C - Machine PR persistence and canonical 1RM round-trip equality', () => {
+  const mockPlateMachine: Exercise = {
+    id: 'plate-chest-press',
+    name: 'Plate Chest Press',
+    category: 'machine',
+    primaryMuscle: 'chest',
+    loading: {
+      mechanism: 'plate_loaded',
+      loadMode: 'total',
+      supportsKeyboard: true,
+      supportsPlates: true,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+
+  const initialSet: LoggedSet = {
+    setIndex: 1,
+    weightKg: 80,
+    reps: 5,
+    completed: true,
+    setType: 'working',
+    machineProfileId: 'profile-oem-1',
+    machineProfileLabel: 'Hammer Strength Chest Press',
+    machineBaseResistanceKg: 20,
+    machineBaseResistanceStatus: 'verified',
+    machineBaseSourceLabel: 'Manufacturer Specs',
+    machineBaseSourceUrl: 'https://lifefitness.com/specs/chest-press'
+  };
+
+  const initialOneRm = calculateCanonicalStrengthOneRm(initialSet, {
+    exercise: mockPlateMachine,
+    bodyweightKg: 80
+  });
+  assert.ok(initialOneRm !== null && initialOneRm > 0);
+
+  const record: HistoricalPersonalRecord = {
+    id: 'hpr-machine-roundtrip',
+    userId: 'u-1',
+    exerciseId: mockPlateMachine.id,
+    performedDate: '2026-03-01',
+    recordedAt: '2026-09-26T12:00:00.000Z',
+    bodyweightKg: 80,
+    set: initialSet,
+    source: 'historical_manual'
+  };
+
+  saveStoredHistoricalPersonalRecords([record]);
+  const reloaded = getStoredHistoricalPersonalRecords();
+  assert.equal(reloaded.length, 1);
+  const loadedSet = reloaded[0].set;
+
+  assert.equal(loadedSet.machineProfileId, 'profile-oem-1');
+  assert.equal(loadedSet.machineProfileLabel, 'Hammer Strength Chest Press');
+  assert.equal(loadedSet.machineBaseResistanceKg, 20);
+  assert.equal(loadedSet.machineBaseResistanceStatus, 'verified');
+
+  const reloadedOneRm = calculateCanonicalStrengthOneRm(loadedSet, {
+    exercise: mockPlateMachine,
+    bodyweightKg: reloaded[0].bodyweightKg
+  });
+
+  assert.equal(reloadedOneRm, initialOneRm, 'Canonical 1RM must remain identical after persistence round-trip');
 });

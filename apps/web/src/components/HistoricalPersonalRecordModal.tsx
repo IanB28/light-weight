@@ -16,7 +16,7 @@ import {
   isPlateLoadedMachine,
   isSetEligibleForPersonalRecord,
   REP_CAP,
-  resolveBodyweightKgAtDate,
+  findBodyweightEntryOnDate,
   resolveExerciseLoadingProfile,
   resolveExerciseStrengthTarget,
   poundsToKilograms,
@@ -56,7 +56,11 @@ import { StrengthRankBadge } from './StrengthRankBadge.js';
 import { KeyboardWeightInput, PlatePickerSheet, PlateWeightButton } from '../features/workouts/WeightEntry.js';
 import type { PlateTarget } from '../features/workouts/WorkoutSessionComponents.js';
 
-export type HistoricalPrBodyweightSource = 'historical_log' | 'current_suggestion' | 'manual';
+export type HistoricalPrBodyweightSource =
+  | 'exact_historical_log'
+  | 'historical_suggestion'
+  | 'current_suggestion'
+  | 'manual';
 
 export interface CanEvaluatePrParams {
   exercise: Exercise | null;
@@ -100,27 +104,68 @@ export function canEvaluatePr(params: CanEvaluatePrParams): boolean {
     if (!machineSelection || machineSelection.status === 'unknown') {
       return false;
     }
+    const baseWeight = machineSelection.status === 'none' ? 0 : (machineSelection.weightKg ?? 0);
+    if (baseWeight > 0 && set.weightKg < baseWeight) {
+      return false;
+    }
   }
 
   return true;
 }
 
-function resolveInitialBodyweightState(
-  dateKey: string,
-  entries: BodyweightEntry[],
-  currentBw?: number | null
-): {
+export interface ResolvedInitialBodyweightState {
   bodyweightKg: number | null;
   source: HistoricalPrBodyweightSource;
-} {
-  const historicalBw = resolveBodyweightKgAtDate(entries, dateKey);
-  if (historicalBw && historicalBw > 0) {
-    return { bodyweightKg: historicalBw, source: 'historical_log' };
+  sourceDate?: string;
+}
+
+export function resolveInitialBodyweightState(
+  dateKey: string,
+  entries: readonly BodyweightEntry[] | undefined | null,
+  currentBw?: number | null
+): ResolvedInitialBodyweightState {
+  const targetDay = dateKey.slice(0, 10);
+  const exact = findBodyweightEntryOnDate(entries, targetDay);
+  if (exact && exact.weightKg > 0) {
+    return {
+      bodyweightKg: exact.weightKg,
+      source: 'exact_historical_log',
+      sourceDate: exact.date.slice(0, 10)
+    };
   }
+
+  const validEntries = (entries || []).filter(
+    (e) => Number.isFinite(e.weightKg) && e.weightKg > 0 && typeof e.date === 'string' && e.date.slice(0, 10) < targetDay
+  );
+  if (validEntries.length > 0) {
+    const sorted = [...validEntries].sort((a, b) => {
+      const cmp = a.date.slice(0, 10).localeCompare(b.date.slice(0, 10));
+      if (cmp !== 0) return cmp;
+      const timeA = typeof a.timestamp === 'number' ? a.timestamp : 0;
+      const timeB = typeof b.timestamp === 'number' ? b.timestamp : 0;
+      return timeA - timeB;
+    });
+    const latestPrior = sorted[sorted.length - 1];
+    return {
+      bodyweightKg: latestPrior.weightKg,
+      source: 'historical_suggestion',
+      sourceDate: latestPrior.date.slice(0, 10)
+    };
+  }
+
   if (currentBw && currentBw > 0) {
-    return { bodyweightKg: currentBw, source: 'current_suggestion' };
+    return {
+      bodyweightKg: currentBw,
+      source: 'current_suggestion',
+      sourceDate: undefined
+    };
   }
-  return { bodyweightKg: null, source: 'manual' };
+
+  return {
+    bodyweightKg: null,
+    source: 'manual',
+    sourceDate: undefined
+  };
 }
 
 export interface HistoricalPersonalRecordModalProps {
@@ -169,6 +214,7 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
   );
   const [bodyweightKg, setBodyweightKg] = useState<number | null>(initialBwState.bodyweightKg);
   const [bodyweightSource, setBodyweightSource] = useState<HistoricalPrBodyweightSource>(initialBwState.source);
+  const [bodyweightSourceDate, setBodyweightSourceDate] = useState<string | undefined>(initialBwState.sourceDate);
   const [bodyweightConfirmed, setBodyweightConfirmed] = useState<boolean>(false);
   const [manualBwInput, setManualBwInput] = useState<string>('');
 
@@ -204,6 +250,7 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
       const initBw = resolveInitialBodyweightState(initialDate, bodyweightEntries, currentBodyweightKg);
       setBodyweightKg(initBw.bodyweightKg);
       setBodyweightSource(initBw.source);
+      setBodyweightSourceDate(initBw.sourceDate);
       setBodyweightConfirmed(false);
       setManualBwInput(initBw.bodyweightKg ? String(displayWeight(initBw.bodyweightKg, preferences.bodyweightUnits)) : '');
       setSelectedExercise(null);
@@ -243,6 +290,7 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
     const resolvedState = resolveInitialBodyweightState(dateKey, bodyweightEntries, currentBodyweightKg);
     setBodyweightKg(resolvedState.bodyweightKg);
     setBodyweightSource(resolvedState.source);
+    setBodyweightSourceDate(resolvedState.sourceDate);
     setBodyweightConfirmed(false);
     setManualBwInput(resolvedState.bodyweightKg ? String(displayWeight(resolvedState.bodyweightKg, preferences.bodyweightUnits)) : '');
   };
@@ -384,7 +432,11 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
             machineBaseResistanceKg: machineSelection.weightKg ?? 0,
             machineBaseResistanceStatus: machineSelection.status,
             machineProfileId: machineSelection.profile?.id,
-            machineProfileLabel: machineSelection.profile?.label
+            machineProfileLabel: machineSelection.profile?.label,
+            machineBaseSourceLabel: machineSelection.profile?.sourceLabel,
+            machineBaseSourceUrl: machineSelection.profile?.sourceUrl,
+            machineManufacturer: machineSelection.profile?.manufacturer,
+            machineModel: machineSelection.profile?.model
           }
         : {})
     };
@@ -622,6 +674,8 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
                     onChange={(val) => {
                       const parsedKg = parseDisplayWeight(val, preferences.bodyweightUnits);
                       setBodyweightKg(parsedKg);
+                      setBodyweightSource('manual');
+                      setBodyweightSourceDate(undefined);
                       setManualBwInput(String(val));
                       setBodyweightConfirmed(false);
                     }}
@@ -648,6 +702,8 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
                           } else {
                             setBodyweightKg(null);
                           }
+                          setBodyweightSource('manual');
+                          setBodyweightSourceDate(undefined);
                           setBodyweightConfirmed(false);
                         }}
                         className="h-12 w-32 rounded-ui-lg border border-border-subtle bg-surface-input text-center font-mono text-xl font-bold text-text-primary focus:border-accent focus:outline-none"
@@ -659,11 +715,23 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
               </div>
 
               {/* Source feedback badges */}
-              {bodyweightSource === 'historical_log' && bodyweightKg !== null && (
+              {bodyweightSource === 'exact_historical_log' && bodyweightKg !== null && (
                 <div className="flex items-center gap-2 rounded-ui-lg bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400">
                   <Check className="size-4 shrink-0" />
                   <span>
-                    {t('historicalPr.prefilledWeight', { date: performedDate })}
+                    {t('historicalPr.prefilledWeight', { date: bodyweightSourceDate || performedDate })}
+                  </span>
+                </div>
+              )}
+
+              {bodyweightSource === 'historical_suggestion' && bodyweightKg !== null && (
+                <div className="flex items-center gap-2 rounded-ui-lg bg-surface-input border border-border-subtle p-2.5 text-xs text-text-muted">
+                  <Info className="size-4 shrink-0 text-text-muted" />
+                  <span>
+                    {t('historicalPr.historicalWeightSuggestion', {
+                      weight: formatDisplayWeight(bodyweightKg, preferences.bodyweightUnits),
+                      date: bodyweightSourceDate || performedDate
+                    })}
                   </span>
                 </div>
               )}
@@ -873,6 +941,17 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
                     <div className="flex items-center gap-2 rounded-ui-lg bg-amber-500/10 border border-amber-500/20 p-2 text-xs text-amber-400">
                       <AlertTriangle className="size-4 shrink-0 text-amber-400" />
                       <span>{t('historicalPr.calibrateMachineRequired')}</span>
+                    </div>
+                  )}
+
+                  {machineSelection && machineSelection.status !== 'unknown' && machineSelection.status !== 'none' && (machineSelection.weightKg ?? 0) > 0 && setWeightKg < (machineSelection.weightKg ?? 0) && (
+                    <div className="flex items-center gap-2 rounded-ui-lg bg-amber-500/10 border border-amber-500/20 p-2 text-xs text-amber-400">
+                      <AlertTriangle className="size-4 shrink-0 text-amber-400" />
+                      <span>
+                        {t('historicalPr.machineLoadBelowBase', {
+                          base: formatDisplayWeight(machineSelection.weightKg ?? 0, preferences.units)
+                        })}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1251,6 +1330,10 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
           currentWeightKg={machineSelection?.weightKg ?? undefined}
           onSelectProfile={(selection) => {
             setMachineSelection(selection);
+            const baseKg = selection.status === 'none' ? 0 : (selection.weightKg ?? 0);
+            if (baseKg > 0) {
+              setSetWeightKg((curr) => Math.max(curr, baseKg));
+            }
             setIsMachineModalOpen(false);
           }}
         />

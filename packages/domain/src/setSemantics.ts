@@ -1,9 +1,9 @@
 import type { Exercise, ExerciseLoadMode, HistoricalPersonalRecord, LoggedSet, WorkoutSession, WorkoutSetType } from './types.js';
 import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
 import { normalizeRirValue, normalizeRpeValue } from './effort.js';
-import { isValidBaseResistanceStatus, isAuthoritativeProvenance } from './machineProfile.js';
 import { isValidWorkoutDateKey, isWorkoutEntrySource, isValidWorkoutTimestamp } from './workoutTemporal.js';
-import { REP_CAP } from './onerm.js';
+import { isValidBaseResistanceStatus, isAuthoritativeProvenance } from './machineProfile.js';
+import { REP_CAP } from './oneRmConstants.js';
 
 export const WORKOUT_SET_TYPES = ['working', 'warmup', 'drop', 'backoff'] as const;
 

@@ -6,7 +6,8 @@ import {
   resolveExerciseLoadingProfile,
   resolvePlateBaseWeightKg
 } from './exerciseLoading.js';
-import { calculateLoadedBarWeight, kilogramsToPounds, poundsToKilograms, resolveBodyweightKgAtDate } from './weight.js';
+import { calculateLoadedBarWeight, findBodyweightEntryOnDate, kilogramsToPounds, poundsToKilograms, resolveBodyweightKgAtDate } from './weight.js';
+import { REP_CAP as REP_CAP_FROM_CONSTANTS } from './oneRmConstants.js';
 import {
   calculateEffectiveLoadKg,
   isEffectiveSet,
@@ -675,4 +676,37 @@ test('HistoricalPersonalRecord: REP_CAP data integrity is strictly enforced in v
   const nanReps = { ...validRecord, set: { ...validRecord.set, reps: NaN } };
   assert.equal(isValidHistoricalPersonalRecord(nanReps), false);
   assert.equal(normalizeHistoricalPersonalRecord(nanReps), null);
+});
+
+test('findBodyweightEntryOnDate strictly matches calendar date and picks latest timestamp', () => {
+  const entries = [
+    { date: '2026-06-01T08:00:00Z', weightKg: 65, timestamp: 1000 },
+    { date: '2026-06-15T07:30:00Z', weightKg: 68.2, timestamp: 2000 },
+    { date: '2026-06-15T18:00:00Z', weightKg: 68.9, timestamp: 3000 },
+    { date: '2026-06-20', weightKg: 70 }
+  ];
+
+  // Exact match on 2026-06-15 resolves the latest timestamp (68.9 kg)
+  const match15 = findBodyweightEntryOnDate(entries, '2026-06-15');
+  assert.ok(match15 !== null);
+  assert.equal(match15.weightKg, 68.9);
+  assert.equal(match15.timestamp, 3000);
+
+  // Exact match on 2026-06-01 resolves the single entry (65 kg)
+  const match01 = findBodyweightEntryOnDate(entries, '2026-06-01');
+  assert.ok(match01 !== null);
+  assert.equal(match01.weightKg, 65);
+
+  // Date with no entry returns null (never silently falls back to prior entry)
+  assert.equal(findBodyweightEntryOnDate(entries, '2026-06-10'), null);
+  assert.equal(findBodyweightEntryOnDate(entries, '2026-05-30'), null);
+  assert.equal(findBodyweightEntryOnDate(entries, '2026-06-25'), null);
+  assert.equal(findBodyweightEntryOnDate([], '2026-06-15'), null);
+  assert.equal(findBodyweightEntryOnDate(undefined, '2026-06-15'), null);
+});
+
+test('REP_CAP constant is cleanly decoupled across oneRmConstants and onerm', () => {
+  assert.equal(REP_CAP, 12);
+  assert.equal(REP_CAP_FROM_CONSTANTS, 12);
+  assert.equal(REP_CAP, REP_CAP_FROM_CONSTANTS);
 });

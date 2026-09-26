@@ -48,6 +48,8 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
 
   try {
     const migrationSql = await readFile(new URL('../../drizzle/0001_auth_friends_routine_sharing_v1.sql', import.meta.url), 'utf8');
+    const hprMigrationSql = await readFile(new URL('../../drizzle/0007_historical_personal_records.sql', import.meta.url), 'utf8');
+    const hprRepsMigrationSql = await readFile(new URL('../../drizzle/0008_hpr_reps_cap_constraint.sql', import.meta.url), 'utf8');
     try {
       await sql.begin(async (tx) => {
         // HTTP handlers open Drizzle transactions. Route them to PostgreSQL
@@ -56,6 +58,8 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
         Object.defineProperty(tx, 'options', { value: sql.options });
         Object.defineProperty(tx, 'begin', { value: async (callback: (client: typeof tx) => Promise<unknown>) => tx.savepoint(callback) });
         await tx.unsafe(migrationSql);
+        await tx.unsafe(hprMigrationSql);
+        await tx.unsafe(hprRepsMigrationSql);
         const transactionalDb = drizzle(tx as never, { schema });
         const restoreDb = replaceDatabaseForTesting(transactionalDb as typeof db);
         try {
@@ -196,6 +200,91 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
             });
             assert.equal(idempotentDelete.status, 200);
             assert.deepEqual((await idempotentDelete.json() as { deletedRoutineIds: string[] }).deletedRoutineIds, ['74000000-0000-4000-8000-000000000001']);
+
+            // --- BLOCK 19.7C: Historical PR Security & Ownership Hardening ---
+            const hprIdA = '75000000-0000-4000-8000-000000000001';
+            const hprPayloadA = {
+              id: hprIdA,
+              userId: a,
+              exerciseId: 'bench',
+              performedDate: '2025-06-01',
+              recordedAt: '2026-09-26T12:00:00.000Z',
+              bodyweightKg: 75,
+              set: {
+                weightKg: 100,
+                reps: 5,
+                setType: 'working'
+              }
+            };
+
+            // 1. User A syncs an HPR -> succeeds with 200
+            const aHprSync = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({ historicalPersonalRecords: [hprPayloadA] })
+            });
+            assert.equal(aHprSync.status, 200);
+            const savedHprsA = await tx`SELECT id, user_id, weight_kg, reps FROM historical_personal_records WHERE id = ${hprIdA}`;
+            assert.equal(savedHprsA.length, 1);
+            assert.equal(savedHprsA[0].user_id, a);
+            assert.equal(Number(savedHprsA[0].weight_kg), 100);
+
+            // 2. User B attempts to overwrite User A's HPR -> 403 FORBIDDEN, User A's row untouched
+            const bStealHpr = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[1]),
+              body: JSON.stringify({
+                historicalPersonalRecords: [{
+                  ...hprPayloadA,
+                  userId: b,
+                  set: { weightKg: 150, reps: 5, setType: 'working' }
+                }]
+              })
+            });
+            assert.equal(bStealHpr.status, 403);
+            const untouchedHpr = await tx`SELECT user_id, weight_kg FROM historical_personal_records WHERE id = ${hprIdA}`;
+            assert.equal(untouchedHpr[0].user_id, a);
+            assert.equal(Number(untouchedHpr[0].weight_kg), 100);
+
+            // 3. User B attempts HPR using User A's private custom exercise -> 403 FORBIDDEN
+            const customExA = 'custom-exercise-a';
+            await tx`
+              INSERT INTO exercises (id, user_id, name, primary_muscle, category, is_custom)
+              VALUES (${customExA}, ${a}, 'User A Special Lift', 'chest', 'other', true)
+              ON CONFLICT (id) DO NOTHING
+            `;
+            const bUseCustomA = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[1]),
+              body: JSON.stringify({
+                historicalPersonalRecords: [{
+                  id: '75000000-0000-4000-8000-000000000002',
+                  userId: b,
+                  exerciseId: customExA,
+                  performedDate: '2025-06-01',
+                  recordedAt: '2026-09-26T12:00:00.000Z',
+                  bodyweightKg: 80,
+                  set: { weightKg: 50, reps: 5, setType: 'working' }
+                }]
+              })
+            });
+            assert.equal(bUseCustomA.status, 403);
+
+            // 4. User A syncs the same HPR twice -> idempotent 200, updates with latest values
+            const aHprUpdate = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                historicalPersonalRecords: [{
+                  ...hprPayloadA,
+                  set: { weightKg: 105, reps: 5, setType: 'working' }
+                }]
+              })
+            });
+            assert.equal(aHprUpdate.status, 200);
+            const updatedHprA = await tx`SELECT id, user_id, weight_kg FROM historical_personal_records WHERE id = ${hprIdA}`;
+            assert.equal(updatedHprA.length, 1);
+            assert.equal(Number(updatedHprA[0].weight_kg), 105);
           });
         } finally {
           restoreDb();

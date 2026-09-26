@@ -79,6 +79,7 @@ export function decomposeLoadedBarWeight(
 export interface BodyweightEntryLike {
   date: string;
   weightKg: number;
+  timestamp?: number;
 }
 
 export type BodyweightEntry = BodyweightEntryLike;
@@ -113,4 +114,34 @@ export function resolveBodyweightKgAtDate(
   if (eligible.length === 0) return null;
 
   return eligible[eligible.length - 1].weightKg;
+}
+
+/**
+ * Resolves an exact bodyweight entry on a specific date (calendar day).
+ * Matches entry.date.slice(0, 10) === dateKey.slice(0, 10).
+ * If multiple entries exist on the same date, deterministically selects the latest timestamp
+ * (or highest date string if timestamps are identical/missing).
+ * Returns null if no exact entry exists on that date.
+ */
+export function findBodyweightEntryOnDate<T extends BodyweightEntryLike>(
+  entries: readonly T[] | undefined | null,
+  dateKey: string
+): T | null {
+  if (!entries || entries.length === 0 || !dateKey) return null;
+  const targetDay = dateKey.slice(0, 10);
+  const validMatches = entries.filter(
+    (e) =>
+      Number.isFinite(e.weightKg) &&
+      e.weightKg > 0 &&
+      typeof e.date === 'string' &&
+      e.date.slice(0, 10) === targetDay
+  );
+  if (validMatches.length === 0) return null;
+
+  return validMatches.slice().sort((a, b) => {
+    const timeA = typeof a.timestamp === 'number' ? a.timestamp : 0;
+    const timeB = typeof b.timestamp === 'number' ? b.timestamp : 0;
+    if (timeA !== timeB) return timeA - timeB;
+    return a.date.localeCompare(b.date);
+  })[validMatches.length - 1];
 }
