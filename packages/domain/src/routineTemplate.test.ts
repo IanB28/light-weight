@@ -379,26 +379,104 @@ test('19. Local corruption must not delete exercises: recovers from exerciseIds 
   assert.deepEqual(normalized.template.exercises[1].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
 });
 
-test('20. Local corruption: exercise in exerciseIds absent from template is recovered with default sets', () => {
-  const partialTemplateInput = {
-    id: 'rt-partial-1',
+test('20. Valid V2 wins over stale extra exerciseIds: omitted exercises are NOT resurrected', () => {
+  const input = {
+    id: 'rt-valid-v2-1',
     userId: 'u1',
-    name: 'Partial Write Recovery',
-    exerciseIds: ['bench', 'row', 'ohp'],
+    name: 'Bench Only',
+    exerciseIds: ['bench', 'row'],
     template: {
       version: 2,
       exercises: [
-        { exerciseId: 'bench', sets: [{ setType: 'working', targetWeightKg: 100 }] },
-        { exerciseId: 'row', sets: [{ setType: 'working', targetWeightKg: 70 }] }
-        // ohp was missing from template
+        {
+          exerciseId: 'bench',
+          sets: [{ setType: 'working', targetWeightKg: 100 }]
+        }
       ]
     }
   };
 
-  const normalized = normalizeRoutine(partialTemplateInput);
+  const normalized = normalizeRoutine(input);
   assert.ok(normalized);
-  assert.deepEqual(normalized.exerciseIds, ['bench', 'row', 'ohp']);
-  assert.equal(normalized.template?.exercises.length, 3);
-  assert.equal(normalized.template?.exercises[2].exerciseId, 'ohp');
-  assert.deepEqual(normalized.template?.exercises[2].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+  // Valid V2 is authoritative; row is NOT resurrected from stale exerciseIds
+  assert.deepEqual(normalized.exerciseIds, ['bench']);
+  assert.equal(normalized.template?.exercises.length, 1);
+  assert.equal(normalized.template?.exercises[0].exerciseId, 'bench');
+});
+
+test('21. Valid V2 order wins over different legacy order', () => {
+  const input = {
+    id: 'rt-valid-v2-order',
+    userId: 'u1',
+    name: 'Order Authority',
+    exerciseIds: ['row', 'bench'],
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'bench', sets: [{ setType: 'warmup', targetWeightKg: 40 }] },
+        { exerciseId: 'row', sets: [{ setType: 'working', targetWeightKg: 60 }] }
+      ]
+    }
+  };
+
+  const normalized = normalizeRoutine(input);
+  assert.ok(normalized);
+  assert.deepEqual(normalized.exerciseIds, ['bench', 'row']);
+  assert.equal(normalized.template?.exercises[0].exerciseId, 'bench');
+  assert.equal(normalized.template?.exercises[1].exerciseId, 'row');
+});
+
+test('22. Invalid V2 version falls back to legacy projection', () => {
+  const input = {
+    id: 'rt-invalid-version',
+    userId: 'u1',
+    name: 'Bad Version',
+    exerciseIds: ['bench', 'row'],
+    template: {
+      version: 1, // Invalid version
+      exercises: [
+        { exerciseId: 'bench', sets: [{ setType: 'working', targetWeightKg: 100 }] }
+      ]
+    }
+  };
+
+  const normalized = normalizeRoutine(input);
+  assert.ok(normalized);
+  assert.deepEqual(normalized.exerciseIds, ['bench', 'row']);
+  assert.equal(normalized.template?.version, 2);
+  assert.equal(normalized.template?.exercises.length, 2);
+  assert.equal(normalized.template?.exercises[0].exerciseId, 'bench');
+  assert.deepEqual(normalized.template?.exercises[0].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+  assert.equal(normalized.template?.exercises[1].exerciseId, 'row');
+  assert.deepEqual(normalized.template?.exercises[1].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+});
+
+test('23. Removing exercise from valid V2 cannot be undone by stale exerciseIds', () => {
+  // Scenario: Routine previously had bench, row, squat. User deleted row and squat in V2 editor.
+  // Stale client/cache still passes full 3-exercise exerciseIds array.
+  const input = {
+    id: 'rt-editor-removal',
+    userId: 'u1',
+    name: 'Push Day',
+    exerciseIds: ['bench', 'row', 'squat'],
+    template: {
+      version: 2,
+      exercises: [
+        {
+          exerciseId: 'bench',
+          sets: [
+            { setType: 'warmup', targetWeightKg: 40 },
+            { setType: 'working', targetWeightKg: 80 }
+          ]
+        }
+      ]
+    }
+  };
+
+  const normalized = normalizeRoutine(input);
+  assert.ok(normalized);
+  // Stale exerciseIds must not undo the deletion
+  assert.deepEqual(normalized.exerciseIds, ['bench']);
+  assert.equal(normalized.template?.exercises.length, 1);
+  assert.equal(normalized.template?.exercises[0].exerciseId, 'bench');
 });

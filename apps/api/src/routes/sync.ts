@@ -88,7 +88,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       ]);
       const existingBodyweightByDate = new Map(existingBodyweightLogs.map((entry) => [entry.loggedAt.toISOString(), entry]));
       const existingRoutineById = new Map(existingRoutines.map(
-        (routine) => [routine.id, routine]
+        (routine) => [routine.id, routine] as const
       ));
       const sessionOwnerById = new Map(existingSessions.map(
         (session): [string, string] => [session.id, session.userId]

@@ -118,6 +118,15 @@ export function normalizeRoutineTemplate(
   const fallbackSet = new Set(fallbackList);
 
   if (input && typeof input === 'object' && !Array.isArray(input)) {
+    // 1. Attempt strict validation first.
+    // If input is structurally valid, template.exercises is strictly authoritative.
+    // Conflicting or extra fallback exerciseIds are ignored (omitted exercises are NOT resurrected).
+    try {
+      return validateRoutineTemplateV2(input);
+    } catch {
+      // 2. Strict validation failed: enter tolerant recovery mode.
+    }
+
     const candidate = input as Record<string, unknown>;
     if (candidate.version === 2 && Array.isArray(candidate.exercises)) {
       const seenIds = new Set<string>();
@@ -142,7 +151,7 @@ export function normalizeRoutineTemplate(
         }
       }
 
-      // Recover any exercise from fallbackExerciseIds that was missing or corrupt in template.exercises:
+      // In tolerant recovery mode: use fallbackExerciseIds to recover exercises lost due to corruption:
       for (const fallbackId of fallbackList) {
         if (!seenIds.has(fallbackId)) {
           seenIds.add(fallbackId);
@@ -277,7 +286,7 @@ export function normalizeRoutine(input: unknown): Routine | null {
 
   let template: RoutineTemplateV2;
   const rawTemplate = r.template ?? (r as { exerciseTemplate?: unknown }).exerciseTemplate;
-  if (rawTemplate && typeof rawTemplate === 'object' && (rawTemplate as Record<string, unknown>).version === 2) {
+  if (rawTemplate && typeof rawTemplate === 'object') {
     const normalized = normalizeRoutineTemplate(rawTemplate, rawExerciseIds);
     template = normalized ?? createDefaultRoutineTemplate(rawExerciseIds);
   } else {
