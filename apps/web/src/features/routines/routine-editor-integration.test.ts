@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import React from 'react';
+import ReactDOMServer from 'react-dom/server';
 import {
   Exercise,
   LoggedSet,
@@ -20,6 +22,12 @@ import {
 } from './routine-editor-draft.js';
 import { buildRoutineExerciseSessions } from '../workouts/routine-previous-performance.js';
 import type { ActiveExerciseSession } from '../workouts/types.js';
+import { PlanView } from '../../views/PlanView.js';
+import { CreateRoutineModal } from '../../components/CreateRoutineModal.js';
+import { RoutineEditorModal } from '../../components/RoutineEditorModal.js';
+import { AuthProvider } from '../../lib/auth-context.js';
+import { DEFAULT_APP_PREFERENCES, type AppPreferences } from '../../lib/preferences.js';
+import { displayWeight, parseDisplayWeight } from '../../lib/weight-units.js';
 
 interface StoredActiveWorkout {
   routineId?: string;
@@ -449,4 +457,290 @@ test('Section 44: Routine sharing regression: new share reflects updated templat
 
   assert.equal(oldShareSnapshot.routineTemplate.exercises[0].sets[0].targetWeightKg, 80);
   assert.equal(newShareSnapshot.routineTemplate.exercises[0].sets[0].targetWeightKg, 100);
+});
+
+test('Section 14: PlanView prop wiring forwards imperial preferences to CreateRoutineModal and RoutineEditorModal', () => {
+  const imperialPrefs: AppPreferences = {
+    ...DEFAULT_APP_PREFERENCES,
+    units: 'imperial'
+  };
+
+  // 1. CreateRoutineModal direct unit forwarding
+  const createElem = CreateRoutineModal({
+    isOpen: true,
+    onClose: () => {},
+    availableExercises: [mockBench],
+    onSaveRoutine: () => {},
+    preferences: imperialPrefs
+  }) as React.ReactElement<{ preferences?: AppPreferences }>;
+  assert.equal(createElem.type, RoutineEditorModal);
+  assert.equal(createElem.props.preferences?.units, 'imperial');
+
+  // 2. Render PlanView with imperial preferences
+  const initialRoutine: Routine = {
+    id: 'rt-plan-pref-test',
+    userId: 'u1',
+    name: 'Push Day',
+    exerciseIds: ['ex-bench'],
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'ex-bench', sets: [{ setType: 'working', targetWeightKg: 20 }] }
+      ]
+    }
+  };
+
+  const html = ReactDOMServer.renderToString(
+    React.createElement(
+      AuthProvider,
+      null,
+      React.createElement(PlanView, {
+        routines: [initialRoutine],
+        exercises: [mockBench],
+        weeklySchedule: {
+          monday: null,
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null
+        },
+        onSelectAndStartRoutine: () => {},
+        onSaveRoutine: () => {},
+        preferences: imperialPrefs
+      })
+    )
+  );
+
+  assert.ok(html.length > 0, 'PlanView must render successfully');
+
+  // 3. Render RoutineEditorModal with imperial preferences
+  const editorHtml = ReactDOMServer.renderToString(
+    React.createElement(RoutineEditorModal, {
+      isOpen: true,
+      onClose: () => {},
+      mode: 'edit',
+      initialRoutine,
+      availableExercises: [mockBench],
+      onSaveRoutine: () => {},
+      preferences: imperialPrefs,
+      initialStep: 'exercises',
+      initialExpandedExerciseId: 'ex-bench'
+    })
+  );
+
+  // Must render imperial unit label (LB)
+  assert.ok(editorHtml.includes('(LB)'), 'Table header must show (LB) for imperial preferences');
+  // 20 kg in imperial is 44.1 lb
+  assert.ok(editorHtml.includes('value="44.1"'), 'Target weight must be displayed as 44.1 lb');
+  assert.ok(!editorHtml.includes('(KG)'), 'Table header must not show (KG) for imperial preferences');
+
+  // 4. Contrast with metric preferences
+  const metricPrefs: AppPreferences = {
+    ...DEFAULT_APP_PREFERENCES,
+    units: 'metric'
+  };
+  const metricHtml = ReactDOMServer.renderToString(
+    React.createElement(RoutineEditorModal, {
+      isOpen: true,
+      onClose: () => {},
+      mode: 'edit',
+      initialRoutine,
+      availableExercises: [mockBench],
+      onSaveRoutine: () => {},
+      preferences: metricPrefs,
+      initialStep: 'exercises',
+      initialExpandedExerciseId: 'ex-bench'
+    })
+  );
+  assert.ok(metricHtml.includes('(KG)'), 'Table header must show (KG) for metric preferences');
+  assert.ok(metricHtml.includes('value="20"'), 'Target weight must be displayed as 20 kg');
+  assert.ok(!metricHtml.includes('(LB)'), 'Table header must not show (LB) for metric preferences');
+});
+
+test('Section 15: Reorder sequence (Bench, Row, Curl -> Down Bench -> Up Curl) and no draggable attribute', () => {
+  // A. Initial routine: Bench, Row, Curl
+  const initialRoutine: Routine = {
+    id: 'rt-order-seq',
+    userId: 'u1',
+    name: 'Upper Hypertrophy',
+    exerciseIds: ['ex-bench', 'ex-row', 'ex-curl'],
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'ex-bench', sets: [{ setType: 'working', targetWeightKg: 80 }] },
+        { exerciseId: 'ex-row', sets: [{ setType: 'working', targetWeightKg: 70 }] },
+        { exerciseId: 'ex-curl', sets: [{ setType: 'working', targetWeightKg: 15 }] }
+      ]
+    }
+  };
+
+  let draft = createRoutineEditorDraft(initialRoutine);
+  assert.deepEqual(draft.exercises.map((e) => e.exerciseId), ['ex-bench', 'ex-row', 'ex-curl']);
+
+  // Move Down Bench (index 0 -> index 1)
+  // Result: Row, Bench, Curl
+  draft = moveRoutineExercise(draft, 0, 1);
+  assert.deepEqual(draft.exercises.map((e) => e.exerciseId), ['ex-row', 'ex-bench', 'ex-curl']);
+
+  // Move Up Curl (index 2 -> index 1)
+  // Result: Row, Curl, Bench
+  draft = moveRoutineExercise(draft, 2, 1);
+  assert.deepEqual(draft.exercises.map((e) => e.exerciseId), ['ex-row', 'ex-curl', 'ex-bench']);
+
+  // Save: template order matches
+  const savedRoutine = buildRoutineFromEditorDraft(draft);
+  assert.deepEqual(
+    savedRoutine.template?.exercises.map((e) => e.exerciseId),
+    ['ex-row', 'ex-curl', 'ex-bench']
+  );
+
+  // exerciseIds projection matches
+  assert.deepEqual(savedRoutine.exerciseIds, ['ex-row', 'ex-curl', 'ex-bench']);
+  assert.deepEqual(getRoutineExerciseIds(savedRoutine), ['ex-row', 'ex-curl', 'ex-bench']);
+
+  // Reload: JSON serialization simulation
+  const serialized = JSON.stringify(savedRoutine);
+  const reloaded = normalizeRoutine(JSON.parse(serialized));
+  assert.ok(reloaded);
+  assert.deepEqual(getRoutineExerciseIds(reloaded), ['ex-row', 'ex-curl', 'ex-bench']);
+
+  // Verify DOM attributes: NO full-card draggable, NO cursor-grab, real touch targets
+  const html = ReactDOMServer.renderToString(
+    React.createElement(RoutineEditorModal, {
+      isOpen: true,
+      onClose: () => {},
+      mode: 'edit',
+      initialRoutine: savedRoutine,
+      availableExercises: [mockBench, mockRow, mockCurl],
+      onSaveRoutine: () => {},
+      initialStep: 'exercises'
+    })
+  );
+
+  // Must NOT have draggable attributes or cursor-grab
+  assert.ok(!html.includes('draggable="true"'), 'Full-card draggable must be removed');
+  assert.ok(!html.includes('draggable='), 'No draggable attributes should exist');
+  assert.ok(!html.includes('cursor-grab'), 'No cursor-grab drag handle styling');
+
+  // Must have position badges
+  assert.ok(html.includes('#1'), 'Must render #1 badge');
+  assert.ok(html.includes('#2'), 'Must render #2 badge');
+  assert.ok(html.includes('#3'), 'Must render #3 badge');
+
+  // Accessible labels
+  assert.ok(html.includes('aria-label="Mover arriba: Barbell Row"'));
+  assert.ok(html.includes('aria-label="Mover abajo: Barbell Row"'));
+  assert.ok(html.includes('aria-label="Mover arriba: Biceps Curl"'));
+  assert.ok(html.includes('aria-label="Mover abajo: Biceps Curl"'));
+  assert.ok(html.includes('aria-label="Mover arriba: Bench Press"'));
+  assert.ok(html.includes('aria-label="Mover abajo: Bench Press"'));
+
+  // Boundary disabling: first exercise Up disabled, last exercise Down disabled
+  assert.ok(html.includes('disabled="" aria-label="Mover arriba: Barbell Row"'));
+  assert.ok(html.includes('disabled="" aria-label="Mover abajo: Bench Press"'));
+
+  // Touch target size >= 44x44px
+  assert.ok(html.includes('min-w-[44px] min-h-[44px]'));
+});
+
+test('Section 16: Compact set-type trigger displays marker and does not expose verbose labels in closed trigger', () => {
+  const routineWithAllTypes: Routine = {
+    id: 'rt-all-types',
+    userId: 'u1',
+    name: 'All Set Types',
+    exerciseIds: ['ex-bench'],
+    template: {
+      version: 2,
+      exercises: [
+        {
+          exerciseId: 'ex-bench',
+          sets: [
+            { setType: 'warmup', targetWeightKg: 40 },
+            { setType: 'working', targetWeightKg: 80 },
+            { setType: 'drop', targetWeightKg: 60 },
+            { setType: 'backoff', targetWeightKg: 50 }
+          ]
+        }
+      ]
+    }
+  };
+
+  const html = ReactDOMServer.renderToString(
+    React.createElement(RoutineEditorModal, {
+      isOpen: true,
+      onClose: () => {},
+      mode: 'edit',
+      initialRoutine: routineWithAllTypes,
+      availableExercises: [mockBench],
+      onSaveRoutine: () => {},
+      initialStep: 'exercises',
+      initialExpandedExerciseId: 'ex-bench'
+    })
+  );
+
+  // Closed OptionPicker trigger buttons must NOT expose long descriptive strings
+  assert.ok(!html.includes('Serie efectiva'), 'Closed trigger must not expose "Serie efectiva"');
+  assert.ok(!html.includes('Calentamiento'), 'Closed trigger must not expose "Calentamiento"');
+  assert.ok(!html.includes('Drop-set'), 'Closed trigger must not expose "Drop-set"');
+  assert.ok(!html.includes('Back-off set'), 'Closed trigger must not expose "Back-off set"');
+
+  // Table header must be compact "Tipo", NOT "Tipo de serie"
+  assert.ok(html.includes('Tipo'), 'Table header must show compact "Tipo"');
+  assert.ok(!html.includes('>Tipo de serie<'), 'Table header must not show verbose "Tipo de serie"');
+
+  // Must retain semantic aria-label
+  assert.ok(html.includes('aria-label="Tipo de serie"'), 'Must retain semantic aria-label for accessibility');
+});
+
+test('Section 3: Metric and imperial weight display, input, 0 kg/lb, 5 lb step, and round-trip fidelity', () => {
+  // A. Metric display / input
+  assert.equal(displayWeight(20, 'metric'), 20);
+  assert.equal(parseDisplayWeight(20, 'metric'), 20);
+  assert.equal(parseDisplayWeight(25.5, 'metric'), 25.5);
+
+  // B. Imperial display / input
+  // 20 kg = 44.09245 lb -> rounded to 1 decimal = 44.1 lb
+  assert.equal(displayWeight(20, 'imperial'), 44.1);
+  // Input 45 lb -> kg
+  const parsedFrom45Lb = parseDisplayWeight(45, 'imperial');
+  assert.ok(Math.abs(parsedFrom45Lb - 20.41166) < 0.001);
+
+  // C. 0 kg / 0 lb preservation
+  assert.equal(displayWeight(0, 'metric'), 0);
+  assert.equal(parseDisplayWeight(0, 'metric'), 0);
+  assert.equal(displayWeight(0, 'imperial'), 0);
+  assert.equal(parseDisplayWeight(0, 'imperial'), 0);
+
+  // D. Imperial 5 lb stepping behavior
+  // Step up from 45 lb: 45 + 5 = 50 lb
+  const display45 = displayWeight(parsedFrom45Lb, 'imperial');
+  assert.equal(display45, 45);
+  const nextDisplayUp = display45 + 5;
+  const nextKgUp = parseDisplayWeight(nextDisplayUp, 'imperial');
+  assert.equal(displayWeight(nextKgUp, 'imperial'), 50);
+
+  // Step down from 45 lb: 45 - 5 = 40 lb
+  const nextDisplayDown = display45 - 5;
+  const nextKgDown = parseDisplayWeight(nextDisplayDown, 'imperial');
+  assert.equal(displayWeight(nextKgDown, 'imperial'), 40);
+
+  // Clamped at 0: 2 lb - 5 lb = 0 lb
+  const clampedDisplay = Math.max(0, 2 - 5);
+  assert.equal(clampedDisplay, 0);
+  assert.equal(parseDisplayWeight(clampedDisplay, 'imperial'), 0);
+
+  // E. Canonical round-trip kg -> lb -> kg -> lb
+  // 20 kg -> 44.1 lb -> kg -> lb
+  const lbFrom20Kg = displayWeight(20, 'imperial'); // 44.1
+  const kgFrom44_1Lb = parseDisplayWeight(lbFrom20Kg, 'imperial'); // ~20.00341
+  assert.ok(Math.abs(kgFrom44_1Lb - 20) < 0.02, 'Round-trip 20kg stays within 0.02kg tolerance');
+  assert.equal(displayWeight(kgFrom44_1Lb, 'imperial'), 44.1, 'Round-trip recovers same display lb');
+
+  // 100 kg -> 220.5 lb -> kg -> lb
+  const lbFrom100Kg = displayWeight(100, 'imperial'); // 220.5
+  const kgFrom220_5Lb = parseDisplayWeight(lbFrom100Kg, 'imperial');
+  assert.ok(Math.abs(kgFrom220_5Lb - 100) < 0.02, 'Round-trip 100kg stays within 0.02kg tolerance');
+  assert.equal(displayWeight(kgFrom220_5Lb, 'imperial'), 220.5, 'Round-trip recovers same display lb');
 });

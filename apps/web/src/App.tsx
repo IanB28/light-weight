@@ -294,6 +294,7 @@ export function App() {
           activeWorkoutDuration={workout.duration}
           onNavigateToWorkout={() => navigateToTab('workout')}
           onOpenSettings={openRootSettings}
+          preferences={preferences}
         />}
 
         {currentTab === 'exercises' && <LibraryView

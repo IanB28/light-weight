@@ -6,14 +6,13 @@ import {
   List,
   ArrowLeft,
   ArrowRight,
-  GripVertical,
   ChevronUp,
   ChevronDown,
   ChevronRight,
   Plus,
   Trash2
 } from 'lucide-react';
-import { Exercise, Routine, WorkoutSetType, poundsToKilograms } from '@light-weight/domain';
+import { Exercise, Routine, WorkoutSetType } from '@light-weight/domain';
 import {
   ExerciseEquipmentFilter,
   ExerciseMuscleFilter,
@@ -60,6 +59,8 @@ export interface RoutineEditorModalProps {
   initialRoutine?: Routine | null;
   ownerId?: string;
   preferences?: AppPreferences;
+  initialStep?: RoutineCreationStep;
+  initialExpandedExerciseId?: string | null;
 }
 
 export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
@@ -70,13 +71,14 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   mode = 'create',
   initialRoutine = null,
   ownerId,
-  preferences
+  preferences,
+  initialStep = 'details',
+  initialExpandedExerciseId = null
 }) => {
   const { t } = useI18n();
   const units = preferences?.units || 'metric';
-  const weightStepKg = units === 'imperial' ? poundsToKilograms(5) : 2.5;
 
-  const [step, setStep] = useState<RoutineCreationStep>('details');
+  const [step, setStep] = useState<RoutineCreationStep>(initialStep);
   const [draft, setDraft] = useState<RoutineEditorDraft>(() =>
     createRoutineEditorDraft(initialRoutine, ownerId)
   );
@@ -88,8 +90,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [visibleCount, setVisibleCount] = useState(60);
 
-  const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(initialExpandedExerciseId);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // Initialize draft when modal opens or initialRoutine changes
@@ -98,17 +99,16 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
       const initial = createRoutineEditorDraft(initialRoutine, ownerId);
       setDraft(initial);
       initialDraftRef.current = initial;
-      setStep('details');
+      setStep(initialStep);
       setSearchTerm('');
       setSelectedMuscle('all');
       setSelectedEquipment('all');
       setViewMode('grid');
       setVisibleCount(60);
-      setExpandedExerciseId(null);
-      setDraggedIndex(null);
+      setExpandedExerciseId(initialExpandedExerciseId);
       setShowDiscardConfirm(false);
     }
-  }, [isOpen, initialRoutine, ownerId]);
+  }, [isOpen, initialRoutine, ownerId, initialStep, initialExpandedExerciseId]);
 
   useEffect(() => {
     setVisibleCount(60);
@@ -292,16 +292,6 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                       return (
                         <div
                           key={exDraft.exerciseId}
-                          draggable
-                          onDragStart={() => setDraggedIndex(index)}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            if (draggedIndex !== null && draggedIndex !== index) {
-                              setDraft((prev) => moveRoutineExercise(prev, draggedIndex, index));
-                              setDraggedIndex(index);
-                            }
-                          }}
-                          onDragEnd={() => setDraggedIndex(null)}
                           className={`rounded-ui-xl border transition-all ${
                             isExpanded
                               ? 'border-accent/40 bg-zinc-900/90 shadow-lg'
@@ -309,36 +299,10 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                           }`}
                         >
                           {/* Exercise Card Summary Bar */}
-                          <div className="flex items-center gap-2 p-2.5 sm:p-3">
-                            {/* Drag Handle & Reorder controls */}
-                            <div className="flex items-center gap-0.5 shrink-0 text-zinc-400">
-                              <span
-                                className="cursor-grab active:cursor-grabbing p-1 hover:text-white"
-                                title={t('routine.dragHandle')}
-                                aria-hidden="true"
-                              >
-                                <GripVertical className="size-4" />
-                              </span>
-                              <div className="flex flex-col">
-                                <button
-                                  type="button"
-                                  disabled={index === 0}
-                                  onClick={() => setDraft((prev) => moveRoutineExercise(prev, index, index - 1))}
-                                  aria-label={`${t('routine.moveUp')}: ${exercise?.name || exDraft.exerciseId}`}
-                                  className="p-0.5 text-zinc-400 hover:text-white disabled:opacity-20 disabled:hover:text-zinc-400"
-                                >
-                                  <ChevronUp className="size-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={index === draft.exercises.length - 1}
-                                  onClick={() => setDraft((prev) => moveRoutineExercise(prev, index, index + 1))}
-                                  aria-label={`${t('routine.moveDown')}: ${exercise?.name || exDraft.exerciseId}`}
-                                  className="p-0.5 text-zinc-400 hover:text-white disabled:opacity-20 disabled:hover:text-zinc-400"
-                                >
-                                  <ChevronDown className="size-3.5" />
-                                </button>
-                              </div>
+                          <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-2.5">
+                            {/* Position Badge */}
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-[11px] font-mono font-bold text-zinc-400">
+                              {`#${index + 1}`}
                             </div>
 
                             {/* Thumbnail */}
@@ -354,14 +318,37 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setExpandedExerciseId(isExpanded ? null : exDraft.exerciseId)}
-                              className="min-w-0 flex-1 text-left"
+                              aria-expanded={isExpanded}
+                              className="min-w-0 flex-1 text-left py-0.5"
                             >
                               <p className="truncate text-xs sm:text-sm font-bold text-text-primary">
                                 {exercise?.name || exDraft.exerciseId}
                               </p>
-                              <p className="text-[11px] font-mono text-zinc-400">
+                              <p className="text-[11px] font-mono text-zinc-400 truncate">
                                 {setsCountLabel} · <span className="text-accent">{weightSummary}</span>
                               </p>
+                            </button>
+
+                            {/* Reorder Up Button (>= 44x44px touch target) */}
+                            <button
+                              type="button"
+                              disabled={index === 0}
+                              onClick={() => setDraft((prev) => moveRoutineExercise(prev, index, index - 1))}
+                              aria-label={`${t('routine.moveUp')}: ${exercise?.name || exDraft.exerciseId}`}
+                              className="size-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-surface-input border border-white/[0.06] text-zinc-400 hover:text-white hover:border-white/20 active:scale-95 transition-all disabled:opacity-20 disabled:pointer-events-none disabled:border-transparent shrink-0"
+                            >
+                              <ChevronUp className="size-4" />
+                            </button>
+
+                            {/* Reorder Down Button (>= 44x44px touch target) */}
+                            <button
+                              type="button"
+                              disabled={index === draft.exercises.length - 1}
+                              onClick={() => setDraft((prev) => moveRoutineExercise(prev, index, index + 1))}
+                              aria-label={`${t('routine.moveDown')}: ${exercise?.name || exDraft.exerciseId}`}
+                              className="size-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-surface-input border border-white/[0.06] text-zinc-400 hover:text-white hover:border-white/20 active:scale-95 transition-all disabled:opacity-20 disabled:pointer-events-none disabled:border-transparent shrink-0"
+                            >
+                              <ChevronDown className="size-4" />
                             </button>
 
                             {/* Expand / Collapse Chevron */}
@@ -370,7 +357,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                               onClick={() => setExpandedExerciseId(isExpanded ? null : exDraft.exerciseId)}
                               aria-expanded={isExpanded}
                               aria-label={`Editar series para ${exercise?.name || exDraft.exerciseId}`}
-                              className="p-1.5 text-zinc-400 hover:text-white"
+                              className="size-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-white active:scale-95 transition-all shrink-0"
                             >
                               <ChevronRight className={`size-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                             </button>
@@ -383,7 +370,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                                 if (isExpanded) setExpandedExerciseId(null);
                               }}
                               aria-label={`${t('routine.removeExercise')}: ${exercise?.name || exDraft.exerciseId}`}
-                              className="p-1.5 text-zinc-400 hover:text-red-400 transition-colors"
+                              className="size-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-red-400 active:scale-95 transition-all shrink-0"
                             >
                               <Trash2 className="size-4" />
                             </button>
@@ -393,10 +380,9 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                           {isExpanded && (
                             <div className="border-t border-white/[0.08] p-3 space-y-2.5 bg-black/20">
                               <div className="grid grid-cols-12 gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-1">
-                                <span className="col-span-1 text-center">#</span>
-                                <span className="col-span-5">{t('routine.setType')}</span>
-                                <span className="col-span-5 text-center">
-                                  {t('routine.targetWeight')} ({unitLabel.toUpperCase()})
+                                <span className="col-span-3 text-center">{t('routine.setTypeCompact')}</span>
+                                <span className="col-span-8 text-center">
+                                  {`${t('routine.targetWeight')} (${unitLabel.toUpperCase()})`}
                                 </span>
                                 <span className="col-span-1 text-right" />
                               </div>
@@ -414,17 +400,11 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
 
                                 return (
                                   <div key={set.id} className="grid grid-cols-12 items-center gap-1.5">
-                                    {/* Set Marker */}
-                                    <div className="col-span-1 flex items-center justify-center">
-                                      <span className="flex size-6 items-center justify-center rounded-full bg-surface-active font-mono text-xs font-bold text-zinc-300">
-                                        {setMarker}
-                                      </span>
-                                    </div>
-
-                                    {/* Set Type Picker */}
-                                    <div className="col-span-5">
+                                    {/* Set Type Compact Picker */}
+                                    <div className="col-span-3">
                                       <OptionPicker
                                         value={set.setType}
+                                        triggerLabel={setMarker}
                                         options={[
                                           { value: 'working', label: t('workout.workingSet') },
                                           { value: 'warmup', label: t('workout.warmupSet') },
@@ -439,19 +419,19 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                                           )
                                         }
                                         ariaLabel={t('routine.setType')}
-                                        className="h-10 text-xs"
+                                        className="h-10 text-xs font-mono font-bold justify-center"
                                       />
                                     </div>
 
                                     {/* Target Weight with +/- buttons */}
-                                    <div className="col-span-5 flex items-center justify-center gap-1">
+                                    <div className="col-span-8 flex items-center justify-center gap-1">
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const nextKg = Math.max(
-                                            0,
-                                            Math.round((set.targetWeightKg - weightStepKg) * 100) / 100
-                                          );
+                                          const step = units === 'imperial' ? 5 : 2.5;
+                                          const curDisplay = displayWeight(set.targetWeightKg, units);
+                                          const nextDisplay = Math.max(0, Math.round((curDisplay - step) * 10) / 10);
+                                          const nextKg = parseDisplayWeight(nextDisplay, units);
                                           setDraft((prev) =>
                                             updateRoutineTemplateSet(prev, exDraft.exerciseId, sIdx, {
                                               targetWeightKg: nextKg
@@ -459,7 +439,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                                           );
                                         }}
                                         aria-label={t('workout.reduceWeight', { set: sIdx + 1 })}
-                                        className="h-10 w-7 flex items-center justify-center rounded-md border border-white/[0.08] bg-surface-input text-xs font-bold text-zinc-400 hover:text-white"
+                                        className="h-10 w-8 sm:w-10 flex items-center justify-center rounded-md border border-white/[0.08] bg-surface-input text-xs font-bold text-zinc-400 hover:text-white active:scale-95 transition-all shrink-0"
                                       >
                                         —
                                       </button>
@@ -472,8 +452,9 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                                         placeholder="0"
                                         onFocus={(e) => e.target.select()}
                                         onChange={(e) => {
-                                          const num = parseFloat(e.target.value) || 0;
-                                          const parsedKg = parseDisplayWeight(num, units);
+                                          const raw = e.target.value.trim();
+                                          const num = raw === '' ? 0 : parseFloat(raw);
+                                          const parsedKg = Number.isFinite(num) ? parseDisplayWeight(Math.max(0, num), units) : 0;
                                           setDraft((prev) =>
                                             updateRoutineTemplateSet(prev, exDraft.exerciseId, sIdx, {
                                               targetWeightKg: parsedKg
@@ -486,8 +467,10 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const nextKg =
-                                            Math.round((set.targetWeightKg + weightStepKg) * 100) / 100;
+                                          const step = units === 'imperial' ? 5 : 2.5;
+                                          const curDisplay = displayWeight(set.targetWeightKg, units);
+                                          const nextDisplay = Math.round((curDisplay + step) * 10) / 10;
+                                          const nextKg = parseDisplayWeight(nextDisplay, units);
                                           setDraft((prev) =>
                                             updateRoutineTemplateSet(prev, exDraft.exerciseId, sIdx, {
                                               targetWeightKg: nextKg
@@ -495,7 +478,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                                           );
                                         }}
                                         aria-label={t('workout.increaseWeight', { set: sIdx + 1 })}
-                                        className="h-10 w-7 flex items-center justify-center rounded-md border border-white/[0.08] bg-surface-input text-xs font-bold text-zinc-400 hover:text-white"
+                                        className="h-10 w-8 sm:w-10 flex items-center justify-center rounded-md border border-white/[0.08] bg-surface-input text-xs font-bold text-zinc-400 hover:text-white active:scale-95 transition-all shrink-0"
                                       >
                                         +
                                       </button>

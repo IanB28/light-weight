@@ -10,6 +10,7 @@ import { RoutinePicker } from '../components/RoutinePicker.js';
 import { WeeklySchedule, WeekDay } from '../lib/storage.js';
 import { TranslationKey, useI18n } from '../lib/i18n.js';
 import { ReceivedRoutines } from '../features/routines/ReceivedRoutines.js';
+import type { AppPreferences } from '../lib/preferences.js';
 
 interface PlanViewProps {
   routines: Routine[];
@@ -24,6 +25,7 @@ interface PlanViewProps {
   onNavigateToWorkout?: () => void;
   onOpenSettings?: () => void;
   routineOwnerId?: string;
+  preferences?: AppPreferences;
 }
 
 const DAYS_LIST: WeekDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -40,7 +42,8 @@ export const PlanView: React.FC<PlanViewProps> = ({
   activeWorkoutDuration = '00:00',
   onNavigateToWorkout,
   onOpenSettings,
-  routineOwnerId
+  routineOwnerId,
+  preferences
 }) => {
   const { t } = useI18n();
   const dayLabel = (day: WeekDay, length: 'short' | 'full') => t(`weekday.${day}.${length}` as TranslationKey);
@@ -150,6 +153,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
         availableExercises={exercises}
         onSaveRoutine={onSaveRoutine}
         ownerId={routineOwnerId}
+        preferences={preferences}
       />
 
       <RoutineDetailSheet
@@ -171,6 +175,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
         mode="edit"
         initialRoutine={editingRoutine}
         ownerId={routineOwnerId}
+        preferences={preferences}
         onSaveRoutine={(updated) => {
           onSaveRoutine(updated);
           setSelectedRoutine(updated);
