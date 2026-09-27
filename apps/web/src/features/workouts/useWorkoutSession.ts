@@ -40,10 +40,20 @@ import {
 import { formatElapsedDuration, workoutElapsedSeconds, workoutStartFromLegacySeconds } from './workout-time.js';
 import type { ActiveExerciseSession } from './types.js';
 import { resolveInitialWeightKg } from './initial-weight.js';
+import {
+  buildRoutineExerciseSessions,
+  type BuildRoutineExerciseSessionsOptions
+} from './routine-previous-performance.js';
+
+export {
+  buildRoutineExerciseSessions,
+  type BuildRoutineExerciseSessionsOptions
+};
 
 interface StoredActiveWorkout {
   isWorkoutActive: boolean;
   workoutSeconds?: number;
+  activeRoutineId?: string;
   activeRoutineName?: string;
   exerciseSessions?: ActiveExerciseSession[];
   workoutStartTime?: string;
@@ -143,16 +153,6 @@ function createWorkoutId(): string {
   return `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
 }
 
-export function buildRoutineExerciseSessions(
-  routine: Routine,
-  exercisesById: Record<string, Exercise>,
-  sessionCreator: (exercise: Exercise) => ActiveExerciseSession
-): ActiveExerciseSession[] {
-  return routine.exerciseIds
-    .map((id) => exercisesById[id])
-    .filter((exercise): exercise is Exercise => Boolean(exercise))
-    .map(sessionCreator);
-}
 
 export function skipExerciseInSessions(sessions: ActiveExerciseSession[], exerciseId: string): ActiveExerciseSession[] {
   return sessions.map((session) => {
@@ -609,6 +609,7 @@ export function useWorkoutSession({
     [bodyweightEntries, exercisesById, history, suppliedHistoryIndex]
   );
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
+  const [activeRoutineId, setActiveRoutineId] = useState<string | undefined>(undefined);
   const [activeRoutineName, setActiveRoutineName] = useState('Entrenamiento Libre');
   const [exerciseSessions, setExerciseSessions] = useState<ActiveExerciseSession[]>([]);
   const [workoutStartedAt, setWorkoutStartedAt] = useState<string | null>(null);
@@ -628,6 +629,7 @@ export function useWorkoutSession({
       ? saved.workoutStartTime
       : workoutStartFromLegacySeconds(saved.workoutSeconds || 0);
     setIsWorkoutActive(true);
+    setActiveRoutineId(saved.activeRoutineId);
     setActiveRoutineName(saved.activeRoutineName || 'Entrenamiento Libre');
     setExerciseSessions((saved.exerciseSessions || []).map(normalizeActiveExerciseSession));
     setWorkoutStartedAt(startedAt);
@@ -673,6 +675,7 @@ export function useWorkoutSession({
     }
     const snapshot: StoredActiveWorkout = {
       isWorkoutActive: true,
+      activeRoutineId,
       activeRoutineName,
       exerciseSessions,
       workoutStartTime: workoutStartedAt,
@@ -680,7 +683,7 @@ export function useWorkoutSession({
     };
     activeSnapshotRef.current = snapshot;
     saveActiveWorkout(snapshot);
-  }, [activeRoutineName, exerciseSessions, isWorkoutActive, workoutPerformedDate, workoutStartedAt]);
+  }, [activeRoutineId, activeRoutineName, exerciseSessions, isWorkoutActive, workoutPerformedDate, workoutStartedAt]);
 
   useEffect(() => {
     const checkpoint = () => {
@@ -707,12 +710,20 @@ export function useWorkoutSession({
     setIsWorkoutActive(true);
     const routine = routineId ? routines.find((item) => item.id === routineId) : undefined;
     if (routine) {
+      setActiveRoutineId(routine.id);
       setActiveRoutineName(routine.name);
       setExerciseSessions(
-        buildRoutineExerciseSessions(routine, exercisesById, createExerciseSession)
+        buildRoutineExerciseSessions({
+          routine,
+          exercisesById,
+          history,
+          routines,
+          createBaseExerciseSession: createExerciseSession
+        })
       );
       return;
     }
+    setActiveRoutineId(undefined);
     setActiveRoutineName(sessionName || 'Entrenamiento Libre');
     const initialExercise = prefilterMuscles?.length
       ? exercises.find((exercise) => prefilterMuscles.includes(exercise.primaryMuscle))
@@ -725,6 +736,7 @@ export function useWorkoutSession({
       setWorkoutStartedAt(new Date().toISOString());
       setWorkoutPerformedDate(localDateKey());
       setNowMs(Date.now());
+      setActiveRoutineId(undefined);
       setActiveRoutineName('Entrenamiento Libre');
       setIsWorkoutActive(true);
     }
@@ -738,6 +750,7 @@ export function useWorkoutSession({
     setWorkoutStartedAt(startedAt);
     setWorkoutPerformedDate(localDateKey());
     setNowMs(Date.now());
+    setActiveRoutineId(undefined);
     setActiveRoutineName('Entrenamiento Libre');
     setExerciseSessions([createExerciseSession(exercise)]);
     setIsWorkoutActive(true);
@@ -856,6 +869,7 @@ export function useWorkoutSession({
     const session: WorkoutSession = {
       id: createWorkoutId(),
       userId,
+      ...(activeRoutineId ? { routineId: activeRoutineId } : {}),
       routineName: activeRoutineName,
       startedAt: workoutStartedAt || new Date().toISOString(),
       performedDate: workoutPerformedDate || localDateKey(),
@@ -870,6 +884,7 @@ export function useWorkoutSession({
     }
     clearActiveWorkout();
     setIsWorkoutActive(false);
+    setActiveRoutineId(undefined);
     setExerciseSessions([]);
     setWorkoutStartedAt(null);
     setWorkoutPerformedDate(null);
@@ -880,6 +895,7 @@ export function useWorkoutSession({
   const cancel = () => {
     clearActiveWorkout();
     setIsWorkoutActive(false);
+    setActiveRoutineId(undefined);
     setExerciseSessions([]);
     setWorkoutStartedAt(null);
     setWorkoutPerformedDate(null);
@@ -897,6 +913,7 @@ export function useWorkoutSession({
 
   return {
     isWorkoutActive,
+    activeRoutineId,
     activeRoutineName,
     exerciseSessions,
     workoutStartedAt,

@@ -88,6 +88,8 @@
     "src/features/routines/routine-creation.test.ts",
     "src/features/routines/routine-storage-v2.test.ts",
     "src/features/workouts/types.ts",
+    "src/features/workouts/routine-previous-performance.ts",
+    "src/features/workouts/routine-previous-performance.test.ts",
     "src/features/workouts/WeightPlate.tsx",
     "src/features/workouts/WeightEntry.tsx",
     "src/features/workouts/WorkoutSessionComponents.tsx",

@@ -170,11 +170,13 @@ export function HistoricalWorkoutModal({
       if (routine) {
         setRoutineId(routine.id);
         setRoutineName(routine.name);
-        const sessions = buildRoutineExerciseSessions(
+        const sessions = buildRoutineExerciseSessions({
           routine,
           exercisesById,
-          (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
-        );
+          history,
+          routines,
+          createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+        });
         setExerciseSessions(sessions);
         return;
       }
@@ -188,7 +190,7 @@ export function HistoricalWorkoutModal({
     setRoutineName('');
     setRoutineId('');
     setExerciseSessions([]);
-  }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences]);
+  }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences, history]);
 
   const routinePickerOptions = useMemo(() => {
     return buildRoutinePickerOptions(routines, {
@@ -204,11 +206,13 @@ export function HistoricalWorkoutModal({
       const routine = routines.find((r) => r.id === selectedId);
       if (routine) {
         setRoutineName(routine.name);
-        const sessions = buildRoutineExerciseSessions(
+        const sessions = buildRoutineExerciseSessions({
           routine,
           exercisesById,
-          (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
-        );
+          history,
+          routines,
+          createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+        });
         setExerciseSessions(sessions);
       }
     } else {
