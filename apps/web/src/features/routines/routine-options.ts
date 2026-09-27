@@ -1,4 +1,4 @@
-import type { Routine } from '@light-weight/domain';
+import { Routine, getRoutineExerciseIds } from '@light-weight/domain';
 
 export interface RoutinePickerOption {
   value: string;
@@ -26,7 +26,7 @@ export function buildRoutinePickerOptions(
   }
 
   const baseLabels = routines.map((routine) => {
-    const count = routine.exerciseIds?.length ?? 0;
+    const count = getRoutineExerciseIds(routine).length;
     const isDuplicateName = (nameCounts.get(routine.name.trim().toLowerCase()) || 0) > 1;
     const countText = options?.exerciseLabel
       ? options.exerciseLabel(count)

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Dumbbell, Moon } from 'lucide-react';
-import { Routine } from '@light-weight/domain';
+import { Routine, getRoutineExerciseIds } from '@light-weight/domain';
 import { BottomSheet, EmptyState, SearchInput } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 
@@ -116,7 +116,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-text-primary">{routine.name}</span>
                     <span className="block truncate text-[11px] text-text-muted">
-                      {routine.exerciseIds.length} {routine.exerciseIds.length === 1 ? t('library.exercise') : t('library.exercises')}
+                      {getRoutineExerciseIds(routine).length} {getRoutineExerciseIds(routine).length === 1 ? t('library.exercise') : t('library.exercises')}
                     </span>
                   </span>
                   {selected && <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />}

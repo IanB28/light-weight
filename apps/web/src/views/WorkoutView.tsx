@@ -13,7 +13,8 @@ import {
   type LoggedSet,
   type MuscleGroup,
   type Routine,
-  type WorkoutSetType
+  type WorkoutSetType,
+  getRoutineExerciseIds
 } from '@light-weight/domain';
 import { AddExerciseModal } from '../components/AddExerciseModal.js';
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
@@ -189,7 +190,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     {(isWorkoutActive || exerciseSessions.length > 0) && <WorkoutHeader routineName={displayRoutineName} sessionDuration={sessionDuration} completedSetsCount={completedSetsCount} totalSetsCount={totalSetsCount} totalVolumeLabel={formatDisplayWeight(totalVolumeKg, preferences.units)} onDiscard={() => setShowDiscardConfirm(true)} onFinish={handleFinishClick} />}
     {exerciseSessions.length === 0 ? <AppCard className="space-y-4">
       <EmptyState icon={<Dumbbell className="size-5" />} title={t('workout.emptyTitle')} description={isWorkoutActive ? t('workout.emptyActive') : t('workout.emptyInactive')} actionLabel={t('exercise.add')} onAction={() => { setReplacementMuscle(null); setIsAddModalOpen(true); }} />
-      {routines.length > 0 && <div className="space-y-2 border-t border-border-subtle pt-4"><p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('workout.useRoutine')}</p>{routines.slice(0, 3).map((routine) => <button key={routine.id} type="button" onClick={() => onStartRoutine(routine.id)} className="flex min-h-11 w-full items-center justify-between rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left text-sm font-bold text-text-primary hover:border-border-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><span className="truncate">{routine.name}</span><span className="text-xs font-medium text-text-muted">{routine.exerciseIds.length} {routine.exerciseIds.length === 1 ? t('library.exercise') : t('library.exercises')}</span></button>)}</div>}
+      {routines.length > 0 && <div className="space-y-2 border-t border-border-subtle pt-4"><p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('workout.useRoutine')}</p>{routines.slice(0, 3).map((routine) => <button key={routine.id} type="button" onClick={() => onStartRoutine(routine.id)} className="flex min-h-11 w-full items-center justify-between rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left text-sm font-bold text-text-primary hover:border-border-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><span className="truncate">{routine.name}</span><span className="text-xs font-medium text-text-muted">{getRoutineExerciseIds(routine).length} {getRoutineExerciseIds(routine).length === 1 ? t('library.exercise') : t('library.exercises')}</span></button>)}</div>}
       {!isWorkoutActive && onSaveHistoricalPersonalRecord && (
         <div className="border-t border-border-subtle pt-4">
           <Button
