@@ -9,6 +9,7 @@ import {
   isWorkoutEntrySource,
   isValidWorkoutTimestamp,
   validateRoutineTemplateV2,
+  createDefaultRoutineTemplate,
   type WorkoutSetType,
   type BaseResistanceStatus,
   type WorkoutEntrySource,
@@ -186,6 +187,7 @@ export interface SyncRoutineInput {
   description: string | null;
   exerciseIds: string[];
   template: RoutineTemplateV2 | null;
+  templateSource: 'v2' | 'legacy';
 }
 
 export function normalizeIncomingSyncRoutine(raw: unknown): SyncRoutineInput {
@@ -203,18 +205,21 @@ export function normalizeIncomingSyncRoutine(raw: unknown): SyncRoutineInput {
   const rawTemplate = r.template ?? (r as { exerciseTemplate?: unknown }).exerciseTemplate;
   let template: RoutineTemplateV2 | null = null;
   let exerciseIds: string[];
+  let templateSource: 'v2' | 'legacy';
 
   if (rawTemplate !== undefined && rawTemplate !== null) {
     try {
       template = validateRoutineTemplateV2(rawTemplate);
       // Canonical source: template order
       exerciseIds = template.exercises.map((e) => e.exerciseId);
+      templateSource = 'v2';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid routine template';
       throw new SyncValidationError('INVALID_ROUTINE_TEMPLATE', message);
     }
   } else {
     // Legacy routine: exerciseIds only
+    templateSource = 'legacy';
     if (!Array.isArray(r.exerciseIds)) {
       exerciseIds = [];
     } else {
@@ -231,9 +236,11 @@ export function normalizeIncomingSyncRoutine(raw: unknown): SyncRoutineInput {
       }
       exerciseIds = exerciseIds.slice(0, 100);
     }
+    // For legacy payloads, effective default persistence is canonical V2 template
+    template = createDefaultRoutineTemplate(exerciseIds);
   }
 
-  return { id, name, description, exerciseIds, template };
+  return { id, name, description, exerciseIds, template, templateSource };
 }
 
 export function normalizeIncomingSyncRoutines(rawRoutines: unknown): SyncRoutineInput[] {

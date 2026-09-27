@@ -17,7 +17,10 @@ import {
   normalizeHistoricalPersonalRecord,
   shouldCountForPersonalRecord,
   shouldCountForVolume,
-  type BaseResistanceStatus
+  createDefaultRoutineTemplate,
+  reconcileLegacyRoutineTemplate,
+  type BaseResistanceStatus,
+  type RoutineTemplateV2
 } from '@light-weight/domain';
 import { and, eq, desc, inArray } from 'drizzle-orm';
 import {
@@ -79,13 +82,13 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
         tx.select().from(bodyweightLogs).where(eq(bodyweightLogs.userId, userId)),
         tx.select().from(personalRecords).where(eq(personalRecords.userId, userId)),
         sessionDbIds.length ? tx.select({ id: workoutSessions.id, userId: workoutSessions.userId }).from(workoutSessions).where(inArray(workoutSessions.id, sessionDbIds)) : [],
-        routineDbIds.size ? tx.select({ id: routines.id, userId: routines.userId }).from(routines).where(inArray(routines.id, [...routineDbIds])) : [],
+        routineDbIds.size ? tx.select({ id: routines.id, userId: routines.userId, exerciseTemplate: routines.exerciseTemplate }).from(routines).where(inArray(routines.id, [...routineDbIds])) : [],
         exerciseIds.length ? tx.select({ id: exercises.id, userId: exercises.userId }).from(exercises).where(inArray(exercises.id, exerciseIds)) : [],
         hprDbIds.length ? tx.select({ id: historicalPersonalRecords.id, userId: historicalPersonalRecords.userId }).from(historicalPersonalRecords).where(inArray(historicalPersonalRecords.id, hprDbIds)) : []
       ]);
       const existingBodyweightByDate = new Map(existingBodyweightLogs.map((entry) => [entry.loggedAt.toISOString(), entry]));
-      const routineOwnerById = new Map(existingRoutines.map(
-        (routine): [string, string] => [routine.id, routine.userId]
+      const existingRoutineById = new Map(existingRoutines.map(
+        (routine) => [routine.id, routine]
       ));
       const sessionOwnerById = new Map(existingSessions.map(
         (session): [string, string] => [session.id, session.userId]
@@ -116,35 +119,55 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       for (const r of incomingRoutineList) {
         const rUuid = toDatabaseUuid(r.id);
         if (routineDbIds.has(rUuid) && deletedRoutineIds.some((id) => toDatabaseUuid(id) === rUuid)) continue;
-        const owner = routineOwnerById.get(rUuid);
+        const existingRoutine = existingRoutineById.get(rUuid);
+        const owner = existingRoutine?.userId;
         if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
+
+        let effectiveTemplate: RoutineTemplateV2;
+        let effectiveExerciseIds: string[];
+
+        if (r.templateSource === 'v2') {
+          // Explicit V2 save represents the user's new template. V2 client is authoritative.
+          effectiveTemplate = r.template!;
+          effectiveExerciseIds = r.exerciseIds;
+        } else {
+          // Legacy payload: reconcile if DB already has a V2 template; otherwise default V2 template.
+          if (existingRoutine?.exerciseTemplate && existingRoutine.exerciseTemplate.version === 2) {
+            effectiveTemplate = reconcileLegacyRoutineTemplate(existingRoutine.exerciseTemplate, r.exerciseIds);
+            effectiveExerciseIds = effectiveTemplate.exercises.map((e) => e.exerciseId);
+          } else {
+            effectiveTemplate = r.template ?? createDefaultRoutineTemplate(r.exerciseIds);
+            effectiveExerciseIds = effectiveTemplate.exercises.map((e) => e.exerciseId);
+          }
+        }
+
         await tx.insert(routines).values({
           id: rUuid,
           userId,
           name: r.name,
           description: r.description,
-          exerciseIds: r.exerciseIds,
-          exerciseTemplate: r.template,
+          exerciseIds: effectiveExerciseIds,
+          exerciseTemplate: effectiveTemplate,
         }).onConflictDoUpdate({
           target: routines.id,
           setWhere: eq(routines.userId, userId),
           set: {
             name: r.name,
             description: r.description,
-            exerciseIds: r.exerciseIds,
-            exerciseTemplate: r.template,
+            exerciseIds: effectiveExerciseIds,
+            exerciseTemplate: effectiveTemplate,
             updatedAt: new Date()
           }
         });
-        routineOwnerById.set(rUuid, userId);
+        existingRoutineById.set(rUuid, { id: rUuid, userId, exerciseTemplate: effectiveTemplate });
       }
 
       for (const rawId of deletedRoutineIds) {
         const databaseId = toDatabaseUuid(rawId);
-        const owner = routineOwnerById.get(databaseId);
+        const owner = existingRoutineById.get(databaseId)?.userId;
         if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
         if (owner) await tx.delete(routines).where(and(eq(routines.id, databaseId), eq(routines.userId, userId)));
-        routineOwnerById.delete(databaseId);
+        existingRoutineById.delete(databaseId);
         acknowledgedDeletedRoutineIds.push(rawId);
       }
 
@@ -156,7 +179,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       if (sessionOwner && sessionOwner !== userId) throw new ApiError(403, 'FORBIDDEN');
       let routineUuid: string | null = null;
       if (requestedRoutineUuid) {
-        const routineOwner = routineOwnerById.get(requestedRoutineUuid);
+        const routineOwner = existingRoutineById.get(requestedRoutineUuid)?.userId;
         if (routineOwner && routineOwner !== userId) throw new ApiError(403, 'ROUTINE_NOT_OWNED');
         // A locally deleted routine may still be referenced by historical
         // sessions. Preserve the session name but never revive the routine.

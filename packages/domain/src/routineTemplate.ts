@@ -103,24 +103,53 @@ export function normalizeRoutineExerciseTemplate(
 
 /**
  * Normalizes a RoutineTemplateV2 structure.
- * If input is invalid or corrupt, gracefully falls back to creating default templates
- * from fallbackExerciseIds if provided, or returns null.
+ *
+ * Uses the legacy compatibility projection (fallbackExerciseIds) to recover
+ * malformed or missing template entries deterministically without dropping exercises.
+ * For a fully valid V2 template, template order remains strictly canonical.
  */
 export function normalizeRoutineTemplate(
   input: unknown,
   fallbackExerciseIds?: readonly string[]
 ): RoutineTemplateV2 | null {
+  const fallbackList = Array.isArray(fallbackExerciseIds)
+    ? fallbackExerciseIds.filter((x): x is string => typeof x === 'string' && Boolean(x.trim())).map((x) => x.trim())
+    : [];
+  const fallbackSet = new Set(fallbackList);
+
   if (input && typeof input === 'object' && !Array.isArray(input)) {
     const candidate = input as Record<string, unknown>;
     if (candidate.version === 2 && Array.isArray(candidate.exercises)) {
       const seenIds = new Set<string>();
       const exercises: RoutineExerciseTemplate[] = [];
+
       for (const ex of candidate.exercises) {
         const normalizedEx = normalizeRoutineExerciseTemplate(ex, seenIds);
         if (normalizedEx) {
           exercises.push(normalizedEx);
+        } else {
+          // If ex was malformed, check if its exerciseId exists in fallbackExerciseIds
+          if (ex && typeof ex === 'object' && !Array.isArray(ex)) {
+            const rawId = (ex as Record<string, unknown>).exerciseId;
+            if (typeof rawId === 'string') {
+              const id = rawId.trim();
+              if (id && fallbackSet.has(id) && !seenIds.has(id)) {
+                seenIds.add(id);
+                exercises.push(createDefaultRoutineExerciseTemplate(id));
+              }
+            }
+          }
         }
       }
+
+      // Recover any exercise from fallbackExerciseIds that was missing or corrupt in template.exercises:
+      for (const fallbackId of fallbackList) {
+        if (!seenIds.has(fallbackId)) {
+          seenIds.add(fallbackId);
+          exercises.push(createDefaultRoutineExerciseTemplate(fallbackId));
+        }
+      }
+
       return {
         version: 2,
         exercises
@@ -128,11 +157,75 @@ export function normalizeRoutineTemplate(
     }
   }
 
-  if (Array.isArray(fallbackExerciseIds)) {
-    return createDefaultRoutineTemplate(fallbackExerciseIds);
+  if (fallbackList.length > 0 || Array.isArray(fallbackExerciseIds)) {
+    return createDefaultRoutineTemplate(fallbackList);
   }
 
   return null;
+}
+
+/**
+ * Reconciles an incoming legacy exerciseIds list with an existing RoutineTemplateV2.
+ *
+ * - incomingExerciseIds order is authoritative for exercise membership and sequence.
+ * - existingTemplate is authoritative for set count, set types, and target weights
+ *   for exercises that still exist in incomingExerciseIds.
+ * - New exercises absent from existingTemplate receive 1 warmup set @ 0 kg.
+ * - Removed exercises (present in existingTemplate but absent in incomingExerciseIds) are omitted.
+ * - Duplicate exercise IDs in incomingExerciseIds are deduplicated deterministically (first occurrence preserved).
+ * - Never mutates input objects.
+ * - If existingTemplate is null/undefined/invalid, creates a default V2 template from incomingExerciseIds.
+ */
+export function reconcileLegacyRoutineTemplate(
+  existingTemplate: RoutineTemplateV2 | null | undefined,
+  incomingExerciseIds: readonly string[]
+): RoutineTemplateV2 {
+  const existingByExerciseId = new Map<string, RoutineExerciseTemplate>();
+  if (existingTemplate && existingTemplate.version === 2 && Array.isArray(existingTemplate.exercises)) {
+    for (const ex of existingTemplate.exercises) {
+      if (ex && typeof ex.exerciseId === 'string' && ex.exerciseId.trim() && Array.isArray(ex.sets)) {
+        const id = ex.exerciseId.trim();
+        if (!existingByExerciseId.has(id)) {
+          const sets: RoutineSetTemplate[] = ex.sets
+            .filter((s): s is RoutineSetTemplate => Boolean(s && isWorkoutSetType(s.setType) && isValidRoutineTargetWeight(s.targetWeightKg)))
+            .map((s) => ({
+              setType: s.setType,
+              targetWeightKg: s.targetWeightKg
+            }));
+          existingByExerciseId.set(id, {
+            exerciseId: id,
+            sets: sets.length > 0 ? sets : [createDefaultRoutineSetTemplate()]
+          });
+        }
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  const exercises: RoutineExerciseTemplate[] = [];
+
+  for (const rawId of incomingExerciseIds) {
+    if (typeof rawId === 'string') {
+      const id = rawId.trim();
+      if (id.length > 0 && !seen.has(id)) {
+        seen.add(id);
+        const existing = existingByExerciseId.get(id);
+        if (existing) {
+          exercises.push({
+            exerciseId: id,
+            sets: existing.sets.map((s) => ({ ...s }))
+          });
+        } else {
+          exercises.push(createDefaultRoutineExerciseTemplate(id));
+        }
+      }
+    }
+  }
+
+  return {
+    version: 2,
+    exercises
+  };
 }
 
 /**

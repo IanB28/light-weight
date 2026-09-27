@@ -421,6 +421,7 @@ test('sync accepts legacy routine and produces effective V2 template', () => {
   assert.equal(normalized.id, 'rot-1');
   assert.equal(normalized.name, 'Upper Body');
   assert.equal(normalized.description, 'Chest & Back');
+  assert.equal(normalized.templateSource, 'legacy');
   assert.deepEqual(normalized.exerciseIds, ['bench-press', 'barbell-row']);
   assert.ok(normalized.template);
   const t1 = normalized.template;
@@ -454,6 +455,7 @@ test('sync accepts valid V2 template and validates strictly', () => {
 
   assert.equal(normalized.id, 'rot-v2');
   assert.equal(normalized.name, 'Leg Day');
+  assert.equal(normalized.templateSource, 'v2');
   assert.deepEqual(normalized.exerciseIds, ['squat']);
   assert.ok(normalized.template);
   const t2 = normalized.template;
@@ -527,14 +529,14 @@ test('sync rejects malformed V2 template with 422 INVALID_ROUTINE_TEMPLATE', () 
     }
   });
 
-  // targetWeightKg > 1500
+  // Infinity weight
   expect422({
     id: 'bad-6',
     name: 'Bad Routine',
     template: {
       version: 2,
       exercises: [
-        { exerciseId: 'squat', sets: [{ setType: 'working', targetWeightKg: 1500.5 }] }
+        { exerciseId: 'squat', sets: [{ setType: 'working', targetWeightKg: Infinity }] }
       ]
     }
   });

@@ -8,6 +8,7 @@ import {
   normalizeRoutine,
   normalizeRoutineSetTemplate,
   normalizeRoutineTemplate,
+  reconcileLegacyRoutineTemplate,
   validateRoutineTemplateV2
 } from './routineTemplate.js';
 import type { Routine, RoutineTemplateV2 } from './types.js';
@@ -258,4 +259,146 @@ test('14. Existing origin/shared attribution preserved during normalization', ()
   assert.deepEqual(normalized.origin, sharedRoutine.origin);
   assert.equal(normalized.template?.version, 2);
   assert.equal(normalized.template?.exercises.length, 2);
+});
+
+test('15. reconcileLegacyRoutineTemplate preserves existing sets, adopts incoming order, defaults new, removes missing', () => {
+  const existingTemplate: RoutineTemplateV2 = {
+    version: 2,
+    exercises: [
+      {
+        exerciseId: 'bench',
+        sets: [
+          { setType: 'warmup', targetWeightKg: 40 },
+          { setType: 'working', targetWeightKg: 80 }
+        ]
+      },
+      {
+        exerciseId: 'row',
+        sets: [
+          { setType: 'working', targetWeightKg: 60 }
+        ]
+      }
+    ]
+  };
+
+  const incomingIds = ['row', 'bench', 'curl'];
+  const reconciled = reconcileLegacyRoutineTemplate(existingTemplate, incomingIds);
+
+  assert.equal(reconciled.version, 2);
+  assert.equal(reconciled.exercises.length, 3);
+
+  // 1. row preserved with existing working 60kg, placed first
+  assert.equal(reconciled.exercises[0].exerciseId, 'row');
+  assert.deepEqual(reconciled.exercises[0].sets, [{ setType: 'working', targetWeightKg: 60 }]);
+
+  // 2. bench preserved with existing warmup 40kg and working 80kg, placed second
+  assert.equal(reconciled.exercises[1].exerciseId, 'bench');
+  assert.deepEqual(reconciled.exercises[1].sets, [
+    { setType: 'warmup', targetWeightKg: 40 },
+    { setType: 'working', targetWeightKg: 80 }
+  ]);
+
+  // 3. curl is new: defaulted to 1 warmup set @ 0 kg, placed third
+  assert.equal(reconciled.exercises[2].exerciseId, 'curl');
+  assert.deepEqual(reconciled.exercises[2].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+});
+
+test('16. reconcileLegacyRoutineTemplate removes exercises omitted by incoming legacy client', () => {
+  const existingTemplate: RoutineTemplateV2 = {
+    version: 2,
+    exercises: [
+      { exerciseId: 'bench', sets: [{ setType: 'working', targetWeightKg: 100 }] },
+      { exerciseId: 'row', sets: [{ setType: 'working', targetWeightKg: 80 }] }
+    ]
+  };
+
+  // Client omitted 'row'
+  const reconciled = reconcileLegacyRoutineTemplate(existingTemplate, ['bench']);
+  assert.equal(reconciled.exercises.length, 1);
+  assert.equal(reconciled.exercises[0].exerciseId, 'bench');
+  assert.deepEqual(reconciled.exercises[0].sets, [{ setType: 'working', targetWeightKg: 100 }]);
+});
+
+test('17. reconcileLegacyRoutineTemplate with null/undefined existingTemplate creates default V2 template', () => {
+  const fromNull = reconcileLegacyRoutineTemplate(null, ['bench', 'squat']);
+  assert.equal(fromNull.version, 2);
+  assert.equal(fromNull.exercises.length, 2);
+  assert.equal(fromNull.exercises[0].exerciseId, 'bench');
+  assert.deepEqual(fromNull.exercises[0].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+  assert.equal(fromNull.exercises[1].exerciseId, 'squat');
+  assert.deepEqual(fromNull.exercises[1].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+
+  const fromUndefined = reconcileLegacyRoutineTemplate(undefined, ['deadlift']);
+  assert.equal(fromUndefined.exercises.length, 1);
+  assert.equal(fromUndefined.exercises[0].exerciseId, 'deadlift');
+});
+
+test('18. reconcileLegacyRoutineTemplate is strictly immutable', () => {
+  const originalSets = [{ setType: 'working' as const, targetWeightKg: 100 }];
+  const existing: RoutineTemplateV2 = {
+    version: 2,
+    exercises: [{ exerciseId: 'bench', sets: originalSets }]
+  };
+
+  const reconciled = reconcileLegacyRoutineTemplate(existing, ['bench']);
+  reconciled.exercises[0].sets[0].targetWeightKg = 999;
+  assert.equal(originalSets[0].targetWeightKg, 100);
+});
+
+test('19. Local corruption must not delete exercises: recovers from exerciseIds projection', () => {
+  // Scenario from prompt:
+  // exerciseIds: ["bench", "row"]
+  // template has valid bench, but malformed row
+  const corruptInput = {
+    id: 'rt-corrupt-1',
+    userId: 'u1',
+    name: 'Push & Pull',
+    exerciseIds: ['bench', 'row'],
+    template: {
+      version: 2,
+      exercises: [
+        {
+          exerciseId: 'bench',
+          sets: [{ setType: 'working', targetWeightKg: 90 }]
+        },
+        // Malformed row: invalid non-object entry or invalid exerciseId
+        null
+      ]
+    }
+  };
+
+  const normalized = normalizeRoutine(corruptInput);
+  assert.ok(normalized);
+  // Row must NOT be silently dropped!
+  assert.deepEqual(normalized.exerciseIds, ['bench', 'row']);
+  assert.ok(normalized.template);
+  assert.equal(normalized.template.exercises.length, 2);
+  assert.equal(normalized.template.exercises[0].exerciseId, 'bench');
+  assert.deepEqual(normalized.template.exercises[0].sets, [{ setType: 'working', targetWeightKg: 90 }]);
+  assert.equal(normalized.template.exercises[1].exerciseId, 'row');
+  assert.deepEqual(normalized.template.exercises[1].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+});
+
+test('20. Local corruption: exercise in exerciseIds absent from template is recovered with default sets', () => {
+  const partialTemplateInput = {
+    id: 'rt-partial-1',
+    userId: 'u1',
+    name: 'Partial Write Recovery',
+    exerciseIds: ['bench', 'row', 'ohp'],
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'bench', sets: [{ setType: 'working', targetWeightKg: 100 }] },
+        { exerciseId: 'row', sets: [{ setType: 'working', targetWeightKg: 70 }] }
+        // ohp was missing from template
+      ]
+    }
+  };
+
+  const normalized = normalizeRoutine(partialTemplateInput);
+  assert.ok(normalized);
+  assert.deepEqual(normalized.exerciseIds, ['bench', 'row', 'ohp']);
+  assert.equal(normalized.template?.exercises.length, 3);
+  assert.equal(normalized.template?.exercises[2].exerciseId, 'ohp');
+  assert.deepEqual(normalized.template?.exercises[2].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
 });
