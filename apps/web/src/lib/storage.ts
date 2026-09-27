@@ -1,6 +1,8 @@
 import {
+  normalizeHistoricalPersonalRecord,
   normalizeLoggedSet,
   normalizeWorkoutSession,
+  type HistoricalPersonalRecord,
   type LegacyWorkoutSession,
   type Routine,
   type WorkoutSession
@@ -20,7 +22,8 @@ export const STORAGE_KEYS = {
   USER_INFO: 'lightweight_user_info',
   DELETED_ROUTINE_IDS: 'lightweight_deleted_routine_ids',
   MACHINE_PROFILES: 'lightweight_machine_profiles',
-  LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles'
+  LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles',
+  HISTORICAL_PERSONAL_RECORDS: 'lightweight_historical_personal_records'
 };
 
 const PRIVATE_STORAGE_KEYS = Object.values(STORAGE_KEYS);
@@ -330,15 +333,26 @@ export function upsertHistoryByStartedAt(history: WorkoutSession[], session: Wor
     });
 }
 
-/** Single local history write boundary for live, imported, and historical sessions. */
+export class StoragePersistenceError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = 'StoragePersistenceError';
+  }
+}
+
+export type StorageOperationResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: Error };
+
+/** Single local history write boundary for live, imported, and historical sessions. Throws StoragePersistenceError on failure. */
 export function upsertStoredHistory(session: WorkoutSession): WorkoutSession[] {
+  const updated = upsertHistoryByStartedAt(getStoredHistory(), session);
   try {
-    const updated = upsertHistoryByStartedAt(getStoredHistory(), session);
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updated));
     return updated;
   } catch (err) {
     console.error('Failed to save workout session to storage:', err);
-    return [];
+    throw new StoragePersistenceError('Failed to save workout session to storage', err);
   }
 }
 
@@ -347,6 +361,53 @@ export function saveStoredHistory(history: WorkoutSession[]): void {
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history.map(normalizeWorkoutSession)));
   } catch (err) {
     console.error('Failed to save history:', err);
+  }
+}
+
+export function normalizeStoredHistoricalPersonalRecords(value: unknown): HistoricalPersonalRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(normalizeHistoricalPersonalRecord)
+    .filter((record): record is HistoricalPersonalRecord => record !== null);
+}
+
+export function getStoredHistoricalPersonalRecords(): HistoricalPersonalRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.HISTORICAL_PERSONAL_RECORDS);
+    if (!raw) return [];
+    return normalizeStoredHistoricalPersonalRecords(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredHistoricalPersonalRecords(records: HistoricalPersonalRecord[]): void {
+  try {
+    const normalized = normalizeStoredHistoricalPersonalRecords(records);
+    localStorage.setItem(STORAGE_KEYS.HISTORICAL_PERSONAL_RECORDS, JSON.stringify(normalized));
+  } catch (err) {
+    console.error('Failed to save historical personal records to storage:', err);
+    throw new StoragePersistenceError('Failed to save historical personal records to storage', err);
+  }
+}
+
+export function upsertStoredHistoricalPersonalRecord(record: HistoricalPersonalRecord): HistoricalPersonalRecord[] {
+  const normalized = normalizeHistoricalPersonalRecord(record);
+  if (!normalized) {
+    throw new StoragePersistenceError('Invalid historical personal record');
+  }
+  const current = getStoredHistoricalPersonalRecords();
+  const filtered = current.filter((item) => item.id !== normalized.id);
+  const updated = [normalized, ...filtered].sort((left, right) => {
+    const chronological = Date.parse(right.performedDate) - Date.parse(left.performedDate);
+    return chronological !== 0 ? chronological : right.recordedAt.localeCompare(left.recordedAt);
+  });
+  try {
+    localStorage.setItem(STORAGE_KEYS.HISTORICAL_PERSONAL_RECORDS, JSON.stringify(updated));
+    return updated;
+  } catch (err) {
+    console.error('Failed to upsert historical personal record to storage:', err);
+    throw new StoragePersistenceError('Failed to upsert historical personal record to storage', err);
   }
 }
 
@@ -397,12 +458,35 @@ export function clearActiveWorkout(adapter: StorageAdapter = browserStorageAdapt
   } catch {}
 }
 
+/**
+ * Normalizes routines by deduplicating entries by their unique routine ID.
+ * Invalid or empty IDs are discarded. When duplicate IDs exist, the latest entry is preserved.
+ * Distinct IDs sharing the same display name are intentionally preserved.
+ */
+export function normalizeStoredRoutines(routines: Routine[]): Routine[] {
+  if (!Array.isArray(routines)) return [];
+  const map = new Map<string, Routine>();
+  for (const routine of routines) {
+    if (routine && typeof routine.id === 'string' && routine.id.trim().length > 0) {
+      map.set(routine.id.trim(), routine);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export function getStoredRoutines(): Routine[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ROUTINES);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    const normalized = normalizeStoredRoutines(parsed as Routine[]);
+    if (parsed.length !== normalized.length) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(normalized));
+      } catch {}
+    }
+    return normalized;
   } catch {
     return [];
   }
@@ -410,7 +494,8 @@ export function getStoredRoutines(): Routine[] {
 
 export function saveStoredRoutines(routines: Routine[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+    const normalized = normalizeStoredRoutines(routines);
+    localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(normalized));
   } catch {}
 }
 

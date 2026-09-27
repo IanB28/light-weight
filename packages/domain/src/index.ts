@@ -1,5 +1,6 @@
 export * from './types.js';
 export * from './onerm.js';
+export * from './oneRmConstants.js';
 export * from './effort.js';
 export * from './progression.js';
 export * from './history.js';

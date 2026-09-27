@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Calendar, Dumbbell, Play, CheckCircle2, ChevronRight, Moon, Flame } from 'lucide-react';
 import { Routine, WorkoutSession } from '@light-weight/domain';
 import { findExerciseById } from '../lib/exercises.js';
+import { useI18n } from '../lib/i18n.js';
 
 interface DayDetailModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ interface DayDetailModalProps {
   onStartFreeWorkout: () => void;
   onAssignRoutine: (routineId: string | null) => void;
   onViewSessionDetail?: (session: WorkoutSession) => void;
-  onRegisterHistorical?: (date: Date) => void;
+  onRegisterHistorical?: (date: Date, routineId?: string) => void;
 }
 
 export const DayDetailModal: React.FC<DayDetailModalProps> = ({
@@ -30,15 +31,20 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
   onViewSessionDetail,
   onRegisterHistorical
 }) => {
+  const { t, locale } = useI18n();
+
   if (!isOpen) return null;
 
-  const dateFormatted = date.toLocaleDateString('es-ES', {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const isPastDay = date.getTime() < startOfToday;
+  const isToday = now.toDateString() === date.toDateString();
+
+  const dateFormatted = date.toLocaleDateString(locale === 'en' ? 'en-US' : 'es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long'
   });
-
-  const isToday = new Date().toDateString() === date.toDateString();
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all animate-in fade-in duration-150">
@@ -59,19 +65,19 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                 </h3>
                 {isToday && (
                   <span className="text-[10px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-accent/20 text-accent border border-accent/30">
-                    Hoy
+                    {t('home.today')}
                   </span>
                 )}
               </div>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Planificación y registro de entrenamiento
+                {t('dayDetail.subtitle')}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar detalle del día"
+            aria-label={t('dayDetail.closeAria')}
             className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
           >
             <X className="w-4 h-4 stroke-[2.2]" />
@@ -80,57 +86,73 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-none py-1">
-          {onRegisterHistorical && date <= new Date() && <button type="button" onClick={() => { onRegisterHistorical(date); onClose(); }} className="w-full rounded-xl border border-border-subtle bg-surface-active px-3 py-2.5 text-sm font-bold text-text-secondary hover:text-text-primary">Registrar entrenamiento pasado</button>}
           {/* Si ya se completó un entrenamiento este día */}
           {completedSessions.length > 0 ? (
-            completedSessions.map((completedSession) => <div key={completedSession.id} className="p-4 rounded-2xl glass-subcard border-accent/30 space-y-3 relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-accent flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-accent" />
-                  Sesión Completada
-                </span>
-                <span className="text-[10px] text-zinc-400 font-mono">
-                  {new Date(completedSession.startedAt).toLocaleTimeString('es-ES', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>
-              </div>
+            <div className="space-y-3">
+              {completedSessions.map((completedSession) => (
+                <div key={completedSession.id} className="p-4 rounded-2xl glass-subcard border-accent/30 space-y-3 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-accent flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-accent" />
+                      {t('dayDetail.sessionCompleted')}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono">
+                      {new Date(completedSession.startedAt).toLocaleTimeString(locale === 'en' ? 'en-US' : 'es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
 
-              <div>
-                <h4 className="text-base font-extrabold text-white">
-                  {completedSession.routineName || 'Entrenamiento Libre'}
-                </h4>
-                <div className="flex flex-wrap gap-1.5 pt-2">
-                  {Object.keys(completedSession.sets).map((exId) => {
-                    const exName = findExerciseById(exId)?.name || exId.replace('ex-', '');
-                    const setsCount = completedSession.sets[exId].filter((s) => s.completed).length;
-                    return (
-                      <span
-                        key={exId}
-                        className="px-2.5 py-1 rounded-lg text-xs bg-black/40 border border-white/[0.06] text-zinc-300 font-mono"
-                      >
-                        {exName}: {setsCount} sets
-                      </span>
-                    );
-                  })}
+                  <div>
+                    <h4 className="text-base font-extrabold text-white">
+                      {completedSession.routineName || t('workout.freeWorkout')}
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5 pt-2">
+                      {Object.keys(completedSession.sets).map((exId) => {
+                        const exName = findExerciseById(exId)?.name || exId.replace('ex-', '');
+                        const setsCount = completedSession.sets[exId].filter((s) => s.completed).length;
+                        return (
+                          <span
+                            key={exId}
+                            className="px-2.5 py-1 rounded-lg text-xs bg-black/40 border border-white/[0.06] text-zinc-300 font-mono"
+                          >
+                            {exName}: {setsCount} {setsCount === 1 ? t('workout.sets').slice(0, -1) : t('workout.sets')}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {onViewSessionDetail && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onViewSessionDetail(completedSession);
+                        onClose();
+                      }}
+                      className="text-xs text-accent font-bold hover:underline flex items-center gap-1 pt-1 cursor-pointer"
+                    >
+                      <span>{t('dayDetail.viewAnalytics')}</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-              </div>
+              ))}
 
-              {onViewSessionDetail && (
+              {onRegisterHistorical && isPastDay && (
                 <button
                   type="button"
                   onClick={() => {
-                    onViewSessionDetail(completedSession);
+                    onRegisterHistorical(date, scheduledRoutine?.id);
                     onClose();
                   }}
-                  className="text-xs text-accent font-bold hover:underline flex items-center gap-1 pt-1"
+                  className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer"
                 >
-                  <span>Ver analíticas completas de esta sesión</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  {t('historical.registerPastSession')}
                 </button>
               )}
-            </div>)
+            </div>
           ) : (
             /* Si NO hay entrenamiento completado */
             <div className="space-y-3">
@@ -138,10 +160,10 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                 <div className="glass-subcard p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-accent">
-                      RUTINA ASIGNADA
+                      {t('dayDetail.assignedRoutine')}
                     </span>
                     <span className="text-xs text-zinc-400 font-mono">
-                      {scheduledRoutine.exerciseIds.length} ejercicios
+                      {scheduledRoutine.exerciseIds.length} {scheduledRoutine.exerciseIds.length === 1 ? t('library.exercise') : t('library.exercises')}
                     </span>
                   </div>
 
@@ -181,18 +203,33 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                     })}
                   </div>
 
-                  {/* Botón Iniciar */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onStartRoutine(scheduledRoutine.id);
-                      onClose();
-                    }}
-                    className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer mt-2"
-                  >
-                    <Play className="w-4 h-4 fill-current stroke-current" />
-                    Iniciar Rutina de este Día
-                  </button>
+                  {/* Botón Iniciar o Registrar Sesión Pasada */}
+                  {isPastDay ? (
+                    onRegisterHistorical && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRegisterHistorical(date, scheduledRoutine.id);
+                          onClose();
+                        }}
+                        className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer mt-2"
+                      >
+                        {t('historical.registerPastSession')}
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onStartRoutine(scheduledRoutine.id);
+                        onClose();
+                      }}
+                      className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer mt-2"
+                    >
+                      <Play className="w-4 h-4 fill-current stroke-current" />
+                      {t('dayDetail.startDayRoutine')}
+                    </button>
+                  )}
                 </div>
               ) : (
                 /* Día de Descanso */
@@ -202,29 +239,46 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                   </div>
                   <div>
                     <h4 className="text-base font-bold text-white">
-                      Día de Descanso Programado
+                      {t('dayDetail.restDayTitle')}
                     </h4>
                     <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
-                      Permite que tus fibras musculares se regeneren. O si lo prefieres, puedes iniciar una sesión libre o asignar una rutina.
+                      {isPastDay
+                        ? t('historical.noWorkoutsOnRestDay')
+                        : t('dayDetail.restDayDescription')}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onStartFreeWorkout();
-                      onClose();
-                    }}
-                    className="px-4 py-2.5 rounded-2xl glass-subcard hover:border-white/20 active:scale-[0.96] text-white font-bold text-xs transition-all cursor-pointer"
-                  >
-                    Entrenar de todos modos (Sesión Libre)
-                  </button>
+                  {isPastDay ? (
+                    onRegisterHistorical && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRegisterHistorical(date);
+                          onClose();
+                        }}
+                        className="w-full py-3 rounded-2xl bg-accent hover:brightness-110 active:scale-[0.97] text-accent-fg font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/20 cursor-pointer mt-2"
+                      >
+                        {t('historical.registerPastSession')}
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onStartFreeWorkout();
+                        onClose();
+                      }}
+                      className="px-4 py-2.5 rounded-2xl glass-subcard hover:border-white/20 active:scale-[0.96] text-white font-bold text-xs transition-all cursor-pointer"
+                    >
+                      {t('dayDetail.trainAnywayFree')}
+                    </button>
+                  )}
                 </div>
               )}
 
               {/* Selector para cambiar la rutina de este día */}
               <div className="pt-2 border-t border-white/[0.06] space-y-2">
                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-                  Cambiar asignación para este día:
+                  {t('dayDetail.changeAssignment')}
                 </label>
                 <div className="grid grid-cols-1 gap-1.5">
                   <button
@@ -236,7 +290,7 @@ export const DayDetailModal: React.FC<DayDetailModalProps> = ({
                         : 'bg-black/30 border-white/[0.06] text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <span>Descanso</span>
+                    <span>{t('routine.rest')}</span>
                     {!scheduledRoutine && <CheckCircle2 className="w-3.5 h-3.5 text-accent" />}
                   </button>
 

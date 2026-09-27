@@ -1,8 +1,9 @@
-import { Routine, WorkoutSession } from '@light-weight/domain';
+import { HistoricalPersonalRecord, Routine, WorkoutSession } from '@light-weight/domain';
 import {
   getStoredBodyweight, getStoredHistory, getStoredRoutines, saveStoredHistory,
   saveStoredBodyweight, saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo,
-  getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds
+  getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds, normalizeStoredRoutines,
+  getStoredHistoricalPersonalRecords, saveStoredHistoricalPersonalRecords, normalizeStoredHistoricalPersonalRecords
 } from './storage.js';
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
 import { apiEndpoint } from './api-base.js';
@@ -21,6 +22,7 @@ interface PullResponse {
   routines?: Array<Partial<Routine>>;
   history?: WorkoutSession[];
   bodyweightLogs?: Array<{ weightKg?: unknown; loggedAt?: unknown }>;
+  historicalPersonalRecords?: HistoricalPersonalRecord[];
 }
 
 type SyncListener = (status: SyncStatus) => void;
@@ -68,10 +70,10 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
       if (Array.isArray(data.routines) && data.routines.length > 0) {
         const local = getStoredRoutines();
         const existing = new Set(local.map((routine) => routine.id));
-        const incoming = excludePendingRoutineTombstones(
+        const incoming = normalizeStoredRoutines(excludePendingRoutineTombstones(
           data.routines.filter((routine): routine is Routine => Boolean(routine.id && routine.name && Array.isArray(routine.exerciseIds))),
           getStoredDeletedRoutineIds()
-        );
+        ));
         // Pull never overwrites local edits, but immutable share attribution is
         // server-authored metadata and can safely repair an older local copy.
         const incomingById = new Map(incoming.map((routine) => [routine.id, routine]));
@@ -95,6 +97,16 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
         });
         const byDate = new Map([...incoming, ...getStoredBodyweight()].map((entry) => [entry.date, entry]));
         saveStoredBodyweight([...byDate.values()].sort((a, b) => a.timestamp - b.timestamp));
+      }
+      if (Array.isArray(data.historicalPersonalRecords) && data.historicalPersonalRecords.length > 0) {
+        const local = getStoredHistoricalPersonalRecords();
+        const existingIds = new Set(local.map((r) => r.id));
+        const incoming = normalizeStoredHistoricalPersonalRecords(data.historicalPersonalRecords);
+        const merged = [...incoming.filter((r) => !existingIds.has(r.id)), ...local].sort((left, right) => {
+          const chronological = Date.parse(right.performedDate) - Date.parse(left.performedDate);
+          return chronological !== 0 ? chronological : right.recordedAt.localeCompare(left.recordedAt);
+        });
+        saveStoredHistoricalPersonalRecords(merged);
       }
 
       notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: data.history?.length || 0 });
@@ -123,7 +135,8 @@ export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }
         sessions: getStoredHistory(),
         routines: getStoredRoutines(),
         deletedRoutineIds: getStoredDeletedRoutineIds(),
-        bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() }))
+        bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() })),
+        historicalPersonalRecords: getStoredHistoricalPersonalRecords()
       };
       const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(apiEndpoint('/api/sync'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)

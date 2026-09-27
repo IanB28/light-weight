@@ -150,7 +150,7 @@ export function SetTable({ session, preferences, onUpdateSet, onUpdateSetRir, on
     {loading.loadMode === 'assisted' && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2"><span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.machineAssistance')}</span><span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-accent">{t('workout.counterweight')}</span></div>}
     <div className="grid grid-cols-12 gap-1 px-1 pb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-muted"><span className="col-span-1">#</span><span className="col-span-4">{loading.loadMode === 'assisted' ? t('workout.assistance') : t('workout.weight')} ({preferences.units === 'imperial' ? 'LB' : 'KG'})</span><span className="col-span-3">{t('workout.reps')}</span><span className="col-span-2 flex items-center justify-center"><RirHeaderButton /></span><span className="col-span-2 flex justify-end pr-2"><Check className="size-3.5 text-accent" /></span></div>
     {sets.map((set) => <SetRow key={set.setIndex} exerciseId={exercise.id} set={set} session={session} loading={loading} usesAddedWeight={usesAddedWeight} weightInputMode={weightInputMode} preferences={preferences} onUpdateSet={onUpdateSet} onUpdateSetRir={onUpdateSetRir} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={onOpenPlates} />)}
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-2 text-xs font-semibold"><OptionPicker value="" options={[{ value: 'working', label: t('workout.workingSet') }, { value: 'warmup', label: t('workout.warmupSet') }, { value: 'drop', label: t('workout.dropSet') }, { value: 'backoff', label: t('workout.backoffSet') }]} onChange={(setType) => onAddSet(exercise.id, setType as WorkoutSetType)} ariaLabel={t('workout.addSetType')} triggerLabel={`+ ${t('workout.addSet')}`} /><Button variant="ghost" size="md" onClick={() => onRemoveSet(exercise.id)} disabled={sets.length <= 1} className="justify-start px-2 text-text-muted hover:text-danger">— {t('workout.removeLastSet')}</Button></div>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-2 text-xs font-semibold"><OptionPicker value="" options={[{ value: 'working', label: t('workout.workingSet') }, { value: 'warmup', label: t('workout.warmupSet') }, { value: 'drop', label: t('workout.dropSet') }, { value: 'backoff', label: t('workout.backoffSet') }]} onChange={(setType) => onAddSet(exercise.id, setType as WorkoutSetType)} ariaLabel={t('workout.addSetType')} triggerLabel={`+ ${t('workout.addSet')}`} /><Button variant="ghost" size="sm" onClick={() => onRemoveSet(exercise.id)} disabled={sets.length <= 1} className="justify-start px-2 text-xs font-normal text-text-muted/80 hover:text-danger">— {t('workout.removeLastSet')}</Button></div>
   </div>;
 }
 
@@ -159,6 +159,7 @@ interface ExerciseSessionCardProps {
   exerciseIndex: number;
   totalExercises: number;
   preferences: AppPreferences;
+  mode?: 'live' | 'historical';
   onViewTechnique: (session: ActiveExerciseSession['exercise']) => void;
   onRemoveExercise: (exerciseId: string) => void;
   onSkipExercise?: (exerciseId: string) => void;
@@ -181,6 +182,7 @@ export function ExerciseSessionCard({
   exerciseIndex,
   totalExercises,
   preferences,
+  mode = 'live',
   onViewTechnique,
   onRemoveExercise,
   onSkipExercise,
@@ -205,6 +207,7 @@ export function ExerciseSessionCard({
   const isPlateMachine = loading.mechanism === 'plate_loaded' || Boolean(loading.hasMachineBase);
   const imgUrl = getExerciseImgUrl(exercise);
   const hasCompletedSets = session.sets.some((set) => set.completed && isValidWorkoutSet(set));
+  const effectiveStartRestTimer = mode === 'historical' ? () => {} : onStartRestTimer;
 
   if (skipped) {
     return (
@@ -228,9 +231,13 @@ export function ExerciseSessionCard({
           </button>
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex min-h-10 items-center justify-between gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-                {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
-              </span>
+              {totalExercises > 1 ? (
+                <span className="text-[11px] font-medium text-text-muted">
+                  {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+                </span>
+              ) : (
+                <span />
+              )}
               <IconButton
                 variant="ghost"
                 size="sm"
@@ -306,11 +313,15 @@ export function ExerciseSessionCard({
         </button>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex min-h-10 items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-              {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
-            </span>
+            {totalExercises > 1 ? (
+              <span className="text-[11px] font-medium text-text-muted">
+                {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+              </span>
+            ) : (
+              <span />
+            )}
             <div className="flex items-center gap-1">
-              {onSkipExercise && !hasCompletedSets && (
+              {mode !== 'historical' && onSkipExercise && !hasCompletedSets && (
                 <IconButton
                   variant="ghost"
                   size="sm"
@@ -393,7 +404,7 @@ export function ExerciseSessionCard({
         onUpdateSet={onUpdateSet}
         onUpdateSetRir={onUpdateSetRir}
         onToggleSet={onToggleSet}
-        onStartRestTimer={onStartRestTimer}
+        onStartRestTimer={effectiveStartRestTimer}
         onOpenPlates={onOpenPlates}
         onAddSet={onAddSet}
         onRemoveSet={onRemoveSet}

@@ -13,7 +13,8 @@ import type {
   WorkoutSession,
   Exercise,
   MuscleGroup,
-  BodyweightEntry
+  BodyweightEntry,
+  HistoricalPersonalRecord
 } from '@light-weight/domain';
 import {
   buildExercisesById,
@@ -36,6 +37,7 @@ export interface ProfileStrengthSectionProps {
   bodyweightKg?: number | null;
   gender?: 'male' | 'female' | null;
   bodyweightEntries?: BodyweightEntry[];
+  historicalPersonalRecords?: HistoricalPersonalRecord[];
   onConfigureGender?: () => void;
   onConfigureBodyweight?: () => void;
 }
@@ -46,6 +48,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
   bodyweightKg,
   gender,
   bodyweightEntries = [],
+  historicalPersonalRecords = [],
   onConfigureGender,
   onConfigureBodyweight
 }) => {
@@ -60,9 +63,10 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
     return selectStrengthSnapshot(history, exercisesById, {
       bodyweightKg: bodyweightKg ?? null,
       gender: gender ?? undefined,
-      bodyweightEntries
+      bodyweightEntries,
+      historicalPersonalRecords
     });
-  }, [history, exercisesById, bodyweightKg, gender, bodyweightEntries]);
+  }, [history, exercisesById, bodyweightKg, gender, bodyweightEntries, historicalPersonalRecords]);
 
   const overall = strengthSnapshot.overall;
   const overallVisual = overall ? getStrengthRankVisual(overall.rank) : null;

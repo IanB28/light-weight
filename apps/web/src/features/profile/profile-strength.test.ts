@@ -367,7 +367,7 @@ test('ProfileView: Personal Records renders compact horizontal 4-zone row [thumb
   // Zone 3: Fixed rank badge slot with strength rank badge
   assert.ok(html.includes('data-testid="pr-rank-slot"'), 'Each PR row must include fixed rank slot');
   assert.ok(html.includes('w-7 shrink-0'), 'Rank slot must have fixed w-7 shrink-0 geometry');
-  assert.ok(html.includes('/ranks/maestro.png') || html.includes('Maestro'), 'Bench press at 100x5 (80kg male) must render calculated strength rank badge');
+  assert.ok(html.includes('/ranks/elite.png') || html.includes('Élite') || html.includes('/ranks/maestro.png') || html.includes('Maestro'), 'Bench press at 100x5 (80kg male) must render calculated strength rank badge');
   // Zone 4: Formatted PR weight in right zone
   assert.ok(html.includes('data-testid="pr-weight-slot"'), 'Each PR row must include fixed PR weight slot');
   assert.ok(html.includes('w-20 shrink-0 text-right'), 'PR weight slot must have fixed/stable width with text-right');

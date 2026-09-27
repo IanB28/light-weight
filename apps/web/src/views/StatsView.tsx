@@ -30,7 +30,8 @@ import {
   type Gender,
   type WorkoutSession,
   type Exercise,
-  type MuscleGroup
+  type MuscleGroup,
+  type HistoricalPersonalRecord
 } from '@light-weight/domain';
 import { type UserProfile, type BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from '../components/charts/LineChart.js';
@@ -67,6 +68,7 @@ import {
 interface StatsViewProps {
   history?: WorkoutSession[];
   exercises?: Exercise[];
+  historicalPersonalRecords?: HistoricalPersonalRecord[];
   isWorkoutActive?: boolean;
   activeWorkoutDuration?: string;
   onNavigateToWorkout?: () => void;
@@ -96,6 +98,7 @@ const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
 export const StatsView: React.FC<StatsViewProps> = ({
   history = [],
   exercises = [],
+  historicalPersonalRecords = [],
   isWorkoutActive = false,
   activeWorkoutDuration = '00:00',
   onNavigateToWorkout,
@@ -145,8 +148,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   // Exercise lookup dictionary
   const statsSnapshot = useMemo(
-    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries),
-    [history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries]
+    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries, historicalPersonalRecords),
+    [history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries, historicalPersonalRecords]
   );
   const exercisesById = statsSnapshot.exercisesById;
 

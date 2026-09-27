@@ -7,11 +7,9 @@ export interface SetOneRmOptions {
   formula?: OneRmFormula | 'average';
 }
 
-/**
- * Above 12 reps, an estimate says more about work capacity/aerobic endurance than
- * about maximal strength. In openGym, refusing to guess above 12 beats printing a fantasy.
- */
-export const REP_CAP = 12;
+import { REP_CAP } from './oneRmConstants.js';
+
+export { REP_CAP };
 
 export const FORMULAS: Record<OneRmFormula, (w: number, r: number) => number> = {
   // Epley 1985 — w * (1 + r / 30)
@@ -96,6 +94,26 @@ export function calculateSetOneRm(
     return est.average > 0 ? est.average : null;
   }
   return estimate1RM(effectiveLoad, set.reps, options?.formula ?? DEFAULT_FORMULA);
+}
+
+/**
+ * Canonical helper for athlete-facing strength 1RM evaluation.
+ * Evaluates the mechanical effective load using the 3-formula calculator average.
+ *
+ * Invariants:
+ * - For reps === 1: collapses directly to the exact mechanical effective load.
+ * - For reps 2..12: returns the exact 3-formula calculator average (no Epley divergence).
+ * - For reps > 12 or effective load <= 0: returns null.
+ */
+export function calculateCanonicalStrengthOneRm(
+  set: Pick<LoggedSet, 'weightKg' | 'reps'>,
+  options?: Pick<SetOneRmOptions, 'exercise' | 'bodyweightKg'>
+): number | null {
+  return calculateSetOneRm(set, {
+    exercise: options?.exercise,
+    bodyweightKg: options?.bodyweightKg,
+    formula: 'average'
+  });
 }
 
 /**

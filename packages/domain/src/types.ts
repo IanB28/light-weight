@@ -147,6 +147,22 @@ export interface WorkoutSession {
   sets: Record<string, LoggedSet[]>; // Keyed by exerciseId
 }
 
+export interface HistoricalPersonalRecord {
+  id: string;
+  userId: string;
+  exerciseId: string;
+  /** Local calendar date on which the physical training occurred (YYYY-MM-DD). */
+  performedDate: string;
+  /** Instant the record was created in the application. */
+  recordedAt: string;
+  /** Immutable bodyweight snapshot in kg at performedDate. */
+  bodyweightKg: number;
+  /** The single physical set achieved. */
+  set: LoggedSet;
+  /** Provenance marker. */
+  source: 'historical_manual';
+}
+
 export interface Routine {
   id: string;
   userId: string;

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, UsersRound, X } from 'lucide-react';
-import type { BodyweightEntry, Exercise, WorkoutSession } from '@light-weight/domain';
+import type { BodyweightEntry, Exercise, HistoricalPersonalRecord, WorkoutSession } from '@light-weight/domain';
 import type { AuthStatus } from '../../lib/auth-session-state.js';
 import type { AuthUser } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
@@ -24,6 +24,7 @@ interface ProfileScreenProps {
   isAuthenticated: boolean;
   bodyweightKg?: number | null;
   bodyweightEntries?: BodyweightEntry[];
+  historicalPersonalRecords?: HistoricalPersonalRecord[];
   onSave: (profile: UserProfile) => void | string | Promise<void | string>;
   onUploadAvatar: (avatar: Blob) => Promise<OperationResult<AuthUser>>;
   avatarUploadAvailable: boolean;
@@ -40,6 +41,7 @@ export function ProfileScreen({
   isAuthenticated,
   bodyweightKg,
   bodyweightEntries,
+  historicalPersonalRecords,
   onSave,
   onUploadAvatar,
   avatarUploadAvailable,
@@ -105,6 +107,7 @@ export function ProfileScreen({
             exercises={exercises}
             bodyweightKg={bodyweightKg}
             bodyweightEntries={bodyweightEntries}
+            historicalPersonalRecords={historicalPersonalRecords}
             onSave={onSave}
             onUploadAvatar={onUploadAvatar}
             avatarUploadAvailable={avatarUploadAvailable}

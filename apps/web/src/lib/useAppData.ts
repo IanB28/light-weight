@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Exercise, Routine, WorkoutSession } from '@light-weight/domain';
+import type { Exercise, HistoricalPersonalRecord, Routine, WorkoutSession } from '@light-weight/domain';
 import { loadExerciseCatalog } from './exercises.js';
 import {
   getStoredBodyweight,
+  getStoredHistoricalPersonalRecords,
   getStoredHistory,
   getStoredProfile,
   getStoredRoutines,
@@ -16,12 +17,14 @@ import {
   saveStoredRoutines,
   saveStoredTargetWeight,
   saveStoredWeeklySchedule,
+  upsertStoredHistoricalPersonalRecord,
   upsertStoredHistory,
   storedUserScopeMatches,
   type BodyweightEntry,
   type UserProfile,
   type UserInfo,
-  type WeeklySchedule
+  type WeeklySchedule,
+  type StorageOperationResult
 } from './storage.js';
 import { useCloudSync } from './useCloudSync.js';
 import { useAuth } from './auth-context.js';
@@ -37,6 +40,7 @@ export function useAppData() {
   const [targetWeight, setTargetWeight] = useState<number | null>(() => getStoredTargetWeight());
   const [userInfo, setUserInfo] = useState<UserInfo>(() => getStoredUserInfo());
   const [profile, setProfile] = useState<UserProfile>(() => getStoredProfile());
+  const [historicalPersonalRecords, setHistoricalPersonalRecords] = useState<HistoricalPersonalRecord[]>(() => getStoredHistoricalPersonalRecords());
 
   const reloadFromStorage = useCallback(() => {
     setHistory(getStoredHistory());
@@ -46,6 +50,7 @@ export function useAppData() {
     setTargetWeight(getStoredTargetWeight());
     setUserInfo(getStoredUserInfo());
     setProfile(getStoredProfile());
+    setHistoricalPersonalRecords(getStoredHistoricalPersonalRecords());
   }, []);
   const sync = useCloudSync(reloadFromStorage, auth.isAuthenticated && storedUserScopeMatches(auth.user?.id || null));
 
@@ -106,11 +111,31 @@ export function useAppData() {
   }, [sync]);
 
   /** Shared offline-first history write used by live and historical entry flows. */
-  const saveHistorySession = useCallback((session: WorkoutSession) => {
-    const updated = upsertStoredHistory(session);
-    setHistory(updated);
-    void sync();
-    return updated;
+  const saveHistorySession = useCallback((session: WorkoutSession): StorageOperationResult<WorkoutSession[]> => {
+    try {
+      const updated = upsertStoredHistory(session);
+      setHistory(updated);
+      void sync();
+      return { ok: true, data: updated };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Failed to persist workout session to local storage:', error);
+      return { ok: false, error };
+    }
+  }, [sync]);
+
+  /** Shared offline-first manual historical PR write boundary. */
+  const saveHistoricalPersonalRecord = useCallback((record: HistoricalPersonalRecord): StorageOperationResult<HistoricalPersonalRecord[]> => {
+    try {
+      const updated = upsertStoredHistoricalPersonalRecord(record);
+      setHistoricalPersonalRecords(updated);
+      void sync();
+      return { ok: true, data: updated };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Failed to persist historical personal record to local storage:', error);
+      return { ok: false, error };
+    }
   }, [sync]);
 
   const deleteRoutine = useCallback((routineId: string) => {
@@ -145,6 +170,7 @@ export function useAppData() {
     catalogStatus,
     routines,
     history,
+    historicalPersonalRecords,
     weeklySchedule,
     bodyweightEntries,
     targetWeight,
@@ -159,6 +185,7 @@ export function useAppData() {
     saveTargetWeight,
     saveRoutine,
     saveHistorySession,
+    saveHistoricalPersonalRecord,
     deleteRoutine,
     saveProfile,
     addCustomExercise
