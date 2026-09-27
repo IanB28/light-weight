@@ -90,13 +90,53 @@ export function isValidHistoricalDuration(durationText?: string): boolean {
   return Number.isInteger(num) && num > 0 && num <= 1_440;
 }
 
-function createLocalInstant(dateKey: string, time: string): Date {
+/**
+ * Translates a performedDate and performedTime into the physical workout instant Date.
+ * Uses local timezone semantics.
+ */
+export function createHistoricalWorkoutInstant(dateKey: string, time: string): Date {
   if (!isValidWorkoutDateKey(dateKey) || !isValidPerformedTime(time)) {
     throw new HistoricalWorkoutValidationError('invalid_time');
   }
   const local = new Date(`${dateKey}T${time}:00`);
   if (!Number.isFinite(local.getTime())) throw new HistoricalWorkoutValidationError('invalid_time');
   return local;
+}
+
+const createLocalInstant = createHistoricalWorkoutInstant;
+
+/**
+ * Resolves the historical workout cutoff timestamp in milliseconds.
+ *
+ * - When performedDate is valid and performedTime is valid:
+ *   exact physical workout instant (candidate sessions must be strictly before this instant).
+ * - When performedDate is valid but performedTime is empty/invalid:
+ *   conservative cutoff at local start of day (00:00:00), allowing only workouts
+ *   from strictly earlier calendar dates (never same-day or future workouts).
+ * - When performedDate is invalid/empty:
+ *   undefined (no historical cutoff).
+ */
+export function resolveHistoricalWorkoutCutoff(
+  performedDate?: string,
+  performedTime?: string
+): number | undefined {
+  if (!performedDate || !isValidWorkoutDateKey(performedDate)) {
+    return undefined;
+  }
+  if (performedTime && isValidPerformedTime(performedTime)) {
+    try {
+      const instant = createHistoricalWorkoutInstant(performedDate, performedTime);
+      return instant.getTime();
+    } catch {
+      // fallback to conservative start of day
+    }
+  }
+  try {
+    const startOfDay = createHistoricalWorkoutInstant(performedDate, '00:00');
+    return startOfDay.getTime();
+  } catch {
+    return undefined;
+  }
 }
 
 export function createHistoricalWorkoutSession(draft: HistoricalWorkoutDraft, recordedAt = new Date()): WorkoutSession {

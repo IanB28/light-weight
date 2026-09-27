@@ -16,6 +16,7 @@ export interface GetPreviousRoutineExercisePerformanceOptions {
   routine: Routine;
   exerciseId: string;
   currentRoutines?: readonly Routine[];
+  beforeTimestamp?: number;
 }
 
 export interface BuildRoutineExerciseSessionsOptions {
@@ -23,6 +24,7 @@ export interface BuildRoutineExerciseSessionsOptions {
   exercisesById: Record<string, Exercise>;
   history?: readonly WorkoutSession[];
   routines?: readonly Routine[];
+  beforeTimestamp?: number;
   createBaseExerciseSession: (exercise: Exercise) => ActiveExerciseSession;
 }
 
@@ -46,10 +48,11 @@ export function getSessionChronologicalTimestamp(session: WorkoutSession): numbe
  * Checks whether a historical session belongs to a target routine.
  *
  * Rules:
- * 1. Primary: exact routineId match.
+ * 1. Primary: exact routineId match (works whether currentRoutines is supplied or not).
  * 2. Conservative legacy fallback (only if session.routineId is absent/empty):
- *    Matches if session.routineName === routine.name AND exactly one current routine
- *    has that name (unambiguous). If multiple routines share the name, fallback is disabled.
+ *    Matches if session.routineName === routine.name AND currentRoutines is provided
+ *    AND exactly one current routine has that name (unambiguous).
+ *    If currentRoutines is undefined, empty, or has duplicate names, returns false.
  */
 export function doesSessionMatchRoutine(
   session: WorkoutSession,
@@ -69,7 +72,7 @@ export function doesSessionMatchRoutine(
       const matchCount = currentRoutines.filter((r) => r.name === targetRoutine.name).length;
       return matchCount === 1;
     }
-    return true;
+    return false;
   }
 
   return false;
@@ -145,7 +148,7 @@ export function hydrateSetsFromRoutineTemplate(routine: Routine, exerciseId: str
 export function getPreviousRoutineExercisePerformance(
   options: GetPreviousRoutineExercisePerformanceOptions
 ): LoggedSet[] | null {
-  const { history, routine, exerciseId, currentRoutines } = options;
+  const { history, routine, exerciseId, currentRoutines, beforeTimestamp } = options;
   if (!routine || !exerciseId || !Array.isArray(history) || history.length === 0) {
     return null;
   }
@@ -169,6 +172,13 @@ export function getPreviousRoutineExercisePerformance(
 
     if (!doesSessionMatchRoutine(session, routine, currentRoutines)) {
       continue;
+    }
+
+    if (beforeTimestamp !== undefined) {
+      const sessionTimestamp = getSessionChronologicalTimestamp(session);
+      if (sessionTimestamp >= beforeTimestamp) {
+        continue;
+      }
     }
 
     const exerciseSets = session.sets[exerciseId];
@@ -201,7 +211,7 @@ export function getPreviousRoutineExercisePerformance(
  *
  * Resolves each routine exercise using:
  * 1. Base exercise session (machine context, plate baseline, UI records)
- * 2. Priority 1: Previous valid performance in that specific routine
+ * 2. Priority 1: Previous valid performance in that specific routine (bounded by optional beforeTimestamp)
  * 3. Priority 2: RoutineTemplateV2 fallback
  * 4. Priority 3: Canonical default fallback
  */
@@ -222,6 +232,7 @@ export function buildRoutineExerciseSessions(
   let exercisesById: Record<string, Exercise>;
   let history: readonly WorkoutSession[] | undefined;
   let routines: readonly Routine[] | undefined;
+  let beforeTimestamp: number | undefined;
   let createBaseSession: (exercise: Exercise) => ActiveExerciseSession;
 
   if ('routine' in routineOrOptions && 'createBaseExerciseSession' in routineOrOptions) {
@@ -229,6 +240,7 @@ export function buildRoutineExerciseSessions(
     exercisesById = routineOrOptions.exercisesById;
     history = routineOrOptions.history;
     routines = routineOrOptions.routines;
+    beforeTimestamp = routineOrOptions.beforeTimestamp;
     createBaseSession = routineOrOptions.createBaseExerciseSession;
   } else {
     routine = routineOrOptions;
@@ -251,7 +263,8 @@ export function buildRoutineExerciseSessions(
           history,
           routine,
           exerciseId: exercise.id,
-          currentRoutines: routines
+          currentRoutines: routines,
+          beforeTimestamp
         });
 
         if (previousSets && previousSets.length > 0) {

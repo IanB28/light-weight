@@ -28,7 +28,7 @@ export function validateHistoricalSetup({
   return { isValid: Object.keys(errors).length === 0, errors };
 }
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarPlus, ChevronRight, Dumbbell, Plus, X, AlertTriangle } from 'lucide-react';
 import {
   DEFAULT_EXERCISE_LOADING_PROFILE,
@@ -69,6 +69,7 @@ import {
   isStrictlyPastDateKey,
   isValidPerformedTime,
   isValidHistoricalDuration,
+  resolveHistoricalWorkoutCutoff,
   HistoricalWorkoutValidationError
 } from '../features/workouts/historical-workout.js';
 
@@ -170,11 +171,13 @@ export function HistoricalWorkoutModal({
       if (routine) {
         setRoutineId(routine.id);
         setRoutineName(routine.name);
+        const beforeTimestamp = resolveHistoricalWorkoutCutoff(initialKey, initialTime || '');
         const sessions = buildRoutineExerciseSessions({
           routine,
           exercisesById,
           history,
           routines,
+          beforeTimestamp,
           createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
         });
         setExerciseSessions(sessions);
@@ -192,6 +195,22 @@ export function HistoricalWorkoutModal({
     setExerciseSessions([]);
   }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences, history]);
 
+  const recalculateRoutinePrefill = useCallback((targetRoutineId: string, date: string, time: string) => {
+    if (!targetRoutineId) return;
+    const routine = routines.find((r) => r.id === targetRoutineId);
+    if (!routine) return;
+    const beforeTimestamp = resolveHistoricalWorkoutCutoff(date, time);
+    const sessions = buildRoutineExerciseSessions({
+      routine,
+      exercisesById,
+      history,
+      routines,
+      beforeTimestamp,
+      createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+    });
+    setExerciseSessions(sessions);
+  }, [routines, exercisesById, history, historyIndex, preferences]);
+
   const routinePickerOptions = useMemo(() => {
     return buildRoutinePickerOptions(routines, {
       emptyLabel: t('historical.noRoutine'),
@@ -206,11 +225,13 @@ export function HistoricalWorkoutModal({
       const routine = routines.find((r) => r.id === selectedId);
       if (routine) {
         setRoutineName(routine.name);
+        const beforeTimestamp = resolveHistoricalWorkoutCutoff(performedDate, performedTime);
         const sessions = buildRoutineExerciseSessions({
           routine,
           exercisesById,
           history,
           routines,
+          beforeTimestamp,
           createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
         });
         setExerciseSessions(sessions);
@@ -496,8 +517,12 @@ export function HistoricalWorkoutModal({
                       max={getLatestHistoricalDateKey()}
                       value={performedDate}
                       onChange={(e) => {
-                        setPerformedDate(e.target.value);
+                        const newDate = e.target.value;
+                        setPerformedDate(newDate);
                         if (setupErrors.performedDate) setSetupErrors((prev) => ({ ...prev, performedDate: undefined }));
+                        if (!editorDirty && routineId) {
+                          recalculateRoutinePrefill(routineId, newDate, performedTime);
+                        }
                       }}
                       className={`h-11 w-full rounded-ui-lg border bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 ${
                         setupErrors.performedDate ? 'border-danger focus:ring-danger' : 'border-border-subtle focus:ring-accent'
@@ -518,8 +543,12 @@ export function HistoricalWorkoutModal({
                       type="time"
                       value={performedTime}
                       onChange={(e) => {
-                        setPerformedTime(e.target.value);
+                        const newTime = e.target.value;
+                        setPerformedTime(newTime);
                         if (setupErrors.performedTime) setSetupErrors((prev) => ({ ...prev, performedTime: undefined }));
+                        if (!editorDirty && routineId) {
+                          recalculateRoutinePrefill(routineId, performedDate, newTime);
+                        }
                       }}
                       className={`h-11 w-full rounded-ui-lg border bg-surface-input px-3 text-text-primary focus:outline-none focus:ring-2 ${
                         setupErrors.performedTime ? 'border-danger focus:ring-danger' : 'border-border-subtle focus:ring-accent'

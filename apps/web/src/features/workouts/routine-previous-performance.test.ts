@@ -14,6 +14,10 @@ import {
   hydrateSetsFromRoutineTemplate,
   buildRoutineExerciseSessions
 } from './routine-previous-performance.js';
+import {
+  createHistoricalWorkoutInstant,
+  resolveHistoricalWorkoutCutoff
+} from './historical-workout.js';
 import type { ActiveExerciseSession } from './types.js';
 import { getStoredActiveWorkout, saveActiveWorkout } from '../../lib/storage.js';
 import type { StorageAdapter } from '../../lib/storage-adapter.js';
@@ -995,5 +999,350 @@ test('Active Workout Matrix 7: refresh after user modifications preserves draft 
 
   assert.equal(normalizedRestored[0].sets[0].weightKg, 82.5, 'User modified load must be preserved after reload');
   assert.equal(normalizedRestored[0].sets[0].reps, 9, 'User modified reps must be preserved after reload');
+});
+
+// ==========================================
+// BLOCK 19.8B1: HISTORICAL TIME-BOUND HARDENING TESTS
+// ==========================================
+
+test('19.8B1 Test 13: historical future exclusion (Sep 20 85kg excluded for Sep 15 target)', () => {
+  const routine: Routine = { id: 'routine-push', userId: 'u1', name: 'Push Day', exerciseIds: ['ex-bench'] };
+  const history: WorkoutSession[] = [
+    {
+      id: 'ws-sep-20',
+      userId: 'u1',
+      routineId: 'routine-push',
+      routineName: 'Push Day',
+      startedAt: createHistoricalWorkoutInstant('2026-09-20', '10:00').toISOString(),
+      performedDate: '2026-09-20',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 85, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    },
+    {
+      id: 'ws-sep-10',
+      userId: 'u1',
+      routineId: 'routine-push',
+      routineName: 'Push Day',
+      startedAt: createHistoricalWorkoutInstant('2026-09-10', '10:00').toISOString(),
+      performedDate: '2026-09-10',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 70, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    }
+  ];
+
+  const cutoffSep15 = resolveHistoricalWorkoutCutoff('2026-09-15', '14:00');
+  const result = getPreviousRoutineExercisePerformance({
+    history,
+    routine,
+    exerciseId: 'ex-bench',
+    beforeTimestamp: cutoffSep15
+  });
+
+  assert.ok(result);
+  assert.equal(result[0].weightKg, 70, 'Must select Sep 10 70kg, strictly excluding Sep 20 future performance');
+});
+
+test('19.8B1 Test 14: same day time boundary (Sep 15 18:00 excluded for Sep 15 14:00 target)', () => {
+  const routine: Routine = { id: 'routine-push', userId: 'u1', name: 'Push Day', exerciseIds: ['ex-bench'] };
+  const history: WorkoutSession[] = [
+    {
+      id: 'ws-sep-15-evening',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: createHistoricalWorkoutInstant('2026-09-15', '18:00').toISOString(),
+      performedDate: '2026-09-15',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 90, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    },
+    {
+      id: 'ws-sep-15-morning',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: createHistoricalWorkoutInstant('2026-09-15', '10:00').toISOString(),
+      performedDate: '2026-09-15',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 70, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    }
+  ];
+
+  const targetCutoff = resolveHistoricalWorkoutCutoff('2026-09-15', '14:00');
+  const result = getPreviousRoutineExercisePerformance({
+    history,
+    routine,
+    exerciseId: 'ex-bench',
+    beforeTimestamp: targetCutoff
+  });
+
+  assert.ok(result);
+  assert.equal(result[0].weightKg, 70, 'Morning 10:00 (70kg) qualifies; evening 18:00 (90kg) must be excluded');
+});
+
+test('19.8B1 Test 15: historical session recorded later qualifies by physical chronology', () => {
+  const routine: Routine = { id: 'routine-push', userId: 'u1', name: 'Push Day', exerciseIds: ['ex-bench'] };
+  const history: WorkoutSession[] = [
+    {
+      id: 'ws-sep-10-recorded-late',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: createHistoricalWorkoutInstant('2026-09-10', '10:00').toISOString(),
+      performedDate: '2026-09-10',
+      recordedAt: '2026-09-26T22:00:00.000Z', // Recorded much later
+      entrySource: 'historical_manual',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 70, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    }
+  ];
+
+  const targetCutoff = resolveHistoricalWorkoutCutoff('2026-09-15', '14:00');
+  const result = getPreviousRoutineExercisePerformance({
+    history,
+    routine,
+    exerciseId: 'ex-bench',
+    beforeTimestamp: targetCutoff
+  });
+
+  assert.ok(result, 'Session physically performed Sep 10 must qualify for Sep 15 target despite recordedAt on Sep 26');
+  assert.equal(result[0].weightKg, 70);
+});
+
+test('19.8B1 Test 16: no time yet applies conservative start-of-day cutoff', () => {
+  const routine: Routine = { id: 'routine-push', userId: 'u1', name: 'Push Day', exerciseIds: ['ex-bench'] };
+  const history: WorkoutSession[] = [
+    {
+      id: 'ws-sep-15-morning',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: createHistoricalWorkoutInstant('2026-09-15', '08:00').toISOString(),
+      performedDate: '2026-09-15',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 80, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    },
+    {
+      id: 'ws-sep-14',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: createHistoricalWorkoutInstant('2026-09-14', '18:00').toISOString(),
+      performedDate: '2026-09-14',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 70, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    }
+  ];
+
+  // Target date is Sep 15, but performedTime is empty
+  const conservativeCutoff = resolveHistoricalWorkoutCutoff('2026-09-15', '');
+  const result = getPreviousRoutineExercisePerformance({
+    history,
+    routine,
+    exerciseId: 'ex-bench',
+    beforeTimestamp: conservativeCutoff
+  });
+
+  assert.ok(result);
+  assert.equal(result[0].weightKg, 70, 'When time is unknown, same-day 08:00 must be excluded; only prior calendar day (Sep 14, 70kg) qualifies');
+});
+
+test('19.8B1 Test 17: live workout start has no cutoff and selects latest historical performance', () => {
+  const routine: Routine = { id: 'routine-push', userId: 'u1', name: 'Push Day', exerciseIds: ['ex-bench'] };
+  const history: WorkoutSession[] = [
+    {
+      id: 'ws-sep-20',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: '2026-09-20T10:00:00.000Z',
+      performedDate: '2026-09-20',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 80, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    },
+    {
+      id: 'ws-sep-25',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: '2026-09-25T10:00:00.000Z',
+      performedDate: '2026-09-25',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 85, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    }
+  ];
+
+  // Live workout starts on Sep 27 with NO cutoff (beforeTimestamp is undefined)
+  const result = getPreviousRoutineExercisePerformance({
+    history,
+    routine,
+    exerciseId: 'ex-bench'
+  });
+
+  assert.ok(result);
+  assert.equal(result[0].weightKg, 85, 'Live routine start must receive latest performance (85kg from Sep 25)');
+});
+
+test('19.8B1 Test 18: dirty historical draft is not overwritten on date/time change', () => {
+  const routine: Routine = { id: 'routine-push', userId: 'u1', name: 'Push Day', exerciseIds: ['ex-bench'] };
+  const history: WorkoutSession[] = [
+    {
+      id: 'ws-sep-10',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: createHistoricalWorkoutInstant('2026-09-10', '10:00').toISOString(),
+      performedDate: '2026-09-10',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 70, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    },
+    {
+      id: 'ws-sep-20',
+      userId: 'u1',
+      routineId: 'routine-push',
+      startedAt: createHistoricalWorkoutInstant('2026-09-20', '10:00').toISOString(),
+      performedDate: '2026-09-20',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 85, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    }
+  ];
+
+  // 1. Initial prefill for Sep 15 target
+  const cutoffSep15 = resolveHistoricalWorkoutCutoff('2026-09-15', '10:00');
+  const initialSessions = buildRoutineExerciseSessions({
+    routine,
+    exercisesById: mockExercisesById,
+    history,
+    routines: [routine],
+    beforeTimestamp: cutoffSep15,
+    createBaseExerciseSession: dummyBaseCreator
+  });
+
+  assert.equal(initialSessions[0].sets[0].weightKg, 70);
+  assert.equal(initialSessions[0].sets[0].reps, 8);
+
+  // 2. User edits draft sets in editor
+  initialSessions[0].sets[0].weightKg = 75;
+  initialSessions[0].sets[0].reps = 9;
+  let editorDirty = true;
+
+  // 3. User goes back and changes date to Sep 22
+  const newDate = '2026-09-22';
+  const newTime = '10:00';
+  let activeSessions = initialSessions;
+
+  // Protected draft guard: if editorDirty is true, prefill is NOT recalculated
+  if (!editorDirty) {
+    const cutoffSep22 = resolveHistoricalWorkoutCutoff(newDate, newTime);
+    activeSessions = buildRoutineExerciseSessions({
+      routine,
+      exercisesById: mockExercisesById,
+      history,
+      routines: [routine],
+      beforeTimestamp: cutoffSep22,
+      createBaseExerciseSession: dummyBaseCreator
+    });
+  }
+
+  assert.equal(activeSessions[0].sets[0].weightKg, 75, 'User edited weight (75kg) must not be overwritten');
+  assert.equal(activeSessions[0].sets[0].reps, 9, 'User edited reps (9) must not be overwritten');
+});
+
+test('19.8B1 Test 19: legacy fallback requires currentRoutines and unique match', () => {
+  const routine: Routine = { id: 'routine-push-1', userId: 'u1', name: 'Push', exerciseIds: ['ex-bench'] };
+  const duplicateRoutine: Routine = { id: 'routine-push-2', userId: 'u1', name: 'Push', exerciseIds: ['ex-bench'] };
+
+  const legacySession: WorkoutSession = {
+    id: 'ws-legacy-push',
+    userId: 'u1',
+    // routineId is absent!
+    routineName: 'Push',
+    startedAt: '2026-09-20T10:00:00.000Z',
+    sets: {
+      'ex-bench': [{ setIndex: 1, weightKg: 75, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+    }
+  };
+
+  // Case A: Call WITHOUT currentRoutines -> MUST NOT match
+  const matchWithoutRoutines = doesSessionMatchRoutine(legacySession, routine, undefined);
+  assert.equal(matchWithoutRoutines, false, 'Legacy session without routineId must not match when currentRoutines is omitted');
+
+  const resultWithoutRoutines = getPreviousRoutineExercisePerformance({
+    history: [legacySession],
+    routine,
+    exerciseId: 'ex-bench'
+    // currentRoutines omitted
+  });
+  assert.equal(resultWithoutRoutines, null, 'Selector must return null when currentRoutines is omitted for legacy session');
+
+  // Case B: Call with currentRoutines = [one unique Push routine] -> MUST match
+  const matchWithUnique = doesSessionMatchRoutine(legacySession, routine, [routine]);
+  assert.equal(matchWithUnique, true, 'Legacy session must match when currentRoutines contains exactly one matching routine');
+
+  const resultWithUnique = getPreviousRoutineExercisePerformance({
+    history: [legacySession],
+    routine,
+    exerciseId: 'ex-bench',
+    currentRoutines: [routine]
+  });
+  assert.ok(resultWithUnique, 'Selector must find performance when routine name is unique');
+  assert.equal(resultWithUnique[0].weightKg, 75);
+
+  // Case C: Call with two different routines named "Push" -> MUST NOT match
+  const matchWithDuplicates = doesSessionMatchRoutine(legacySession, routine, [routine, duplicateRoutine]);
+  assert.equal(matchWithDuplicates, false, 'Legacy session must not match when duplicate routines share the same name');
+
+  const resultWithDuplicates = getPreviousRoutineExercisePerformance({
+    history: [legacySession],
+    routine,
+    exerciseId: 'ex-bench',
+    currentRoutines: [routine, duplicateRoutine]
+  });
+  assert.equal(resultWithDuplicates, null, 'Selector must return null when duplicate routines share the same name');
+});
+
+test('19.8B1 Test 21: routine identity filtering precedes temporal cutoff and prevents cross-routine contamination', () => {
+  const pushRoutine: Routine = { id: 'routine-push', userId: 'u1', name: 'Push Day', exerciseIds: ['ex-bench'] };
+  const strengthRoutine: Routine = { id: 'routine-strength', userId: 'u1', name: 'Strength Day', exerciseIds: ['ex-bench'] };
+
+  const history: WorkoutSession[] = [
+    {
+      id: 'ws-strength-sep-12',
+      userId: 'u1',
+      routineId: 'routine-strength',
+      routineName: 'Strength Day',
+      startedAt: createHistoricalWorkoutInstant('2026-09-12', '10:00').toISOString(),
+      performedDate: '2026-09-12',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 100, reps: 3, completed: true, setType: 'working', isWarmup: false }]
+      }
+    },
+    {
+      id: 'ws-push-sep-10',
+      userId: 'u1',
+      routineId: 'routine-push',
+      routineName: 'Push Day',
+      startedAt: createHistoricalWorkoutInstant('2026-09-10', '10:00').toISOString(),
+      performedDate: '2026-09-10',
+      sets: {
+        'ex-bench': [{ setIndex: 1, weightKg: 80, reps: 8, completed: true, setType: 'working', isWarmup: false }]
+      }
+    }
+  ];
+
+  // Target historical workout on Sep 15 for Push Day
+  const cutoffSep15 = resolveHistoricalWorkoutCutoff('2026-09-15', '14:00');
+  const result = getPreviousRoutineExercisePerformance({
+    history,
+    routine: pushRoutine,
+    exerciseId: 'ex-bench',
+    beforeTimestamp: cutoffSep15,
+    currentRoutines: [pushRoutine, strengthRoutine]
+  });
+
+  assert.ok(result);
+  assert.equal(result[0].weightKg, 80, 'Must select Push Day (80kg), never Strength Day (100kg) even though Strength Day is newer and before cutoff');
 });
 
