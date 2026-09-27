@@ -8,6 +8,7 @@ import {
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
 import { apiEndpoint } from './api-base.js';
 import { excludePendingRoutineTombstones } from './routine-tombstones.js';
+import { mergePulledRoutines, serializeRoutineForSync } from './routine-sync.js';
 
 export interface SyncStatus {
   state: 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
@@ -69,19 +70,11 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
 
       if (Array.isArray(data.routines) && data.routines.length > 0) {
         const local = getStoredRoutines();
-        const existing = new Set(local.map((routine) => routine.id));
         const incoming = normalizeStoredRoutines(excludePendingRoutineTombstones(
           data.routines.filter((routine): routine is Routine => Boolean(routine.id && routine.name && Array.isArray(routine.exerciseIds))),
           getStoredDeletedRoutineIds()
         ));
-        // Pull never overwrites local edits, but immutable share attribution is
-        // server-authored metadata and can safely repair an older local copy.
-        const incomingById = new Map(incoming.map((routine) => [routine.id, routine]));
-        const attributedLocal = local.map((routine) => {
-          const remote = incomingById.get(routine.id);
-          return !routine.origin && remote?.origin ? { ...routine, origin: remote.origin } : routine;
-        });
-        saveStoredRoutines([...attributedLocal, ...incoming.filter((routine) => !existing.has(routine.id))]);
+        saveStoredRoutines(mergePulledRoutines(local, incoming));
       }
       if (Array.isArray(data.history) && data.history.length > 0) {
         const local = getStoredHistory();
@@ -133,7 +126,7 @@ export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }
       // protocol. Keep it stable for now so retries remain idempotent.
       const payload = {
         sessions: getStoredHistory(),
-        routines: getStoredRoutines(),
+        routines: getStoredRoutines().map(serializeRoutineForSync),
         deletedRoutineIds: getStoredDeletedRoutineIds(),
         bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() })),
         historicalPersonalRecords: getStoredHistoricalPersonalRecords()

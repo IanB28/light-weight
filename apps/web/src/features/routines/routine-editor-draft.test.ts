@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Routine, RoutineTemplateV2 } from '@light-weight/domain';
+import { normalizeRoutine, type Routine, type RoutineTemplateV2 } from '@light-weight/domain';
 import {
   addRoutineExerciseTemplate,
   addRoutineTemplateSet,
@@ -268,6 +268,7 @@ test('10. buildRoutineFromEditorDraft: outputs canonical Routine with regenerate
   const built = buildRoutineFromEditorDraft(draft, { generatedId: 'rt-new-123' });
 
   assert.equal(built.id, 'rt-new-123');
+  assert.equal(built.templateSource, 'v2');
   assert.equal(built.name, 'Upper Body B');
   assert.equal(built.description, 'Tempo focus');
   assert.equal(built.userId, 'owner-99');
@@ -279,4 +280,16 @@ test('10. buildRoutineFromEditorDraft: outputs canonical Routine with regenerate
   assert.equal(built.template.exercises[0].sets[0].targetWeightKg, 70);
   assert.equal(built.template.exercises[1].exerciseId, 'ex-bench');
   assert.equal(built.template.exercises[1].sets[0].targetWeightKg, 85);
+});
+
+test('explicit editor save promotes a legacy-derived routine without changing its identity', () => {
+  const legacy = normalizeRoutine({ id: 'legacy-push', userId: 'owner-99', name: 'Push', exerciseIds: ['bench'] });
+  assert.ok(legacy);
+  assert.equal(legacy.templateSource, 'legacy');
+
+  const draft = createRoutineEditorDraft(legacy);
+  const saved = buildRoutineFromEditorDraft(draft);
+  assert.equal(saved.id, legacy.id);
+  assert.equal(saved.templateSource, 'v2');
+  assert.deepEqual(saved.template, legacy.template);
 });

@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Routine, RoutineTemplateV2 } from '@light-weight/domain';
+import { normalizeRoutine, reconcileLegacyRoutineTemplate, type Routine, type RoutineTemplateV2 } from '@light-weight/domain';
 import {
   normalizeStoredRoutines,
   getStoredRoutines,
-  saveStoredRoutines
+  saveStoredRoutines,
+  STORAGE_KEYS
 } from '../../lib/storage.js';
 import { buildRoutinePayload } from '../../components/CreateRoutineModal.js';
+import { mergePulledRoutines, serializeRoutineForSync } from '../../lib/routine-sync.js';
 
 // Setup mock localStorage in Node.js test environment if needed
 const mockStore: Record<string, string> = {};
@@ -189,4 +191,101 @@ test('7. saveStoredRoutines and getStoredRoutines roundtrip V2 templates cleanly
   const matched = loaded.find((r) => r.id === 'rot-storage-test');
   assert.ok(matched);
   assert.deepEqual(matched?.template, v2Routine.template);
+});
+
+test('legacy storage normalization never promotes a synthesized template to sync authority', () => {
+  localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify([{
+    id: 'push', userId: 'u1', name: 'Push', exerciseIds: ['bench']
+  }]));
+
+  const [loaded] = getStoredRoutines();
+  assert.deepEqual(loaded.template?.exercises[0].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+  assert.equal(loaded.templateSource, 'legacy');
+
+  saveStoredRoutines([loaded]);
+  const [reloaded] = getStoredRoutines();
+  assert.equal(reloaded.templateSource, 'legacy');
+});
+
+test('legacy local storage cannot overwrite configured remote sets during pull and later push', () => {
+  localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify([{
+    id: 'push', userId: 'u1', name: 'Push', exerciseIds: ['bench']
+  }]));
+  const [local] = getStoredRoutines();
+  const remote = normalizeStoredRoutines([{
+    id: 'push', userId: 'u1', name: 'Remote Push', exerciseIds: ['bench'],
+    template: { version: 2, exercises: [{ exerciseId: 'bench', sets: [
+      { setType: 'working', targetWeightKg: 80 },
+      { setType: 'working', targetWeightKg: 85 }
+    ] }] }
+  }]);
+
+  const beforePullPayload = serializeRoutineForSync(local);
+  assert.equal(Object.hasOwn(beforePullPayload, 'template'), false);
+  assert.deepEqual(reconcileLegacyRoutineTemplate(remote[0].template, beforePullPayload.exerciseIds), remote[0].template);
+
+  saveStoredRoutines(mergePulledRoutines([local], remote));
+  const [merged] = getStoredRoutines();
+  assert.equal(merged.name, 'Push');
+  assert.equal(merged.templateSource, 'v2');
+  assert.deepEqual(merged.template?.exercises[0].sets, [
+    { setType: 'working', targetWeightKg: 80 },
+    { setType: 'working', targetWeightKg: 85 }
+  ]);
+  assert.deepEqual(serializeRoutineForSync(merged).template, remote[0].template);
+});
+
+test('legacy membership and order reconcile remote V2 sets, additions, and removals', () => {
+  const remote = normalizeRoutine({
+    id: 'mixed', name: 'Cloud', exerciseIds: ['bench', 'row', 'squat'],
+    template: { version: 2, exercises: [
+      { exerciseId: 'bench', sets: [{ setType: 'working', targetWeightKg: 80 }] },
+      { exerciseId: 'row', sets: [{ setType: 'backoff', targetWeightKg: 70 }] },
+      { exerciseId: 'squat', sets: [{ setType: 'drop', targetWeightKg: 100 }] }
+    ] }
+  });
+  const local = normalizeRoutine({
+    id: 'mixed', name: 'Local', description: 'Offline edit', exerciseIds: ['row', 'curl', 'bench']
+  });
+  assert.ok(remote && local);
+  const [merged] = mergePulledRoutines([local], [remote]);
+  assert.equal(merged.templateSource, 'v2');
+  assert.equal(merged.name, 'Local');
+  assert.equal(merged.description, 'Offline edit');
+  assert.deepEqual(merged.exerciseIds, ['row', 'curl', 'bench']);
+  assert.deepEqual(merged.template?.exercises.map((exercise) => exercise.sets), [
+    [{ setType: 'backoff', targetWeightKg: 70 }],
+    [{ setType: 'warmup', targetWeightKg: 0 }],
+    [{ setType: 'working', targetWeightKg: 80 }]
+  ]);
+
+  const withoutRow = normalizeRoutine({ id: 'mixed', name: 'Local', exerciseIds: ['bench', 'squat'] });
+  assert.ok(withoutRow);
+  assert.deepEqual(mergePulledRoutines([withoutRow], [remote])[0].exerciseIds, ['bench', 'squat']);
+});
+
+test('explicit local V2 wins pull collisions while legacy/null and remote-only authority stay distinct', () => {
+  const remoteV2 = normalizeRoutine({
+    id: 'same', name: 'Cloud', exerciseIds: ['bench'],
+    template: { version: 2, exercises: [{ exerciseId: 'bench', sets: [{ setType: 'working', targetWeightKg: 80 }] }] }
+  });
+  const localV2 = normalizeRoutine({
+    id: 'same', name: 'Local', exerciseIds: ['bench'],
+    template: { version: 2, exercises: [{ exerciseId: 'bench', sets: [{ setType: 'working', targetWeightKg: 90 }] }] }
+  });
+  const remoteLegacy = normalizeRoutine({ id: 'same', name: 'Cloud', exerciseIds: ['row'] });
+  const localLegacy = normalizeRoutine({ id: 'same', name: 'Local', exerciseIds: ['bench'] });
+  assert.ok(remoteV2 && localV2 && remoteLegacy && localLegacy);
+
+  const [keptV2] = mergePulledRoutines([localV2], [remoteV2]);
+  assert.deepEqual(keptV2.template?.exercises[0].sets, [{ setType: 'working', targetWeightKg: 90 }]);
+  assert.deepEqual(serializeRoutineForSync(keptV2).template, keptV2.template);
+
+  const [keptLegacy] = mergePulledRoutines([localLegacy], [remoteLegacy]);
+  assert.equal(keptLegacy.templateSource, 'legacy');
+  assert.deepEqual(keptLegacy.exerciseIds, ['bench']);
+  assert.equal(Object.hasOwn(serializeRoutineForSync(keptLegacy), 'template'), false);
+
+  assert.equal(mergePulledRoutines([], [remoteV2])[0].templateSource, 'v2');
+  assert.equal(mergePulledRoutines([], [remoteLegacy])[0].templateSource, 'legacy');
 });

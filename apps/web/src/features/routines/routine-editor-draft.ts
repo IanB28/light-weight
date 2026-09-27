@@ -386,6 +386,7 @@ export function buildRoutineFromEditorDraft(
     description: draft.description.trim() || undefined,
     exerciseIds: template.exercises.map((e) => e.exerciseId),
     template,
+    templateSource: 'v2',
     ...(draft.origin ? { origin: { ...draft.origin } } : {})
   };
 

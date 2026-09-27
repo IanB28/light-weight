@@ -178,6 +178,9 @@ export interface RoutineTemplateV2 {
   exercises: RoutineExerciseTemplate[];
 }
 
+/** Local sync authority; an effective template may still be legacy-derived. */
+export type RoutineTemplateSource = 'legacy' | 'v2';
+
 export interface Routine {
   id: string;
   userId: string;
@@ -185,6 +188,7 @@ export interface Routine {
   description?: string;
   exerciseIds: string[]; // legacy compatibility projection
   template?: RoutineTemplateV2;
+  templateSource?: RoutineTemplateSource;
   /**
    * Immutable, privacy-minimal attribution for an independently owned routine
    * imported from a friend. It deliberately contains no email or birth date.

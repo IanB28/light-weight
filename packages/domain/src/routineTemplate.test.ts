@@ -480,3 +480,30 @@ test('23. Removing exercise from valid V2 cannot be undone by stale exerciseIds'
   assert.equal(normalized.template?.exercises.length, 1);
   assert.equal(normalized.template?.exercises[0].exerciseId, 'bench');
 });
+
+test('effective legacy templates retain legacy sync authority through repeated normalization', () => {
+  const legacy = normalizeRoutine({ id: 'push', name: 'Push', exerciseIds: ['bench', 'row'] });
+  assert.ok(legacy);
+  assert.equal(legacy.templateSource, 'legacy');
+  assert.deepEqual(legacy.template?.exercises.map((exercise) => exercise.sets), [
+    [{ setType: 'warmup', targetWeightKg: 0 }],
+    [{ setType: 'warmup', targetWeightKg: 0 }]
+  ]);
+  assert.equal(normalizeRoutine(legacy)?.templateSource, 'legacy');
+});
+
+test('valid raw V2 is explicit even with default-looking sets; corrupt V2 is not promoted', () => {
+  const explicit = normalizeRoutine({
+    id: 'push', name: 'Push', exerciseIds: ['bench'],
+    template: createDefaultRoutineTemplate(['bench'])
+  });
+  assert.equal(explicit?.templateSource, 'v2');
+  assert.equal(normalizeRoutine(explicit)?.templateSource, 'v2');
+
+  const recovered = normalizeRoutine({
+    id: 'push', name: 'Push', exerciseIds: ['bench'],
+    template: { version: 2, exercises: [{ exerciseId: 'bench', sets: [] }] }
+  });
+  assert.equal(recovered?.templateSource, 'legacy');
+  assert.deepEqual(recovered?.exerciseIds, ['bench']);
+});

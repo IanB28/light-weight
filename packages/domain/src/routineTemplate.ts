@@ -286,12 +286,21 @@ export function normalizeRoutine(input: unknown): Routine | null {
 
   let template: RoutineTemplateV2;
   const rawTemplate = r.template ?? (r as { exerciseTemplate?: unknown }).exerciseTemplate;
+  let hasValidExplicitTemplate = false;
   if (rawTemplate && typeof rawTemplate === 'object') {
+    try {
+      validateRoutineTemplateV2(rawTemplate);
+      hasValidExplicitTemplate = true;
+    } catch {
+      // Tolerant recovery keeps the routine usable, but not authoritative.
+    }
     const normalized = normalizeRoutineTemplate(rawTemplate, rawExerciseIds);
     template = normalized ?? createDefaultRoutineTemplate(rawExerciseIds);
   } else {
     template = createDefaultRoutineTemplate(rawExerciseIds);
   }
+  const templateSource: Routine['templateSource'] =
+    r.templateSource === 'legacy' || !hasValidExplicitTemplate ? 'legacy' : 'v2';
 
   // Invariant I: exerciseIds is synchronized directly from canonical template order.
   const exerciseIds = template.exercises.map((e) => e.exerciseId);
@@ -321,6 +330,7 @@ export function normalizeRoutine(input: unknown): Routine | null {
     ...(description !== undefined ? { description } : {}),
     exerciseIds,
     template,
+    templateSource,
     ...(origin !== undefined ? { origin } : {})
   };
 }
