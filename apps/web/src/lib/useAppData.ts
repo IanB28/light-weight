@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Exercise, HistoricalPersonalRecord, Routine, WorkoutSession } from '@light-weight/domain';
+import { normalizeRoutine, type Exercise, type HistoricalPersonalRecord, type Routine, type WorkoutSession } from '@light-weight/domain';
 import { loadExerciseCatalog } from './exercises.js';
 import {
   getStoredBodyweight,
@@ -98,12 +98,13 @@ export function useAppData() {
   }, []);
 
   const saveRoutine = useCallback((routine: Routine) => {
-    removeStoredDeletedRoutineIds([routine.id]);
+    const normalized = normalizeRoutine(routine) || routine;
+    removeStoredDeletedRoutineIds([normalized.id]);
     setRoutines((current) => {
-      const existingIndex = current.findIndex((item) => item.id === routine.id);
+      const existingIndex = current.findIndex((item) => item.id === normalized.id);
       const updated = existingIndex < 0
-        ? [...current, routine]
-        : current.map((item) => item.id === routine.id ? routine : item);
+        ? [...current, normalized]
+        : current.map((item) => item.id === normalized.id ? normalized : item);
       saveStoredRoutines(updated);
       return updated;
     });

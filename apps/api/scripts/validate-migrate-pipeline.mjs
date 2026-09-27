@@ -31,7 +31,7 @@ try {
       const transactionalDb = drizzle(tx);
       await migrate(transactionalDb, { migrationsFolder: migrationFolder });
       const firstRun = await tx`SELECT hash FROM drizzle.__drizzle_migrations ORDER BY created_at`;
-      assert.equal(firstRun.length, 9, 'first migration run must apply migrations 0000 through 0008');
+      assert.equal(firstRun.length, 10, 'first migration run must apply migrations 0000 through 0009');
 
       await migrate(transactionalDb, { migrationsFolder: migrationFolder });
       const secondRun = await tx`SELECT hash FROM drizzle.__drizzle_migrations ORDER BY created_at`;
@@ -41,7 +41,7 @@ try {
   } catch (error) {
     if (error !== rollbackSignal) throw error;
   }
-  console.log('Drizzle migration pipeline validated: first run applies 0000 through 0008; second run is a no-op; transaction rolled back.');
+  console.log('Drizzle migration pipeline validated: first run applies 0000 through 0009; second run is a no-op; transaction rolled back.');
 } finally {
   await sql.end();
 }

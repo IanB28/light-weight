@@ -86,6 +86,7 @@
     "src/views/WorkoutView.tsx",
     "src/features/routines/RoutineDetailSheet.tsx",
     "src/features/routines/routine-creation.test.ts",
+    "src/features/routines/routine-storage-v2.test.ts",
     "src/features/workouts/types.ts",
     "src/features/workouts/WeightPlate.tsx",
     "src/features/workouts/WeightEntry.tsx",

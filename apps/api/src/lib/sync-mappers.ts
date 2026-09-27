@@ -8,9 +8,11 @@ import {
   isValidWorkoutDateKey,
   isWorkoutEntrySource,
   isValidWorkoutTimestamp,
+  validateRoutineTemplateV2,
   type WorkoutSetType,
   type BaseResistanceStatus,
-  type WorkoutEntrySource
+  type WorkoutEntrySource,
+  type RoutineTemplateV2
 } from '@light-weight/domain';
 
 export class SyncValidationError extends Error {
@@ -176,4 +178,68 @@ export function normalizeIncomingSyncSessions(value: unknown): SyncSessionInput[
       );
       return { ...session, startedAt: session.startedAt, sets } as SyncSessionInput;
     });
+}
+
+export interface SyncRoutineInput {
+  id: string;
+  name: string;
+  description: string | null;
+  exerciseIds: string[];
+  template: RoutineTemplateV2 | null;
+}
+
+export function normalizeIncomingSyncRoutine(raw: unknown): SyncRoutineInput {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new SyncValidationError('INVALID_ROUTINE', 'Routine must be an object');
+  }
+  const r = raw as Record<string, unknown>;
+  if (typeof r.name !== 'string' || !r.name.trim() || r.name.length > 255) {
+    throw new SyncValidationError('INVALID_ROUTINE_NAME', 'Routine name is invalid or exceeds 255 characters');
+  }
+  const name = r.name.trim();
+  const description = typeof r.description === 'string' && r.description.trim() ? r.description.trim() : null;
+  const id = typeof r.id === 'string' && r.id.trim() ? r.id.trim() : '';
+
+  const rawTemplate = r.template ?? (r as { exerciseTemplate?: unknown }).exerciseTemplate;
+  let template: RoutineTemplateV2 | null = null;
+  let exerciseIds: string[];
+
+  if (rawTemplate !== undefined && rawTemplate !== null) {
+    try {
+      template = validateRoutineTemplateV2(rawTemplate);
+      // Canonical source: template order
+      exerciseIds = template.exercises.map((e) => e.exerciseId);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Invalid routine template';
+      throw new SyncValidationError('INVALID_ROUTINE_TEMPLATE', message);
+    }
+  } else {
+    // Legacy routine: exerciseIds only
+    if (!Array.isArray(r.exerciseIds)) {
+      exerciseIds = [];
+    } else {
+      const seen = new Set<string>();
+      exerciseIds = [];
+      for (const rawId of r.exerciseIds) {
+        if (typeof rawId === 'string') {
+          const trimmed = rawId.trim();
+          if (trimmed && !seen.has(trimmed)) {
+            seen.add(trimmed);
+            exerciseIds.push(trimmed);
+          }
+        }
+      }
+      exerciseIds = exerciseIds.slice(0, 100);
+    }
+  }
+
+  return { id, name, description, exerciseIds, template };
+}
+
+export function normalizeIncomingSyncRoutines(rawRoutines: unknown): SyncRoutineInput[] {
+  if (!Array.isArray(rawRoutines)) return [];
+  return rawRoutines
+    .slice(0, 250)
+    .filter((routine): routine is Record<string, unknown> => Boolean(routine && typeof routine === 'object'))
+    .map(normalizeIncomingSyncRoutine);
 }

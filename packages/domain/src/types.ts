@@ -163,12 +163,28 @@ export interface HistoricalPersonalRecord {
   source: 'historical_manual';
 }
 
+export interface RoutineSetTemplate {
+  setType: WorkoutSetType;
+  targetWeightKg: number;
+}
+
+export interface RoutineExerciseTemplate {
+  exerciseId: string;
+  sets: RoutineSetTemplate[];
+}
+
+export interface RoutineTemplateV2 {
+  version: 2;
+  exercises: RoutineExerciseTemplate[];
+}
+
 export interface Routine {
   id: string;
   userId: string;
   name: string;
   description?: string;
-  exerciseIds: string[];
+  exerciseIds: string[]; // legacy compatibility projection
+  template?: RoutineTemplateV2;
   /**
    * Immutable, privacy-minimal attribution for an independently owned routine
    * imported from a friend. It deliberately contains no email or birth date.

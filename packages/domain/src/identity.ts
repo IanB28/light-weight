@@ -38,6 +38,7 @@ export interface RoutineShareSummary {
   routineName: string;
   routineDescription?: string;
   exerciseIds: string[];
+  template?: import('./types.js').RoutineTemplateV2;
   status: RoutineShareStatus;
   createdAt: string;
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Dumbbell, LayoutGrid, List, ArrowLeft, ArrowRight } from 'lucide-react';
-import { Routine, Exercise } from '@light-weight/domain';
+import { Routine, Exercise, normalizeRoutine } from '@light-weight/domain';
 import {
   ExerciseEquipmentFilter,
   ExerciseMuscleFilter,
@@ -35,13 +35,14 @@ export function buildRoutinePayload(
   exerciseIds: string[],
   ownerId?: string
 ): Routine {
-  return {
+  const raw: Routine = {
     id: 'rt-' + Date.now(),
     userId: ownerId || 'local-anonymous',
     name: name.trim(),
     description: description.trim() || undefined,
     exerciseIds: [...exerciseIds],
   };
+  return normalizeRoutine(raw) || raw;
 }
 
 interface CreateRoutineModalProps {

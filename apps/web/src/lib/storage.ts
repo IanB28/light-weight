@@ -1,6 +1,7 @@
 import {
   normalizeHistoricalPersonalRecord,
   normalizeLoggedSet,
+  normalizeRoutine,
   normalizeWorkoutSession,
   type HistoricalPersonalRecord,
   type LegacyWorkoutSession,
@@ -459,16 +460,19 @@ export function clearActiveWorkout(adapter: StorageAdapter = browserStorageAdapt
 }
 
 /**
- * Normalizes routines by deduplicating entries by their unique routine ID.
- * Invalid or empty IDs are discarded. When duplicate IDs exist, the latest entry is preserved.
- * Distinct IDs sharing the same display name are intentionally preserved.
+ * Normalizes routines using normalizeRoutine from domain:
+ * - Upgrades legacy routines to effective V2 templates
+ * - Deduplicates entries by unique routine ID, preserving the latest entry
+ * - Discards invalid, corrupt, or unparseable entries
+ * - Distinct IDs sharing the same display name are intentionally preserved
  */
-export function normalizeStoredRoutines(routines: Routine[]): Routine[] {
+export function normalizeStoredRoutines(routines: unknown): Routine[] {
   if (!Array.isArray(routines)) return [];
   const map = new Map<string, Routine>();
-  for (const routine of routines) {
-    if (routine && typeof routine.id === 'string' && routine.id.trim().length > 0) {
-      map.set(routine.id.trim(), routine);
+  for (const raw of routines) {
+    const routine = normalizeRoutine(raw);
+    if (routine) {
+      map.set(routine.id, routine);
     }
   }
   return Array.from(map.values());

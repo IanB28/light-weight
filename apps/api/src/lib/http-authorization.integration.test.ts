@@ -50,6 +50,7 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
     const migrationSql = await readFile(new URL('../../drizzle/0001_auth_friends_routine_sharing_v1.sql', import.meta.url), 'utf8');
     const hprMigrationSql = await readFile(new URL('../../drizzle/0007_historical_personal_records.sql', import.meta.url), 'utf8');
     const hprRepsMigrationSql = await readFile(new URL('../../drizzle/0008_hpr_reps_cap_constraint.sql', import.meta.url), 'utf8');
+    const routineTemplateMigrationSql = await readFile(new URL('../../drizzle/0009_routine_template_v2.sql', import.meta.url), 'utf8');
     try {
       await sql.begin(async (tx) => {
         // HTTP handlers open Drizzle transactions. Route them to PostgreSQL
@@ -60,6 +61,7 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
         await tx.unsafe(migrationSql);
         await tx.unsafe(hprMigrationSql);
         await tx.unsafe(hprRepsMigrationSql);
+        await tx.unsafe(routineTemplateMigrationSql);
         const transactionalDb = drizzle(tx as never, { schema });
         const restoreDb = replaceDatabaseForTesting(transactionalDb as typeof db);
         try {

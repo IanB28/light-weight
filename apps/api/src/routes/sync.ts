@@ -22,6 +22,7 @@ import {
 import { and, eq, desc, inArray } from 'drizzle-orm';
 import {
   hydrateSyncedSet,
+  normalizeIncomingSyncRoutines,
   normalizeIncomingSyncSessions,
   SyncValidationError
 } from '../lib/sync-mappers.js';
@@ -60,8 +61,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
     const uniqueIncomingBodyweight = Array.from(
       new Map(validIncomingBodyweight.map((entry) => [new Date(entry.loggedAt).toISOString(), entry])).values()
     );
-    const incomingRoutineList = (Array.isArray(incomingRoutines) ? incomingRoutines.slice(0, 250) : [])
-      .filter((routine): routine is { id?: string; name?: string; description?: string; exerciseIds?: unknown } => Boolean(routine && typeof routine === 'object'));
+    const incomingRoutineList = normalizeIncomingSyncRoutines(incomingRoutines);
     const routineDbIds = new Set([
       ...deletedRoutineIds.map(toDatabaseUuid),
       ...incomingRoutineList.map((routine) => toDatabaseUuid(routine.id)),
@@ -114,16 +114,27 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       }
 
       for (const r of incomingRoutineList) {
-        if (typeof r.name !== 'string' || !r.name.trim() || r.name.length > 255) continue;
         const rUuid = toDatabaseUuid(r.id);
         if (routineDbIds.has(rUuid) && deletedRoutineIds.some((id) => toDatabaseUuid(id) === rUuid)) continue;
         const owner = routineOwnerById.get(rUuid);
         if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
-        const exerciseIdsForRoutine = Array.isArray(r.exerciseIds) ? r.exerciseIds.filter((id): id is string => typeof id === 'string').slice(0, 100) : [];
-        await tx.insert(routines).values({ id: rUuid, userId, name: r.name.trim(), description: r.description || null, exerciseIds: exerciseIdsForRoutine }).onConflictDoUpdate({
+        await tx.insert(routines).values({
+          id: rUuid,
+          userId,
+          name: r.name,
+          description: r.description,
+          exerciseIds: r.exerciseIds,
+          exerciseTemplate: r.template,
+        }).onConflictDoUpdate({
           target: routines.id,
           setWhere: eq(routines.userId, userId),
-          set: { name: r.name.trim(), description: r.description || null, exerciseIds: exerciseIdsForRoutine, updatedAt: new Date() }
+          set: {
+            name: r.name,
+            description: r.description,
+            exerciseIds: r.exerciseIds,
+            exerciseTemplate: r.template,
+            updatedAt: new Date()
+          }
         });
         routineOwnerById.set(rUuid, userId);
       }
@@ -522,7 +533,16 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
     res.json({
       user: userRecord ? toAuthUser(userRecord) : null,
       profile,
-      routines: userRoutines,
+      routines: userRoutines.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description ?? undefined,
+        exerciseIds: r.exerciseIds,
+        template: r.exerciseTemplate ?? undefined,
+        origin: r.origin ?? undefined,
+        createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+        updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : String(r.updatedAt),
+      })),
       history: historyWithSets,
       bodyweightLogs: userBodyweightLogs.map((entry) => ({
         weightKg: Number(entry.weightKg),

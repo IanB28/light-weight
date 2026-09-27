@@ -9,6 +9,7 @@ dotenv.config();
 
 const connectionString = process.env.DATABASE_URL;
 const migrationUrl = new URL('../../drizzle/0001_auth_friends_routine_sharing_v1.sql', import.meta.url);
+const routineTemplateMigrationUrl = new URL('../../drizzle/0009_routine_template_v2.sql', import.meta.url);
 
 /**
  * This is intentionally a database integration test rather than a mock:
@@ -33,9 +34,11 @@ test('authorization guards and idempotent routine import hold inside a rolled-ba
 
   try {
     const migrationSql = await readFile(migrationUrl, 'utf8');
+    const routineTemplateMigrationSql = await readFile(routineTemplateMigrationUrl, 'utf8');
     try {
       await sql.begin(async (tx) => {
         await tx.unsafe(migrationSql);
+        await tx.unsafe(routineTemplateMigrationSql);
         await tx`
           INSERT INTO users (id, email, username, display_name)
           VALUES

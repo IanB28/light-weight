@@ -21,3 +21,4 @@ export * from './muscleBalance.js';
 export * from './fatiguePolicy.js';
 export * from './machineProfile.js';
 export * from './workoutTemporal.js';
+export * from './routineTemplate.js';
