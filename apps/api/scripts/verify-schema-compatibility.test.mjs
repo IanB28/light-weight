@@ -30,8 +30,8 @@ const PRODUCTION_LEDGER_0000_TO_0008 = Object.freeze([
   ['1789700000000', '40670b6896b21cd8a673443fd026931644858496e93df70e333622fca7dd8def'],
   ['1789800000000', '25d259bb35ed746762dc991d1d2be78756a14ce0192e11228166067e2549fad9'],
   ['1789900000000', '46f2283b77e54f10855cd47ae14a652e267567156f43d318d162941d43342b6b'],
-  ['1790000000000', '89800f68da2dcf6a91561cfecf66fbe0e8bd861a1af3e409d308eefd10495a3a'],
-  ['1790100000000', '60b429daaed9a50e09463e577f03b624ca74793dc30e095e3f4c997962398feb'],
+  ['1790000000000', 'd529ae8e196aad61922efcadc7f9a06b23cb9a46f3aec4eb7bf2aba3bf44ff11'],
+  ['1790100000000', '255e2c1dd5edc6267b0228c4adf7d86ff0217e5a25450f22d2019cce92a71a9e'],
 ].map(([created_at, hash]) => ({ created_at, hash })));
 
 test('deployment verifier accepts canonical and explicitly approved historical 0002 hashes only', () => {
@@ -69,6 +69,52 @@ test('deployment verifier accepts canonical and explicitly approved historical 0
   assert.equal(evaluateSchemaCompatibility(expected, [...matching, { created_at: '1790200000000', hash: 'future' }]).ok, true);
 });
 
+test('deployment verifier accepts canonical and CRLF hashes for 0007, rejecting unknown hashes', () => {
+  const expected = requiredMigrations();
+  const legacy0007 = legacyMigrationHashCompatibility(1790000000000, '0007_historical_personal_records');
+  assert.ok(legacy0007);
+  assert.equal(expected[7].hash, legacy0007.canonicalSourceHash);
+
+  // Canonical LF hash accepted
+  const canonicalRow = [{ created_at: '1790000000000', hash: '89800f68da2dcf6a91561cfecf66fbe0e8bd861a1af3e409d308eefd10495a3a' }];
+  const canonicalCheck = evaluateSchemaCompatibility([expected[7]], canonicalRow);
+  assert.equal(canonicalCheck.ok, true);
+
+  // Known CRLF applied hash accepted
+  const crlfRow = [{ created_at: '1790000000000', hash: 'd529ae8e196aad61922efcadc7f9a06b23cb9a46f3aec4eb7bf2aba3bf44ff11' }];
+  const crlfCheck = evaluateSchemaCompatibility([expected[7]], crlfRow);
+  assert.equal(crlfCheck.ok, true);
+
+  // Unknown hash rejected
+  const unknownRow = [{ created_at: '1790000000000', hash: 'unknown-hash-0007' }];
+  const unknownCheck = evaluateSchemaCompatibility([expected[7]], unknownRow);
+  assert.equal(unknownCheck.ok, false);
+  assert.deepEqual(unknownCheck.hashMismatches.map((e) => e.tag), ['0007_historical_personal_records']);
+});
+
+test('deployment verifier accepts canonical and CRLF hashes for 0008, rejecting unknown hashes', () => {
+  const expected = requiredMigrations();
+  const legacy0008 = legacyMigrationHashCompatibility(1790100000000, '0008_hpr_reps_cap_constraint');
+  assert.ok(legacy0008);
+  assert.equal(expected[8].hash, legacy0008.canonicalSourceHash);
+
+  // Canonical LF hash accepted
+  const canonicalRow = [{ created_at: '1790100000000', hash: '60b429daaed9a50e09463e577f03b624ca74793dc30e095e3f4c997962398feb' }];
+  const canonicalCheck = evaluateSchemaCompatibility([expected[8]], canonicalRow);
+  assert.equal(canonicalCheck.ok, true);
+
+  // Known CRLF applied hash accepted
+  const crlfRow = [{ created_at: '1790100000000', hash: '255e2c1dd5edc6267b0228c4adf7d86ff0217e5a25450f22d2019cce92a71a9e' }];
+  const crlfCheck = evaluateSchemaCompatibility([expected[8]], crlfRow);
+  assert.equal(crlfCheck.ok, true);
+
+  // Unknown hash rejected
+  const unknownRow = [{ created_at: '1790100000000', hash: 'unknown-hash-0008' }];
+  const unknownCheck = evaluateSchemaCompatibility([expected[8]], unknownRow);
+  assert.equal(unknownCheck.ok, false);
+  assert.deepEqual(unknownCheck.hashMismatches.map((e) => e.tag), ['0008_hpr_reps_cap_constraint']);
+});
+
 test('compatibility aliases never permit a modified local 0002 source file', async () => {
   const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
   const journalPath = fileURLToPath(new URL('../drizzle/meta/_journal.json', import.meta.url));
@@ -80,6 +126,84 @@ test('compatibility aliases never permit a modified local 0002 source file', asy
       () => readExpectedMigrations(sandbox, journalPath),
       /source integrity mismatch for 0002_auth_identities_v1/,
     );
+  } finally {
+    await rm(sandbox, { recursive: true, force: true });
+  }
+});
+
+test('compatibility aliases never permit a modified local 0007 source file', async () => {
+  const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
+  const journalPath = fileURLToPath(new URL('../drizzle/meta/_journal.json', import.meta.url));
+  const sandbox = await mkdtemp(join(tmpdir(), 'lightweight-schema-'));
+  try {
+    await cp(migrationsFolder, sandbox, { recursive: true });
+    await writeFile(join(sandbox, '0007_historical_personal_records.sql'), '-- modified migration source 0007\n');
+    assert.throws(
+      () => readExpectedMigrations(sandbox, journalPath),
+      /source integrity mismatch for 0007_historical_personal_records/,
+    );
+  } finally {
+    await rm(sandbox, { recursive: true, force: true });
+  }
+});
+
+test('compatibility aliases never permit a modified local 0008 source file', async () => {
+  const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
+  const journalPath = fileURLToPath(new URL('../drizzle/meta/_journal.json', import.meta.url));
+  const sandbox = await mkdtemp(join(tmpdir(), 'lightweight-schema-'));
+  try {
+    await cp(migrationsFolder, sandbox, { recursive: true });
+    await writeFile(join(sandbox, '0008_hpr_reps_cap_constraint.sql'), '-- modified migration source 0008\n');
+    assert.throws(
+      () => readExpectedMigrations(sandbox, journalPath),
+      /source integrity mismatch for 0008_hpr_reps_cap_constraint/,
+    );
+  } finally {
+    await rm(sandbox, { recursive: true, force: true });
+  }
+});
+
+test('production simulation: canonical Linux/Vercel LF source is compatible with production Windows CRLF ledger', async () => {
+  const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
+  const journalPath = fileURLToPath(new URL('../drizzle/meta/_journal.json', import.meta.url));
+  const sandbox = await mkdtemp(join(tmpdir(), 'lightweight-schema-vercel-'));
+  try {
+    await cp(migrationsFolder, sandbox, { recursive: true });
+    const { readdir, readFile } = await import('node:fs/promises');
+    const files = await readdir(sandbox);
+    for (const file of files) {
+      if (file.endsWith('.sql')) {
+        const content = await readFile(join(sandbox, file), 'utf8');
+        await writeFile(join(sandbox, file), content.replace(/\r\n/g, '\n'), 'utf8');
+      }
+    }
+
+    const expected = readExpectedMigrations(sandbox, journalPath);
+    assert.equal(expected.length, 9);
+
+    const result = evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0008);
+    assert.equal(result.ok, true, 'Canonical LF source on Vercel must be compatible with production ledger');
+  } finally {
+    await rm(sandbox, { recursive: true, force: true });
+  }
+});
+
+test('cross-platform checkout: Windows CRLF source passes source integrity and is compatible with production ledger', async () => {
+  const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
+  const journalPath = fileURLToPath(new URL('../drizzle/meta/_journal.json', import.meta.url));
+  const sandbox = await mkdtemp(join(tmpdir(), 'lightweight-schema-win-'));
+  try {
+    await cp(migrationsFolder, sandbox, { recursive: true });
+    const { readFile } = await import('node:fs/promises');
+    for (const tag of ['0007_historical_personal_records', '0008_hpr_reps_cap_constraint']) {
+      const content = await readFile(join(sandbox, `${tag}.sql`), 'utf8');
+      await writeFile(join(sandbox, `${tag}.sql`), content.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'), 'utf8');
+    }
+
+    const expected = readExpectedMigrations(sandbox, journalPath);
+    assert.equal(expected.length, 9);
+    const result = evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0008);
+    assert.equal(result.ok, true, 'Windows CRLF checkout must be compatible with production ledger');
   } finally {
     await rm(sandbox, { recursive: true, force: true });
   }

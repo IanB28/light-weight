@@ -16,6 +16,24 @@ export const MIGRATION_HASH_COMPATIBILITY_V1 = Object.freeze({
         'cbeff05f643ccbe03371cfb81bd73fe7e427aa4908238b0ad68a1b43088f46c4',
       ]),
     }),
+    1790000000000: Object.freeze({
+      tag: '0007_historical_personal_records',
+      canonicalSourceHash: '89800f68da2dcf6a91561cfecf66fbe0e8bd861a1af3e409d308eefd10495a3a',
+      acceptedAppliedHashes: Object.freeze([
+        '89800f68da2dcf6a91561cfecf66fbe0e8bd861a1af3e409d308eefd10495a3a',
+        // Applied to production from a Windows checkout (CRLF line endings).
+        'd529ae8e196aad61922efcadc7f9a06b23cb9a46f3aec4eb7bf2aba3bf44ff11',
+      ]),
+    }),
+    1790100000000: Object.freeze({
+      tag: '0008_hpr_reps_cap_constraint',
+      canonicalSourceHash: '60b429daaed9a50e09463e577f03b624ca74793dc30e095e3f4c997962398feb',
+      acceptedAppliedHashes: Object.freeze([
+        '60b429daaed9a50e09463e577f03b624ca74793dc30e095e3f4c997962398feb',
+        // Applied to production from a Windows checkout (CRLF line endings).
+        '255e2c1dd5edc6267b0228c4adf7d86ff0217e5a25450f22d2019cce92a71a9e',
+      ]),
+    }),
   }),
 });
 
