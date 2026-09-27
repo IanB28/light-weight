@@ -18,6 +18,7 @@ import {
   REP_CAP,
   findBodyweightEntryOnDate,
   resolveExerciseLoadingProfile,
+  resolvePlateBaseWeightKg,
   resolveExerciseStrengthTarget,
   poundsToKilograms,
   type BodyweightEntry,
@@ -260,6 +261,7 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
       setVisibleCount(50);
       setMachineSelection(null);
       setIsMachineModalOpen(false);
+      setPlateTarget(null);
       setSetWeightKg(60);
       setSetReps(1);
       setSetRir(undefined);
@@ -1033,14 +1035,27 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
                         prefix={isAssisted ? '-' : (isAddedWeight ? '+' : undefined)}
                         label={t('historicalPr.weight')}
                         onClick={() => {
+                          const baseKg = isMachine
+                            ? (machineSelection?.status === 'none' ? 0 : (machineSelection?.weightKg ?? 0))
+                            : (loadingProfile.plateBase?.kind === 'fixed' || loadingProfile.includeBarWeight
+                                ? resolvePlateBaseWeightKg(loadingProfile, preferences.defaultBarWeightKg)
+                                : 0);
                           setPlateTarget({
                             exerciseId: selectedExercise.id,
                             setIndex: 1,
                             valueKg: setWeightKg,
-                            includeBarWeight: loadingProfile.includeBarWeight,
-                            allowBarToggle: true,
-                            baseWeightKg: isMachine && machineSelection?.weightKg ? machineSelection.weightKg : 0,
-                            loading: loadingProfile
+                            includeBarWeight: loadingProfile.plateBase?.kind === 'fixed' ? true : loadingProfile.includeBarWeight,
+                            allowBarToggle: loadingProfile.includeBarWeight && loadingProfile.plateBase?.kind === 'user_bar',
+                            baseWeightKg: baseKg,
+                            loading: loadingProfile,
+                            machineProfileId: isMachine ? machineSelection?.profile?.id : undefined,
+                            machineProfileLabel: isMachine ? machineSelection?.profile?.label : undefined,
+                            machineBaseResistanceKg: isMachine ? baseKg : undefined,
+                            machineStatus: isMachine ? (machineSelection?.status ?? 'unknown') : undefined,
+                            machineBaseSourceLabel: isMachine ? machineSelection?.profile?.sourceLabel : undefined,
+                            machineBaseSourceUrl: isMachine ? machineSelection?.profile?.sourceUrl : undefined,
+                            machineManufacturer: isMachine ? machineSelection?.profile?.manufacturer : undefined,
+                            machineModel: isMachine ? machineSelection?.profile?.model : undefined
                           });
                         }}
                       />
@@ -1309,8 +1324,61 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
             includeBarWeight={plateTarget.includeBarWeight}
             allowBarToggle={plateTarget.allowBarToggle}
             loading={plateTarget.loading}
-            onApply={(weightKg) => {
+            machineProfileId={plateTarget.machineProfileId}
+            machineStatus={plateTarget.machineStatus}
+            machineProfileLabel={plateTarget.machineProfileLabel}
+            machineBaseSourceLabel={plateTarget.machineBaseSourceLabel}
+            machineBaseSourceUrl={plateTarget.machineBaseSourceUrl}
+            machineManufacturer={plateTarget.machineManufacturer}
+            machineModel={plateTarget.machineModel}
+            onOpenMachineProfileModal={
+              isMachine
+                ? () => {
+                    setPlateTarget(null);
+                    setIsMachineModalOpen(true);
+                  }
+                : undefined
+            }
+            onApply={(weightKg, includeBarWeight, baseWeightKg, machineSnapshot) => {
               setSetWeightKg(weightKg);
+              const snapshotStatus = machineSnapshot?.machineBaseResistanceStatus;
+              if (
+                machineSnapshot &&
+                isMachine &&
+                snapshotStatus &&
+                snapshotStatus !== 'unknown'
+              ) {
+                const snapshotWeightKg = machineSnapshot.machineBaseResistanceKg ?? (snapshotStatus === 'none' ? 0 : null);
+                setMachineSelection((prev) => {
+                  if (
+                    prev &&
+                    prev.status === snapshotStatus &&
+                    prev.weightKg === snapshotWeightKg &&
+                    prev.profile?.id === machineSnapshot.machineProfileId
+                  ) {
+                    return prev;
+                  }
+                  return {
+                    status: snapshotStatus,
+                    weightKg: snapshotWeightKg,
+                    profile: machineSnapshot.machineProfileId
+                      ? {
+                          id: machineSnapshot.machineProfileId,
+                          exerciseId: selectedExercise?.id || '',
+                          label: machineSnapshot.machineProfileLabel || '',
+                          baseResistanceStatus: snapshotStatus,
+                          baseResistanceKg: machineSnapshot.machineBaseResistanceKg,
+                          sourceLabel: machineSnapshot.machineBaseSourceLabel,
+                          sourceUrl: machineSnapshot.machineBaseSourceUrl,
+                          manufacturer: machineSnapshot.machineManufacturer,
+                          model: machineSnapshot.machineModel,
+                          createdAt: '',
+                          updatedAt: ''
+                        }
+                      : prev?.profile
+                  };
+                });
+              }
               setPlateTarget(null);
             }}
           />

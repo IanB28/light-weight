@@ -1185,3 +1185,242 @@ test('Block 19.7C - Machine PR persistence and canonical 1RM round-trip equality
 
   assert.equal(reloadedOneRm, initialOneRm, 'Canonical 1RM must remain identical after persistence round-trip');
 });
+
+const mockPlateMachineExercise: Exercise = {
+  id: 'plate-leg-press-test',
+  name: 'Plate Loaded Leg Press',
+  category: 'machine',
+  primaryMuscle: 'quadriceps',
+  loading: {
+    mechanism: 'plate_loaded',
+    loadMode: 'total',
+    supportsKeyboard: true,
+    supportsPlates: true,
+    supportsExternalLoad: true,
+    includeBarWeight: false
+  }
+};
+
+test('Test 47: Machine Plate-Picker snapshot wiring for calibrated plate-loaded machine', () => {
+  const loading = resolveExerciseLoadingProfile(mockPlateMachineExercise).profile;
+  const calibratedSelection: MachineBaseSelection = {
+    status: 'verified',
+    weightKg: 15,
+    profile: {
+      id: 'profile-cybex-1',
+      exerciseId: mockPlateMachineExercise.id,
+      label: 'Cybex Plate-Loaded Press',
+      baseResistanceStatus: 'verified',
+      baseResistanceKg: 15,
+      sourceLabel: 'Gym Equipment Tag',
+      sourceUrl: 'https://cybex.com',
+      manufacturer: 'Cybex',
+      model: 'CP-100',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    }
+  };
+
+  // Simulate how HistoricalPersonalRecordModal prepares PlateTarget for PlatePickerSheet
+  const isMachine = true;
+  const setWeightKg = 75; // Total external load
+  const baseKg = isMachine
+    ? (calibratedSelection.status === 'none' ? 0 : (calibratedSelection.weightKg ?? 0))
+    : 0;
+
+  const target = {
+    exerciseId: mockPlateMachineExercise.id,
+    setIndex: 1,
+    valueKg: setWeightKg,
+    includeBarWeight: loading.plateBase?.kind === 'fixed' ? true : loading.includeBarWeight,
+    allowBarToggle: loading.includeBarWeight && loading.plateBase?.kind === 'user_bar',
+    baseWeightKg: baseKg,
+    loading,
+    machineProfileId: calibratedSelection.profile?.id,
+    machineProfileLabel: calibratedSelection.profile?.label,
+    machineBaseResistanceKg: baseKg,
+    machineStatus: calibratedSelection.status,
+    machineBaseSourceLabel: calibratedSelection.profile?.sourceLabel,
+    machineBaseSourceUrl: calibratedSelection.profile?.sourceUrl,
+    machineManufacturer: calibratedSelection.profile?.manufacturer,
+    machineModel: calibratedSelection.profile?.model
+  };
+
+  // PlatePickerSheet evaluation contract
+  const isPlateMachine = target.loading.mechanism === 'plate_loaded' || Boolean(target.loading.hasMachineBase);
+  const isUnknownMachineBase = isPlateMachine && (target.machineStatus === 'unknown' || !target.machineStatus);
+
+  assert.equal(isPlateMachine, true, 'Must identify as plate machine');
+  assert.equal(isUnknownMachineBase, false, 'Calibrated machine must NOT be treated as unknown base');
+  assert.equal(target.baseWeightKg, 15, 'Base weight must be 15 kg');
+  assert.equal(target.machineProfileId, 'profile-cybex-1');
+  assert.equal(target.machineProfileLabel, 'Cybex Plate-Loaded Press');
+  assert.equal(target.machineManufacturer, 'Cybex');
+  assert.equal(target.machineModel, 'CP-100');
+});
+
+test('Test 48: Machine Plate-Picker semantics for zero base resistance (status === none)', () => {
+  const loading = resolveExerciseLoadingProfile(mockPlateMachineExercise).profile;
+  const zeroBaseSelection: MachineBaseSelection = {
+    status: 'none',
+    weightKg: 0,
+    profile: undefined
+  };
+
+  const isMachine = true;
+  const setWeightKg = 50;
+  const baseKg = isMachine
+    ? (zeroBaseSelection.status === 'none' ? 0 : (zeroBaseSelection.weightKg ?? 0))
+    : 0;
+
+  const target = {
+    exerciseId: mockPlateMachineExercise.id,
+    setIndex: 1,
+    valueKg: setWeightKg,
+    includeBarWeight: loading.plateBase?.kind === 'fixed' ? true : loading.includeBarWeight,
+    allowBarToggle: loading.includeBarWeight && loading.plateBase?.kind === 'user_bar',
+    baseWeightKg: baseKg,
+    loading,
+    machineProfileId: undefined,
+    machineProfileLabel: undefined,
+    machineBaseResistanceKg: baseKg,
+    machineStatus: zeroBaseSelection.status,
+    machineBaseSourceLabel: undefined,
+    machineBaseSourceUrl: undefined,
+    machineManufacturer: undefined,
+    machineModel: undefined
+  };
+
+  const isPlateMachine = target.loading.mechanism === 'plate_loaded' || Boolean(target.loading.hasMachineBase);
+  const isUnknownMachineBase = isPlateMachine && (target.machineStatus === 'unknown' || !target.machineStatus);
+
+  assert.equal(isPlateMachine, true);
+  assert.equal(isUnknownMachineBase, false, 'status === "none" must NOT evaluate to isUnknownMachineBase');
+  assert.equal(target.baseWeightKg, 0, 'Base resistance must be 0 kg');
+});
+
+test('Test 49: Machine Plate-Picker semantics for unconfigured machine (status === unknown or unselected)', () => {
+  const loading = resolveExerciseLoadingProfile(mockPlateMachineExercise).profile;
+
+  const isMachine = true;
+  const setWeightKg = 60;
+  const baseKg = 0;
+
+  const target = {
+    exerciseId: mockPlateMachineExercise.id,
+    setIndex: 1,
+    valueKg: setWeightKg,
+    includeBarWeight: loading.plateBase?.kind === 'fixed' ? true : loading.includeBarWeight,
+    allowBarToggle: loading.includeBarWeight && loading.plateBase?.kind === 'user_bar',
+    baseWeightKg: baseKg,
+    loading,
+    machineProfileId: undefined,
+    machineProfileLabel: undefined,
+    machineBaseResistanceKg: isMachine ? baseKg : undefined,
+    machineStatus: isMachine ? ('unknown' as const) : undefined,
+    machineBaseSourceLabel: undefined,
+    machineBaseSourceUrl: undefined,
+    machineManufacturer: undefined,
+    machineModel: undefined
+  };
+
+  const isPlateMachine = target.loading.mechanism === 'plate_loaded' || Boolean(target.loading.hasMachineBase);
+  const isUnknownMachineBase = isPlateMachine && (target.machineStatus === 'unknown' || !target.machineStatus);
+
+  assert.equal(isPlateMachine, true);
+  assert.equal(isUnknownMachineBase, true, 'Unconfigured machine must evaluate to isUnknownMachineBase');
+});
+
+test('Test 50: Plate picker onApply total load roundtrip and canonical 1RM preservation', () => {
+  const loading = resolveExerciseLoadingProfile(mockPlateMachineExercise).profile;
+
+  // Initial calibrated state: base 20 kg
+  let currentSelection: MachineBaseSelection | null = {
+    status: 'verified',
+    weightKg: 20,
+    profile: {
+      id: 'profile-leg-press',
+      exerciseId: mockPlateMachineExercise.id,
+      label: '45° Leg Press',
+      baseResistanceStatus: 'verified',
+      baseResistanceKg: 20,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    }
+  };
+  let currentSetWeightKg = 20;
+
+  // Simulate onApply from PlatePickerSheet with 80 kg total (20 kg base + 60 kg plates)
+  const appliedTotalKg = 80;
+  const appliedSnapshot: {
+    machineProfileId?: string;
+    machineProfileLabel?: string;
+    machineBaseResistanceKg?: number;
+    machineBaseResistanceStatus?: import('@light-weight/domain').BaseResistanceStatus;
+    machineBaseSourceLabel?: string;
+    machineBaseSourceUrl?: string;
+    machineManufacturer?: string;
+    machineModel?: string;
+  } = {
+    machineProfileId: 'profile-leg-press',
+    machineProfileLabel: '45° Leg Press',
+    machineBaseResistanceKg: 20,
+    machineBaseResistanceStatus: 'verified',
+    machineBaseSourceLabel: undefined,
+    machineBaseSourceUrl: undefined,
+    machineManufacturer: undefined,
+    machineModel: undefined
+  };
+
+  // Reconcile as HistoricalPersonalRecordModal does
+  currentSetWeightKg = appliedTotalKg;
+  const snapshotStatus = appliedSnapshot.machineBaseResistanceStatus;
+  if (snapshotStatus && snapshotStatus !== 'unknown') {
+    const snapshotWeightKg = appliedSnapshot.machineBaseResistanceKg ?? (snapshotStatus === 'none' ? 0 : null);
+    if (!currentSelection || currentSelection.status !== snapshotStatus || currentSelection.weightKg !== snapshotWeightKg) {
+      currentSelection = {
+        status: snapshotStatus,
+        weightKg: snapshotWeightKg,
+        profile: currentSelection?.profile
+      };
+    }
+  }
+
+  assert.equal(currentSetWeightKg, 80, 'Logged set weight must equal total external load (80 kg)');
+  assert.equal(currentSelection?.weightKg, 20, 'Machine base resistance must remain 20 kg');
+
+  const finalSet: LoggedSet = {
+    setIndex: 1,
+    weightKg: currentSetWeightKg,
+    reps: 8,
+    completed: true,
+    setType: 'working',
+    isWarmup: false,
+    machineBaseResistanceKg: currentSelection?.weightKg ?? 0,
+    machineBaseResistanceStatus: currentSelection?.status,
+    machineProfileId: currentSelection?.profile?.id,
+    machineProfileLabel: currentSelection?.profile?.label
+  };
+
+  // Validate PR eligibility: 80 kg >= 20 kg base
+  assert.equal(
+    canEvaluatePr({
+      exercise: mockPlateMachineExercise,
+      bodyweightKg: 75,
+      bodyweightConfirmed: true,
+      performedDate: '2026-02-01',
+      todayKey: '2026-09-26',
+      set: finalSet,
+      loadingProfile: loading,
+      machineSelection: currentSelection
+    }),
+    true,
+    'Applied set must be eligible for PR evaluation'
+  );
+
+  const oneRm = calculateCanonicalStrengthOneRm(finalSet, {
+    exercise: mockPlateMachineExercise,
+    bodyweightKg: 75
+  });
+  assert.ok(oneRm !== null && oneRm > 80, 'Canonical 1RM must be calculated on total load');
+});
