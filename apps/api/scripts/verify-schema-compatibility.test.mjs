@@ -152,6 +152,13 @@ test('0011 release gate: old 0000–0008 build accepts DB through 0011; new buil
   assert.deepEqual(oldAgainstNew.missing, []);
   assert.deepEqual(oldAgainstNew.hashMismatches, []);
 
+  const missing0010And0011 = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0009);
+  assert.equal(missing0010And0011.ok, false);
+  assert.deepEqual(missing0010And0011.missing.map((e) => e.tag), [
+    '0010_legacy_routine_template_reconciliation',
+    '0011_legacy_routine_share_template_compatibility'
+  ]);
+
   const missing0011 = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0010);
   assert.equal(missing0011.ok, false);
   assert.deepEqual(missing0011.missing.map((e) => e.tag), ['0011_legacy_routine_share_template_compatibility']);

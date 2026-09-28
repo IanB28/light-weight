@@ -58,7 +58,7 @@ test('old-main share creation and import preserve V2 snapshots through rollback 
         `;
 
         const getShare = async (id: string) => (await tx`
-          SELECT exercise_ids, exercise_template, status, imported_routine_id
+          SELECT source_routine_id, exercise_ids, exercise_template, status, imported_routine_id
           FROM routine_shares WHERE id = ${id}
         `)[0];
         const getRoutine = async (id: string) => (await tx`
@@ -114,6 +114,16 @@ test('old-main share creation and import preserve V2 snapshots through rollback 
         await tx`UPDATE routines SET exercise_template = NULL WHERE id = ${sourceId}`;
         const legacySourceShareId = await legacyShare(['bench']);
         assert.equal((await getShare(legacySourceShareId)).exercise_template, null);
+        const legacyCloneId = randomUUID();
+        await tx`
+          INSERT INTO routines (id, user_id, name, exercise_ids)
+          VALUES (${legacyCloneId}, ${recipientId}, 'Legacy import', ${tx.json(['bench'])})
+        `;
+        await tx`
+          UPDATE routine_shares SET status = 'imported', imported_routine_id = ${legacyCloneId}
+          WHERE id = ${legacySourceShareId}
+        `;
+        assert.equal((await getRoutine(legacyCloneId)).exercise_template, null);
         await tx`UPDATE routines SET exercise_template = ${tx.json({ version: 2, exercises: 'bad' })} WHERE id = ${sourceId}`;
         const corruptSourceShareId = await legacyShare(['bench']);
         assert.equal((await getShare(corruptSourceShareId)).exercise_template, null);
@@ -198,6 +208,11 @@ test('old-main share creation and import preserve V2 snapshots through rollback 
         assert.deepEqual(hydrated?.exerciseIds, ['bench', 'row']);
         assert.deepEqual(hydrated?.template, bench80Row70);
         assert.equal(hydrated?.templateSource, 'v2');
+
+        // FK SET NULL must not erase the immutable snapshot after source deletion.
+        await tx`DELETE FROM routines WHERE id = ${sourceId} AND user_id = ${senderId}`;
+        assert.equal((await getShare(shareId)).source_routine_id, null);
+        assert.deepEqual((await getShare(shareId)).exercise_template, bench80Row70);
 
         throw rollback;
       });
