@@ -34,6 +34,8 @@ test('old-main routine writes preserve V2 configuration through rollback and red
     const priorMigrationSql = await readFile(migration0009, 'utf8');
     try {
       await sql.begin(async (tx) => {
+        // Serialize transactional DDL across integration-test files.
+        await tx`SELECT pg_advisory_xact_lock(198, 31)`;
         // Schema and fixtures are transaction-local, even if the disposable DB
         // has not yet applied 0009/0010. No persistent DB state is changed.
         await tx.unsafe(priorMigrationSql);

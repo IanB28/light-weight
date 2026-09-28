@@ -38,6 +38,8 @@ test('authorization guards and idempotent routine import hold inside a rolled-ba
     const routineTemplateMigrationSql = await readFile(routineTemplateMigrationUrl, 'utf8');
     try {
       await sql.begin(async (tx) => {
+        // Serialize transactional DDL across integration-test files.
+        await tx`SELECT pg_advisory_xact_lock(198, 31)`;
         await tx.unsafe(migrationSql);
         await tx.unsafe(routineTemplateMigrationSql);
         await tx`

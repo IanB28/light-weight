@@ -53,6 +53,8 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
     const routineTemplateMigrationSql = await readFile(new URL('../../drizzle/0009_routine_template_v2.sql', import.meta.url), 'utf8');
     try {
       await sql.begin(async (tx) => {
+        // Serialize transactional DDL across integration-test files.
+        await tx`SELECT pg_advisory_xact_lock(198, 31)`;
         // HTTP handlers open Drizzle transactions. Route them to PostgreSQL
         // savepoints so a failed nested sync actually rolls back its writes
         // while the outer disposable-test transaction remains inspectable.
