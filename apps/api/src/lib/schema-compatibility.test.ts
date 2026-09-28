@@ -27,7 +27,7 @@ test('schema compatibility requires every exact local migration hash and timesta
     assert.deepEqual(wrongHash.hashMismatches.map((entry) => entry.tag), [expected[2].tag]);
   }
 
-  const ahead = evaluateSchemaCompatibility(expected, [...applied, { when: 1790300000000, hash: 'future-migration' }]);
+  const ahead = evaluateSchemaCompatibility(expected, [...applied, { when: 1790400000000, hash: 'future-migration' }]);
   assert.equal(ahead.ok, true);
 });
 
@@ -37,8 +37,8 @@ test('compiled compatibility loader resolves the journal independently of proces
   try {
     process.chdir(isolatedCwd);
     const journal = readExpectedMigrationJournal();
-    assert.equal(journal.length, 10);
-    assert.equal(journal.at(-1)?.tag, '0009_routine_template_v2');
+    assert.equal(journal.length, 11);
+    assert.equal(journal.at(-1)?.tag, '0010_legacy_routine_template_reconciliation');
   } finally {
     process.chdir(originalCwd);
     rmSync(isolatedCwd, { recursive: true, force: true });
