@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, ne } from 'drizzle-orm';
 import {
   isValidUsername,
+  isWebpSignature,
   normalizeUsername,
   type UserGender
 } from '@light-weight/domain';
@@ -29,9 +30,7 @@ import { AVATAR_PATH_PREFIX, type AvatarStorage, vercelBlobAvatarStorage } from 
 const MAX_AVATAR_BYTES = 1_000_000;
 
 export function isWebpAvatar(bytes: Uint8Array): boolean {
-  return bytes.length >= 12
-    && String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF'
-    && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+  return isWebpSignature(bytes);
 }
 
 function safelyDeleteAvatar(storage: AvatarStorage, url: string) {

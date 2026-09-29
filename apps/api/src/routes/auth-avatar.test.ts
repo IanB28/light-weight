@@ -74,6 +74,7 @@ test('avatar route validates normalized WebP bytes, returns canonical user, and 
     assert.equal(wrongMime.status, 422);
     const spoofed = await fetch(`${baseUrl}/api/auth/avatar`, { method: 'PUT', headers: uploadHeaders(), body: Buffer.from('not a WebP') });
     assert.equal(spoofed.status, 422);
+    assert.equal(((await spoofed.json()) as { error: string }).error, 'AVATAR_INVALID_IMAGE');
     const oversized = await fetch(`${baseUrl}/api/auth/avatar`, { method: 'PUT', headers: uploadHeaders(), body: Buffer.alloc(1_000_001) });
     assert.equal(oversized.status, 422);
     const response = await fetch(`${baseUrl}/api/auth/avatar`, { method: 'PUT', headers: uploadHeaders(), body: webp });

@@ -4,6 +4,8 @@ import { mapApiError, requestJson, setCsrfToken, type ApiError, type OperationRe
 import { resolveSessionRefreshFailure, type AuthStatus } from './auth-session-state.js';
 import { apiEndpoint } from './api-base.js';
 import { clearCachedAuthUser, getCachedAuthUser, setCachedAuthUser } from './auth-cache.js';
+import { AvatarNormalizationError } from '../features/profile/avatar-normalization.js';
+import { requestAvatarUpload } from '../features/profile/avatar-upload.js';
 
 type AuthResult = OperationResult<AuthUser>;
 
@@ -111,16 +113,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const uploadAvatar = useCallback(async (avatar: Blob): Promise<AuthResult> => {
     try {
-      const result = await requestJson<{ user: AuthUser }>(apiEndpoint('/api/auth/avatar'), {
-        method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: avatar
-      }, 20_000);
+      const result = await requestAvatarUpload(avatar);
       setCachedAuthUser(result.user);
       setUser(result.user);
       setStatus('authenticated');
       setError(null);
       return { ok: true, data: result.user };
     } catch (cause) {
-      const next = mapApiError(cause);
+      const next: ApiError = cause instanceof AvatarNormalizationError
+        ? { code: cause.code === 'output_too_large' ? 'avatar_too_large' : cause.code === 'output_format_unsupported' ? 'avatar_invalid_type' : 'avatar_invalid_image', retryable: false }
+        : mapApiError(cause);
       setError(next);
       if (next.code === 'network' || next.code === 'aborted') setStatus('offline');
       return { ok: false, error: next };

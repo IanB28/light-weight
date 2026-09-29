@@ -24,3 +24,4 @@ export * from './workoutTemporal.js';
 export * from './routineTemplate.js';
 export * from './exercisePerformance.js';
 export * from './routineIdentity.js';
+export * from './avatar.js';

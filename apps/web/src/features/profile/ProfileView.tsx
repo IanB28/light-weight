@@ -125,7 +125,9 @@ export function ProfileView({
 
   const avatarErrorText = (code: AvatarNormalizationError['code']) => {
     if (code === 'unsupported_type') return t('profile.avatarUnsupportedType');
-    if (code === 'source_too_large' || code === 'output_too_large') return t('profile.avatarTooLarge');
+    if (code === 'source_too_large') return t('profile.avatarTooLarge');
+    if (code === 'output_too_large') return t('profile.avatarOutputTooLarge');
+    if (code === 'output_format_unsupported') return t('profile.avatarEncodingUnsupported');
     return t('profile.avatarNormalizationFailed');
   };
 
