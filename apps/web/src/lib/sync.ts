@@ -212,6 +212,17 @@ export function syncWithCloud(endpoint?: string): Promise<OperationResult<{ sync
   syncFollowUpRequested = false;
 
   syncInFlight = (async () => {
+    // Any caller may request a push while startup is still establishing
+    // routine authority. Read the pending snapshot only after that pull.
+    if (!isInitialRoutineCloudReconciliationComplete()) {
+      const pullResult = await pullFromCloud();
+      if (!pullResult.ok) return pullResult;
+      if (!isInitialRoutineCloudReconciliationComplete()) {
+        const error: ApiError = { code: 'unknown', retryable: true };
+        notify({ state: 'error', error });
+        return { ok: false as const, error };
+      }
+    }
     let result: OperationResult<{ syncedCount: number }>;
     do {
       syncFollowUpRequested = false;
@@ -226,7 +237,7 @@ export function syncWithCloud(endpoint?: string): Promise<OperationResult<{ sync
   return syncInFlight;
 }
 
-/** Pull establishes cloud authority before any offline routine outbox is drained. */
+/** A successful pull can hydrate React even if its later outbox drain fails. */
 export async function pullThenDrainRoutineOutbox(endpoints?: {
   pull?: string;
   push?: string;
