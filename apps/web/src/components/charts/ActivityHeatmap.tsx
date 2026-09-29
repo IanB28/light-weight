@@ -1,16 +1,21 @@
 import React, { useRef, useEffect } from 'react';
-import { WorkoutSession, calculateSessionTotalVolume, formatLocalWorkoutDateKey, resolveWorkoutDateKey } from '@light-weight/domain';
+import { type BodyweightEntry, type Exercise, type WorkoutSession, formatLocalWorkoutDateKey, resolveWorkoutDateKey } from '@light-weight/domain';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
+import { calculateHistoricalSessionVolume } from '../../lib/historical-volume.js';
 
 interface ActivityHeatmapProps {
   history: WorkoutSession[];
+  exercisesById: Record<string, Exercise>;
+  bodyweightEntries: BodyweightEntry[];
   /** A selected day is an aggregate; callers receive every session on it. */
   onSelectDate?: (dateStr: string, sessions: WorkoutSession[]) => void;
 }
 
 export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   history,
+  exercisesById,
+  bodyweightEntries,
   onSelectDate
 }) => {
   const { preferences } = usePreferences();
@@ -28,7 +33,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
 
   for (const session of history) {
     const d = resolveWorkoutDateKey(session);
-    const vol = calculateSessionTotalVolume(session);
+    const vol = calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries);
     const sets = Object.values(session.sets).reduce(
       (acc, sList) => acc + sList.filter((s) => s.completed).length,
       0

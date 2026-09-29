@@ -203,7 +203,9 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
         if (routineOwner === userId) routineUuid = requestedRoutineUuid;
       }
 
-      // Calcular volumen total
+      // Legacy cache only: pull omits totalVolumeKg. Clients derive canonical tonnage
+      // from sets, exercise loading metadata and bodyweight at the workout date.
+      // This raw subtotal must never be treated as authoritative historical volume.
       let totalVolume = 0;
       Object.values(sets).forEach((setArray) => {
         setArray.forEach((s) => {

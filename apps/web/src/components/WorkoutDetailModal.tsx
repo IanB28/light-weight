@@ -1,28 +1,31 @@
 import React from 'react';
 import { X, Calendar, Clock, Flame, Dumbbell } from 'lucide-react';
-import { calculateSessionTotalVolume, normalizeWorkoutSetType, resolveWorkoutDateKey, shouldCountForVolume, type WorkoutSession, type Exercise } from '@light-weight/domain';
+import { normalizeWorkoutSetType, resolveWorkoutDateKey, shouldCountForVolume, type WorkoutSession, type Exercise, type BodyweightEntry } from '@light-weight/domain';
 import { EXERCISES_BY_ID } from '../lib/exercises.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 import { useI18n } from '../lib/i18n.js';
+import { calculateHistoricalSessionVolume } from '../lib/historical-volume.js';
 
 interface WorkoutDetailModalProps {
   session: WorkoutSession | null;
   onClose: () => void;
   exercisesById?: Record<string, Exercise>;
+  bodyweightEntries?: BodyweightEntry[];
 }
 
 export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   session,
   onClose,
-  exercisesById = EXERCISES_BY_ID
+  exercisesById = EXERCISES_BY_ID,
+  bodyweightEntries = []
 }) => {
   const { preferences } = usePreferences();
   const { t } = useI18n();
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   if (!session) return null;
 
-  const totalVolume = calculateSessionTotalVolume(session);
+  const totalVolume = calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries);
   const totalSets = Object.values(session.sets).reduce(
     (acc, sets) => acc + sets.filter((s) => s.completed).length,
     0

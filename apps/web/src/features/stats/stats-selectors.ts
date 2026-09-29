@@ -2,7 +2,6 @@ import {
   calculateCanonicalStrengthOneRm,
   calculateMuscleFatigue,
   calculateOverallStrength,
-  calculateSessionTotalVolume,
   calculateSetOneRm,
   calculateWeeklyStreak,
   evaluateRelativeStrength,
@@ -34,6 +33,7 @@ import {
   computeSemanticFatigueForHistory,
   type SemanticFatigueResult
 } from '../../lib/fatigue-anatomy.js';
+import { calculateHistoricalSessionVolume } from '../../lib/historical-volume.js';
 
 const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
@@ -359,10 +359,7 @@ export function selectProgressSummary(
   });
 
   const volumeKg = recentSessions.reduce((total, session) => {
-    const sessionBw = bodyweightEntries
-      ? resolveBodyweightKgAtDate(bodyweightEntries, resolveWorkoutDateKey(session))
-      : null;
-    return total + calculateSessionTotalVolume(session, { exercisesById, bodyweightKg: sessionBw });
+    return total + calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries ?? []);
   }, 0);
 
   return {
@@ -431,10 +428,7 @@ export function selectStatsSnapshot(
 ) {
   const exercisesById = buildExercisesById(exercises);
   const totalVolumeTonnage = history.reduce((total, session) => {
-    const sessionBw = bodyweightEntries
-      ? resolveBodyweightKgAtDate(bodyweightEntries, resolveWorkoutDateKey(session))
-      : bodyweightKg;
-    return total + calculateSessionTotalVolume(session, { exercisesById, bodyweightKg: sessionBw });
+    return total + calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries ?? []);
   }, 0);
 
   const strength = selectStrengthSnapshot(history, exercisesById, {

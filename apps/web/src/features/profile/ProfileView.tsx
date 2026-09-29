@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Award, Camera, Dumbbell, Pencil, Shield, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
-  calculateSessionTotalVolume,
   calculateWeeklyStreak,
   evaluateRelativeStrength,
   resolveBodyweightKgAtDate,
@@ -28,6 +27,7 @@ import { StrengthRankBadge } from '../../components/StrengthRankBadge.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { submitProfileDraft } from './profile-save.js';
 import { AvatarNormalizationError, normalizeAvatarFile, type NormalizedAvatar } from './avatar-normalization.js';
+import { calculateHistoricalSessionVolume } from '../../lib/historical-volume.js';
 import type { AuthUser, HistoricalPersonalRecord } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
 
@@ -95,7 +95,7 @@ export function ProfileView({
     });
     return {
       totalWorkouts: history.length,
-      totalVolumeKg: history.reduce((total, session) => total + calculateSessionTotalVolume(session), 0),
+      totalVolumeKg: history.reduce((total, session) => total + calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries ?? []), 0),
       streak: calculateWeeklyStreak(history),
       records: Object.values(records)
         .sort((a, b) => b.est1Rm - a.est1Rm)

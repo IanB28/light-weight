@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import {
   estimateOneRm,
-  calculateSessionTotalVolume,
   calculateWeeklyStreak,
   getExerciseProgressSeries,
   getNeglectedMuscles,
@@ -50,6 +49,7 @@ import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 import { selectLastTopSet, selectStatsSnapshot } from '../features/stats/stats-selectors.js';
+import { calculateHistoricalSessionVolume } from '../lib/historical-volume.js';
 import { StrengthRankBadge } from '../components/StrengthRankBadge.js';
 import { getStrengthRankColor } from '../lib/strength-rank-visuals.js';
 import {
@@ -1091,7 +1091,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   {history.length} sesiones registradas
                 </span>
               </div>
-              <ActivityHeatmap history={history} />
+              <ActivityHeatmap history={history} exercisesById={exercisesById} bodyweightEntries={bodyweightEntries} />
             </div>
 
             {/* Listado Reciente de Entrenamientos */}
@@ -1101,7 +1101,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </span>
               <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                 {history.slice(0, 10).map((session) => {
-                  const vol = calculateSessionTotalVolume(session);
+                  const vol = calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries);
                   const totalSets = Object.values(session.sets).reduce(
                     (acc, sList) => acc + sList.filter((s) => s.completed).length,
                     0
@@ -1510,6 +1510,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         session={inspectingSession}
         onClose={() => setInspectingSession(null)}
         exercisesById={exercisesById}
+        bodyweightEntries={bodyweightEntries}
       />
 
       {/* Modal Interactivo de Equivalencias Cotidianas de Tonelaje */}

@@ -1,14 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatLocalWorkoutDateKey, resolveWorkoutDateKey, shouldCountForVolume, type WorkoutSession, type Routine } from '@light-weight/domain';
+import { formatLocalWorkoutDateKey, resolveWorkoutDateKey, type BodyweightEntry, type Exercise, type WorkoutSession, type Routine } from '@light-weight/domain';
 import { WeeklySchedule, DAY_NUM_TO_WEEKDAY } from '../lib/storage.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
+import { calculateHistoricalSessionVolume } from '../lib/historical-volume.js';
 
 interface MonthCalendarModalProps {
   isOpen: boolean;
   onClose: () => void;
   history: WorkoutSession[];
+  exercisesById: Record<string, Exercise>;
+  bodyweightEntries: BodyweightEntry[];
   weeklySchedule: WeeklySchedule;
   routines: Routine[];
   onSelectDay: (date: Date) => void;
@@ -18,6 +21,8 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
   isOpen,
   onClose,
   history,
+  exercisesById,
+  bodyweightEntries,
   weeklySchedule,
   routines,
   onSelectDay
@@ -67,15 +72,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
         hasUnknownDuration = true;
       }
 
-      if (s.sets) {
-        Object.values(s.sets).forEach((setArr) => {
-          setArr.forEach((st) => {
-            if (shouldCountForVolume(st)) {
-              totalVolumeKg += st.weightKg * st.reps;
-            }
-          });
-        });
-      }
+      totalVolumeKg += calculateHistoricalSessionVolume(s, exercisesById, bodyweightEntries);
     });
 
     const hours = Math.floor(totalMinutes / 60);
@@ -91,7 +88,7 @@ export const MonthCalendarModal: React.FC<MonthCalendarModalProps> = ({
       durationStr,
       volumeFormatted
     };
-  }, [monthSessions, preferences.units]);
+  }, [monthSessions, exercisesById, bodyweightEntries, preferences.units]);
 
   // Matriz de días del mes para la cuadrícula
   const calendarDays = useMemo(() => {

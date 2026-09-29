@@ -95,6 +95,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   // Keep the calendar dependency stable for all renders within the same local day.
   const todayKey = new Date().toDateString();
   const today = useMemo(() => new Date(todayKey), [todayKey]);
+  const exercisesById = useMemo(
+    () => Object.fromEntries(exercises.map((exercise) => [exercise.id, exercise])),
+    [exercises]
+  );
   const rawDateStr = today.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
@@ -413,6 +417,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
         isOpen={isMonthCalendarOpen}
         onClose={() => setIsMonthCalendarOpen(false)}
         history={history}
+        exercisesById={exercisesById}
+        bodyweightEntries={bodyweightEntries}
         weeklySchedule={weeklySchedule}
         routines={routines}
         onSelectDay={(date) => {
@@ -455,6 +461,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <WorkoutDetailModal
         session={inspectedSession}
         onClose={() => setInspectedSession(null)}
+        exercisesById={exercisesById}
+        bodyweightEntries={bodyweightEntries}
       />
       {onSaveHistoricalWorkout && (
         <HistoricalWorkoutModal
