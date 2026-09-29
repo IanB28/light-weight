@@ -7,6 +7,7 @@ import type {
   Routine,
   WorkoutSession
 } from '@light-weight/domain';
+import { toDatabaseUuid } from '@light-weight/domain';
 import {
   doesSessionMatchRoutine,
   getPreviousRoutineExercisePerformance,
@@ -679,9 +680,10 @@ test('Hydration Matrix 11: no previous performance and no template falls back to
   });
 
   assert.equal(sessions.length, 1);
-  // Default sets from dummyBaseCreator (3 sets of 50kg, 8 reps, completed=false)
-  assert.equal(sessions[0].sets.length, 3);
-  assert.equal(sessions[0].sets[0].weightKg, 50);
+  // Canonical conservative fallback is one warmup at zero load.
+  assert.equal(sessions[0].sets.length, 1);
+  assert.equal(sessions[0].sets[0].weightKg, 0);
+  assert.equal(sessions[0].sets[0].setType, 'warmup');
 });
 
 test('Hydration Matrix 12: routine exercise order strictly follows Routine V2 template exercises order', () => {
@@ -870,7 +872,7 @@ test('Active Workout Matrix 1 & 2: save and reload ACTIVE_WORKOUT persists and r
 
   assert.ok(restored);
   assert.equal(restored.isWorkoutActive, true);
-  assert.equal(restored.activeRoutineId, 'routine-push-101');
+  assert.equal(restored.activeRoutineId, toDatabaseUuid('routine-push-101'));
   assert.equal(restored.activeRoutineName, 'Push Hypertrophy');
 });
 

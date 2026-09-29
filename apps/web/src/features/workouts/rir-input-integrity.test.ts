@@ -37,14 +37,13 @@ const mockBenchExercise: Exercise = {
 
 test('RIR input integrity: initial sets have rir === undefined (no default 2)', () => {
   const session = createDefaultExerciseSession(mockBenchExercise);
-  assert.equal(session.sets.length, 3);
+  assert.equal(session.sets.length, 1);
   assert.equal(session.sets[0].rir, undefined);
-  assert.equal(session.sets[1].rir, undefined);
-  assert.equal(session.sets[2].rir, undefined);
 });
 
 test('RIR input integrity: adding a set after explicit RIR does not inherit RIR, while weight/reps inherit', () => {
   let sessions: ActiveExerciseSession[] = [createDefaultExerciseSession(mockBenchExercise)];
+  sessions = addSetToSessions(addSetToSessions(sessions, 'ex-bench'), 'ex-bench');
 
   // User enters weight, reps, and explicit RIR 1 on set 3 (the current last set)
   sessions = updateSetInSessions(sessions, 'ex-bench', 3, 'weightKg', 85);
@@ -153,7 +152,7 @@ test('RIR input integrity: serialized completed workout sets contain no invented
   const serialized = serializeWorkoutSets(toggledSessions);
   const completedSets = serialized['ex-bench'];
 
-  assert.equal(completedSets.length, 3);
+  assert.equal(completedSets.length, 1);
   assert.equal(completedSets[0].completed, true);
   assert.equal(completedSets[0].weightKg, 80);
   assert.equal(completedSets[0].reps, 8);
@@ -347,4 +346,3 @@ test('RIR copy consolidation: duplicate body copy keys are removed from i18n and
     assert.ok(i18nSource.includes(`'${key}':`), `Canonical key ${key} must exist in i18n`);
   }
 });
-

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
-import { isValidWorkoutSet, type Exercise, type Routine, type WorkoutSession } from '@light-weight/domain';
+import { isValidWorkoutSet, toDatabaseUuid, type Exercise, type Routine, type WorkoutSession } from '@light-weight/domain';
 import {
   getStoredActiveWorkout,
   saveActiveWorkout,
@@ -73,9 +73,9 @@ test('1. Routine deduplication: normalizeStoredRoutines deduplicates by ID prese
 
   const normalized = normalizeStoredRoutines(duplicates);
   assert.equal(normalized.length, 2);
-  assert.equal(normalized[0].id, 'rot-1');
+  assert.equal(normalized[0].id, toDatabaseUuid('rot-1'));
   assert.equal(normalized[0].name, 'Push A (v2)');
-  assert.equal(normalized[1].id, 'rot-2');
+  assert.equal(normalized[1].id, toDatabaseUuid('rot-2'));
 });
 
 test('2. Routine deduplication: routines with distinct IDs sharing display name are NOT merged', () => {
@@ -86,8 +86,8 @@ test('2. Routine deduplication: routines with distinct IDs sharing display name 
 
   const normalized = normalizeStoredRoutines(sameNameRoutines);
   assert.equal(normalized.length, 2);
-  assert.equal(normalized[0].id, 'rot-1');
-  assert.equal(normalized[1].id, 'rot-2');
+  assert.equal(normalized[0].id, toDatabaseUuid('rot-1'));
+  assert.equal(normalized[1].id, toDatabaseUuid('rot-2'));
 });
 
 test('3. Routine picker disambiguation: buildRoutinePickerOptions disambiguates duplicate names', () => {
@@ -590,14 +590,14 @@ test('14. Storage self-healing: getStoredRoutines heals corrupted duplicate rout
     // Calling getStoredRoutines() must self-heal and write back
     const healed = getStoredRoutines();
     assert.equal(healed.length, 2);
-    assert.equal(healed[0].id, 'rot-1');
+    assert.equal(healed[0].id, toDatabaseUuid('rot-1'));
     assert.equal(healed[0].name, 'Updated Push');
-    assert.equal(healed[1].id, 'rot-2');
+    assert.equal(healed[1].id, toDatabaseUuid('rot-2'));
 
     // Verify localStorage has been healed with deduplicated array
     const persisted = JSON.parse(memory.get('lightweight_routines') || '[]');
     assert.equal(persisted.length, 2);
-    assert.equal(persisted[0].id, 'rot-1');
+    assert.equal(persisted[0].id, toDatabaseUuid('rot-1'));
     assert.equal(persisted[0].name, 'Updated Push');
   } finally {
     if (orig) Object.defineProperty(globalThis, 'localStorage', orig);

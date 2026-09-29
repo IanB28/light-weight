@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeRoutine, reconcileLegacyRoutineTemplate, type Routine, type RoutineTemplateV2 } from '@light-weight/domain';
+import { normalizeRoutine, reconcileLegacyRoutineTemplate, toDatabaseUuid, type Routine, type RoutineTemplateV2 } from '@light-weight/domain';
 import {
   normalizeStoredRoutines,
   getStoredRoutines,
@@ -34,7 +34,7 @@ test('1. normalizeStoredRoutines upgrades legacy routines to valid V2 template',
 
   const [normalized] = normalizeStoredRoutines([legacyRoutine]);
   assert.ok(normalized);
-  assert.equal(normalized.id, 'rot-legacy-1');
+  assert.equal(normalized.id, toDatabaseUuid('rot-legacy-1'));
   assert.equal(normalized.name, 'Push Day A');
   assert.equal(normalized.description, 'Chest and shoulders');
   assert.deepEqual(normalized.exerciseIds, ['bench-press', 'overhead-press']);
@@ -79,7 +79,7 @@ test('2. normalizeStoredRoutines preserves existing V2 template without overwrit
 
   const [normalized] = normalizeStoredRoutines([v2Routine]);
   assert.ok(normalized);
-  assert.equal(normalized.id, 'rot-v2-1');
+  assert.equal(normalized.id, toDatabaseUuid('rot-v2-1'));
   assert.deepEqual(normalized.exerciseIds, ['squat', 'leg-extension']);
   assert.deepEqual(normalized.template, v2Template);
 });
@@ -102,7 +102,7 @@ test('3. normalizeStoredRoutines discards corrupted or malformed entries safely'
 
   const normalized = normalizeStoredRoutines(dirtyInput);
   assert.equal(normalized.length, 1);
-  assert.equal(normalized[0].id, 'rot-valid');
+  assert.equal(normalized[0].id, toDatabaseUuid('rot-valid'));
   assert.equal(normalized[0].name, 'Valid Routine');
   assert.ok(normalized[0].template);
 });
@@ -116,10 +116,10 @@ test('4. normalizeStoredRoutines deduplicates by ID preserving the latest entry'
 
   const normalized = normalizeStoredRoutines(duplicates);
   assert.equal(normalized.length, 2);
-  assert.equal(normalized[0].id, 'rot-dup');
+  assert.equal(normalized[0].id, toDatabaseUuid('rot-dup'));
   assert.equal(normalized[0].name, 'Updated Version');
   assert.deepEqual(normalized[0].exerciseIds, ['bench-press', 'incline-press']);
-  assert.equal(normalized[1].id, 'rot-other');
+  assert.equal(normalized[1].id, toDatabaseUuid('rot-other'));
 });
 
 test('5. normalizeStoredRoutines preserves shared routine origin attribution', () => {
@@ -188,7 +188,7 @@ test('7. saveStoredRoutines and getStoredRoutines roundtrip V2 templates cleanly
 
   saveStoredRoutines([v2Routine]);
   const loaded = getStoredRoutines();
-  const matched = loaded.find((r) => r.id === 'rot-storage-test');
+  const matched = loaded.find((r) => r.id === toDatabaseUuid('rot-storage-test'));
   assert.ok(matched);
   assert.deepEqual(matched?.template, v2Routine.template);
 });

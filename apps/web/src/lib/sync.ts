@@ -1,9 +1,10 @@
-import { HistoricalPersonalRecord, Routine, WorkoutSession } from '@light-weight/domain';
+import { HistoricalPersonalRecord, Routine, WorkoutSession, type ExercisePerformanceHead } from '@light-weight/domain';
 import {
   getStoredBodyweight, getStoredHistory, getStoredRoutines, saveStoredHistory,
   saveStoredBodyweight, saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo,
   getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds, normalizeStoredRoutines,
-  getStoredHistoricalPersonalRecords, saveStoredHistoricalPersonalRecords, normalizeStoredHistoricalPersonalRecords
+  getStoredHistoricalPersonalRecords, saveStoredHistoricalPersonalRecords, normalizeStoredHistoricalPersonalRecords,
+  saveStoredExercisePerformanceHeads
 } from './storage.js';
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
 import { apiEndpoint } from './api-base.js';
@@ -22,6 +23,7 @@ interface PullResponse {
   profile?: { gender?: string } | null;
   routines?: Array<Partial<Routine>>;
   history?: WorkoutSession[];
+  latestExercisePerformances?: Record<string, ExercisePerformanceHead>;
   bodyweightLogs?: Array<{ weightKg?: unknown; loggedAt?: unknown }>;
   historicalPersonalRecords?: HistoricalPersonalRecord[];
 }
@@ -80,6 +82,9 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
         const local = getStoredHistory();
         const existing = new Set(local.map((session) => session.id));
         saveStoredHistory([...data.history.filter((session) => !existing.has(session.id)), ...local]);
+      }
+      if (data.latestExercisePerformances && typeof data.latestExercisePerformances === 'object') {
+        saveStoredExercisePerformanceHeads(data.latestExercisePerformances);
       }
       if (Array.isArray(data.bodyweightLogs) && data.bodyweightLogs.length > 0) {
         const incoming = data.bodyweightLogs.flatMap((entry) => {

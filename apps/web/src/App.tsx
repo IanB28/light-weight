@@ -40,6 +40,7 @@ export function App() {
     exercises: data.exercises,
     routines: data.routines,
     history: data.history,
+    remoteExercisePerformanceHeads: data.remoteExercisePerformanceHeads,
     preferences,
     userId: auth.user?.id || data.userInfo.id,
     bodyweightEntries: data.bodyweightEntries
@@ -197,6 +198,7 @@ export function App() {
         {currentTab === 'home' && <HomeView
           userName={data.profile.displayName === 'Atleta' ? data.userInfo.name : data.profile.displayName}
           history={data.history}
+          remoteExercisePerformanceHeads={data.remoteExercisePerformanceHeads}
           routines={data.routines}
           weeklySchedule={data.weeklySchedule}
           onUpdateWeeklySchedule={data.updateWeeklySchedule}

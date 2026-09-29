@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { normalizeRoutine, type Exercise, type HistoricalPersonalRecord, type Routine, type WorkoutSession } from '@light-weight/domain';
+import { normalizeRoutine, toDatabaseUuid, type Exercise, type ExercisePerformanceHead, type HistoricalPersonalRecord, type Routine, type WorkoutSession } from '@light-weight/domain';
 import { loadExerciseCatalog } from './exercises.js';
 import {
   getStoredBodyweight,
   getStoredHistoricalPersonalRecords,
+  getStoredExercisePerformanceHeads,
   getStoredHistory,
   getStoredProfile,
   getStoredRoutines,
@@ -41,6 +42,7 @@ export function useAppData() {
   const [userInfo, setUserInfo] = useState<UserInfo>(() => getStoredUserInfo());
   const [profile, setProfile] = useState<UserProfile>(() => getStoredProfile());
   const [historicalPersonalRecords, setHistoricalPersonalRecords] = useState<HistoricalPersonalRecord[]>(() => getStoredHistoricalPersonalRecords());
+  const [remoteExercisePerformanceHeads, setRemoteExercisePerformanceHeads] = useState<Record<string, ExercisePerformanceHead>>(() => getStoredExercisePerformanceHeads());
 
   const reloadFromStorage = useCallback(() => {
     setHistory(getStoredHistory());
@@ -51,6 +53,7 @@ export function useAppData() {
     setUserInfo(getStoredUserInfo());
     setProfile(getStoredProfile());
     setHistoricalPersonalRecords(getStoredHistoricalPersonalRecords());
+    setRemoteExercisePerformanceHeads(getStoredExercisePerformanceHeads());
   }, []);
   const sync = useCloudSync(reloadFromStorage, auth.isAuthenticated && storedUserScopeMatches(auth.user?.id || null));
 
@@ -98,16 +101,16 @@ export function useAppData() {
   }, []);
 
   const saveRoutine = useCallback((routine: Routine) => {
-    const normalized = normalizeRoutine(routine) || routine;
+    const parsed = normalizeRoutine(routine) || routine;
+    const normalized = { ...parsed, id: toDatabaseUuid(parsed.id) };
     removeStoredDeletedRoutineIds([normalized.id]);
-    setRoutines((current) => {
-      const existingIndex = current.findIndex((item) => item.id === normalized.id);
-      const updated = existingIndex < 0
-        ? [...current, normalized]
-        : current.map((item) => item.id === normalized.id ? normalized : item);
-      saveStoredRoutines(updated);
-      return updated;
-    });
+    // Persist before starting the async full-routine push; React's state updater may run later.
+    const current = getStoredRoutines();
+    const updated = current.some((item) => item.id === normalized.id)
+      ? current.map((item) => item.id === normalized.id ? normalized : item)
+      : [...current, normalized];
+    saveStoredRoutines(updated);
+    setRoutines(updated);
     void sync();
   }, [sync]);
 
@@ -140,6 +143,7 @@ export function useAppData() {
   }, [sync]);
 
   const deleteRoutine = useCallback((routineId: string) => {
+    routineId = toDatabaseUuid(routineId);
     addStoredDeletedRoutineId(routineId);
     setRoutines((current) => {
       const updated = current.filter((routine) => routine.id !== routineId);
@@ -172,6 +176,7 @@ export function useAppData() {
     routines,
     history,
     historicalPersonalRecords,
+    remoteExercisePerformanceHeads,
     weeklySchedule,
     bodyweightEntries,
     targetWeight,

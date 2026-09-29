@@ -10,6 +10,7 @@ import { ViewHeader } from '../components/ViewHeader.js';
 import {
   Routine,
   WorkoutSession,
+  type ExercisePerformanceHead,
   MuscleGroup,
   calculateWeeklyStreak,
   getWorkoutsThisWeek,
@@ -50,6 +51,7 @@ interface HomeViewProps {
   exercises?: import('@light-weight/domain').Exercise[];
   userId?: string;
   onSaveHistoricalWorkout?: (session: WorkoutSession) => boolean | void | Promise<boolean | void>;
+  remoteExercisePerformanceHeads?: Record<string, ExercisePerformanceHead>;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -69,7 +71,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenSettings,
   exercises = [],
   userId = 'local-anonymous',
-  onSaveHistoricalWorkout
+  onSaveHistoricalWorkout,
+  remoteExercisePerformanceHeads
 }) => {
   const { locale, t } = useI18n();
   const [weekOffset, setWeekOffset] = useState<number>(0);
@@ -464,6 +467,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           userId={userId}
           exercises={exercises}
           history={history}
+          remoteExercisePerformanceHeads={remoteExercisePerformanceHeads}
           routines={routines}
           initialDate={historicalDate}
           initialRoutineId={historicalRoutineId}

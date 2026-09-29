@@ -35,6 +35,14 @@ import { PreferencesProvider } from '../../lib/preferences-context.js';
 import { I18nProvider } from '../../lib/i18n.js';
 import { createRequire } from 'node:module';
 
+// Snapshot tests require multiple pre-existing rows; the product now starts with one warmup.
+function threeSetMachineSession(): ActiveExerciseSession {
+  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  sessions = addSetToSessions(sessions, mockSmithExercise.id);
+  sessions = addSetToSessions(sessions, mockSmithExercise.id);
+  return sessions[0];
+}
+
 // Setup mock localStorage in Node test environment if not present
 if (typeof globalThis.localStorage === 'undefined') {
   const store = new Map<string, string>();
@@ -257,7 +265,7 @@ test('4. CALIBRATED_MACHINE_SUM: Machine with base 15 kg + 40 kg plates = 55 kg 
 test('5. SWITCH_MACHINE_PRESERVES_EXISTING_SNAPSHOT: Set 1 composed with Machine A (base 10 kg); session switches to Machine B (base 20 kg); Set 1 retains Machine A snapshot (even before completion)', () => {
   localStorage.clear();
 
-  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  let sessions = [threeSetMachineSession()];
 
   // Set 1 composed with Machine A (base 10 kg)
   sessions = applyPlateWeightInSessions(
@@ -356,7 +364,7 @@ test('6. COMPLETION_NEVER_OVERWRITES_SNAPSHOT: Set with snapshot A completes und
 test('7. UNSNAPSHOTTED_SET_COMPLETION_CAPTURES_CURRENT: Set with no snapshot completes; captures current session machine profile at completion time', () => {
   localStorage.clear();
 
-  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  let sessions = [threeSetMachineSession()];
 
   // Session is configured with Machine B (base 20 kg)
   sessions = updateMachineProfileInSessions(sessions, 'smith-bench-press', {
@@ -737,7 +745,7 @@ test('16. UNKNOWN_SNAPSHOT_IMMUTABILITY_ACROSS_SESSION_SWITCH: Machine with unkn
   localStorage.clear();
 
   // 1. Session starts uncalibrated (status 'unknown', no machine profile configured yet)
-  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  let sessions = [threeSetMachineSession()];
   assert.equal(sessions[0].machineBaseResistanceStatus, 'unknown');
   assert.equal(sessions[0].machineProfileId, undefined);
 
@@ -924,7 +932,7 @@ test('18. POST_COMMIT_INTEGRITY_HARDENING_SCENARIOS: Selection contract, last-us
   localStorage.clear();
 
   // 1. Initial sets start without snapshot
-  let sessions = [createDefaultExerciseSession(mockSmithExercise)];
+  let sessions = [threeSetMachineSession()];
   assert.equal(sessions[0].machineBaseResistanceStatus, 'unknown');
   assert.equal(sessions[0].sets[0].weightKg, 0, 'Unknown base must start default weight at 0, not synthetic plate sum');
   assert.equal(sessions[0].sets[0].machineProfileId, undefined);
@@ -1250,4 +1258,3 @@ test('22. UNKNOWN_SNAPSHOT_ISOLATION_AGAINST_SESSION_BASE: Unknown snapshot A (1
   assert.notEqual(serializedSet1.machineProfileId, profileB.id);
   assert.notEqual(serializedSet1.machineProfileId, profileC.id);
 });
-

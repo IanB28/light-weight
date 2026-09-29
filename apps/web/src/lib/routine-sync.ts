@@ -1,6 +1,7 @@
 import {
   normalizeRoutine,
   reconcileLegacyRoutineTemplate,
+  toDatabaseUuid,
   type Routine,
   type RoutineTemplateV2
 } from '@light-weight/domain';
@@ -18,7 +19,7 @@ export function serializeRoutineForSync(routine: Routine): RoutineSyncPayload {
   const normalized = normalizeRoutine(routine);
   if (!normalized) throw new Error('Invalid routine for sync');
   return {
-    id: normalized.id,
+    id: toDatabaseUuid(normalized.id),
     name: normalized.name,
     ...(normalized.description !== undefined ? { description: normalized.description } : {}),
     exerciseIds: [...normalized.exerciseIds],
@@ -28,9 +29,11 @@ export function serializeRoutineForSync(routine: Routine): RoutineSyncPayload {
 
 /** Preserves local edits while recovering remote V2 sets for legacy-derived routines. */
 export function mergePulledRoutines(local: readonly Routine[], incoming: readonly Routine[]): Routine[] {
-  const remoteById = new Map(incoming.map((routine) => [routine.id, routine]));
-  const localIds = new Set(local.map((routine) => routine.id));
-  const mergedLocal = local.map((routine) => {
+  const canonicalLocal = local.map((routine) => ({ ...routine, id: toDatabaseUuid(routine.id) }));
+  const canonicalIncoming = incoming.map((routine) => ({ ...routine, id: toDatabaseUuid(routine.id) }));
+  const remoteById = new Map(canonicalIncoming.map((routine) => [routine.id, routine]));
+  const localIds = new Set(canonicalLocal.map((routine) => routine.id));
+  const mergedLocal = canonicalLocal.map((routine) => {
     const remote = remoteById.get(routine.id);
     if (!remote) return routine;
 
@@ -42,5 +45,6 @@ export function mergePulledRoutines(local: readonly Routine[], incoming: readonl
     return origin !== routine.origin ? { ...routine, origin } : routine;
   });
 
-  return [...mergedLocal, ...incoming.filter((routine) => !localIds.has(routine.id))];
+  return [...new Map([...mergedLocal, ...canonicalIncoming.filter((routine) => !localIds.has(routine.id))]
+    .map((routine) => [routine.id, routine])).values()];
 }

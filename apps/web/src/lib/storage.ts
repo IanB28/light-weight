@@ -3,6 +3,9 @@ import {
   normalizeLoggedSet,
   normalizeRoutine,
   normalizeWorkoutSession,
+  toDatabaseUuid,
+  qualifyingPerformanceSets,
+  type ExercisePerformanceHead,
   type HistoricalPersonalRecord,
   type LegacyWorkoutSession,
   type Routine,
@@ -24,7 +27,8 @@ export const STORAGE_KEYS = {
   DELETED_ROUTINE_IDS: 'lightweight_deleted_routine_ids',
   MACHINE_PROFILES: 'lightweight_machine_profiles',
   LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles',
-  HISTORICAL_PERSONAL_RECORDS: 'lightweight_historical_personal_records'
+  HISTORICAL_PERSONAL_RECORDS: 'lightweight_historical_personal_records',
+  EXERCISE_PERFORMANCE_HEADS: 'lightweight_exercise_performance_heads'
 };
 
 const PRIVATE_STORAGE_KEYS = Object.values(STORAGE_KEYS);
@@ -119,7 +123,10 @@ export function getStoredWeeklySchedule(): WeeklySchedule {
     if (!raw) return { ...DEFAULT_WEEKLY_SCHEDULE };
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...DEFAULT_WEEKLY_SCHEDULE };
-    return { ...DEFAULT_WEEKLY_SCHEDULE, ...parsed };
+    const schedule = { ...DEFAULT_WEEKLY_SCHEDULE, ...parsed } as WeeklySchedule;
+    return Object.fromEntries(Object.entries(schedule).map(([day, id]) => [day,
+      typeof id === 'string' && id ? toDatabaseUuid(id) : null
+    ])) as WeeklySchedule;
   } catch {
     return { ...DEFAULT_WEEKLY_SCHEDULE };
   }
@@ -127,7 +134,9 @@ export function getStoredWeeklySchedule(): WeeklySchedule {
 
 export function saveStoredWeeklySchedule(schedule: WeeklySchedule): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.WEEKLY_SCHEDULE, JSON.stringify(schedule));
+    localStorage.setItem(STORAGE_KEYS.WEEKLY_SCHEDULE, JSON.stringify(Object.fromEntries(
+      Object.entries(schedule).map(([day, id]) => [day, id ? toDatabaseUuid(id) : null])
+    )));
   } catch {}
 }
 
@@ -365,6 +374,41 @@ export function saveStoredHistory(history: WorkoutSession[]): void {
   }
 }
 
+/** Server projection is a cache, never a replacement for local unsynced workout history. */
+export function normalizeExercisePerformanceHeads(value: unknown): Record<string, ExercisePerformanceHead> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const result: Record<string, ExercisePerformanceHead> = {};
+  for (const [exerciseId, raw] of Object.entries(value)) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const head = raw as Partial<ExercisePerformanceHead>;
+    if (head.exerciseId !== exerciseId || typeof head.sessionId !== 'string' ||
+      typeof head.startedAt !== 'string' || !Array.isArray(head.sets)) continue;
+    const sets = qualifyingPerformanceSets(head.sets);
+    if (!sets.length) continue;
+    result[exerciseId] = {
+      exerciseId, sessionId: head.sessionId, startedAt: head.startedAt,
+      performedDate: typeof head.performedDate === 'string' ? head.performedDate : undefined,
+      recordedAt: typeof head.recordedAt === 'string' ? head.recordedAt : undefined,
+      sets
+    };
+  }
+  return result;
+}
+
+export function getStoredExercisePerformanceHeads(): Record<string, ExercisePerformanceHead> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.EXERCISE_PERFORMANCE_HEADS);
+    return raw ? normalizeExercisePerformanceHeads(JSON.parse(raw)) : {};
+  } catch { return {}; }
+}
+
+export function saveStoredExercisePerformanceHeads(value: unknown): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.EXERCISE_PERFORMANCE_HEADS,
+      JSON.stringify(normalizeExercisePerformanceHeads(value)));
+  } catch {}
+}
+
 export function normalizeStoredHistoricalPersonalRecords(value: unknown): HistoricalPersonalRecord[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -415,9 +459,14 @@ export function upsertStoredHistoricalPersonalRecord(record: HistoricalPersonalR
 export function normalizeStoredActiveWorkout<T>(value: T): T {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
   const state = value as Record<string, unknown>;
-  if (!Array.isArray(state.exerciseSessions)) return value;
-  return {
+  const normalizedState = {
     ...state,
+    ...(typeof state.activeRoutineId === 'string' && state.activeRoutineId
+      ? { activeRoutineId: toDatabaseUuid(state.activeRoutineId) } : {})
+  };
+  if (!Array.isArray(state.exerciseSessions)) return normalizedState as T;
+  return {
+    ...normalizedState,
     exerciseSessions: state.exerciseSessions.map((session) => {
       if (!session || typeof session !== 'object' || Array.isArray(session)) return session;
       const exerciseSession = session as Record<string, unknown>;
@@ -472,7 +521,9 @@ export function normalizeStoredRoutines(routines: unknown): Routine[] {
   for (const raw of routines) {
     const routine = normalizeRoutine(raw);
     if (routine) {
-      map.set(routine.id, routine);
+      const canonicalId = toDatabaseUuid(routine.id);
+      // A canonical row and its local alias are one routine; later local edits win.
+      map.set(canonicalId, { ...routine, id: canonicalId });
     }
   }
   return Array.from(map.values());
@@ -485,7 +536,7 @@ export function getStoredRoutines(): Routine[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const normalized = normalizeStoredRoutines(parsed as Routine[]);
-    if (parsed.length !== normalized.length) {
+    if (parsed.length !== normalized.length || normalized.some((routine, index) => routine.id !== parsed[index]?.id)) {
       try {
         localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(normalized));
       } catch {}
@@ -510,7 +561,7 @@ export function getStoredDeletedRoutineIds(): string[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return [...new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0))].slice(0, 250);
+    return [...new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0).map(toDatabaseUuid))].slice(0, 250);
   } catch {
     return [];
   }
@@ -518,7 +569,7 @@ export function getStoredDeletedRoutineIds(): string[] {
 
 export function saveStoredDeletedRoutineIds(ids: string[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.DELETED_ROUTINE_IDS, JSON.stringify([...new Set(ids.filter((id) => typeof id === 'string' && id.length > 0))].slice(0, 250)));
+    localStorage.setItem(STORAGE_KEYS.DELETED_ROUTINE_IDS, JSON.stringify([...new Set(ids.filter((id) => typeof id === 'string' && id.length > 0).map(toDatabaseUuid))].slice(0, 250)));
   } catch {}
 }
 
@@ -529,6 +580,6 @@ export function addStoredDeletedRoutineId(id: string): void {
 
 export function removeStoredDeletedRoutineIds(ids: string[]): void {
   if (!ids.length) return;
-  const acknowledged = new Set(ids);
+  const acknowledged = new Set(ids.map(toDatabaseUuid));
   saveStoredDeletedRoutineIds(getStoredDeletedRoutineIds().filter((id) => !acknowledged.has(id)));
 }

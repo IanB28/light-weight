@@ -1,10 +1,11 @@
 import {
   getRoutineExerciseIds,
   isWorkoutSetType,
-  normalizeLoggedSet,
   normalizeRirValue,
   normalizeWorkoutSetType,
+  resolveExercisePreviousPerformance,
   type Exercise,
+  type ExercisePerformanceHead,
   type LoggedSet,
   type Routine,
   type WorkoutSession
@@ -25,6 +26,7 @@ export interface BuildRoutineExerciseSessionsOptions {
   history?: readonly WorkoutSession[];
   routines?: readonly Routine[];
   beforeTimestamp?: number;
+  remoteExercisePerformanceHeads?: Record<string, ExercisePerformanceHead>;
   createBaseExerciseSession: (exercise: Exercise) => ActiveExerciseSession;
 }
 
@@ -141,6 +143,8 @@ export function hydrateSetsFromRoutineTemplate(routine: Routine, exerciseId: str
 }
 
 /**
+ * Compatibility-only routine-scoped selector retained for historical callers/tests.
+ * Active workout hydration uses resolveExercisePreviousPerformance instead.
  * Pure previous-performance selector.
  * Finds the latest valid completed performance for a specific exercise within a specific routine.
  * Continues backwards if the exercise was skipped or had 0 qualifying completed sets.
@@ -231,16 +235,16 @@ export function buildRoutineExerciseSessions(
   let routine: Routine;
   let exercisesById: Record<string, Exercise>;
   let history: readonly WorkoutSession[] | undefined;
-  let routines: readonly Routine[] | undefined;
   let beforeTimestamp: number | undefined;
+  let remoteExercisePerformanceHeads: Record<string, ExercisePerformanceHead> | undefined;
   let createBaseSession: (exercise: Exercise) => ActiveExerciseSession;
 
   if ('routine' in routineOrOptions && 'createBaseExerciseSession' in routineOrOptions) {
     routine = routineOrOptions.routine;
     exercisesById = routineOrOptions.exercisesById;
     history = routineOrOptions.history;
-    routines = routineOrOptions.routines;
     beforeTimestamp = routineOrOptions.beforeTimestamp;
+    remoteExercisePerformanceHeads = routineOrOptions.remoteExercisePerformanceHeads;
     createBaseSession = routineOrOptions.createBaseExerciseSession;
   } else {
     routine = routineOrOptions;
@@ -257,15 +261,13 @@ export function buildRoutineExerciseSessions(
     .map((exercise) => {
       const baseSession = createBaseSession(exercise);
 
-      // Priority 1: Previous valid performance in this same routine
-      if (history && history.length > 0) {
-        const previousSets = getPreviousRoutineExercisePerformance({
-          history,
-          routine,
-          exerciseId: exercise.id,
-          currentRoutines: routines,
-          beforeTimestamp
+      // Active hydration is exercise-centric; routine identity never hides a physical performance.
+      if (history || remoteExercisePerformanceHeads) {
+        const head = resolveExercisePreviousPerformance({
+          history: history ?? [], exerciseId: exercise.id,
+          remoteHead: remoteExercisePerformanceHeads?.[exercise.id], beforeTimestamp
         });
+        const previousSets = head ? clonePreviousPerformanceSets(head.sets) : null;
 
         if (previousSets && previousSets.length > 0) {
           const usesAddedWeight = baseSession.exercise.loading?.loadMode === 'added_weight'
@@ -293,6 +295,8 @@ export function buildRoutineExerciseSessions(
       }
 
       // Priority 3: Canonical default
-      return baseSession;
+      return { ...baseSession, sets: [{
+        setIndex: 1, weightKg: 0, reps: 8, completed: false, setType: 'warmup', isWarmup: true
+      }] };
     });
 }

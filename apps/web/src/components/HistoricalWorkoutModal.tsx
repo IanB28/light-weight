@@ -35,6 +35,7 @@ import {
   formatLocalWorkoutDateKey,
   isValidWorkoutSet,
   type Exercise,
+  type ExercisePerformanceHead,
   type MachineBaseSelection,
   type MachineSnapshot,
   type Routine,
@@ -80,6 +81,7 @@ export interface HistoricalWorkoutModalProps {
   userId: string;
   exercises: Exercise[];
   history: WorkoutSession[];
+  remoteExercisePerformanceHeads?: Record<string, ExercisePerformanceHead>;
   routines: Routine[];
   initialDate?: Date;
   initialRoutineId?: string;
@@ -97,6 +99,7 @@ export function HistoricalWorkoutModal({
   userId,
   exercises,
   history,
+  remoteExercisePerformanceHeads,
   routines,
   initialDate,
   initialRoutineId,
@@ -115,8 +118,8 @@ export function HistoricalWorkoutModal({
   );
 
   const historyIndex = useMemo(
-    () => buildWorkoutHistoryIndex(history, { exercisesById }),
-    [history, exercisesById]
+    () => buildWorkoutHistoryIndex(history, { exercisesById, remoteExercisePerformanceHeads }),
+    [history, exercisesById, remoteExercisePerformanceHeads]
   );
 
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -176,9 +179,11 @@ export function HistoricalWorkoutModal({
           routine,
           exercisesById,
           history,
+          remoteExercisePerformanceHeads,
           routines,
           beforeTimestamp,
-          createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+          createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences, history, beforeTimestamp,
+            remoteHead: remoteExercisePerformanceHeads?.[ex.id] })
         });
         setExerciseSessions(sessions);
         return;
@@ -193,7 +198,7 @@ export function HistoricalWorkoutModal({
     setRoutineName('');
     setRoutineId('');
     setExerciseSessions([]);
-  }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences, history]);
+  }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences, history, remoteExercisePerformanceHeads]);
 
   const recalculateRoutinePrefill = useCallback((targetRoutineId: string, date: string, time: string) => {
     if (!targetRoutineId) return;
@@ -204,12 +209,14 @@ export function HistoricalWorkoutModal({
       routine,
       exercisesById,
       history,
+      remoteExercisePerformanceHeads,
       routines,
       beforeTimestamp,
-      createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+      createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences, history, beforeTimestamp,
+        remoteHead: remoteExercisePerformanceHeads?.[ex.id] })
     });
     setExerciseSessions(sessions);
-  }, [routines, exercisesById, history, historyIndex, preferences]);
+  }, [routines, exercisesById, history, historyIndex, preferences, remoteExercisePerformanceHeads]);
 
   const routinePickerOptions = useMemo(() => {
     return buildRoutinePickerOptions(routines, {
@@ -230,9 +237,11 @@ export function HistoricalWorkoutModal({
           routine,
           exercisesById,
           history,
+          remoteExercisePerformanceHeads,
           routines,
           beforeTimestamp,
-          createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences })
+          createBaseExerciseSession: (ex) => createDefaultExerciseSession(ex, { historyIndex, preferences, history, beforeTimestamp,
+            remoteHead: remoteExercisePerformanceHeads?.[ex.id] })
         });
         setExerciseSessions(sessions);
       }
@@ -268,7 +277,9 @@ export function HistoricalWorkoutModal({
   const handleAddExercise = (exercise: Exercise) => {
     setExerciseSessions((current) => {
       if (current.some((s) => s.exercise.id === exercise.id)) return current;
-      const newSession = createDefaultExerciseSession(exercise, { historyIndex, preferences });
+      const newSession = createDefaultExerciseSession(exercise, { historyIndex, preferences, history,
+        beforeTimestamp: resolveHistoricalWorkoutCutoff(performedDate, performedTime),
+        remoteHead: remoteExercisePerformanceHeads?.[exercise.id] });
       return [...current, newSession];
     });
     setEditorDirty(true);

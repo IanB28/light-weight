@@ -22,3 +22,5 @@ export * from './fatiguePolicy.js';
 export * from './machineProfile.js';
 export * from './workoutTemporal.js';
 export * from './routineTemplate.js';
+export * from './exercisePerformance.js';
+export * from './routineIdentity.js';

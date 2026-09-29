@@ -477,6 +477,36 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
             const [savedG] = await tx`SELECT user_id, exercise_template FROM routines WHERE id = ${syncRoutineId1}`;
             assert.equal(savedG.user_id, a);
             assert.deepEqual(savedG.exercise_template, explicitV2);
+
+            // R3: full-history exercise head survives the 50-session pull window.
+            await tx`
+              INSERT INTO exercises (id, name, primary_muscle, category, is_custom)
+              VALUES ('squat', 'Squat', 'quads', 'barbell', false)
+              ON CONFLICT (id) DO NOTHING
+            `;
+            await tx`
+              INSERT INTO workout_sessions (id, user_id, started_at)
+              SELECT ('78000000-0000-4000-8000-' || lpad(g::text, 12, '0'))::uuid,
+                ${a}::uuid, '2026-01-04T10:00:00Z'::timestamptz + g * interval '1 day'
+              FROM generate_series(1, 51) AS g
+            `;
+            await tx`
+              INSERT INTO logged_sets (session_id, exercise_id, set_index, weight_kg, reps, set_type, is_warmup)
+              SELECT ('78000000-0000-4000-8000-' || lpad(g::text, 12, '0'))::uuid,
+                'squat', 1, 100, 5, 'working', false
+              FROM generate_series(1, 51) AS g
+            `;
+            const pull = await fetch(`${baseUrl}/api/sync/pull`, { headers: headersFor(sessions[0]) });
+            assert.equal(pull.status, 200);
+            const pulled = await pull.json() as {
+              history: Array<{ id: string }>;
+              latestExercisePerformances: Record<string, { sessionId: string; sets: Array<{ weightKg: number; reps: number }> }>;
+            };
+            assert.equal(pulled.history.length, 50);
+            assert.equal(pulled.history.some((item) => item.id === secondPrSession), false);
+            assert.equal(pulled.latestExercisePerformances.bench.sessionId, secondPrSession);
+            assert.deepEqual(pulled.latestExercisePerformances.bench.sets.map((set) => [set.weightKg, set.reps]),
+              [[105, 5], [110, 5]]);
           });
         } finally {
           restoreDb();

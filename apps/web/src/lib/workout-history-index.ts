@@ -5,7 +5,9 @@ import {
   resolveBodyweightKgAtDate,
   resolveWorkoutDateKey,
   resolveExerciseLoadingProfile,
-  shouldCountForVolume,
+  compareExercisePerformanceHeads,
+  qualifyingPerformanceSets,
+  type ExercisePerformanceHead,
   type BodyweightEntry,
   type Exercise,
   type HistoricalPersonalRecord,
@@ -27,6 +29,7 @@ export interface PreviousExercisePerformance {
   lastDate?: string;
   sets: LoggedSet[];
   summary: string;
+  head?: ExercisePerformanceHead;
 }
 
 export interface WorkoutHistoryIndex {
@@ -40,6 +43,7 @@ export interface BuildWorkoutHistoryIndexOptions {
   exercisesById?: Record<string, Exercise>;
   bodyweightEntries?: BodyweightEntry[];
   historicalPersonalRecords?: HistoricalPersonalRecord[];
+  remoteExercisePerformanceHeads?: Record<string, ExercisePerformanceHead>;
 }
 
 const emptyIndex = (): WorkoutHistoryIndex => ({
@@ -58,6 +62,7 @@ export function buildWorkoutHistoryIndex(
   options?: BuildWorkoutHistoryIndexOptions
 ): WorkoutHistoryIndex {
   const index = emptyIndex();
+  const localHeads: Record<string, ExercisePerformanceHead> = {};
   const newestFirst = [...history].sort(
     (left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt)
   );
@@ -74,25 +79,14 @@ export function buildWorkoutHistoryIndex(
       (index.sessionsByExercise[exerciseId] ||= []).push(session);
       const exercise = options?.exercisesById?.[exerciseId];
 
-      if (!index.latestPerformanceByExercise[exerciseId]) {
-        const effectiveSets = sets.filter(shouldCountForVolume);
-        if (effectiveSets.length > 0) {
-          const topSet = effectiveSets.reduce(
-            (best, set) => set.weightKg > best.weightKg ? set : best,
-            effectiveSets[0]
-          );
-          const loading = exercise ? resolveExerciseLoadingProfile(exercise).profile : undefined;
-          let summary = `${topSet.weightKg} kg × ${topSet.reps}`;
-          if (loading?.loadMode === 'assisted') {
-            summary = `-${topSet.weightKg} kg × ${topSet.reps}`;
-          } else if (loading?.loadMode === 'added_weight') {
-            summary = topSet.weightKg === 0 ? `BW × ${topSet.reps}` : `+${topSet.weightKg} kg × ${topSet.reps}`;
-          }
-          index.latestPerformanceByExercise[exerciseId] = {
-            lastDate: session.startedAt,
-            sets: effectiveSets,
-            summary
-          };
+      const performedSets = qualifyingPerformanceSets(sets);
+      if (performedSets.length) {
+        const head: ExercisePerformanceHead = {
+          exerciseId, sessionId: session.id, startedAt: session.startedAt,
+          performedDate: session.performedDate, recordedAt: session.recordedAt, sets: performedSets
+        };
+        if (!localHeads[exerciseId] || compareExercisePerformanceHeads(head, localHeads[exerciseId]) > 0) {
+          localHeads[exerciseId] = head;
         }
       }
 
@@ -114,6 +108,25 @@ export function buildWorkoutHistoryIndex(
         }
       }
     }
+  }
+
+  const remoteHeads = options?.remoteExercisePerformanceHeads ?? {};
+  for (const exerciseId of new Set([...Object.keys(localHeads), ...Object.keys(remoteHeads)])) {
+    const remote = remoteHeads[exerciseId];
+    const remoteSets = remote && remote.exerciseId === exerciseId ? qualifyingPerformanceSets(remote.sets ?? []) : [];
+    const safeRemote = remoteSets.length ? { ...remote, sets: remoteSets } : undefined;
+    const local = localHeads[exerciseId];
+    const head = safeRemote && (!local || compareExercisePerformanceHeads(safeRemote, local) > 0) ? safeRemote : local;
+    if (!head) continue;
+    const topSet = head.sets.reduce((best, set) => set.weightKg > best.weightKg ? set : best, head.sets[0]);
+    const exercise = options?.exercisesById?.[exerciseId];
+    const loading = exercise ? resolveExerciseLoadingProfile(exercise).profile : undefined;
+    let summary = `${topSet.weightKg} kg × ${topSet.reps}`;
+    if (loading?.loadMode === 'assisted') summary = `-${topSet.weightKg} kg × ${topSet.reps}`;
+    else if (loading?.loadMode === 'added_weight') {
+      summary = topSet.weightKg === 0 ? `BW × ${topSet.reps}` : `+${topSet.weightKg} kg × ${topSet.reps}`;
+    }
+    index.latestPerformanceByExercise[exerciseId] = { lastDate: head.startedAt, sets: head.sets, summary, head };
   }
 
   if (Array.isArray(options?.historicalPersonalRecords)) {

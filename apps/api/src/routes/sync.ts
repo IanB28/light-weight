@@ -32,6 +32,7 @@ import {
 import { ApiError, asyncRoute } from '../lib/api-error.js';
 import { requireAuth, requireCsrf, toAuthUser } from '../lib/auth-session.js';
 import { toDatabaseUuid } from '../lib/client-id.js';
+import { getLatestExercisePerformances } from '../lib/latest-exercise-performances.js';
 
 export const syncRouter: Router = Router();
 
@@ -506,6 +507,7 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
         };
       })
     );
+    const latestExercisePerformances = await getLatestExercisePerformances(userId);
 
     // 4. Récords personales
     const prs = await db
@@ -567,6 +569,7 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
         updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : String(r.updatedAt),
       })),
       history: historyWithSets,
+      latestExercisePerformances,
       bodyweightLogs: userBodyweightLogs.map((entry) => ({
         weightKg: Number(entry.weightKg),
         loggedAt: entry.loggedAt.toISOString()

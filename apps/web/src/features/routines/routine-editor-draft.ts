@@ -367,7 +367,7 @@ export function buildRoutineFromEditorDraft(
   draft: RoutineEditorDraft,
   options?: { generatedId?: string }
 ): Routine {
-  const id = draft.id || options?.generatedId || ('rt-' + Date.now());
+  const id = draft.id || options?.generatedId || crypto.randomUUID();
   const template: RoutineTemplateV2 = {
     version: 2,
     exercises: draft.exercises.map((e) => ({

@@ -26,7 +26,7 @@ export function buildRoutinePayload(
   ownerId?: string
 ): Routine {
   const raw: Routine = {
-    id: 'rt-' + Date.now(),
+    id: crypto.randomUUID(),
     userId: ownerId || 'local-anonymous',
     name: name.trim(),
     description: description.trim() || undefined,

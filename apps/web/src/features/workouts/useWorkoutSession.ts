@@ -5,9 +5,11 @@ import {
   normalizeRirValue,
   resolveExerciseLoadingProfile,
   resolvePlateBaseWeightKg,
+  resolveExercisePreviousPerformance,
   isPlateLoadedMachine,
   resolveMachineBaseResistance,
   type Exercise,
+  type ExercisePerformanceHead,
   type LoggedSet,
   type MuscleGroup,
   type Routine,
@@ -32,16 +34,16 @@ import {
 } from '../../lib/machine-profiles.js';
 import { requestWakeLock, releaseWakeLock } from '../../lib/wakelock.js';
 import type { AppPreferences, WeightInputMode } from '../../lib/preferences.js';
-import { formatDisplayWeight, getDefaultPlateLoadedWeightKg } from '../../lib/weight-units.js';
+import { formatDisplayWeight } from '../../lib/weight-units.js';
 import {
   buildWorkoutHistoryIndex,
   type WorkoutHistoryIndex
 } from '../../lib/workout-history-index.js';
 import { formatElapsedDuration, workoutElapsedSeconds, workoutStartFromLegacySeconds } from './workout-time.js';
 import type { ActiveExerciseSession } from './types.js';
-import { resolveInitialWeightKg } from './initial-weight.js';
 import {
   buildRoutineExerciseSessions,
+  clonePreviousPerformanceSets,
   type BuildRoutineExerciseSessionsOptions
 } from './routine-previous-performance.js';
 
@@ -64,6 +66,7 @@ export interface UseWorkoutSessionOptions {
   exercises: Exercise[];
   routines: Routine[];
   history: WorkoutSession[];
+  remoteExercisePerformanceHeads?: Record<string, ExercisePerformanceHead>;
   historyIndex?: WorkoutHistoryIndex;
   preferences: AppPreferences;
   userId?: string;
@@ -420,20 +423,27 @@ export function createDefaultExerciseSession(
   options?: {
     historyIndex?: WorkoutHistoryIndex;
     preferences?: AppPreferences;
+    history?: readonly WorkoutSession[];
+    beforeTimestamp?: number;
+    remoteHead?: ExercisePerformanceHead;
   }
 ): ActiveExerciseSession {
   const loading = resolveExerciseLoadingProfile(exercise).profile;
   const historyIndex = options?.historyIndex;
   const preferences = options?.preferences;
-  const previous = historyIndex?.latestPerformanceByExercise[exercise.id];
+  const boundedHead = options?.beforeTimestamp !== undefined
+    ? resolveExercisePreviousPerformance({ exerciseId: exercise.id, history: options.history ?? [],
+      remoteHead: options.remoteHead, beforeTimestamp: options.beforeTimestamp })
+    : null;
+  const previous = options?.beforeTimestamp !== undefined
+    ? (boundedHead ? { sets: boundedHead.sets } : undefined)
+    : historyIndex?.latestPerformanceByExercise[exercise.id];
+  // Display summary only. The complete previous bundle below is the sole hydration authority.
   const previousTopSet = previous?.sets.reduce<LoggedSet | null>(
     (best, set) => !best || set.weightKg > best.weightKg ? set : best,
     null
   );
   const personalRecord = historyIndex?.personalRecordsByExercise[exercise.id];
-  const startsWithPlates = loading.supportsPlates && (
-    !loading.supportsKeyboard || preferences?.weightInputMode === 'plates'
-  );
 
   const isPlateMachine = isPlateLoadedMachine(loading);
   let machineProfileId: string | undefined;
@@ -466,77 +476,9 @@ export function createDefaultExerciseSession(
     }
   }
 
-  const effectiveBaseKg = isPlateMachine
-    ? (machineBaseResistanceKg ?? 0)
-    : resolvePlateBaseWeightKg(loading, preferences?.defaultBarWeightKg ?? 20);
-
-  const semanticDefaultWeight = startsWithPlates && preferences
-    ? getDefaultPlateLoadedWeightKg(
-        preferences.units,
-        effectiveBaseKg,
-        preferences.availablePlatesKg,
-        loading
-      )
-    : 0;
-  // Preserve a user's own valid last load; zero is the conservative semantic fallback.
-  let defaultWeight = resolveInitialWeightKg(previousTopSet?.weightKg, semanticDefaultWeight);
-  if (isPlateMachine && machineBaseResistanceStatus === 'unknown') {
-    defaultWeight = 0;
-  }
-
-  const initialSets = [
-    {
-      setIndex: 1,
-      weightKg: defaultWeight,
-      reps: 8,
-      completed: false,
-      setType: 'working' as const,
-      isWarmup: false,
-      rir: undefined,
-      machineProfileId: undefined,
-      machineProfileLabel: undefined,
-      machineBaseResistanceKg: undefined,
-      machineBaseResistanceStatus: undefined,
-      machineBaseSourceLabel: undefined,
-      machineBaseSourceUrl: undefined,
-      machineManufacturer: undefined,
-      machineModel: undefined
-    },
-    {
-      setIndex: 2,
-      weightKg: defaultWeight,
-      reps: 8,
-      completed: false,
-      setType: 'working' as const,
-      isWarmup: false,
-      rir: undefined,
-      machineProfileId: undefined,
-      machineProfileLabel: undefined,
-      machineBaseResistanceKg: undefined,
-      machineBaseResistanceStatus: undefined,
-      machineBaseSourceLabel: undefined,
-      machineBaseSourceUrl: undefined,
-      machineManufacturer: undefined,
-      machineModel: undefined
-    },
-    {
-      setIndex: 3,
-      weightKg: defaultWeight,
-      reps: 8,
-      completed: false,
-      setType: 'working' as const,
-      isWarmup: false,
-      rir: undefined,
-      machineProfileId: undefined,
-      machineProfileLabel: undefined,
-      machineBaseResistanceKg: undefined,
-      machineBaseResistanceStatus: undefined,
-      machineBaseSourceLabel: undefined,
-      machineBaseSourceUrl: undefined,
-      machineManufacturer: undefined,
-      machineModel: undefined
-    }
-  ];
+  const initialSets: LoggedSet[] = previous?.sets.length
+    ? clonePreviousPerformanceSets(previous.sets)
+    : [{ setIndex: 1, weightKg: 0, reps: 8, completed: false, setType: 'warmup', isWarmup: true }];
 
   const isAssisted = loading.loadMode === 'assisted';
   const isAddedWeight = loading.loadMode === 'added_weight';
@@ -595,6 +537,7 @@ export function useWorkoutSession({
   exercises,
   routines,
   history,
+  remoteExercisePerformanceHeads,
   historyIndex: suppliedHistoryIndex,
   preferences,
   userId = FALLBACK_USER_ID,
@@ -605,8 +548,8 @@ export function useWorkoutSession({
     [exercises]
   );
   const historyIndex = useMemo(
-    () => suppliedHistoryIndex || buildWorkoutHistoryIndex(history, { exercisesById, bodyweightEntries }),
-    [bodyweightEntries, exercisesById, history, suppliedHistoryIndex]
+    () => suppliedHistoryIndex || buildWorkoutHistoryIndex(history, { exercisesById, bodyweightEntries, remoteExercisePerformanceHeads }),
+    [bodyweightEntries, exercisesById, history, remoteExercisePerformanceHeads, suppliedHistoryIndex]
   );
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [activeRoutineId, setActiveRoutineId] = useState<string | undefined>(undefined);
@@ -717,6 +660,7 @@ export function useWorkoutSession({
           routine,
           exercisesById,
           history,
+          remoteExercisePerformanceHeads,
           routines,
           createBaseExerciseSession: createExerciseSession
         })

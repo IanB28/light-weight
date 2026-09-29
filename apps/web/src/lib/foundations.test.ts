@@ -10,7 +10,7 @@ import {
   parseDisplayWeight,
   WEIGHT_UNIT_PRESETS
 } from './weight-units.js';
-import { resolveExerciseLoadingProfile, type Exercise, type WorkoutSession } from '@light-weight/domain';
+import { resolveExerciseLoadingProfile, toDatabaseUuid, type Exercise, type WorkoutSession } from '@light-weight/domain';
 import {
   addStoredDeletedRoutineId,
   getStoredDeletedRoutineIds,
@@ -181,9 +181,9 @@ test('shared routine attribution survives local serialization and pending tombst
     assert.match(localStorage.getItem('lightweight_routines') || '', /sharedBy/);
     addStoredDeletedRoutineId('shared-routine');
     addStoredDeletedRoutineId('shared-routine');
-    assert.deepEqual(getStoredDeletedRoutineIds(), ['shared-routine']);
+    assert.deepEqual(getStoredDeletedRoutineIds(), [toDatabaseUuid('shared-routine')]);
     removeStoredDeletedRoutineIds(['other']);
-    assert.deepEqual(getStoredDeletedRoutineIds(), ['shared-routine']);
+    assert.deepEqual(getStoredDeletedRoutineIds(), [toDatabaseUuid('shared-routine')]);
     removeStoredDeletedRoutineIds(['shared-routine']);
     assert.deepEqual(getStoredDeletedRoutineIds(), []);
   } finally {
