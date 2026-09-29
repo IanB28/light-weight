@@ -3,19 +3,37 @@ import {
   getStoredBodyweight, getStoredHistory, getStoredRoutines, saveStoredHistory,
   saveStoredBodyweight, saveStoredProfile, saveStoredRoutines, saveStoredUserInfo, UserInfo,
   getStoredDeletedRoutineIds, removeStoredDeletedRoutineIds, normalizeStoredRoutines,
+  getStoredPendingRoutineUpsertIds, addStoredPendingRoutineUpserts, removeStoredPendingRoutineUpserts,
+  isInitialRoutineCloudReconciliationComplete, completeInitialRoutineCloudReconciliation,
+  getStoredWeeklySchedule, saveStoredWeeklySchedule, type WeeklySchedule,
   getStoredHistoricalPersonalRecords, saveStoredHistoricalPersonalRecords, normalizeStoredHistoricalPersonalRecords,
   saveStoredExercisePerformanceHeads
 } from './storage.js';
 import { ApiError, mapApiError, OperationResult, requestJson } from './api-errors.js';
 import { apiEndpoint } from './api-base.js';
 import { excludePendingRoutineTombstones } from './routine-tombstones.js';
-import { mergePulledRoutines, serializeRoutineForSync } from './routine-sync.js';
+import { hasLocalRoutineChanges, mergePulledRoutines, serializeRoutineForSync } from './routine-sync.js';
 
 export interface SyncStatus {
   state: 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
   lastSyncedAt?: Date;
   error?: ApiError;
   syncedSessionsCount?: number;
+}
+
+/** Historical prefill reads an as-of projection; it never mutates local or cloud state. */
+export async function fetchExercisePerformancesBefore(
+  beforeTimestamp: number, exerciseIds: readonly string[], signal?: AbortSignal
+): Promise<Record<string, ExercisePerformanceHead>> {
+  if (!exerciseIds.length) return {};
+  const params = new URLSearchParams({
+    before: new Date(beforeTimestamp).toISOString(),
+    exerciseIds: [...new Set(exerciseIds)].join(',')
+  });
+  const response = await requestJson<{ latestExercisePerformances: Record<string, ExercisePerformanceHead> }>(
+    apiEndpoint(`/api/sync/exercise-performances?${params}`), { signal }, 12_000
+  );
+  return response.latestExercisePerformances ?? {};
 }
 
 interface PullResponse {
@@ -51,14 +69,14 @@ const offlineResult = <T,>(): OperationResult<T> => {
   return { ok: false, error };
 };
 
-export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
+export function pullFromCloud(endpoint?: string): Promise<OperationResult<PullResponse>> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve(offlineResult());
   if (pullInFlight) return pullInFlight;
   notify({ state: 'syncing' });
 
   pullInFlight = (async () => {
     try {
-      const data = await requestJson<PullResponse>(apiEndpoint('/api/sync/pull'));
+      const data = await requestJson<PullResponse>(endpoint ?? apiEndpoint('/api/sync/pull'));
       if (data.user?.id && (data.user.name || data.user.displayName)) {
         saveStoredUserInfo({ id: data.user.id, name: data.user.displayName || data.user.name || '', email: data.user.email || '' });
         saveStoredProfile({
@@ -70,13 +88,36 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
         });
       } else if (data.profile?.gender === 'male' || data.profile?.gender === 'female') saveStoredProfile({ gender: data.profile.gender });
 
-      if (Array.isArray(data.routines) && data.routines.length > 0) {
+      if (Array.isArray(data.routines)) {
         const local = getStoredRoutines();
         const incoming = normalizeStoredRoutines(excludePendingRoutineTombstones(
           data.routines.filter((routine): routine is Routine => Boolean(routine.id && routine.name && Array.isArray(routine.exerciseIds))),
           getStoredDeletedRoutineIds()
         ));
-        saveStoredRoutines(mergePulledRoutines(local, incoming));
+        if (!isInitialRoutineCloudReconciliationComplete()) {
+          const remoteById = new Map(incoming.map((routine) => [routine.id, routine]));
+          addStoredPendingRoutineUpserts(local.filter((routine) => {
+            const remote = remoteById.get(routine.id);
+            return remote && hasLocalRoutineChanges(routine, remote);
+          }).map((routine) => routine.id));
+          removeStoredPendingRoutineUpserts(local.filter((routine) => {
+            const remote = remoteById.get(routine.id);
+            return remote && !hasLocalRoutineChanges(routine, remote);
+          }).map((routine) => routine.id));
+        }
+        const merged = mergePulledRoutines(local, incoming, {
+          cloudAuthoritative: true,
+          pendingUpsertIds: new Set(getStoredPendingRoutineUpsertIds())
+        });
+        saveStoredRoutines(merged);
+        const kept = new Set(merged.map((routine) => routine.id));
+        const removed = new Set(local.filter((routine) => !kept.has(routine.id)).map((routine) => routine.id));
+        if (removed.size) {
+          const schedule = getStoredWeeklySchedule();
+          saveStoredWeeklySchedule(Object.fromEntries(Object.entries(schedule).map(([day, id]) =>
+            [day, id && removed.has(id) ? null : id])) as WeeklySchedule);
+        }
+        completeInitialRoutineCloudReconciliation();
       }
       if (Array.isArray(data.history) && data.history.length > 0) {
         const local = getStoredHistory();
@@ -120,7 +161,7 @@ export function pullFromCloud(): Promise<OperationResult<PullResponse>> {
   return pullInFlight;
 }
 
-export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }>> {
+export function syncWithCloud(endpoint?: string): Promise<OperationResult<{ syncedCount: number }>> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve(offlineResult());
   if (syncInFlight) return syncInFlight;
   notify({ state: 'syncing' });
@@ -129,20 +170,29 @@ export function syncWithCloud(): Promise<OperationResult<{ syncedCount: number }
     try {
       // Block 17 will replace this full-history push with a cursor/outbox
       // protocol. Keep it stable for now so retries remain idempotent.
+      const storedRoutines = getStoredRoutines();
+      const pendingIds = new Set(getStoredPendingRoutineUpsertIds());
+      const submittedRoutines = storedRoutines.filter((routine) => pendingIds.has(routine.id))
+        .map(serializeRoutineForSync);
+      const submittedById = new Map(submittedRoutines.map((routine) => [routine.id, JSON.stringify(routine)]));
       const payload = {
         sessions: getStoredHistory(),
-        routines: getStoredRoutines().map(serializeRoutineForSync),
+        routines: submittedRoutines,
         deletedRoutineIds: getStoredDeletedRoutineIds(),
         bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() })),
         historicalPersonalRecords: getStoredHistoricalPersonalRecords()
       };
-      const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(apiEndpoint('/api/sync'), {
+      const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(endpoint ?? apiEndpoint('/api/sync'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       // Sync may process a full local history. Its allowance intentionally
       // exceeds the API's 30s serverless limit without changing other calls.
       }, 35_000);
       const syncedCount = data.syncedCount || 0;
       if (Array.isArray(data.deletedRoutineIds)) removeStoredDeletedRoutineIds(data.deletedRoutineIds);
+      removeStoredPendingRoutineUpserts(getStoredRoutines().filter((routine) => {
+        const snapshot = submittedById.get(routine.id);
+        return snapshot !== undefined && snapshot === JSON.stringify(serializeRoutineForSync(routine));
+      }).map((routine) => routine.id));
       notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: syncedCount });
       return { ok: true, data: { syncedCount } };
     } catch (cause) {

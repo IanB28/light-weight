@@ -3,7 +3,8 @@ import {
   normalizeLoggedSet,
   normalizeRoutine,
   normalizeWorkoutSession,
-  toDatabaseUuid,
+  canonicalizeRoutineId,
+  isDatabaseUuidLiteral,
   qualifyingPerformanceSets,
   type ExercisePerformanceHead,
   type HistoricalPersonalRecord,
@@ -25,6 +26,7 @@ export const STORAGE_KEYS = {
   WEEKLY_SCHEDULE: 'lightweight_weekly_schedule',
   USER_INFO: 'lightweight_user_info',
   DELETED_ROUTINE_IDS: 'lightweight_deleted_routine_ids',
+  PENDING_ROUTINE_UPSERTS: 'lightweight_pending_routine_upserts',
   MACHINE_PROFILES: 'lightweight_machine_profiles',
   LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles',
   HISTORICAL_PERSONAL_RECORDS: 'lightweight_historical_personal_records',
@@ -125,7 +127,7 @@ export function getStoredWeeklySchedule(): WeeklySchedule {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...DEFAULT_WEEKLY_SCHEDULE };
     const schedule = { ...DEFAULT_WEEKLY_SCHEDULE, ...parsed } as WeeklySchedule;
     return Object.fromEntries(Object.entries(schedule).map(([day, id]) => [day,
-      typeof id === 'string' && id ? toDatabaseUuid(id) : null
+      typeof id === 'string' && id ? canonicalizeRoutineId(id) : null
     ])) as WeeklySchedule;
   } catch {
     return { ...DEFAULT_WEEKLY_SCHEDULE };
@@ -135,7 +137,7 @@ export function getStoredWeeklySchedule(): WeeklySchedule {
 export function saveStoredWeeklySchedule(schedule: WeeklySchedule): void {
   try {
     localStorage.setItem(STORAGE_KEYS.WEEKLY_SCHEDULE, JSON.stringify(Object.fromEntries(
-      Object.entries(schedule).map(([day, id]) => [day, id ? toDatabaseUuid(id) : null])
+      Object.entries(schedule).map(([day, id]) => [day, id ? canonicalizeRoutineId(id) : null])
     )));
   } catch {}
 }
@@ -462,7 +464,7 @@ export function normalizeStoredActiveWorkout<T>(value: T): T {
   const normalizedState = {
     ...state,
     ...(typeof state.activeRoutineId === 'string' && state.activeRoutineId
-      ? { activeRoutineId: toDatabaseUuid(state.activeRoutineId) } : {})
+      ? { activeRoutineId: canonicalizeRoutineId(state.activeRoutineId) } : {})
   };
   if (!Array.isArray(state.exerciseSessions)) return normalizedState as T;
   return {
@@ -521,7 +523,7 @@ export function normalizeStoredRoutines(routines: unknown): Routine[] {
   for (const raw of routines) {
     const routine = normalizeRoutine(raw);
     if (routine) {
-      const canonicalId = toDatabaseUuid(routine.id);
+      const canonicalId = canonicalizeRoutineId(routine.id);
       // A canonical row and its local alias are one routine; later local edits win.
       map.set(canonicalId, { ...routine, id: canonicalId });
     }
@@ -535,7 +537,17 @@ export function getStoredRoutines(): Routine[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
+    // Pre-R3 clients created non-UUID IDs. Preserve that provenance before the
+    // canonicalized storage rewrite so an offline-created routine can be pushed.
+    const legacyCandidates = parsed.flatMap((item): string[] => {
+      const id = item && typeof item === 'object' && typeof item.id === 'string' ? item.id : null;
+      return id && !isDatabaseUuidLiteral(id) ? [canonicalizeRoutineId(id)] : [];
+    });
     const normalized = normalizeStoredRoutines(parsed as Routine[]);
+    if (legacyCandidates.length && !isInitialRoutineCloudReconciliationComplete()) {
+      const validIds = new Set(normalized.map((routine) => routine.id));
+      addStoredPendingRoutineUpserts(legacyCandidates.filter((id) => validIds.has(id)));
+    }
     if (parsed.length !== normalized.length || normalized.some((routine, index) => routine.id !== parsed[index]?.id)) {
       try {
         localStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(normalized));
@@ -561,7 +573,7 @@ export function getStoredDeletedRoutineIds(): string[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return [...new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0).map(toDatabaseUuid))].slice(0, 250);
+    return [...new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0).map(canonicalizeRoutineId))].slice(0, 250);
   } catch {
     return [];
   }
@@ -569,7 +581,7 @@ export function getStoredDeletedRoutineIds(): string[] {
 
 export function saveStoredDeletedRoutineIds(ids: string[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.DELETED_ROUTINE_IDS, JSON.stringify([...new Set(ids.filter((id) => typeof id === 'string' && id.length > 0).map(toDatabaseUuid))].slice(0, 250)));
+    localStorage.setItem(STORAGE_KEYS.DELETED_ROUTINE_IDS, JSON.stringify([...new Set(ids.filter((id) => typeof id === 'string' && id.length > 0).map(canonicalizeRoutineId))].slice(0, 250)));
   } catch {}
 }
 
@@ -580,6 +592,57 @@ export function addStoredDeletedRoutineId(id: string): void {
 
 export function removeStoredDeletedRoutineIds(ids: string[]): void {
   if (!ids.length) return;
-  const acknowledged = new Set(ids.map(toDatabaseUuid));
+  const acknowledged = new Set(ids.map(canonicalizeRoutineId));
   saveStoredDeletedRoutineIds(getStoredDeletedRoutineIds().filter((id) => !acknowledged.has(id)));
+}
+
+interface PendingRoutineState {
+  ids: string[];
+  initialCloudReconciled: boolean;
+}
+
+function getPendingRoutineState(): PendingRoutineState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PENDING_ROUTINE_UPSERTS);
+    if (!raw) return { ids: [], initialCloudReconciled: false };
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ids: [], initialCloudReconciled: false };
+    const state = parsed as Partial<PendingRoutineState>;
+    return {
+      ids: Array.isArray(state.ids) ? [...new Set(state.ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
+        .map(canonicalizeRoutineId))].slice(0, 250) : [],
+      initialCloudReconciled: state.initialCloudReconciled === true
+    };
+  } catch { return { ids: [], initialCloudReconciled: false }; }
+}
+
+function savePendingRoutineState(state: PendingRoutineState): void {
+  try { localStorage.setItem(STORAGE_KEYS.PENDING_ROUTINE_UPSERTS, JSON.stringify(state)); } catch {}
+}
+
+export function getStoredPendingRoutineUpsertIds(): string[] {
+  const deleted = new Set(getStoredDeletedRoutineIds());
+  return getPendingRoutineState().ids.filter((id) => !deleted.has(id));
+}
+
+export function isInitialRoutineCloudReconciliationComplete(): boolean {
+  return getPendingRoutineState().initialCloudReconciled;
+}
+
+export function completeInitialRoutineCloudReconciliation(): void {
+  savePendingRoutineState({ ...getPendingRoutineState(), initialCloudReconciled: true });
+}
+
+export function addStoredPendingRoutineUpserts(ids: string[]): void {
+  const state = getPendingRoutineState();
+  const deleted = new Set(getStoredDeletedRoutineIds());
+  savePendingRoutineState({ ...state, ids: [...new Set([...state.ids, ...ids.map(canonicalizeRoutineId)])]
+    .filter((id) => !deleted.has(id)).slice(0, 250) });
+}
+
+export function removeStoredPendingRoutineUpserts(ids: string[]): void {
+  if (!ids.length) return;
+  const removed = new Set(ids.map(canonicalizeRoutineId));
+  const state = getPendingRoutineState();
+  savePendingRoutineState({ ...state, ids: state.ids.filter((id) => !removed.has(id)) });
 }

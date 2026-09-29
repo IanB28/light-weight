@@ -28,7 +28,15 @@ export interface PerformanceRow {
 }
 
 /** One set-based query across the user's entire physical history; the regular pull stays bounded. */
-export async function getLatestExercisePerformances(userId: string): Promise<Record<string, ExercisePerformanceHead>> {
+export async function getLatestExercisePerformances(
+  userId: string,
+  options?: { before?: Date; exerciseIds?: readonly string[] }
+): Promise<Record<string, ExercisePerformanceHead>> {
+  if (options?.exerciseIds?.length === 0) return {};
+  const cutoff = options?.before ? sql`AND ws.started_at < ${options.before.toISOString()}::timestamptz` : sql``;
+  const exerciseFilter = options?.exerciseIds
+    ? sql`AND ls.exercise_id IN (${sql.join(options.exerciseIds.map((id) => sql`${id}`), sql`, `)})`
+    : sql``;
   const rows = await db.execute(sql`
     WITH heads AS (
       SELECT DISTINCT ON (ls.exercise_id)
@@ -37,6 +45,7 @@ export async function getLatestExercisePerformances(userId: string): Promise<Rec
       JOIN workout_sessions ws ON ws.id = ls.session_id
       WHERE ws.user_id = ${userId}::uuid
         AND ls.completed = true AND ls.weight_kg >= 0 AND ls.reps > 0
+        ${cutoff} ${exerciseFilter}
       ORDER BY ls.exercise_id, ws.started_at DESC, ws.recorded_at DESC NULLS LAST, ws.id DESC
     )
     SELECT h.exercise_id AS "exerciseId", h.session_id AS "sessionId",

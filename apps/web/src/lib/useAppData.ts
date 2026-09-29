@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { normalizeRoutine, toDatabaseUuid, type Exercise, type ExercisePerformanceHead, type HistoricalPersonalRecord, type Routine, type WorkoutSession } from '@light-weight/domain';
+import { canonicalizeRoutineId, normalizeRoutine, type Exercise, type ExercisePerformanceHead, type HistoricalPersonalRecord, type Routine, type WorkoutSession } from '@light-weight/domain';
 import { loadExerciseCatalog } from './exercises.js';
 import {
   getStoredBodyweight,
   getStoredHistoricalPersonalRecords,
   getStoredExercisePerformanceHeads,
+  addStoredPendingRoutineUpserts,
+  removeStoredPendingRoutineUpserts,
   getStoredHistory,
   getStoredProfile,
   getStoredRoutines,
@@ -102,8 +104,9 @@ export function useAppData() {
 
   const saveRoutine = useCallback((routine: Routine) => {
     const parsed = normalizeRoutine(routine) || routine;
-    const normalized = { ...parsed, id: toDatabaseUuid(parsed.id) };
+    const normalized = { ...parsed, id: canonicalizeRoutineId(parsed.id) };
     removeStoredDeletedRoutineIds([normalized.id]);
+    addStoredPendingRoutineUpserts([normalized.id]);
     // Persist before starting the async full-routine push; React's state updater may run later.
     const current = getStoredRoutines();
     const updated = current.some((item) => item.id === normalized.id)
@@ -143,20 +146,18 @@ export function useAppData() {
   }, [sync]);
 
   const deleteRoutine = useCallback((routineId: string) => {
-    routineId = toDatabaseUuid(routineId);
+    routineId = canonicalizeRoutineId(routineId);
+    removeStoredPendingRoutineUpserts([routineId]);
     addStoredDeletedRoutineId(routineId);
-    setRoutines((current) => {
-      const updated = current.filter((routine) => routine.id !== routineId);
-      saveStoredRoutines(updated);
-      return updated;
-    });
-    setWeeklySchedule((current) => {
-      const updated = Object.fromEntries(
-        Object.entries(current).map(([day, assigned]) => [day, assigned === routineId ? null : assigned])
-      ) as WeeklySchedule;
-      saveStoredWeeklySchedule(updated);
-      return updated;
-    });
+    const updated = getStoredRoutines().filter((routine) => routine.id !== routineId);
+    saveStoredRoutines(updated);
+    setRoutines(updated);
+    const schedule = getStoredWeeklySchedule();
+    const updatedSchedule = Object.fromEntries(
+      Object.entries(schedule).map(([day, assigned]) => [day, assigned === routineId ? null : assigned])
+    ) as WeeklySchedule;
+    saveStoredWeeklySchedule(updatedSchedule);
+    setWeeklySchedule(updatedSchedule);
     void sync();
   }, [sync]);
 

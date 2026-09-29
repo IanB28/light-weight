@@ -4,7 +4,8 @@ import {
   getStoredBodyweight, getStoredHistory, getStoredProfile, getStoredRoutines,
   getStoredTargetWeight, getStoredWeeklySchedule, saveStoredBodyweight,
   saveStoredHistory, saveStoredProfile, saveStoredRoutines, saveStoredTargetWeight,
-  saveStoredWeeklySchedule
+  saveStoredWeeklySchedule, normalizeStoredRoutines, addStoredPendingRoutineUpserts,
+  removeStoredDeletedRoutineIds
 } from '../lib/storage.js';
 import { syncWithCloud } from '../lib/sync.js';
 import { AccentColorId, ACCENT_PRESETS, applyTheme, GlassTheme, GLASS_THEMES, getStoredThemeSettings, ThemeSettings } from '../lib/theme.js';
@@ -166,7 +167,12 @@ export function SettingsSheet({
           theme?: Partial<ThemeSettings>;
         };
         if (Array.isArray(data.history)) saveStoredHistory(data.history);
-        if (Array.isArray(data.routines)) saveStoredRoutines(data.routines);
+        if (Array.isArray(data.routines)) {
+          const importedRoutines = normalizeStoredRoutines(data.routines);
+          saveStoredRoutines(importedRoutines);
+          removeStoredDeletedRoutineIds(importedRoutines.map((routine) => routine.id));
+          addStoredPendingRoutineUpserts(importedRoutines.map((routine) => routine.id));
+        }
         if (Array.isArray(data.bodyweight)) saveStoredBodyweight(data.bodyweight);
         if (typeof data.targetWeight === 'number') saveStoredTargetWeight(data.targetWeight);
         restoreProfileFromBackup(data.profile, saveStoredProfile);

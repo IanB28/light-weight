@@ -50,6 +50,8 @@ import { Button, Modal, OptionPicker } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { buildWorkoutHistoryIndex } from '../lib/workout-history-index.js';
+import { fetchExercisePerformancesBefore } from '../lib/sync.js';
+import { applyAsOfPrefillToUneditedSessions, HistoricalPrefillGate } from '../features/workouts/historical-prefill-gate.js';
 import { buildRoutinePickerOptions } from '../features/routines/routine-options.js';
 import type { WeightInputMode } from '../lib/preferences.js';
 import type { ActiveExerciseSession } from '../features/workouts/types.js';
@@ -152,10 +154,53 @@ export function HistoricalWorkoutModal({
   const [error, setError] = useState<string | null>(null);
   const [setupErrors, setSetupErrors] = useState<{ performedDate?: string; performedTime?: string; duration?: string }>(initialSetupErrors || {});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const prefillGate = useRef(new HistoricalPrefillGate());
+  const initializedForOpen = useRef(false);
+
+  const cancelAsOfPrefill = useCallback(() => {
+    prefillGate.current.cancel();
+  }, []);
+
+  const requestAsOfPrefill = useCallback((seed: ActiveExerciseSession[], date: string, time: string, selectedRoutineId: string) => {
+    const beforeTimestamp = resolveHistoricalWorkoutCutoff(date, time);
+    if (beforeTimestamp === undefined || !seed.length) {
+      cancelAsOfPrefill();
+      return;
+    }
+    const request = prefillGate.current.start();
+    void fetchExercisePerformancesBefore(beforeTimestamp, seed.map((session) => session.exercise.id), request.signal)
+      .then((asOfHeads) => {
+        if (!request.isCurrent()) return;
+        const routine = routines.find((item) => item.id === selectedRoutineId);
+        const routineSessions = routine
+          ? buildRoutineExerciseSessions({
+              routine, exercisesById, history, remoteExercisePerformanceHeads: asOfHeads,
+              beforeTimestamp, createBaseExerciseSession: (exercise) => createDefaultExerciseSession(exercise, {
+                historyIndex, preferences, history, beforeTimestamp, remoteHead: asOfHeads[exercise.id]
+              })
+            }) : [];
+        const routineById = new Map(routineSessions.map((session) => [session.exercise.id, session]));
+        const refreshed = seed.map((session) => routineById.get(session.exercise.id) ?? createDefaultExerciseSession(session.exercise, {
+              historyIndex, preferences, history, beforeTimestamp, remoteHead: asOfHeads[session.exercise.id]
+            }));
+        setExerciseSessions((current) => applyAsOfPrefillToUneditedSessions(current, seed, refreshed));
+      })
+      .catch(() => { /* Offline or aborted: the local/template prefill remains usable. */ });
+  }, [cancelAsOfPrefill, routines, exercisesById, history, historyIndex, preferences]);
+
+  useEffect(() => () => {
+    cancelAsOfPrefill();
+    initializedForOpen.current = false;
+  }, [cancelAsOfPrefill, isOpen]);
 
   // Initialize draft when modal opens
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      initializedForOpen.current = false;
+      return;
+    }
+    if (initializedForOpen.current) return;
+    initializedForOpen.current = true;
     const yesterdayKey = getLatestHistoricalDateKey();
     const candidateKey = initialDate ? formatLocalWorkoutDateKey(initialDate) : yesterdayKey;
     const initialKey = isStrictlyPastDateKey(candidateKey) ? candidateKey : yesterdayKey;
@@ -186,6 +231,7 @@ export function HistoricalWorkoutModal({
             remoteHead: remoteExercisePerformanceHeads?.[ex.id] })
         });
         setExerciseSessions(sessions);
+        requestAsOfPrefill(sessions, initialKey, initialTime || '', routine.id);
         return;
       }
     }
@@ -198,7 +244,7 @@ export function HistoricalWorkoutModal({
     setRoutineName('');
     setRoutineId('');
     setExerciseSessions([]);
-  }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences, history, remoteExercisePerformanceHeads]);
+  }, [initialDate, initialRoutineId, initialPhase, initialTime, initialExerciseSessions, initialSetupErrors, initialIsSaving, isOpen, routines, exercisesById, historyIndex, preferences, history, remoteExercisePerformanceHeads, requestAsOfPrefill]);
 
   const recalculateRoutinePrefill = useCallback((targetRoutineId: string, date: string, time: string) => {
     if (!targetRoutineId) return;
@@ -216,7 +262,8 @@ export function HistoricalWorkoutModal({
         remoteHead: remoteExercisePerformanceHeads?.[ex.id] })
     });
     setExerciseSessions(sessions);
-  }, [routines, exercisesById, history, historyIndex, preferences, remoteExercisePerformanceHeads]);
+    requestAsOfPrefill(sessions, date, time, routine.id);
+  }, [routines, exercisesById, history, historyIndex, preferences, remoteExercisePerformanceHeads, requestAsOfPrefill]);
 
   const routinePickerOptions = useMemo(() => {
     return buildRoutinePickerOptions(routines, {
@@ -244,6 +291,7 @@ export function HistoricalWorkoutModal({
             remoteHead: remoteExercisePerformanceHeads?.[ex.id] })
         });
         setExerciseSessions(sessions);
+        requestAsOfPrefill(sessions, performedDate, performedTime, routine.id);
       }
     } else {
       // Switched to "Sin rutina": clear routineId, user can keep or customize name
@@ -251,12 +299,14 @@ export function HistoricalWorkoutModal({
         setRoutineName('');
       }
       setExerciseSessions([]);
+      cancelAsOfPrefill();
     }
     setEditorDirty(false);
   };
 
   const handleRoutineSelect = (selectedId: string) => {
     if (selectedId === routineId) return;
+    cancelAsOfPrefill();
     if (editorDirty) {
       setPendingRoutineId(selectedId);
       setShowConfirmChangeRoutine(true);
@@ -275,13 +325,13 @@ export function HistoricalWorkoutModal({
   };
 
   const handleAddExercise = (exercise: Exercise) => {
-    setExerciseSessions((current) => {
-      if (current.some((s) => s.exercise.id === exercise.id)) return current;
-      const newSession = createDefaultExerciseSession(exercise, { historyIndex, preferences, history,
-        beforeTimestamp: resolveHistoricalWorkoutCutoff(performedDate, performedTime),
-        remoteHead: remoteExercisePerformanceHeads?.[exercise.id] });
-      return [...current, newSession];
-    });
+    if (exerciseSessions.some((session) => session.exercise.id === exercise.id)) return;
+    const newSession = createDefaultExerciseSession(exercise, { historyIndex, preferences, history,
+      beforeTimestamp: resolveHistoricalWorkoutCutoff(performedDate, performedTime),
+      remoteHead: remoteExercisePerformanceHeads?.[exercise.id] });
+    const nextSessions = [...exerciseSessions, newSession];
+    setExerciseSessions(nextSessions);
+    requestAsOfPrefill(nextSessions, performedDate, performedTime, routineId);
     setEditorDirty(true);
     setIsAddModalOpen(false);
     if (phase === 'setup') {
@@ -292,6 +342,7 @@ export function HistoricalWorkoutModal({
   };
 
   const handleRemoveExercise = (exerciseId: string) => {
+    cancelAsOfPrefill();
     setExerciseSessions((current) => current.filter((s) => s.exercise.id !== exerciseId));
     setEditorDirty(true);
   };
@@ -529,6 +580,7 @@ export function HistoricalWorkoutModal({
                       value={performedDate}
                       onChange={(e) => {
                         const newDate = e.target.value;
+                        cancelAsOfPrefill();
                         setPerformedDate(newDate);
                         if (setupErrors.performedDate) setSetupErrors((prev) => ({ ...prev, performedDate: undefined }));
                         if (!editorDirty && routineId) {
@@ -555,6 +607,7 @@ export function HistoricalWorkoutModal({
                       value={performedTime}
                       onChange={(e) => {
                         const newTime = e.target.value;
+                        cancelAsOfPrefill();
                         setPerformedTime(newTime);
                         if (setupErrors.performedTime) setSetupErrors((prev) => ({ ...prev, performedTime: undefined }));
                         if (!editorDirty && routineId) {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import test from 'node:test';
@@ -507,6 +508,61 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
             assert.equal(pulled.latestExercisePerformances.bench.sessionId, secondPrSession);
             assert.deepEqual(pulled.latestExercisePerformances.bench.sets.map((set) => [set.weightKg, set.reps]),
               [[105, 5], [110, 5]]);
+
+            // R3.1: a later global head must not hide an older as-of occurrence
+            // that has already fallen outside the ordinary 50-session pull.
+            const laterBenchId = '79000000-0000-4000-8000-000000000001';
+            await tx`INSERT INTO workout_sessions (id, user_id, started_at)
+              VALUES (${laterBenchId}, ${a}, '2026-09-20T10:00:00Z')`;
+            await tx`INSERT INTO logged_sets (session_id, exercise_id, set_index, weight_kg, reps, set_type, is_warmup)
+              VALUES (${laterBenchId}, 'bench', 1, 120, 5, 'working', false)`;
+            const asOfUrl = `${baseUrl}/api/sync/exercise-performances?exerciseIds=bench&before=`;
+            const historicalHead = await fetch(`${asOfUrl}${encodeURIComponent('2026-06-01T10:00:00Z')}`,
+              { headers: headersFor(sessions[0]) });
+            assert.equal(historicalHead.status, 200);
+            const historicalData = await historicalHead.json() as { latestExercisePerformances: Record<string, { sessionId: string; sets: Array<{ weightKg: number }> }> };
+            assert.equal(historicalData.latestExercisePerformances.bench.sessionId, secondPrSession);
+            assert.deepEqual(historicalData.latestExercisePerformances.bench.sets.map((set) => set.weightKg), [105, 110]);
+            const equalCutoff = await fetch(`${asOfUrl}${encodeURIComponent('2026-01-03T10:00:00Z')}`,
+              { headers: headersFor(sessions[0]) });
+            assert.equal(equalCutoff.status, 200);
+            const equalData = await equalCutoff.json() as { latestExercisePerformances: Record<string, { sessionId: string }> };
+            assert.equal(equalData.latestExercisePerformances.bench.sessionId, firstPrSession);
+            const otherUser = await fetch(`${asOfUrl}${encodeURIComponent('2026-06-01T10:00:00Z')}`,
+              { headers: headersFor(sessions[1]) });
+            assert.equal(otherUser.status, 200);
+            assert.deepEqual((await otherUser.json() as { latestExercisePerformances: unknown }).latestExercisePerformances, {});
+            assert.equal((await fetch(`${asOfUrl}invalid`, { headers: headersFor(sessions[0]) })).status, 422);
+
+            // A PostgreSQL UUID without RFC variant/version bits is still an existing routine ID.
+            const [firstGroup, secondGroup, , , lastGroup] = randomUUID().split('-');
+            const postgresRoutineId = `${firstGroup}-${secondGroup}-0000-0000-${lastGroup}`;
+            await tx`INSERT INTO routines (id, user_id, name, exercise_ids)
+              VALUES (${postgresRoutineId}, ${a}, 'Postgres identity', ${JSON.stringify(['bench'])}::jsonb)`;
+            const roundTrip = await fetch(`${baseUrl}/api/sync`, { method: 'POST', headers: headersFor(sessions[0]),
+              body: JSON.stringify({ routines: [{ id: postgresRoutineId, name: 'Still same ID', exerciseIds: ['bench'] }] }) });
+            assert.equal(roundTrip.status, 200);
+            assert.equal((await tx`SELECT id FROM routines WHERE id = ${postgresRoutineId} AND name = 'Still same ID'`).length, 1);
+            const pulledIdentity = await fetch(`${baseUrl}/api/sync/pull`, { headers: headersFor(sessions[0]) });
+            assert.equal(pulledIdentity.status, 200);
+            const identityData = await pulledIdentity.json() as { routines: Array<{ id: string }> };
+            assert.equal(identityData.routines.filter((item) => item.id === postgresRoutineId).length, 1);
+            const postgresWorkoutId = randomUUID();
+            const linkedWorkout = await fetch(`${baseUrl}/api/sync`, { method: 'POST', headers: headersFor(sessions[0]),
+              body: JSON.stringify({ sessions: [{ id: postgresWorkoutId, routineId: postgresRoutineId,
+                startedAt: '2026-09-21T10:00:00Z', sets: { bench: [
+                  { setIndex: 1, weightKg: 80, reps: 8, setType: 'working', completed: true }
+                ] } }] }) });
+            assert.equal(linkedWorkout.status, 200);
+            assert.equal((await tx`SELECT routine_id FROM workout_sessions WHERE id = ${postgresWorkoutId}`)[0].routine_id,
+              postgresRoutineId);
+            const sharePostgres = await fetch(`${baseUrl}/api/routine-shares`, { method: 'POST', headers: headersFor(sessions[0]),
+              body: JSON.stringify({ routineId: postgresRoutineId, recipientId: b }) });
+            assert.equal(sharePostgres.status, 201);
+            const deletePostgres = await fetch(`${baseUrl}/api/sync`, { method: 'POST', headers: headersFor(sessions[0]),
+              body: JSON.stringify({ deletedRoutineIds: [postgresRoutineId] }) });
+            assert.equal(deletePostgres.status, 200);
+            assert.equal((await tx`SELECT id FROM routines WHERE id = ${postgresRoutineId}`).length, 0);
           });
         } finally {
           restoreDb();

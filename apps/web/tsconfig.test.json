@@ -23,6 +23,8 @@
     "src/lib/workout-history-index.ts",
     "src/lib/workout-history-index.test.ts",
     "src/lib/routine-identity-r3.test.ts",
+    "src/lib/routine-sync-authority-r31.test.ts",
+    "src/features/workouts/historical-prefill-gate.test.ts",
     "src/features/workouts/workout-time.ts",
     "src/features/workouts/workout-time.test.ts",
     "src/features/workouts/historical-workout.ts",

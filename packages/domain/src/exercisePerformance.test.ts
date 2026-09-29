@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveExercisePreviousPerformance } from './exercisePerformance.js';
-import { toDatabaseUuid } from './routineIdentity.js';
+import { canonicalizeRoutineId, isDatabaseUuidLiteral, toDatabaseUuid } from './routineIdentity.js';
 import type { WorkoutSession } from './types.js';
 
 const set = (setIndex: number, weightKg: number, reps: number, setType: 'warmup' | 'working' | 'drop' | 'backoff' = 'working', completed = true) =>
@@ -49,4 +49,14 @@ test('remote head outside recent history competes with local unsynced head by ph
 test('legacy client ID mapping matches persisted API UUID and leaves real UUID unchanged', () => {
   assert.equal(toDatabaseUuid('rt-123'), '00000000-0000-4000-8000-000036ffafd9');
   assert.equal(toDatabaseUuid('00000000-0000-4000-8000-000036ffafd9'), '00000000-0000-4000-8000-000036ffafd9');
+});
+
+test('routine canonicalization preserves PostgreSQL UUIDs outside RFC variant/version rules', () => {
+  const postgresId = '00000000-0000-0000-0000-000000000010';
+  const v4 = 'a013d78e-89fa-46e3-8d6d-2640ca025468';
+  assert.equal(isDatabaseUuidLiteral(postgresId), true);
+  assert.notEqual(toDatabaseUuid(postgresId), postgresId); // Historical mapper remains byte-for-byte unchanged.
+  assert.equal(canonicalizeRoutineId(postgresId), postgresId);
+  assert.equal(canonicalizeRoutineId(v4), v4);
+  assert.equal(canonicalizeRoutineId('rt-123'), '00000000-0000-4000-8000-000036ffafd9');
 });

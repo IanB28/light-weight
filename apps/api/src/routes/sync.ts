@@ -31,10 +31,26 @@ import {
 } from '../lib/sync-mappers.js';
 import { ApiError, asyncRoute } from '../lib/api-error.js';
 import { requireAuth, requireCsrf, toAuthUser } from '../lib/auth-session.js';
-import { toDatabaseUuid } from '../lib/client-id.js';
+import { canonicalizeRoutineId, toDatabaseUuid } from '../lib/client-id.js';
 import { getLatestExercisePerformances } from '../lib/latest-exercise-performances.js';
 
 export const syncRouter: Router = Router();
+
+syncRouter.get('/exercise-performances', requireAuth, asyncRoute(async (req, res) => {
+  const beforeRaw = req.query.before;
+  if (typeof beforeRaw !== 'string' || !Number.isFinite(Date.parse(beforeRaw))) {
+    throw new ApiError(422, 'VALIDATION_ERROR');
+  }
+  const rawIds = req.query.exerciseIds;
+  if (rawIds !== undefined && typeof rawIds !== 'string') throw new ApiError(422, 'VALIDATION_ERROR');
+  const exerciseIds = typeof rawIds === 'string' ? [...new Set(rawIds.split(',').map((id) => id.trim()))] : undefined;
+  if (exerciseIds && (exerciseIds.length > 100 || exerciseIds.some((id) => !/^[a-zA-Z0-9_-]{1,100}$/.test(id)))) {
+    throw new ApiError(422, 'VALIDATION_ERROR');
+  }
+  res.json({ latestExercisePerformances: await getLatestExercisePerformances(req.auth!.userId, {
+    before: new Date(beforeRaw), exerciseIds
+  }) });
+}));
 
 // POST /api/sync - Sincronización en lote de entrenamientos (Offline-First)
 syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
@@ -67,9 +83,9 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
     );
     const incomingRoutineList = normalizeIncomingSyncRoutines(incomingRoutines);
     const routineDbIds = new Set([
-      ...deletedRoutineIds.map(toDatabaseUuid),
-      ...incomingRoutineList.map((routine) => toDatabaseUuid(routine.id)),
-      ...sessions.flatMap((session) => session.routineId ? [toDatabaseUuid(session.routineId)] : [])
+      ...deletedRoutineIds.map(canonicalizeRoutineId),
+      ...incomingRoutineList.map((routine) => canonicalizeRoutineId(routine.id)),
+      ...sessions.flatMap((session) => session.routineId ? [canonicalizeRoutineId(session.routineId)] : [])
     ]);
     const sessionDbIds = sessions.map((session) => toDatabaseUuid(session.id));
     const hprDbIds = validIncomingHprs.map((hpr) => toDatabaseUuid(hpr.id));
@@ -118,8 +134,8 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       }
 
       for (const r of incomingRoutineList) {
-        const rUuid = toDatabaseUuid(r.id);
-        if (routineDbIds.has(rUuid) && deletedRoutineIds.some((id) => toDatabaseUuid(id) === rUuid)) continue;
+        const rUuid = canonicalizeRoutineId(r.id);
+        if (routineDbIds.has(rUuid) && deletedRoutineIds.some((id) => canonicalizeRoutineId(id) === rUuid)) continue;
         const existingRoutine = existingRoutineById.get(rUuid);
         const owner = existingRoutine?.userId;
         if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
@@ -164,7 +180,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       }
 
       for (const rawId of deletedRoutineIds) {
-        const databaseId = toDatabaseUuid(rawId);
+        const databaseId = canonicalizeRoutineId(rawId);
         const owner = existingRoutineById.get(databaseId)?.userId;
         if (owner && owner !== userId) throw new ApiError(403, 'FORBIDDEN');
         if (owner) await tx.delete(routines).where(and(eq(routines.id, databaseId), eq(routines.userId, userId)));
@@ -175,7 +191,7 @@ syncRouter.post('/', requireAuth, requireCsrf, asyncRoute(async (req, res) => {
       for (const session of sessions) {
       const { id, routineId, routineName, startedAt, performedDate, recordedAt, entrySource, endedAt, notes, sets = {} } = session;
       const sessionUuid = toDatabaseUuid(id);
-      const requestedRoutineUuid = routineId ? toDatabaseUuid(routineId) : null;
+      const requestedRoutineUuid = routineId ? canonicalizeRoutineId(routineId) : null;
       const sessionOwner = sessionOwnerById.get(sessionUuid);
       if (sessionOwner && sessionOwner !== userId) throw new ApiError(403, 'FORBIDDEN');
       let routineUuid: string | null = null;

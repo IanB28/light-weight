@@ -76,6 +76,7 @@ export async function requestJson<T>(url: string, init: RequestInit = {}, timeou
   const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   const externalSignal = init.signal;
   const abortFromExternal = () => controller.abort();
+  if (externalSignal?.aborted) controller.abort();
   externalSignal?.addEventListener('abort', abortFromExternal, { once: true });
   const method = (init.method || 'GET').toUpperCase();
   const headers = new Headers(init.headers);

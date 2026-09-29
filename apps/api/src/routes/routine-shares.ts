@@ -6,7 +6,7 @@ import { db } from '../db/index.js';
 import { exercises, friendships, routines, routineShares, users } from '../db/schema.js';
 import { ApiError, asyncRoute } from '../lib/api-error.js';
 import { requireAuth, requireCsrf } from '../lib/auth-session.js';
-import { isUuid, toDatabaseUuid } from '../lib/client-id.js';
+import { canonicalizeRoutineId, isUuid } from '../lib/client-id.js';
 import { assertCanShareRoutine, assertRoutineHasNoCustomExercises, cloneRoutineSnapshot } from '../lib/social-invariants.js';
 
 export const routineSharesRouter: Router = Router();
@@ -52,7 +52,7 @@ routineSharesRouter.post('/', requireCsrf, asyncRoute(async (req, res) => {
   const rawRoutineId = typeof req.body?.routineId === 'string' ? req.body.routineId : '';
   const recipientId = typeof req.body?.recipientId === 'string' ? req.body.recipientId : '';
   if (!rawRoutineId || !isUuid(recipientId)) throw new ApiError(422, 'VALIDATION_ERROR');
-  const routineId = toDatabaseUuid(rawRoutineId);
+  const routineId = canonicalizeRoutineId(rawRoutineId);
   const [routine] = await db.select().from(routines).where(and(
     eq(routines.id, routineId), eq(routines.userId, req.auth!.userId)
   )).limit(1);

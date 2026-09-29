@@ -99,3 +99,22 @@ test('new free exercise without history begins with one zero-load warmup', () =>
     { setIndex: 1, weightKg: 0, reps: 8, setType: 'warmup', completed: false, rir: undefined }
   ]);
 });
+
+test('historical as-of remote head competes with local before-cutoff work, never future/global head', () => {
+  const cutoff = Date.parse('2026-06-01T10:00:00Z');
+  const asOf = { exerciseId: 'bench', sessionId: 'remote-january', startedAt: '2026-01-10T10:00:00Z',
+    sets: [{ setIndex: 1, weightKg: 70, reps: 8, setType: 'working' as const, completed: true }] };
+  const globalFuture = { ...asOf, sessionId: 'remote-september', startedAt: '2026-09-20T10:00:00Z' };
+  const local: WorkoutSession[] = [
+    { id: 'local-may', userId: 'athlete', startedAt: '2026-05-10T10:00:00Z',
+      sets: { bench: [{ setIndex: 1, weightKg: 75, reps: 7, setType: 'working', completed: true }] } },
+    { id: 'local-july', userId: 'athlete', startedAt: '2026-07-10T10:00:00Z',
+      sets: { bench: [{ setIndex: 1, weightKg: 95, reps: 5, setType: 'working', completed: true }] } }
+  ];
+  assert.deepEqual(createDefaultExerciseSession(bench, { history: [], beforeTimestamp: cutoff,
+    remoteHead: globalFuture }).sets.map((set) => set.weightKg), [0]);
+  assert.deepEqual(createDefaultExerciseSession(bench, { history: [], beforeTimestamp: cutoff,
+    remoteHead: asOf }).sets.map((set) => set.weightKg), [70]);
+  assert.deepEqual(createDefaultExerciseSession(bench, { history: local, beforeTimestamp: cutoff,
+    remoteHead: asOf }).sets.map((set) => set.weightKg), [75]);
+});
