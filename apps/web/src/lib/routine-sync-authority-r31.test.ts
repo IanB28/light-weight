@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { canonicalizeRoutineId, normalizeRoutine, type Routine } from '@light-weight/domain';
-import { pullFromCloud, syncWithCloud } from './sync.js';
+import { pullFromCloud, pullThenDrainRoutineOutbox, syncWithCloud } from './sync.js';
 import { getStoredPendingRoutineUpsertIds, getStoredRoutines, getStoredWeeklySchedule,
   normalizeStoredActiveWorkout, saveStoredRoutines, addStoredPendingRoutineUpserts,
-  removeStoredPendingRoutineUpserts, STORAGE_KEYS } from './storage.js';
+  removeStoredPendingRoutineUpserts, addStoredDeletedRoutineId, getStoredDeletedRoutineIds,
+  STORAGE_KEYS } from './storage.js';
 import { serializeRoutineForSync } from './routine-sync.js';
 
 const postgresId = '00000000-0000-0000-0000-000000000010';
@@ -104,6 +105,101 @@ test('a newer edit during in-flight sync remains pending after older payload suc
     resolveRequest(Response.json({ syncedCount: 0, deletedRoutineIds: [] }));
     assert.equal((await upload).ok, true);
     assert.deepEqual(getStoredPendingRoutineUpsertIds(), [otherId]);
+  });
+});
+
+test('CASE 1/5: edit during upload automatically posts the newer snapshot and clears it only after ACK', async () => {
+  await withBrowserStorage(async () => {
+    saveStoredRoutines([routine(otherId, 'A')]);
+    addStoredPendingRoutineUpserts([otherId]);
+    const posted: Array<{ routines: Array<{ id: string; name: string }> }> = [];
+    let resolveFirst!: (response: Response) => void;
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, value: async (_url: string, init: RequestInit) => {
+      posted.push(JSON.parse(String(init.body)));
+      if (posted.length === 1) return new Promise<Response>((resolve) => { resolveFirst = resolve; });
+      return Response.json({ syncedCount: 0, deletedRoutineIds: [] });
+    } });
+
+    const firstDrain = syncWithCloud(PUSH_URL);
+    saveStoredRoutines([routine(otherId, 'B')]);
+    addStoredPendingRoutineUpserts([otherId]);
+    const queuedDrain = syncWithCloud(PUSH_URL);
+    assert.equal(queuedDrain, firstDrain);
+    resolveFirst(Response.json({ syncedCount: 0, deletedRoutineIds: [] }));
+    assert.equal((await firstDrain).ok, true);
+    assert.deepEqual(posted.map((payload) => payload.routines[0]?.name), ['A', 'B']);
+    assert.deepEqual(getStoredPendingRoutineUpsertIds(), []);
+  });
+});
+
+test('CASE 2: delete during upload is automatically sent and tombstone clears only after server ACK', async () => {
+  await withBrowserStorage(async () => {
+    saveStoredRoutines([routine(otherId, 'A')]);
+    addStoredPendingRoutineUpserts([otherId]);
+    const posted: Array<{ deletedRoutineIds: string[] }> = [];
+    let resolveFirst!: (response: Response) => void;
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, value: async (_url: string, init: RequestInit) => {
+      posted.push(JSON.parse(String(init.body)));
+      if (posted.length === 1) return new Promise<Response>((resolve) => { resolveFirst = resolve; });
+      return Response.json({ syncedCount: 0, deletedRoutineIds: [otherId] });
+    } });
+
+    const drain = syncWithCloud(PUSH_URL);
+    saveStoredRoutines([]);
+    removeStoredPendingRoutineUpserts([otherId]);
+    addStoredDeletedRoutineId(otherId);
+    void syncWithCloud(PUSH_URL);
+    resolveFirst(Response.json({ syncedCount: 0, deletedRoutineIds: [] }));
+    assert.equal((await drain).ok, true);
+    assert.deepEqual(posted.map((payload) => payload.deletedRoutineIds), [[], [otherId]]);
+    assert.deepEqual(getStoredDeletedRoutineIds(), []);
+  });
+});
+
+test('CASE 3: authenticated startup pulls first, preserves an offline routine, then drains its outbox', async () => {
+  await withBrowserStorage(async () => {
+    saveStoredRoutines([routine(otherId, 'Offline')]);
+    addStoredPendingRoutineUpserts([otherId]);
+    const methods: string[] = [];
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, value: async (_url: string, init: RequestInit = {}) => {
+      methods.push(init.method ?? 'GET');
+      if (init.method === 'POST') return Response.json({ syncedCount: 0, deletedRoutineIds: [] });
+      return Response.json({ routines: [] });
+    } });
+
+    const result = await pullThenDrainRoutineOutbox({ pull: PULL_URL, push: PUSH_URL });
+    assert.equal(result.ok, true);
+    assert.deepEqual(methods, ['GET', 'POST']);
+    assert.deepEqual(getStoredRoutines().map((item) => item.id), [otherId]);
+    assert.deepEqual(getStoredPendingRoutineUpsertIds(), []);
+  });
+});
+
+test('CASE 6: a failed follow-up keeps the newer routine pending without busy-looping and can retry later', async () => {
+  await withBrowserStorage(async () => {
+    saveStoredRoutines([routine(otherId, 'A')]);
+    addStoredPendingRoutineUpserts([otherId]);
+    let calls = 0;
+    let resolveFirst!: (response: Response) => void;
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, value: async () => {
+      calls += 1;
+      if (calls === 1) return new Promise<Response>((resolve) => { resolveFirst = resolve; });
+      return Response.json({ code: 'SERVER_ERROR' }, { status: 500 });
+    } });
+
+    const drain = syncWithCloud(PUSH_URL);
+    saveStoredRoutines([routine(otherId, 'B')]);
+    addStoredPendingRoutineUpserts([otherId]);
+    void syncWithCloud(PUSH_URL);
+    resolveFirst(Response.json({ syncedCount: 0, deletedRoutineIds: [] }));
+    assert.equal((await drain).ok, false);
+    assert.equal(calls, 2);
+    assert.deepEqual(getStoredPendingRoutineUpsertIds(), [otherId]);
+
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, value: async () =>
+      Response.json({ syncedCount: 0, deletedRoutineIds: [] }) });
+    assert.equal((await syncWithCloud(PUSH_URL)).ok, true);
+    assert.deepEqual(getStoredPendingRoutineUpsertIds(), []);
   });
 });
 

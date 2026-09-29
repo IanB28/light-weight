@@ -50,6 +50,7 @@ type SyncListener = (status: SyncStatus) => void;
 const listeners = new Set<SyncListener>();
 let currentStatus: SyncStatus = { state: typeof navigator !== 'undefined' && navigator.onLine ? 'idle' : 'offline' };
 let syncInFlight: Promise<OperationResult<{ syncedCount: number }>> | null = null;
+let syncFollowUpRequested = false;
 let pullInFlight: Promise<OperationResult<PullResponse>> | null = null;
 
 function notify(status: SyncStatus) {
@@ -161,49 +162,79 @@ export function pullFromCloud(endpoint?: string): Promise<OperationResult<PullRe
   return pullInFlight;
 }
 
+function hasPendingRoutineOutboxWork(): boolean {
+  return getStoredPendingRoutineUpsertIds().length > 0 || getStoredDeletedRoutineIds().length > 0;
+}
+
+async function syncCloudSnapshot(endpoint?: string): Promise<OperationResult<{ syncedCount: number }>> {
+  try {
+    // Block 17 will replace this full-history push with a cursor/outbox
+    // protocol. Keep it stable for now so retries remain idempotent.
+    const storedRoutines = getStoredRoutines();
+    const pendingIds = new Set(getStoredPendingRoutineUpsertIds());
+    const submittedRoutines = storedRoutines.filter((routine) => pendingIds.has(routine.id))
+      .map(serializeRoutineForSync);
+    const submittedById = new Map(submittedRoutines.map((routine) => [routine.id, JSON.stringify(routine)]));
+    const payload = {
+      sessions: getStoredHistory(),
+      routines: submittedRoutines,
+      deletedRoutineIds: getStoredDeletedRoutineIds(),
+      bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() })),
+      historicalPersonalRecords: getStoredHistoricalPersonalRecords()
+    };
+    const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(endpoint ?? apiEndpoint('/api/sync'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    // Sync may process a full local history. Its allowance intentionally
+    // exceeds the API's 30s serverless limit without changing other calls.
+    }, 35_000);
+    const syncedCount = data.syncedCount || 0;
+    if (Array.isArray(data.deletedRoutineIds)) removeStoredDeletedRoutineIds(data.deletedRoutineIds);
+    removeStoredPendingRoutineUpserts(getStoredRoutines().filter((routine) => {
+      const snapshot = submittedById.get(routine.id);
+      return snapshot !== undefined && snapshot === JSON.stringify(serializeRoutineForSync(routine));
+    }).map((routine) => routine.id));
+    notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: syncedCount });
+    return { ok: true, data: { syncedCount } };
+  } catch (cause) {
+    const error = mapApiError(cause);
+    notify({ state: error.code === 'network' ? 'offline' : 'error', error });
+    return { ok: false, error };
+  }
+}
+
 export function syncWithCloud(endpoint?: string): Promise<OperationResult<{ syncedCount: number }>> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve(offlineResult());
-  if (syncInFlight) return syncInFlight;
+  if (syncInFlight) {
+    syncFollowUpRequested = true;
+    return syncInFlight;
+  }
   notify({ state: 'syncing' });
+  syncFollowUpRequested = false;
 
   syncInFlight = (async () => {
-    try {
-      // Block 17 will replace this full-history push with a cursor/outbox
-      // protocol. Keep it stable for now so retries remain idempotent.
-      const storedRoutines = getStoredRoutines();
-      const pendingIds = new Set(getStoredPendingRoutineUpsertIds());
-      const submittedRoutines = storedRoutines.filter((routine) => pendingIds.has(routine.id))
-        .map(serializeRoutineForSync);
-      const submittedById = new Map(submittedRoutines.map((routine) => [routine.id, JSON.stringify(routine)]));
-      const payload = {
-        sessions: getStoredHistory(),
-        routines: submittedRoutines,
-        deletedRoutineIds: getStoredDeletedRoutineIds(),
-        bodyweightLogs: getStoredBodyweight().map((entry) => ({ weightKg: entry.weightKg, loggedAt: new Date(entry.timestamp).toISOString() })),
-        historicalPersonalRecords: getStoredHistoricalPersonalRecords()
-      };
-      const data = await requestJson<{ syncedCount?: number; deletedRoutineIds?: string[] }>(endpoint ?? apiEndpoint('/api/sync'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-      // Sync may process a full local history. Its allowance intentionally
-      // exceeds the API's 30s serverless limit without changing other calls.
-      }, 35_000);
-      const syncedCount = data.syncedCount || 0;
-      if (Array.isArray(data.deletedRoutineIds)) removeStoredDeletedRoutineIds(data.deletedRoutineIds);
-      removeStoredPendingRoutineUpserts(getStoredRoutines().filter((routine) => {
-        const snapshot = submittedById.get(routine.id);
-        return snapshot !== undefined && snapshot === JSON.stringify(serializeRoutineForSync(routine));
-      }).map((routine) => routine.id));
-      notify({ state: 'synced', lastSyncedAt: new Date(), syncedSessionsCount: syncedCount });
-      return { ok: true, data: { syncedCount } };
-    } catch (cause) {
-      const error = mapApiError(cause);
-      notify({ state: error.code === 'network' ? 'offline' : 'error', error });
-      return { ok: false, error };
-    } finally {
-      syncInFlight = null;
-    }
-  })();
+    let result: OperationResult<{ syncedCount: number }>;
+    do {
+      syncFollowUpRequested = false;
+      result = await syncCloudSnapshot(endpoint);
+      if (!result.ok) return result;
+    } while (syncFollowUpRequested && hasPendingRoutineOutboxWork());
+    return result;
+  })().finally(() => {
+    syncInFlight = null;
+    syncFollowUpRequested = false;
+  });
   return syncInFlight;
+}
+
+/** Pull establishes cloud authority before any offline routine outbox is drained. */
+export async function pullThenDrainRoutineOutbox(endpoints?: {
+  pull?: string;
+  push?: string;
+}): Promise<OperationResult<PullResponse>> {
+  const pullResult = await pullFromCloud(endpoints?.pull);
+  if (!pullResult.ok) return pullResult;
+  if (hasPendingRoutineOutboxWork()) await syncWithCloud(endpoints?.push);
+  return pullResult;
 }
 
 if (typeof window !== 'undefined') window.addEventListener('offline', () => notify({ state: 'offline', error: { code: 'network', retryable: true } }));

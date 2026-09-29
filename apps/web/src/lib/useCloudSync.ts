@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { pullFromCloud, syncWithCloud } from './sync.js';
+import { pullThenDrainRoutineOutbox, syncWithCloud } from './sync.js';
 import type { OperationResult } from './api-errors.js';
 
 /** Keeps cloud transport details outside application composition. */
@@ -7,7 +7,7 @@ export function useCloudSync(onHydrated: () => void, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let mounted = true;
-    void pullFromCloud().then((result) => {
+    void pullThenDrainRoutineOutbox().then((result) => {
       if (mounted && result.ok) onHydrated();
     });
     return () => { mounted = false; };
@@ -15,7 +15,7 @@ export function useCloudSync(onHydrated: () => void, enabled: boolean) {
 
   useEffect(() => {
     if (!enabled) return;
-    const syncOnline = () => { void syncWithCloud().then((result) => { if (result.ok) onHydrated(); }); };
+    const syncOnline = () => { void pullThenDrainRoutineOutbox().then((result) => { if (result.ok) onHydrated(); }); };
     window.addEventListener('online', syncOnline);
     return () => window.removeEventListener('online', syncOnline);
   }, [enabled, onHydrated]);

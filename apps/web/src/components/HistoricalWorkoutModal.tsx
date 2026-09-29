@@ -331,7 +331,9 @@ export function HistoricalWorkoutModal({
       remoteHead: remoteExercisePerformanceHeads?.[exercise.id] });
     const nextSessions = [...exerciseSessions, newSession];
     setExerciseSessions(nextSessions);
-    requestAsOfPrefill(nextSessions, performedDate, performedTime, routineId);
+    // Existing sessions may already contain user-authored values. A new
+    // background read owns only the newly-added exercise draft.
+    requestAsOfPrefill([newSession], performedDate, performedTime, routineId);
     setEditorDirty(true);
     setIsAddModalOpen(false);
     if (phase === 'setup') {
