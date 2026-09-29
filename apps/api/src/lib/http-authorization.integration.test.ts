@@ -50,8 +50,11 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
     const migrationSql = await readFile(new URL('../../drizzle/0001_auth_friends_routine_sharing_v1.sql', import.meta.url), 'utf8');
     const hprMigrationSql = await readFile(new URL('../../drizzle/0007_historical_personal_records.sql', import.meta.url), 'utf8');
     const hprRepsMigrationSql = await readFile(new URL('../../drizzle/0008_hpr_reps_cap_constraint.sql', import.meta.url), 'utf8');
+    const routineTemplateMigrationSql = await readFile(new URL('../../drizzle/0009_routine_template_v2.sql', import.meta.url), 'utf8');
     try {
       await sql.begin(async (tx) => {
+        // Serialize transactional DDL across integration-test files.
+        await tx`SELECT pg_advisory_xact_lock(198, 31)`;
         // HTTP handlers open Drizzle transactions. Route them to PostgreSQL
         // savepoints so a failed nested sync actually rolls back its writes
         // while the outer disposable-test transaction remains inspectable.
@@ -60,6 +63,7 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
         await tx.unsafe(migrationSql);
         await tx.unsafe(hprMigrationSql);
         await tx.unsafe(hprRepsMigrationSql);
+        await tx.unsafe(routineTemplateMigrationSql);
         const transactionalDb = drizzle(tx as never, { schema });
         const restoreDb = replaceDatabaseForTesting(transactionalDb as typeof db);
         try {
@@ -285,6 +289,194 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
             const updatedHprA = await tx`SELECT id, user_id, weight_kg FROM historical_personal_records WHERE id = ${hprIdA}`;
             assert.equal(updatedHprA.length, 1);
             assert.equal(Number(updatedHprA[0].weight_kg), 105);
+
+            // --- BLOCK 19.8A1: Sync Regression Tests (A through G) ---
+            const syncRoutineId1 = '76000000-0000-4000-8000-000000000001';
+            const syncRoutineId2 = '76000000-0000-4000-8000-000000000002';
+
+            // A. New legacy routine -> default V2 generated
+            const syncA = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                routines: [{
+                  id: syncRoutineId1,
+                  name: 'New Legacy A',
+                  exerciseIds: ['bench', 'row']
+                }]
+              })
+            });
+            assert.equal(syncA.status, 200);
+            const [savedA] = await tx`SELECT exercise_ids, exercise_template FROM routines WHERE id = ${syncRoutineId1}`;
+            assert.deepEqual(savedA.exercise_ids, ['bench', 'row']);
+            assert.ok(savedA.exercise_template);
+            assert.equal(savedA.exercise_template.version, 2);
+            assert.equal(savedA.exercise_template.exercises.length, 2);
+            assert.equal(savedA.exercise_template.exercises[0].exerciseId, 'bench');
+            assert.deepEqual(savedA.exercise_template.exercises[0].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+            assert.equal(savedA.exercise_template.exercises[1].exerciseId, 'row');
+            assert.deepEqual(savedA.exercise_template.exercises[1].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+
+            // B. Existing legacy DB routine + legacy client -> upgraded V2
+            await tx`
+              INSERT INTO routines (id, user_id, name, exercise_ids, exercise_template)
+              VALUES (${syncRoutineId2}, ${a}, 'Existing Legacy B', ${JSON.stringify(['bench'])}::jsonb, NULL)
+            `;
+            const syncB = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                routines: [{
+                  id: syncRoutineId2,
+                  name: 'Existing Legacy B Updated',
+                  exerciseIds: ['bench', 'squat']
+                }]
+              })
+            });
+            assert.equal(syncB.status, 200);
+            const [savedB] = await tx`SELECT exercise_ids, exercise_template FROM routines WHERE id = ${syncRoutineId2}`;
+            assert.deepEqual(savedB.exercise_ids, ['bench', 'squat']);
+            assert.ok(savedB.exercise_template);
+            assert.equal(savedB.exercise_template.version, 2);
+            assert.equal(savedB.exercise_template.exercises.length, 2);
+
+            // C. Existing V2 DB routine + legacy client same exercise IDs -> weights/types preserved
+            const v2Configured = {
+              version: 2,
+              exercises: [
+                {
+                  exerciseId: 'bench',
+                  sets: [
+                    { setType: 'warmup', targetWeightKg: 40 },
+                    { setType: 'working', targetWeightKg: 80 }
+                  ]
+                },
+                {
+                  exerciseId: 'row',
+                  sets: [
+                    { setType: 'working', targetWeightKg: 60 }
+                  ]
+                }
+              ]
+            };
+            await tx`
+              UPDATE routines
+              SET exercise_template = ${JSON.stringify(v2Configured)}::jsonb
+              WHERE id = ${syncRoutineId1}
+            `;
+            const syncC = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                routines: [{
+                  id: syncRoutineId1,
+                  name: 'Preserved V2 Routine',
+                  exerciseIds: ['bench', 'row']
+                }]
+              })
+            });
+            assert.equal(syncC.status, 200);
+            const [savedC] = await tx`SELECT exercise_template FROM routines WHERE id = ${syncRoutineId1}`;
+            assert.deepEqual(savedC.exercise_template.exercises[0].sets, [
+              { setType: 'warmup', targetWeightKg: 40 },
+              { setType: 'working', targetWeightKg: 80 }
+            ]);
+            assert.deepEqual(savedC.exercise_template.exercises[1].sets, [
+              { setType: 'working', targetWeightKg: 60 }
+            ]);
+
+            // D. Existing V2: bench, row -> legacy client: row, bench, curl
+            // order becomes row, bench, curl; row/bench templates preserved; curl defaulted
+            const syncD = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                routines: [{
+                  id: syncRoutineId1,
+                  name: 'Reordered & Added',
+                  exerciseIds: ['row', 'bench', 'curl']
+                }]
+              })
+            });
+            assert.equal(syncD.status, 200);
+            const [savedD] = await tx`SELECT exercise_ids, exercise_template FROM routines WHERE id = ${syncRoutineId1}`;
+            assert.deepEqual(savedD.exercise_ids, ['row', 'bench', 'curl']);
+            assert.equal(savedD.exercise_template.exercises[0].exerciseId, 'row');
+            assert.deepEqual(savedD.exercise_template.exercises[0].sets, [{ setType: 'working', targetWeightKg: 60 }]);
+            assert.equal(savedD.exercise_template.exercises[1].exerciseId, 'bench');
+            assert.deepEqual(savedD.exercise_template.exercises[1].sets, [
+              { setType: 'warmup', targetWeightKg: 40 },
+              { setType: 'working', targetWeightKg: 80 }
+            ]);
+            assert.equal(savedD.exercise_template.exercises[2].exerciseId, 'curl');
+            assert.deepEqual(savedD.exercise_template.exercises[2].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+
+            // E. Existing V2: bench, row -> legacy client: bench (row removed)
+            const syncE = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                routines: [{
+                  id: syncRoutineId1,
+                  name: 'Row Removed',
+                  exerciseIds: ['bench']
+                }]
+              })
+            });
+            assert.equal(syncE.status, 200);
+            const [savedE] = await tx`SELECT exercise_ids, exercise_template FROM routines WHERE id = ${syncRoutineId1}`;
+            assert.deepEqual(savedE.exercise_ids, ['bench']);
+            assert.equal(savedE.exercise_template.exercises.length, 1);
+            assert.equal(savedE.exercise_template.exercises[0].exerciseId, 'bench');
+            assert.deepEqual(savedE.exercise_template.exercises[0].sets, [
+              { setType: 'warmup', targetWeightKg: 40 },
+              { setType: 'working', targetWeightKg: 80 }
+            ]);
+
+            // F. Explicit V2 payload -> replaces previous template exactly
+            const explicitV2 = {
+              version: 2,
+              exercises: [
+                {
+                  exerciseId: 'squat',
+                  sets: [
+                    { setType: 'working', targetWeightKg: 120 }
+                  ]
+                }
+              ]
+            };
+            const syncF = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[0]),
+              body: JSON.stringify({
+                routines: [{
+                  id: syncRoutineId1,
+                  name: 'Explicit V2 Overwrite',
+                  template: explicitV2
+                }]
+              })
+            });
+            assert.equal(syncF.status, 200);
+            const [savedF] = await tx`SELECT exercise_ids, exercise_template FROM routines WHERE id = ${syncRoutineId1}`;
+            assert.deepEqual(savedF.exercise_ids, ['squat']);
+            assert.deepEqual(savedF.exercise_template, explicitV2);
+
+            // G. Cross-user collision -> 403 -> existing template unchanged
+            const syncG = await fetch(`${baseUrl}/api/sync`, {
+              method: 'POST',
+              headers: headersFor(sessions[1]), // User B trying to overwrite User A's routine
+              body: JSON.stringify({
+                routines: [{
+                  id: syncRoutineId1,
+                  name: 'Stolen By B',
+                  exerciseIds: ['curl']
+                }]
+              })
+            });
+            assert.equal(syncG.status, 403);
+            const [savedG] = await tx`SELECT user_id, exercise_template FROM routines WHERE id = ${syncRoutineId1}`;
+            assert.equal(savedG.user_id, a);
+            assert.deepEqual(savedG.exercise_template, explicitV2);
           });
         } finally {
           restoreDb();

@@ -4,6 +4,8 @@ import {
   hydrateSyncedSet,
   normalizeIncomingSyncSet,
   normalizeIncomingSyncSessions,
+  normalizeIncomingSyncRoutine,
+  normalizeIncomingSyncRoutines,
   SyncValidationError,
   type SyncSetInput
 } from './sync-mappers.js';
@@ -406,4 +408,148 @@ test('sync hydration safely degrades contradictory total load claim (weightKg < 
   assert.equal(degradedNoProfile.weightKg, 5);
   assert.equal(degradedNoProfile.machineBaseResistanceKg, undefined);
   assert.equal(degradedNoProfile.machineBaseResistanceStatus, undefined);
+});
+
+test('sync accepts legacy routine and produces effective V2 template', () => {
+  const [normalized] = normalizeIncomingSyncRoutines([{
+    id: 'rot-1',
+    name: 'Upper Body',
+    description: 'Chest & Back',
+    exerciseIds: ['bench-press', 'barbell-row']
+  }]);
+
+  assert.equal(normalized.id, 'rot-1');
+  assert.equal(normalized.name, 'Upper Body');
+  assert.equal(normalized.description, 'Chest & Back');
+  assert.equal(normalized.templateSource, 'legacy');
+  assert.deepEqual(normalized.exerciseIds, ['bench-press', 'barbell-row']);
+  assert.ok(normalized.template);
+  const t1 = normalized.template;
+  assert.equal(t1.version, 2);
+  assert.equal(t1.exercises.length, 2);
+  assert.equal(t1.exercises[0].exerciseId, 'bench-press');
+  assert.deepEqual(t1.exercises[0].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+  assert.equal(t1.exercises[1].exerciseId, 'barbell-row');
+  assert.deepEqual(t1.exercises[1].sets, [{ setType: 'warmup', targetWeightKg: 0 }]);
+});
+
+test('sync accepts valid V2 template and validates strictly', () => {
+  const [normalized] = normalizeIncomingSyncRoutines([{
+    id: 'rot-v2',
+    name: 'Leg Day',
+    exerciseIds: ['squat'],
+    template: {
+      version: 2,
+      exercises: [
+        {
+          exerciseId: 'squat',
+          sets: [
+            { setType: 'warmup', targetWeightKg: 20 },
+            { setType: 'working', targetWeightKg: 120 },
+            { setType: 'drop', targetWeightKg: 90 }
+          ]
+        }
+      ]
+    }
+  }]);
+
+  assert.equal(normalized.id, 'rot-v2');
+  assert.equal(normalized.name, 'Leg Day');
+  assert.equal(normalized.templateSource, 'v2');
+  assert.deepEqual(normalized.exerciseIds, ['squat']);
+  assert.ok(normalized.template);
+  const t2 = normalized.template;
+  assert.equal(t2.version, 2);
+  assert.equal(t2.exercises[0].sets.length, 3);
+  assert.equal(t2.exercises[0].sets[1].targetWeightKg, 120);
+  assert.equal(t2.exercises[0].sets[1].setType, 'working');
+});
+
+test('sync rejects malformed V2 template with 422 INVALID_ROUTINE_TEMPLATE', () => {
+  const expect422 = (routine: unknown) => {
+    assert.throws(
+      () => normalizeIncomingSyncRoutines([routine]),
+      (err: unknown) => err instanceof SyncValidationError && err.status === 422 && err.code === 'INVALID_ROUTINE_TEMPLATE'
+    );
+  };
+
+  // Missing exercises array
+  expect422({
+    id: 'bad-1',
+    name: 'Bad Routine',
+    template: { version: 2 }
+  });
+
+  // Duplicate exercise IDs
+  expect422({
+    id: 'bad-2',
+    name: 'Bad Routine',
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'squat', sets: [{ setType: 'working', targetWeightKg: 100 }] },
+        { exerciseId: 'squat', sets: [{ setType: 'working', targetWeightKg: 100 }] }
+      ]
+    }
+  });
+
+  // Empty sets array
+  expect422({
+    id: 'bad-3',
+    name: 'Bad Routine',
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'squat', sets: [] }
+      ]
+    }
+  });
+
+  // Invalid setType
+  expect422({
+    id: 'bad-4',
+    name: 'Bad Routine',
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'squat', sets: [{ setType: 'invalid_type', targetWeightKg: 50 }] }
+      ]
+    }
+  });
+
+  // Negative targetWeightKg
+  expect422({
+    id: 'bad-5',
+    name: 'Bad Routine',
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'squat', sets: [{ setType: 'working', targetWeightKg: -10 }] }
+      ]
+    }
+  });
+
+  // Infinity weight
+  expect422({
+    id: 'bad-6',
+    name: 'Bad Routine',
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'squat', sets: [{ setType: 'working', targetWeightKg: Infinity }] }
+      ]
+    }
+  });
+
+  // Non-finite weight
+  expect422({
+    id: 'bad-7',
+    name: 'Bad Routine',
+    template: {
+      version: 2,
+      exercises: [
+        { exerciseId: 'squat', sets: [{ setType: 'working', targetWeightKg: 'NaN' }] }
+      ]
+    }
+  });
 });

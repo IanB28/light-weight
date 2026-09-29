@@ -37,7 +37,12 @@ export function assertRoutineHasNoCustomExercises(hasCustomExercises: boolean): 
   if (hasCustomExercises) throw new ApiError(422, 'ROUTINE_HAS_CUSTOM_EXERCISES');
 }
 
-export function cloneRoutineSnapshot<T extends { routineName: string; routineDescription: string | null; exerciseIds: string[] }>(
+export function cloneRoutineSnapshot<T extends {
+  routineName: string;
+  routineDescription: string | null;
+  exerciseIds: string[];
+  exerciseTemplate?: import('@light-weight/domain').RoutineTemplateV2 | null;
+}>(
   share: T,
   recipientId: string,
   id: string,
@@ -49,6 +54,7 @@ export function cloneRoutineSnapshot<T extends { routineName: string; routineDes
     name: share.routineName,
     description: share.routineDescription,
     exerciseIds: [...share.exerciseIds],
+    exerciseTemplate: share.exerciseTemplate ? JSON.parse(JSON.stringify(share.exerciseTemplate)) : null,
     ...(origin ? { origin } : {})
   };
 }

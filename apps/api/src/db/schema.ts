@@ -15,7 +15,7 @@ import {
   index
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import type { ExerciseLoadMechanism, ExerciseLoadMode, Routine, WorkoutSetType, BaseResistanceStatus, WorkoutEntrySource } from '@light-weight/domain';
+import type { ExerciseLoadMechanism, ExerciseLoadMode, Routine, RoutineTemplateV2, WorkoutSetType, BaseResistanceStatus, WorkoutEntrySource } from '@light-weight/domain';
 
 // 1. Usuarios
 export const users = pgTable('users', {
@@ -103,6 +103,7 @@ export const routines = pgTable('routines', {
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   exerciseIds: jsonb('exercise_ids').$type<string[]>().default([]).notNull(),
+  exerciseTemplate: jsonb('exercise_template').$type<RoutineTemplateV2>(),
   origin: jsonb('origin').$type<Routine['origin']>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -210,6 +211,7 @@ export const routineShares = pgTable('routine_shares', {
   routineName: varchar('routine_name', { length: 255 }).notNull(),
   routineDescription: text('routine_description'),
   exerciseIds: jsonb('exercise_ids').$type<string[]>().default([]).notNull(),
+  exerciseTemplate: jsonb('exercise_template').$type<RoutineTemplateV2>(),
   status: varchar('status', { length: 16 }).default('pending').notNull(),
   importedRoutineId: uuid('imported_routine_id').references(() => routines.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

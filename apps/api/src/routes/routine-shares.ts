@@ -40,6 +40,7 @@ routineSharesRouter.get('/received', asyncRoute(async (req, res) => {
       routineName: share.routineName,
       routineDescription: share.routineDescription || undefined,
       exerciseIds: share.exerciseIds,
+      template: share.exerciseTemplate || undefined,
       status: share.status as 'pending',
       createdAt: share.createdAt.toISOString()
     }];
@@ -79,7 +80,8 @@ routineSharesRouter.post('/', requireCsrf, asyncRoute(async (req, res) => {
     recipientId,
     routineName: routine.name,
     routineDescription: routine.description,
-    exerciseIds: routine.exerciseIds
+    exerciseIds: routine.exerciseIds,
+    exerciseTemplate: routine.exerciseTemplate || null
   }).returning();
   res.status(201).json({ share: created });
 }));
