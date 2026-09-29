@@ -27,7 +27,7 @@ import { ProfileStrengthSection } from './ProfileStrengthSection.js';
 import { StrengthRankBadge } from '../../components/StrengthRankBadge.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { submitProfileDraft } from './profile-save.js';
-import { AvatarNormalizationError, normalizeAvatarFile } from './avatar-normalization.js';
+import { AvatarNormalizationError, normalizeAvatarFile, type NormalizedAvatar } from './avatar-normalization.js';
 import type { AuthUser, HistoricalPersonalRecord } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
 
@@ -43,7 +43,7 @@ interface ProfileViewProps {
   onConfigureGender?: () => void;
   /** Presentation-only content supplied by ProfileScreen (for example Friends). */
   summaryAccessory?: React.ReactNode;
-  onUploadAvatar?: (avatar: Blob) => Promise<OperationResult<AuthUser>>;
+  onUploadAvatar?: (avatar: NormalizedAvatar) => Promise<OperationResult<AuthUser>>;
   avatarUploadAvailable?: boolean;
   onClose?: () => void;
   titleRef?: React.Ref<HTMLHeadingElement>;
@@ -143,7 +143,7 @@ export function ProfileView({
     setIsUploadingAvatar(true);
     try {
       const normalized = await normalizeAvatarFile(file);
-      const localPreview = URL.createObjectURL(normalized);
+      const localPreview = URL.createObjectURL(normalized.blob);
       setPreviewUrl((current) => {
         if (current) URL.revokeObjectURL(current);
         return localPreview;

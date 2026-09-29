@@ -12,20 +12,21 @@ import {
 } from './avatar-normalization.js';
 
 const webpBytes = new TextEncoder().encode('RIFF\0\0\0\0WEBPVP8 ');
+const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 const sourceFile = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'photo.png', { type: 'image/png' });
 
-function mockBrowserEncoder(output: Blob, bitmapFails = false, imageFails = false) {
+function mockBrowserEncoder(output: Blob | Partial<Record<'image/webp' | 'image/jpeg', Blob>>, bitmapFails = false, imageFails = false) {
   const globalNames = ['createImageBitmap', 'document', 'Image'] as const;
   const originals = globalNames.map((name) => Object.getOwnPropertyDescriptor(globalThis, name));
   const originalCreateUrl = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
   const originalRevokeUrl = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
-  const state = { requestedMime: '', bitmapClosed: 0, imageLoads: 0, urlRevocations: 0 };
+  const state = { requestedMimes: [] as string[], bitmapClosed: 0, imageLoads: 0, urlRevocations: 0 };
   const canvas = {
     width: 0, height: 0,
     getContext: () => ({ drawImage: () => {} }),
     toBlob: (callback: (blob: Blob | null) => void, mime: string) => {
-      state.requestedMime = mime;
-      callback(output);
+      state.requestedMimes.push(mime);
+      callback(output instanceof Blob ? output : output[mime as 'image/webp' | 'image/jpeg'] ?? null);
     }
   };
   class MockImage {
@@ -92,16 +93,34 @@ test('mobile files without MIME need supported bytes, while HEIC stays unsupport
 
 test('CASE A: generated WebP MIME and bytes pass client validation', async () => {
   const blob = new Blob([webpBytes], { type: 'image/webp' });
-  assert.equal(await validateNormalizedAvatarBlob(blob), blob);
+  assert.deepEqual(await validateNormalizedAvatarBlob(blob), { blob, mimeType: 'image/webp', extension: 'webp' });
+  const browser = mockBrowserEncoder(blob);
+  try {
+    assert.equal((await normalizeAvatarFile(sourceFile())).mimeType, 'image/webp');
+    assert.deepEqual(browser.state.requestedMimes, ['image/webp']);
+  } finally { browser.restore(); }
 });
 
-test('CASE B: a canvas PNG fallback requested as WebP is rejected before upload', async () => {
+test('CASE B: Safari-style PNG fallback causes an explicit JPEG encode on the same canvas', async () => {
+  const browser = mockBrowserEncoder({
+    'image/webp': new Blob(['png fallback'], { type: 'image/png' }),
+    'image/jpeg': new Blob([jpegBytes], { type: 'image/jpeg' })
+  });
+  try {
+    const normalized = await normalizeAvatarFile(sourceFile());
+    assert.equal(normalized.mimeType, 'image/jpeg');
+    assert.equal(normalized.extension, 'jpg');
+    assert.deepEqual(browser.state.requestedMimes, ['image/webp', 'image/jpeg']);
+    assert.equal(browser.state.bitmapClosed, 1);
+  } finally { browser.restore(); }
+});
+
+test('unsupported output from both encoders is not accepted as PNG', async () => {
   const browser = mockBrowserEncoder(new Blob(['png fallback'], { type: 'image/png' }));
   try {
     await assert.rejects(() => normalizeAvatarFile(sourceFile()),
       (error: unknown) => error instanceof AvatarNormalizationError && error.code === 'output_format_unsupported');
-    assert.equal(browser.state.requestedMime, 'image/webp');
-    assert.equal(browser.state.bitmapClosed, 1);
+    assert.deepEqual(browser.state.requestedMimes, ['image/webp', 'image/jpeg']);
   } finally { browser.restore(); }
 });
 
@@ -112,17 +131,19 @@ test('CASE C: empty or spoofed generated WebP is rejected locally', async () => 
     (error: unknown) => error instanceof AvatarNormalizationError && error.code === 'normalization_failed');
 });
 
-test('CASE D: oversized normalized WebP remains rejected', async () => {
-  const oversized = new Blob([new Uint8Array(AVATAR_MAX_OUTPUT_BYTES + 1)], { type: 'image/webp' });
-  await assert.rejects(() => validateNormalizedAvatarBlob(oversized),
-    (error: unknown) => error instanceof AvatarNormalizationError && error.code === 'output_too_large');
+test('CASE I: both normalized formats retain the one-megabyte limit', async () => {
+  for (const type of ['image/webp', 'image/jpeg']) {
+    const oversized = new Blob([new Uint8Array(AVATAR_MAX_OUTPUT_BYTES + 1)], { type });
+    await assert.rejects(() => validateNormalizedAvatarBlob(oversized),
+      (error: unknown) => error instanceof AvatarNormalizationError && error.code === 'output_too_large');
+  }
 });
 
 test('CASE E: failed createImageBitmap falls back to <img>, then releases its object URL', async () => {
   const browser = mockBrowserEncoder(new Blob([webpBytes], { type: 'image/webp' }), true);
   try {
     const result = await normalizeAvatarFile(sourceFile());
-    assert.equal(result.type, 'image/webp');
+    assert.equal(result.mimeType, 'image/webp');
     assert.equal(browser.state.imageLoads, 1);
     assert.equal(browser.state.urlRevocations, 1);
   } finally { browser.restore(); }

@@ -7,6 +7,9 @@ const userId = '123e4567-e89b-12d3-a456-426614174000';
 
 test('avatar storage cleanup recognizes only a user-scoped LightWeight avatar path', () => {
   assert.equal(isOwnedAvatarPath(`https://store.public.blob.vercel-storage.com/avatars/${userId}/random.webp`, userId), true);
+  assert.equal(isOwnedAvatarPath(`https://store.public.blob.vercel-storage.com/avatars/${userId}/random.jpg`, userId), true);
+  assert.equal(isOwnedAvatarPath(`https://store.public.blob.vercel-storage.com/avatars/another-user/random.jpg`, userId), false);
+  assert.equal(isOwnedAvatarPath(`https://lh3.googleusercontent.com/avatars/${userId}/photo.jpg`, userId), false);
   assert.equal(isOwnedAvatarPath(`https://lh3.googleusercontent.com/avatars/${userId}/photo.webp`, userId), false);
   assert.equal(isOwnedAvatarPath(`https://store.public.blob.vercel-storage.com/avatars/another-user/random.webp`, userId), false);
   assert.equal(isOwnedAvatarPath('https://example.com/photo.png', userId), false);

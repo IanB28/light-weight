@@ -6,12 +6,14 @@ import { db, replaceDatabaseForTesting } from '../db/index.js';
 import { hashOpaqueToken } from '../lib/auth-session.js';
 import { createAuthRouter } from './auth.js';
 import type { AvatarStorage } from '../lib/avatar-storage.js';
+import { isOwnedAvatarPath } from '../lib/avatar-storage.js';
 
 const userId = '00000000-0000-4000-8000-000000000011';
 const csrfToken = 'avatar-csrf-token';
 const sessionToken = 'avatar-session-token';
 const now = new Date('2026-09-22T00:00:00.000Z');
 const webp = Buffer.from('RIFF\x00\x00\x00\x00WEBPVP8 ');
+const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
 
 function user(avatarUrl: string | null = null) {
   return { id: userId, email: 'avatar@example.test', username: 'avatar', displayName: 'Avatar Athlete', birthDate: null, gender: null, avatarUrl, name: 'Avatar Athlete', createdAt: now, updatedAt: now };
@@ -81,6 +83,37 @@ test('avatar route validates normalized WebP bytes, returns canonical user, and 
     assert.equal(response.status, 200);
     assert.equal(((await response.json()) as { user: { avatarUrl?: string } }).user.avatarUrl, next);
     assert.match(paths[0] || '', new RegExp(`^avatars/${userId}/.+\\.webp$`));
+    assert.deepEqual(deleted, [previous]);
+  });
+});
+
+test('JPEG upload has matching bytes, .jpg path and image/jpeg storage metadata; mismatches and PNG never store', async () => {
+  const writes: Array<{ pathname: string; contentType: string; bytes: Uint8Array }> = [];
+  const deleted: string[] = [];
+  const previous = `https://store.public.blob.vercel-storage.com/avatars/${userId}/old.jpg`;
+  const next = `https://store.public.blob.vercel-storage.com/avatars/${userId}/next.jpg`;
+  const storage: AvatarStorage = {
+    put: async (pathname, bytes, contentType) => { writes.push({ pathname, bytes, contentType }); return { url: next }; },
+    delete: async (url) => { deleted.push(url); }, isOwnedAvatarUrl: isOwnedAvatarPath
+  };
+  await withAvatarServer(storage, mockDatabase(user(next), false, previous), async (baseUrl) => {
+    for (const [contentType, body] of [
+      ['image/jpeg', webp], ['image/webp', jpeg], ['image/png', jpeg]
+    ] as const) {
+      const response = await fetch(`${baseUrl}/api/auth/avatar`, { method: 'PUT', headers: uploadHeaders({ 'content-type': contentType }), body });
+      assert.equal(response.status, 422);
+    }
+    const oversizedJpeg = Buffer.concat([jpeg, Buffer.alloc(1_000_001 - jpeg.length)]);
+    const tooLarge = await fetch(`${baseUrl}/api/auth/avatar`, { method: 'PUT', headers: uploadHeaders({ 'content-type': 'image/jpeg' }), body: oversizedJpeg });
+    assert.equal(tooLarge.status, 422);
+    assert.equal(writes.length, 0);
+    const response = await fetch(`${baseUrl}/api/auth/avatar`, { method: 'PUT', headers: uploadHeaders({ 'content-type': 'image/jpeg' }), body: jpeg });
+    assert.equal(response.status, 200);
+    assert.equal(((await response.json()) as { user: { avatarUrl?: string } }).user.avatarUrl, next);
+    assert.equal(writes.length, 1);
+    assert.match(writes[0]!.pathname, new RegExp(`^avatars/${userId}/.+\\.jpg$`));
+    assert.equal(writes[0]!.contentType, 'image/jpeg');
+    assert.deepEqual(writes[0]!.bytes, jpeg);
     assert.deepEqual(deleted, [previous]);
   });
 });

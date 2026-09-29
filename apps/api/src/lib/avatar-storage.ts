@@ -10,7 +10,7 @@ export interface StoredAvatar {
  * out of browser code.
  */
 export interface AvatarStorage {
-  put(pathname: string, bytes: Uint8Array): Promise<StoredAvatar>;
+  put(pathname: string, bytes: Uint8Array, contentType: 'image/webp' | 'image/jpeg'): Promise<StoredAvatar>;
   delete(url: string): Promise<void>;
   isOwnedAvatarUrl(url: string, userId: string): boolean;
 }
@@ -23,17 +23,17 @@ export function isOwnedAvatarPath(url: string, userId: string): boolean {
     return parsed.protocol === 'https:'
       && parsed.hostname.endsWith('.blob.vercel-storage.com')
       && parsed.pathname.startsWith(`/${AVATAR_PATH_PREFIX}${userId}/`)
-      && parsed.pathname.endsWith('.webp');
+      && /\.(?:webp|jpg)$/.test(parsed.pathname);
   } catch {
     return false;
   }
 }
 
 export const vercelBlobAvatarStorage: AvatarStorage = {
-  async put(pathname, bytes) {
+  async put(pathname, bytes, contentType) {
     const blob = await put(pathname, Buffer.from(bytes), {
       access: 'public',
-      contentType: 'image/webp',
+      contentType,
       addRandomSuffix: false
     });
     return { url: blob.url };

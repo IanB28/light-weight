@@ -1,4 +1,4 @@
-import { isWebpSignature } from '@light-weight/domain';
+import { avatarFormatDetails, detectAvatarFormat, isJpegSignature, isWebpSignature, type AvatarFormat } from '@light-weight/domain';
 
 export const AVATAR_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export const AVATAR_MAX_SOURCE_BYTES = 5 * 1024 * 1024;
@@ -22,11 +22,11 @@ export class AvatarNormalizationError extends Error {
 }
 
 type DecodedImage = { source: CanvasImageSource; width: number; height: number; release: () => void };
+export type NormalizedAvatar = { blob: Blob; mimeType: 'image/webp' | 'image/jpeg'; extension: 'webp' | 'jpg' };
 
 function hasSupportedInputSignature(bytes: Uint8Array): boolean {
-  const jpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   const png = bytes.length >= 8 && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((byte, index) => bytes[index] === byte);
-  return jpeg || png || isWebpSignature(bytes);
+  return isJpegSignature(bytes) || png || isWebpSignature(bytes);
 }
 
 export async function validateAvatarInputFile(file: File): Promise<void> {
@@ -42,18 +42,19 @@ export async function validateAvatarInputFile(file: File): Promise<void> {
   }
 }
 
-export async function validateNormalizedAvatarBlob(blob: Blob): Promise<Blob> {
+export async function validateNormalizedAvatarBlob(blob: Blob): Promise<NormalizedAvatar> {
   if (blob.size === 0) throw new AvatarNormalizationError('normalization_failed');
   if (blob.size > AVATAR_MAX_OUTPUT_BYTES) throw new AvatarNormalizationError('output_too_large');
-  if (blob.type !== 'image/webp') throw new AvatarNormalizationError('output_format_unsupported');
+  if (blob.type !== 'image/webp' && blob.type !== 'image/jpeg') throw new AvatarNormalizationError('output_format_unsupported');
   try {
     const header = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
-    if (!isWebpSignature(header)) throw new AvatarNormalizationError('normalization_failed');
+    const format = detectAvatarFormat(header);
+    if (!format || avatarFormatDetails(format).mimeType !== blob.type) throw new AvatarNormalizationError('normalization_failed');
+    return { blob, ...avatarFormatDetails(format) };
   } catch (error) {
     if (error instanceof AvatarNormalizationError) throw error;
     throw new AvatarNormalizationError('normalization_failed');
   }
-  return blob;
 }
 
 export function avatarCenterCrop(width: number, height: number) {
@@ -94,17 +95,18 @@ async function decodeAvatarImage(file: File): Promise<DecodedImage> {
   return decodeWithImageElement(file);
 }
 
-function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+function canvasBlob(canvas: HTMLCanvasElement, format: AvatarFormat): Promise<Blob> {
+  const { mimeType } = avatarFormatDetails(format);
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new AvatarNormalizationError('normalization_failed')), 'image/webp', 0.86);
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new AvatarNormalizationError('normalization_failed')), mimeType, 0.86);
   });
 }
 
 /**
- * Draws only the centered square into a new WebP canvas. This deliberately
+ * Draws only the centered square into a new canvas. This deliberately
  * drops the source file's EXIF and avoids uploading original phone photos.
  */
-export async function normalizeAvatarFile(file: File): Promise<Blob> {
+export async function normalizeAvatarFile(file: File): Promise<NormalizedAvatar> {
   await validateAvatarInputFile(file);
 
   let decoded: DecodedImage | undefined;
@@ -118,7 +120,10 @@ export async function normalizeAvatarFile(file: File): Promise<Blob> {
     const context = canvas.getContext('2d');
     if (!context) throw new AvatarNormalizationError('normalization_failed');
     context.drawImage(decoded.source, crop.sourceX, crop.sourceY, crop.sourceSize, crop.sourceSize, 0, 0, crop.outputSize, crop.outputSize);
-    return await validateNormalizedAvatarBlob(await canvasBlob(canvas));
+    let webp: Blob | null = null;
+    try { webp = await canvasBlob(canvas, 'webp'); } catch { /* Unsupported WebP encoder: try explicit JPEG below. */ }
+    if (webp?.type === 'image/webp') return await validateNormalizedAvatarBlob(webp);
+    return await validateNormalizedAvatarBlob(await canvasBlob(canvas, 'jpeg'));
   } catch (error) {
     if (error instanceof AvatarNormalizationError) throw error;
     throw new AvatarNormalizationError('normalization_failed');

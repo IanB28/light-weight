@@ -12,6 +12,7 @@ import { friendsApi } from '../../lib/social-api.js';
 import type { SettingsTarget } from './profile-surface-state.js';
 import { ProfileView } from './ProfileView.js';
 import { countAcceptedFriends } from './profile-friends.js';
+import type { NormalizedAvatar } from './avatar-normalization.js';
 
 type ProfilePanel = 'summary' | 'friends';
 
@@ -26,7 +27,7 @@ interface ProfileScreenProps {
   bodyweightEntries?: BodyweightEntry[];
   historicalPersonalRecords?: HistoricalPersonalRecord[];
   onSave: (profile: UserProfile) => void | string | Promise<void | string>;
-  onUploadAvatar: (avatar: Blob) => Promise<OperationResult<AuthUser>>;
+  onUploadAvatar: (avatar: NormalizedAvatar) => Promise<OperationResult<AuthUser>>;
   avatarUploadAvailable: boolean;
   onClose: () => void;
   onOpenSettings: (target?: SettingsTarget) => void;

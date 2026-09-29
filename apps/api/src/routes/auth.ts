@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, ne } from 'drizzle-orm';
 import {
   isValidUsername,
+  avatarFormatDetails,
+  detectAvatarFormat,
   isWebpSignature,
   normalizeUsername,
   type UserGender
@@ -118,7 +120,7 @@ authRouter.patch('/profile', requireAuth, requireCsrf, asyncRoute(async (req, re
     patch.gender = gender as UserGender | null;
   }
   // Avatar URLs are intentionally not accepted through the general profile
-  // patch. The authenticated WebP upload route below is the single user
+  // patch. The authenticated normalized-image upload route below is the single user
   // supplied avatar path; federated identity providers populate avatarUrl
   // server-side when accounts are created.
   try {
@@ -132,19 +134,21 @@ authRouter.patch('/profile', requireAuth, requireCsrf, asyncRoute(async (req, re
 }));
 
 authRouter.put('/avatar', requireAuth, requireCsrf, requireTrustedOrigin, avatarUploadRateLimit,
-  express.raw({ type: 'image/webp', limit: MAX_AVATAR_BYTES }),
+  express.raw({ type: ['image/webp', 'image/jpeg'], limit: MAX_AVATAR_BYTES }),
   asyncRoute(async (req, res) => {
-    if (!req.is('image/webp')) throw new ApiError(422, 'AVATAR_INVALID_TYPE');
+    const requestedFormat = req.is('image/webp') ? 'webp' : req.is('image/jpeg') ? 'jpeg' : null;
+    if (!requestedFormat) throw new ApiError(422, 'AVATAR_INVALID_TYPE');
     const bytes = req.body;
     if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > MAX_AVATAR_BYTES) {
       throw new ApiError(422, 'AVATAR_TOO_LARGE');
     }
-    if (!isWebpAvatar(bytes)) throw new ApiError(422, 'AVATAR_INVALID_IMAGE');
+    if (detectAvatarFormat(bytes) !== requestedFormat) throw new ApiError(422, 'AVATAR_INVALID_IMAGE');
 
-    const pathname = `${AVATAR_PATH_PREFIX}${req.auth!.userId}/${randomUUID()}.webp`;
+    const { extension, mimeType } = avatarFormatDetails(requestedFormat);
+    const pathname = `${AVATAR_PATH_PREFIX}${req.auth!.userId}/${randomUUID()}.${extension}`;
     let uploaded: { url: string };
     try {
-      uploaded = await storage.put(pathname, bytes);
+      uploaded = await storage.put(pathname, bytes, mimeType);
     } catch (error) {
       console.error('[AVATAR_UPLOAD_FAILED]', {
         name: error instanceof Error ? error.name : 'UnknownError',

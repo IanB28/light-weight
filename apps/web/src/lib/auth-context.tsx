@@ -4,7 +4,7 @@ import { mapApiError, requestJson, setCsrfToken, type ApiError, type OperationRe
 import { resolveSessionRefreshFailure, type AuthStatus } from './auth-session-state.js';
 import { apiEndpoint } from './api-base.js';
 import { clearCachedAuthUser, getCachedAuthUser, setCachedAuthUser } from './auth-cache.js';
-import { AvatarNormalizationError } from '../features/profile/avatar-normalization.js';
+import { AvatarNormalizationError, type NormalizedAvatar } from '../features/profile/avatar-normalization.js';
 import { requestAvatarUpload } from '../features/profile/avatar-upload.js';
 
 type AuthResult = OperationResult<AuthUser>;
@@ -20,7 +20,7 @@ interface AuthContextValue {
   logout: () => Promise<OperationResult<void>>;
   refreshSession: () => Promise<void>;
   updateProfile: (patch: Partial<Pick<AuthUser, 'displayName' | 'username' | 'birthDate' | 'gender' | 'avatarUrl'>>) => Promise<AuthResult>;
-  uploadAvatar: (avatar: Blob) => Promise<AuthResult>;
+  uploadAvatar: (avatar: NormalizedAvatar) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const uploadAvatar = useCallback(async (avatar: Blob): Promise<AuthResult> => {
+  const uploadAvatar = useCallback(async (avatar: NormalizedAvatar): Promise<AuthResult> => {
     try {
       const result = await requestAvatarUpload(avatar);
       setCachedAuthUser(result.user);
