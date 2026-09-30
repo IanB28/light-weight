@@ -78,6 +78,41 @@ test('CASE I/J: HPR participates and physical chronology wins ties without recor
   assert.equal(resolve(conventional, 8, [newer], [oldCapturedLate])?.sessionId, 'newer');
 });
 
+test('equal exact-rep loads use numeric physical chronology across timezone offsets', () => {
+  const lexicallyEarlierButPhysicallyNewer = session(
+    'physical-newer',
+    '2026-01-01T23:30:00-05:00',
+    [set(100, 8)]
+  );
+  const lexicallyLaterButPhysicallyOlder = session(
+    'physical-older',
+    '2026-01-02T01:00:00+00:00',
+    [set(100, 8)]
+  );
+  assert.equal(
+    resolve(conventional, 8, [lexicallyEarlierButPhysicallyNewer, lexicallyLaterButPhysicallyOlder])?.sessionId,
+    'physical-newer'
+  );
+});
+
+test('same-day HPR/workout ties use stable identity rather than HPR recordedAt', () => {
+  const workout = session('workout', '2026-01-05T08:00:00.000Z', [set(100, 8)]);
+  const hpr: HistoricalPersonalRecord = {
+    id: 'hpr-recorded-later',
+    userId: 'user',
+    exerciseId: 'bench',
+    performedDate: '2026-01-05',
+    recordedAt: '2099-01-01T00:00:00.000Z',
+    bodyweightKg: 80,
+    set: set(100, 8),
+    source: 'historical_manual'
+  };
+  const first = resolve(conventional, 8, [workout], [hpr]);
+  const second = resolve(conventional, 8, [workout], [{ ...hpr, recordedAt: '2000-01-01T00:00:00.000Z' }]);
+  assert.equal(first?.source, second?.source);
+  assert.equal(first?.sessionId, second?.sessionId);
+});
+
 test('CASE M: per_hand and per_side values are never doubled', () => {
   for (const loadMode of ['per_hand', 'per_side'] as const) {
     const exercise: Exercise = { ...conventional, id: loadMode, loading: { ...conventional.loading!, loadMode } };

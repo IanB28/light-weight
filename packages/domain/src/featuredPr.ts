@@ -1,5 +1,6 @@
 import { calculateCanonicalStrengthOneRm } from './onerm.js';
 import { REP_CAP } from './oneRmConstants.js';
+import { getSessionChronologicalTimestamp } from './exercisePerformance.js';
 import { calculateEffectiveLoadKg, isSetEligibleForPersonalRecord } from './setSemantics.js';
 import type {
   BodyweightEntry,
@@ -41,7 +42,8 @@ export interface FeaturedRepResolverInput {
 }
 
 interface Candidate extends FeaturedRepPerformance {
-  physicalOrder: string;
+  physicalTimestamp: number;
+  physicalTimePrecise: boolean;
   stableOrder: string;
 }
 
@@ -88,15 +90,24 @@ function compareCandidates(left: Candidate, right: Candidate): number {
   if (left.effectiveLoadKg !== right.effectiveLoadKg) {
     return left.effectiveLoadKg - right.effectiveLoadKg;
   }
-  const physical = left.physicalOrder.localeCompare(right.physicalOrder);
+  const physical = comparePhysicalOccurrence(left, right);
   if (physical !== 0) return physical;
   return left.stableOrder.localeCompare(right.stableOrder);
 }
 
-function workoutPhysicalOrder(session: WorkoutSession): string {
-  const dateKey = resolveWorkoutDateKey(session);
-  const startedAt = Number.isFinite(Date.parse(session.startedAt)) ? session.startedAt : `${dateKey}T00:00:00.000Z`;
-  return `${dateKey}|${startedAt}`;
+function comparePhysicalOccurrence(left: Candidate, right: Candidate): number {
+  if (left.physicalTimePrecise && right.physicalTimePrecise) {
+    return left.physicalTimestamp - right.physicalTimestamp;
+  }
+  if (left.performedDate !== right.performedDate) {
+    const leftDate = Date.parse(`${left.performedDate}T12:00:00Z`);
+    const rightDate = Date.parse(`${right.performedDate}T12:00:00Z`);
+    if (Number.isFinite(leftDate) && Number.isFinite(rightDate)) return leftDate - rightDate;
+    return left.performedDate.localeCompare(right.performedDate);
+  }
+  // HPRs carry a calendar date but no physical time. A same-day tie therefore
+  // stays deterministic without promoting recordedAt to physical chronology.
+  return 0;
 }
 
 function toCandidate(
@@ -108,7 +119,8 @@ function toCandidate(
   performedDate: string,
   source: FeaturedRepPerformance['source'],
   stableOrder: string,
-  physicalOrder: string,
+  physicalTimestamp: number,
+  physicalTimePrecise: boolean,
   sessionId?: string
 ): Candidate | null {
   if (set.reps !== repCount || !isSetEligibleForPersonalRecord({ set, exercise, bodyweightKg })) return null;
@@ -129,7 +141,8 @@ function toCandidate(
     ...(typeof bodyweightKg === 'number' ? { bodyweightKg } : {}),
     source,
     ...(sessionId ? { sessionId } : {}),
-    physicalOrder,
+    physicalTimestamp,
+    physicalTimePrecise,
     stableOrder
   };
 }
@@ -153,7 +166,8 @@ export function resolveBestExactRepPerformance(input: FeaturedRepResolverInput):
         performedDate,
         'workout',
         `workout:${session.id}:${String(index).padStart(5, '0')}`,
-        workoutPhysicalOrder(session),
+        getSessionChronologicalTimestamp(session),
+        Number.isFinite(Date.parse(session.startedAt)),
         session.id
       );
       if (candidate && (!best || compareCandidates(candidate, best) > 0)) best = candidate;
@@ -171,13 +185,19 @@ export function resolveBestExactRepPerformance(input: FeaturedRepResolverInput):
       record.performedDate,
       'historical_manual',
       `historical:${record.id}`,
-      `${record.performedDate}|${record.performedDate}T00:00:00.000Z`
+      Date.parse(`${record.performedDate}T12:00:00Z`),
+      false
     );
     if (candidate && (!best || compareCandidates(candidate, best) > 0)) best = candidate;
   }
 
   if (!best) return null;
-  const { physicalOrder: _physicalOrder, stableOrder: _stableOrder, ...performance } = best;
+  const {
+    physicalTimestamp: _physicalTimestamp,
+    physicalTimePrecise: _physicalTimePrecise,
+    stableOrder: _stableOrder,
+    ...performance
+  } = best;
   return performance;
 }
 

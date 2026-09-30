@@ -6,14 +6,12 @@ import {
   evaluateRelativeStrength,
   resolveBodyweightKgAtDate,
   resolveExerciseStrengthTarget,
-  resolveExerciseLoadingProfile,
   resolveBestExactRepPerformance,
   getAvailableFeaturedRepCounts,
   Exercise,
   WorkoutSession,
   BodyweightEntry,
   type FeaturedPrSelection,
-  type FeaturedRepPerformance,
   type StrengthRank
 } from '@light-weight/domain';
 import {
@@ -37,6 +35,7 @@ import type { AuthUser, HistoricalPersonalRecord } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
 import { RepBadge } from '../../components/RepBadge.js';
 import { FeaturedPrSheet, type FeaturedPrExerciseOption } from './FeaturedPrSheet.js';
+import { formatFeaturedPerformanceLoad, resolveFeaturedPrRank } from './featured-pr-presentation.js';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -161,22 +160,18 @@ export function ProfileView({
       historicalPersonalRecords,
       bodyweightEntries
     }) : null;
-    const target = exercise ? resolveExerciseStrengthTarget(exercise) : null;
-    const evaluation = performance && target && performance.bodyweightKg && profile.gender
-      ? evaluateRelativeStrength(target, performance.canonicalOneRmKg, performance.bodyweightKg, profile.gender)
-      : undefined;
     return {
       key: `slot-${selection.slot}`,
       exerciseId: selection.exerciseId,
       name: resolveExerciseName(selection.exerciseId, exercises, history, t('profile.exerciseUnavailable')),
-      rank: evaluation?.rank ?? null,
+      rank: exercise ? resolveFeaturedPrRank(exercise, performance, bodyweightKg, profile.gender) : null,
       repCount: selection.repCount,
       performance,
       displayLoad: exercise && performance
         ? formatFeaturedPerformanceLoad(exercise, performance, preferences.units)
         : t('profile.featuredUnavailable')
     };
-  }), [bodyweightEntries, exercises, featuredPrSelections, historicalPersonalRecords, history, preferences.units, profile.gender, t]);
+  }), [bodyweightEntries, bodyweightKg, exercises, featuredPrSelections, historicalPersonalRecords, history, preferences.units, profile.gender, t]);
 
   const recordsToRender = featuredPrSelections.length > 0
     ? configuredRecords
@@ -466,17 +461,4 @@ export function ProfileView({
 
 export function createProfileDraft(profile: UserProfile, displayName: string): UserProfile {
   return { ...profile, displayName };
-}
-
-export function formatFeaturedPerformanceLoad(
-  exercise: Exercise,
-  performance: FeaturedRepPerformance,
-  units: 'metric' | 'imperial'
-): string {
-  const profile = resolveExerciseLoadingProfile(exercise).profile;
-  if (typeof profile.bodyweightFactor === 'number' && performance.set.weightKg === 0) return 'BW';
-  const formatted = formatDisplayWeight(Math.abs(performance.set.weightKg), units);
-  if (profile.loadMode === 'assisted') return `-${formatted}`;
-  if (profile.loadMode === 'added_weight') return `+${formatted}`;
-  return formatted;
 }

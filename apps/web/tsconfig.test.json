@@ -72,6 +72,8 @@
     "src/features/profile/avatar-normalization.ts",
     "src/features/profile/avatar-normalization.test.ts",
     "src/features/profile/avatar-upload.test.ts",
+    "src/features/profile/featured-pr-storage.test.ts",
+    "src/features/profile/featured-pr-ui.test.ts",
     "src/features/profile/profile-settings-separation.test.ts",
     "src/features/profile/profile-functional-hardening.test.ts",
     "src/features/profile/profile-gender.test.ts",

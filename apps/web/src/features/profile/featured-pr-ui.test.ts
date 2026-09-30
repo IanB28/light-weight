@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { Exercise } from '@light-weight/domain';
+import {
+  evaluateRelativeStrength,
+  resolveExerciseStrengthTarget,
+  type Exercise,
+  type FeaturedRepPerformance
+} from '@light-weight/domain';
 import { RepBadge } from '../../components/RepBadge.js';
 import {
   completeFeaturedPrDraft,
@@ -12,6 +17,7 @@ import {
   nextFeaturedPrSlot
 } from './FeaturedPrSheet.js';
 import { readFileSync } from 'node:fs';
+import { formatFeaturedPerformanceLoad, resolveFeaturedPrRank } from './featured-pr-presentation.js';
 
 const exercise: Exercise = { id: 'bench', name: 'Barbell Bench Press', category: 'barbell', primaryMuscle: 'chest' };
 
@@ -66,17 +72,55 @@ test('exercise choices prevent duplicates while retaining the exercise being edi
 });
 
 test('profile presentation keeps fallback, configured exact-rep rank, compact rows, and safe unavailable state', () => {
-  const source = readFileSync(new URL('./ProfileView.tsx', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../src/features/profile/ProfileView.tsx', import.meta.url), 'utf8');
   assert.match(source, /featuredPrSelections\.length > 0\s*\? configuredRecords\s*:\s*summary\.records/);
-  assert.match(source, /evaluateRelativeStrength\(target, performance\.canonicalOneRmKg, performance\.bodyweightKg/);
+  assert.match(source, /resolveFeaturedPrRank\(exercise, performance, bodyweightKg, profile\.gender\)/);
   assert.match(source, /formatFeaturedPerformanceLoad\(exercise, performance, preferences\.units\)/);
   assert.match(source, /t\('profile\.featuredUnavailable'\)/);
   assert.match(source, /className="flex min-h-14 items-center/);
   assert.match(source, /record\.repCount !== undefined && <RepBadge/);
 });
 
+test('configured exact-rep rank falls back to current bodyweight without changing the selected performance', () => {
+  const performance: FeaturedRepPerformance = {
+    exerciseId: 'bench',
+    repCount: 8,
+    set: { setIndex: 1, weightKg: 110, reps: 8, completed: true, setType: 'working' },
+    effectiveLoadKg: 110,
+    canonicalOneRmKg: 139.33,
+    performedDate: '2026-01-01',
+    source: 'workout',
+    sessionId: 'old-workout-without-bodyweight'
+  };
+  const target = resolveExerciseStrengthTarget(exercise);
+  assert.ok(target);
+  const expected = evaluateRelativeStrength(target, performance.canonicalOneRmKg, 80, 'male')?.rank;
+  assert.equal(resolveFeaturedPrRank(exercise, performance, 80, 'male'), expected);
+  assert.equal(performance.bodyweightKg, undefined);
+  assert.equal(performance.sessionId, 'old-workout-without-bodyweight');
+  assert.equal(resolveFeaturedPrRank(exercise, performance, null, 'male'), null);
+});
+
+test('featured PR load formatter preserves the actual selected logged load notation', () => {
+  const performance: FeaturedRepPerformance = {
+    exerciseId: 'bench', repCount: 8,
+    set: { setIndex: 1, weightKg: 110, reps: 8, completed: true, setType: 'working' },
+    effectiveLoadKg: 110, canonicalOneRmKg: 139.33,
+    performedDate: '2026-01-01', source: 'workout'
+  };
+  assert.equal(formatFeaturedPerformanceLoad(exercise, performance, 'metric'), '110 kg');
+  const weighted: Exercise = {
+    ...exercise,
+    id: 'weighted-pull-up',
+    category: 'bodyweight',
+    loading: { mechanism: 'bodyweight', loadMode: 'added_weight', supportsKeyboard: true, supportsPlates: false, supportsExternalLoad: true, includeBarWeight: false, bodyweightFactor: 1 }
+  };
+  assert.equal(formatFeaturedPerformanceLoad(weighted, { ...performance, exerciseId: weighted.id, set: { ...performance.set, weightKg: 20 } }, 'metric'), '+20 kg');
+  assert.equal(formatFeaturedPerformanceLoad(weighted, { ...performance, exerciseId: weighted.id, set: { ...performance.set, weightKg: 0 } }, 'metric'), 'BW');
+});
+
 test('sheet only closes after a successful save and keeps an explicit error on failure', () => {
-  const source = readFileSync(new URL('./FeaturedPrSheet.tsx', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../src/features/profile/FeaturedPrSheet.tsx', import.meta.url), 'utf8');
   assert.match(source, /if \(saved\) onClose\(\)/);
   assert.match(source, /else setError\(t\('profile\.featuredSaveError'\)\)/);
 });
