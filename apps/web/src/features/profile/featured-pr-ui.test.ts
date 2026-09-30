@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveSelectedFeaturedPrVariant, type Exercise, type FeaturedPrVariant } from '@light-weight/domain';
-import { RepBadge } from '../../components/RepBadge.js';
+import { REP_BADGE_ASSET_PATH, RepBadge } from '../../components/RepBadge.js';
+import { ProfilePrRow } from './ProfilePrRow.js';
 import {
   completeFeaturedPrDraft,
   createFeaturedPrDraft,
@@ -24,13 +25,46 @@ const variant = (loadWeightKg: number, reps: number): FeaturedPrVariant => ({
   source: 'workout'
 });
 
-test('RepBadge renders actual positive reps including 45 and uses localized repetition semantics', () => {
-  for (const reps of [1, 8, 12, 20, 45, 120]) {
+test('RepBadge renders the user medal asset with real localized DOM text for one, two, and three digits', () => {
+  for (const reps of [1, 8, 12, 45, 120]) {
     const html = renderToStaticMarkup(React.createElement(RepBadge, { repCount: reps }));
     assert.match(html, new RegExp(`aria-label="${reps} repeticiones"`));
     assert.match(html, new RegExp(`>${reps}<`));
+    assert.match(html, new RegExp(`src="${REP_BADGE_ASSET_PATH}"`));
+    assert.match(html, /data-testid="rep-badge-number"/);
   }
-  assert.equal(renderToStaticMarkup(React.createElement(RepBadge, { repCount: 0 })), '');
+  for (const invalid of [0, -1, 1.5]) {
+    assert.equal(renderToStaticMarkup(React.createElement(RepBadge, { repCount: invalid })), '');
+  }
+});
+
+test('RepBadge derives a silhouette mask from canonical rank visuals without a rectangular shadow', () => {
+  const immortal = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 8, rank: 'inmortal' }));
+  assert.match(immortal, /data-testid="rep-badge-aura"/);
+  assert.match(immortal, /mask-image:url\(&quot;\/badges\/rep-badge-template\.png&quot;\)/);
+  assert.match(immortal, /background-color:#C93C7A/i);
+  assert.doesNotMatch(immortal, /box-shadow/);
+
+  const novice = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 8, rank: 'novato' }));
+  const unranked = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 8, rank: null }));
+  assert.doesNotMatch(novice, /data-testid="rep-badge-aura"/);
+  assert.doesNotMatch(unranked, /data-testid="rep-badge-aura"/);
+  assert.match(novice, new RegExp(`src="${REP_BADGE_ASSET_PATH}"`));
+  assert.match(unranked, new RegExp(`src="${REP_BADGE_ASSET_PATH}"`));
+});
+
+test('ProfilePrRow passes one rank authority to both shaped badge auras', () => {
+  const html = renderToStaticMarkup(React.createElement(ProfilePrRow, {
+    exercise,
+    name: exercise.name,
+    rank: 'inmortal',
+    repCount: 8,
+    displayLoad: '100 kg'
+  }));
+  assert.match(html, /data-testid="strength-rank-aura"/);
+  assert.match(html, /data-testid="rep-badge-aura"/);
+  assert.match(html, /alt="Inmortal"/);
+  assert.match(html, /aria-label="8 repeticiones"/);
 });
 
 test('featured PR draft persists a real load variant and supports at most three slots', () => {
