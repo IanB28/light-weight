@@ -76,6 +76,7 @@
     "src/features/profile/profile-functional-hardening.test.ts",
     "src/features/profile/profile-gender.test.ts",
     "src/features/profile/profile-strength.test.ts",
+    "src/features/profile/profile-friends-polish.test.ts",
     "src/lib/exercises.ts",
     "src/lib/exercise-filters.ts",
     "src/lib/wakelock.ts",

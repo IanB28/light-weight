@@ -207,7 +207,7 @@ export function ProfileView({
 
         <form onSubmit={handleSave} className="space-y-4">
         <div className="flex flex-col items-center gap-2 pb-1 text-center">
-          <ProfileAvatar displayName={draft.displayName || displayName} avatarUrl={previewUrl || draft.avatarUrl || profile.avatarUrl} className="size-20 text-xl shadow-accent" />
+          <ProfileAvatar displayName={draft.displayName || displayName} avatarUrl={previewUrl || draft.avatarUrl || profile.avatarUrl} className="size-24 text-2xl shadow-accent sm:size-28" />
           <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label={t('profile.avatarFileInput')} onChange={(event) => void handleAvatarSelection(event)} />
           <Button type="button" variant="secondary" size="sm" disabled={!avatarUploadAvailable || isUploadingAvatar} onClick={() => avatarInputRef.current?.click()} className="min-h-11">
             <Camera aria-hidden="true" className="size-4" />
@@ -268,7 +268,7 @@ export function ProfileView({
       </header>
 
       <div className="flex flex-col items-center text-center">
-        <ProfileAvatar displayName={displayName} avatarUrl={profile.avatarUrl} className="size-20 text-xl shadow-accent" />
+        <ProfileAvatar displayName={displayName} avatarUrl={profile.avatarUrl} className="size-28 text-2xl shadow-accent sm:size-32 sm:text-3xl" />
         <h3 className="mt-3 max-w-[calc(100%-3.25rem)] break-words text-lg font-extrabold tracking-tight text-text-primary sm:text-xl">{displayName}</h3>
         {profile.username && <p className="text-xs text-text-muted sm:text-sm">@{profile.username}</p>}
         <p className="mt-0.5 text-xs font-semibold text-text-secondary">

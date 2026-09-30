@@ -125,7 +125,9 @@ export function ProfileScreen({
                 >
                   <UsersRound aria-hidden="true" className="size-4 shrink-0 text-accent" />
                   <span aria-busy={friendsAvailable && friendCount === null}>
-                    {friendsAvailable ? t('profile.friendSummary', { count: friendCount ?? '—' }) : t('profile.friendsOffline')}
+                    {friendsAvailable
+                      ? friendCount === 1 ? t('profile.friendSummaryOne') : t('profile.friendSummary', { count: friendCount ?? '—' })
+                      : t('profile.friendsOffline')}
                   </span>
                   <ChevronLeft aria-hidden="true" className="size-3.5 shrink-0 rotate-180 text-text-muted" />
                 </button>
