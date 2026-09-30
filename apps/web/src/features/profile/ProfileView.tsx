@@ -1,18 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Camera, Dumbbell, ListFilter, Pencil, Shield, UserRound, X } from 'lucide-react';
+import { Award, Camera, ListFilter, Pencil, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
   calculateWeeklyStreak,
   evaluateRelativeStrength,
   resolveBodyweightKgAtDate,
   resolveExerciseStrengthTarget,
-  resolveBestExactRepPerformance,
-  getAvailableFeaturedRepCounts,
+  resolveFeaturedPrVariants,
+  resolveSelectedFeaturedPrVariant,
   Exercise,
   WorkoutSession,
   BodyweightEntry,
   type FeaturedPrSelection,
-  type StrengthRank
+  type FeaturedPrVariant,
+  type ResolvedFeaturedPrSelection
 } from '@light-weight/domain';
 import {
   calculateAllPersonalRecords,
@@ -21,21 +22,20 @@ import {
 } from '../../lib/storage.js';
 import { useI18n } from '../../lib/i18n.js';
 import { resolveExerciseName } from '../../lib/exercise-names.js';
-import { findExerciseById, getExerciseImgUrl } from '../../lib/exercises.js';
+import { findExerciseById } from '../../lib/exercises.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { AppCard, Button, EmptyState, IconButton } from '../../components/ui/index.js';
 import { ProfileStrengthSection } from './ProfileStrengthSection.js';
-import { StrengthRankBadge } from '../../components/StrengthRankBadge.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { submitProfileDraft } from './profile-save.js';
 import { AvatarNormalizationError, normalizeAvatarFile, type NormalizedAvatar } from './avatar-normalization.js';
 import { calculateHistoricalSessionVolume } from '../../lib/historical-volume.js';
 import type { AuthUser, HistoricalPersonalRecord } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
-import { RepBadge } from '../../components/RepBadge.js';
 import { FeaturedPrSheet, type FeaturedPrExerciseOption } from './FeaturedPrSheet.js';
-import { formatFeaturedPerformanceLoad, resolveFeaturedPrRank } from './featured-pr-presentation.js';
+import { formatFeaturedVariantLoad } from './featured-pr-presentation.js';
+import { ProfilePrRow } from './ProfilePrRow.js';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -54,6 +54,8 @@ interface ProfileViewProps {
   onClose?: () => void;
   titleRef?: React.Ref<HTMLHeadingElement>;
   featuredPrSelections?: FeaturedPrSelection[];
+  featuredPrResolvedSelections?: ResolvedFeaturedPrSelection[];
+  featuredPrVariants?: FeaturedPrVariant[];
   featuredPrLoading?: boolean;
   featuredPrSaving?: boolean;
   featuredPrCustomizationAvailable?: boolean;
@@ -78,6 +80,8 @@ export function ProfileView({
   onClose,
   titleRef,
   featuredPrSelections = [],
+  featuredPrResolvedSelections = [],
+  featuredPrVariants = [],
   featuredPrLoading = false,
   featuredPrSaving = false,
   featuredPrCustomizationAvailable = false,
@@ -110,68 +114,70 @@ export function ProfileView({
       bodyweightEntries,
       historicalPersonalRecords
     });
+    const rankedRecords = Object.values(records).map((record) => {
+      const exercise = exercisesById[record.exerciseId] || findExerciseById(record.exerciseId);
+      const targetMuscle = exercise ? resolveExerciseStrengthTarget(exercise) : null;
+      const sessionBw = record.bodyweightKg ?? resolveBodyweightKgAtDate(bodyweightEntries, record.date) ?? (bodyweightKg ?? null);
+      const evaluation = targetMuscle && sessionBw && profile.gender
+        ? evaluateRelativeStrength(targetMuscle, record.est1Rm, sessionBw, profile.gender)
+        : undefined;
+      return {
+        ...record,
+        name: resolveExerciseName(record.exerciseId, exercises, history, t('profile.exerciseUnavailable')),
+        rank: evaluation?.rank ?? null
+      };
+    });
     return {
       totalWorkouts: history.length,
       totalVolumeKg: history.reduce((total, session) => total + calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries ?? []), 0),
       streak: calculateWeeklyStreak(history),
-      records: Object.values(records)
+      rankByExercise: new Map(rankedRecords.map((record) => [record.exerciseId, record.rank] as const)),
+      records: rankedRecords
         .sort((a, b) => b.est1Rm - a.est1Rm)
         .slice(0, 3)
-        .map((record) => {
-          const exercise = exercisesById[record.exerciseId] || findExerciseById(record.exerciseId);
-          const targetMuscle = exercise ? resolveExerciseStrengthTarget(exercise) : null;
-          const sessionBw = record.bodyweightKg ?? resolveBodyweightKgAtDate(bodyweightEntries, record.date) ?? (bodyweightKg ?? null);
-          const evaluation = targetMuscle && sessionBw && profile.gender
-            ? evaluateRelativeStrength(targetMuscle, record.est1Rm, sessionBw, profile.gender)
-            : undefined;
-          return {
-            ...record,
-            name: resolveExerciseName(record.exerciseId, exercises, history, t('profile.exerciseUnavailable')),
-            rank: evaluation?.rank ?? null
-          };
-        })
     };
   }, [bodyweightEntries, bodyweightKg, exercises, history, profile.gender, t, historicalPersonalRecords]);
 
   const featuredOptions = useMemo<FeaturedPrExerciseOption[]>(() => {
-    const performedIds = new Set<string>();
-    history.forEach((session) => Object.keys(session.sets).forEach((exerciseId) => performedIds.add(exerciseId)));
-    historicalPersonalRecords.forEach((record) => performedIds.add(record.exerciseId));
-    return exercises.flatMap((exercise) => {
-      if (!performedIds.has(exercise.id)) return [];
-      const availableRepCounts = getAvailableFeaturedRepCounts({
-        exerciseId: exercise.id,
-        exercise,
-        history,
-        historicalPersonalRecords,
-        bodyweightEntries
-      });
-      return availableRepCounts.length ? [{ exercise, availableRepCounts }] : [];
+    let effectiveVariants = featuredPrVariants;
+    if (effectiveVariants.length === 0) {
+      const performedIds = new Set<string>();
+      history.forEach((session) => Object.keys(session.sets).forEach((exerciseId) => performedIds.add(exerciseId)));
+      historicalPersonalRecords.forEach((record) => performedIds.add(record.exerciseId));
+      effectiveVariants = exercises.flatMap((exercise) => performedIds.has(exercise.id)
+        ? resolveFeaturedPrVariants({ exerciseId: exercise.id, exercise, history, historicalPersonalRecords, bodyweightEntries })
+        : []);
+    }
+    const variantsByExercise = new Map<string, FeaturedPrVariant[]>();
+    for (const variant of effectiveVariants) {
+      const list = variantsByExercise.get(variant.exerciseId) ?? [];
+      list.push(variant);
+      variantsByExercise.set(variant.exerciseId, list);
+    }
+    return [...variantsByExercise.entries()].flatMap(([exerciseId, variants]) => {
+      const exercise = exercises.find((item) => item.id === exerciseId) || findExerciseById(exerciseId);
+      return exercise ? [{ exercise, variants, rank: summary.rankByExercise.get(exerciseId) ?? null }] : [];
     }).sort((left, right) => left.exercise.name.localeCompare(right.exercise.name, locale));
-  }, [bodyweightEntries, exercises, historicalPersonalRecords, history, locale]);
+  }, [bodyweightEntries, exercises, featuredPrVariants, historicalPersonalRecords, history, locale, summary.rankByExercise]);
 
   const configuredRecords = useMemo(() => featuredPrSelections.map((selection) => {
     const exercise = exercises.find((item) => item.id === selection.exerciseId) || findExerciseById(selection.exerciseId);
-    const performance = exercise ? resolveBestExactRepPerformance({
-      exerciseId: selection.exerciseId,
-      repCount: selection.repCount,
-      exercise,
-      history,
-      historicalPersonalRecords,
-      bodyweightEntries
-    }) : null;
+    const serverVariant = featuredPrResolvedSelections.find((resolved) => resolved.slot === selection.slot)?.variant ?? null;
+    const variant = serverVariant ?? resolveSelectedFeaturedPrVariant(
+      selection,
+      featuredOptions.find((option) => option.exercise.id === selection.exerciseId)?.variants ?? []
+    );
     return {
       key: `slot-${selection.slot}`,
       exerciseId: selection.exerciseId,
       name: resolveExerciseName(selection.exerciseId, exercises, history, t('profile.exerciseUnavailable')),
-      rank: exercise ? resolveFeaturedPrRank(exercise, performance, bodyweightKg, profile.gender) : null,
-      repCount: selection.repCount,
-      performance,
-      displayLoad: exercise && performance
-        ? formatFeaturedPerformanceLoad(exercise, performance, preferences.units)
+      rank: summary.rankByExercise.get(selection.exerciseId) ?? null,
+      repCount: variant?.reps,
+      displayLoad: exercise && variant
+        ? formatFeaturedVariantLoad(exercise, variant, preferences.units)
         : t('profile.featuredUnavailable')
     };
-  }), [bodyweightEntries, bodyweightKg, exercises, featuredPrSelections, historicalPersonalRecords, history, preferences.units, profile.gender, t]);
+  }), [exercises, featuredOptions, featuredPrResolvedSelections, featuredPrSelections, preferences.units, summary.rankByExercise, t]);
 
   const recordsToRender = featuredPrSelections.length > 0
     ? configuredRecords
@@ -181,7 +187,6 @@ export function ProfileView({
         name: record.name,
         rank: record.rank,
         repCount: undefined,
-        performance: undefined,
         displayLoad: formatDisplayWeight(record.est1Rm, preferences.units)
       }));
 
@@ -381,64 +386,16 @@ export function ProfileView({
           <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
             {recordsToRender.map((record) => {
               const exercise = exercises.find((ex) => ex.id === record.exerciseId) || findExerciseById(record.exerciseId);
-              const imgUrl = getExerciseImgUrl(exercise);
               return (
-                <div
+                <ProfilePrRow
                   key={record.key}
-                  className="flex min-h-14 items-center gap-2.5 border-b border-border-subtle px-3 py-2 last:border-b-0 sm:gap-3"
-                >
-                  {/* ZONE 1: THUMBNAIL (Fixed size, left) */}
-                  <span
-                    aria-hidden="true"
-                    data-testid="pr-exercise-badge"
-                    className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted shadow-sm"
-                  >
-                    {imgUrl ? (
-                      <img
-                        src={imgUrl}
-                        alt=""
-                        loading="lazy"
-                        className="size-full object-cover"
-                      />
-                    ) : (
-                      <Dumbbell className="size-4.5 stroke-[1.8] text-text-muted" />
-                    )}
-                  </span>
-
-                  {/* ZONE 2: EXERCISE NAME (Flexible center, truncates cleanly) */}
-                  <span
-                    data-testid="pr-exercise-name"
-                    className="min-w-0 flex-1 truncate text-xs font-bold text-text-primary sm:text-sm"
-                  >
-                    {record.name}
-                  </span>
-
-                  {/* ZONE 3: FIXED RANK BADGE SLOT (Fixed reserved slot before PR weight) */}
-                  <div data-testid="pr-badge-slot" className="flex shrink-0 items-center gap-1">
-                    <div data-testid="pr-rank-slot" className="flex w-7 shrink-0 items-center justify-center">
-                      {record.rank ? (
-                        <StrengthRankBadge rank={record.rank} size="xs" showGlow={false} />
-                      ) : (
-                        <span
-                          data-testid="pr-rank-placeholder"
-                          aria-hidden="true"
-                          className="flex size-5 items-center justify-center rounded-full text-text-muted/40"
-                        >
-                          <Shield className="size-3.5" />
-                        </span>
-                      )}
-                    </div>
-                    {record.repCount !== undefined && <RepBadge repCount={record.repCount} />}
-                  </div>
-
-                  {/* ZONE 4: FIXED/STABLE PR WEIGHT SLOT (Right-aligned, tabular-nums) */}
-                  <div
-                    data-testid="pr-weight-slot"
-                    className="w-20 shrink-0 text-right text-xs font-bold tabular-nums text-accent sm:w-24 sm:text-sm"
-                  >
-                    {record.displayLoad}
-                  </div>
-                </div>
+                  exercise={exercise}
+                  name={record.name}
+                  rank={record.rank}
+                  repCount={record.repCount}
+                  displayLoad={record.displayLoad}
+                  className="border-b border-border-subtle last:border-b-0"
+                />
               );
             })}
           </div>

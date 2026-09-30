@@ -3,11 +3,11 @@ CREATE TABLE IF NOT EXISTS "profile_featured_prs" (
 	"user_id" uuid NOT NULL,
 	"slot" integer NOT NULL,
 	"exercise_id" varchar(100) NOT NULL,
-	"rep_count" integer NOT NULL,
+	"load_weight_kg" numeric(6,2) NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "profile_featured_prs_slot_check" CHECK ("profile_featured_prs"."slot" BETWEEN 1 AND 3),
-	CONSTRAINT "profile_featured_prs_rep_count_check" CHECK ("profile_featured_prs"."rep_count" BETWEEN 1 AND 12)
+	CONSTRAINT "profile_featured_prs_load_weight_check" CHECK ("profile_featured_prs"."load_weight_kg" >= 0)
 );
 --> statement-breakpoint
 DO $$ BEGIN

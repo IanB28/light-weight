@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { FeaturedPrSelection } from '@light-weight/domain';
+import type { FeaturedPrSelection, FeaturedPrVariant, ResolvedFeaturedPrSelection } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
 import { getStoredFeaturedPrSelections, saveStoredFeaturedPrSelections } from '../../lib/storage.js';
 import { featuredPrApi } from './featured-pr-api.js';
@@ -11,6 +11,8 @@ interface UseFeaturedPrSelectionsOptions {
 
 export function useFeaturedPrSelections({ enabled, syncBeforeSave }: UseFeaturedPrSelectionsOptions) {
   const [selections, setSelections] = useState<FeaturedPrSelection[]>(getStoredFeaturedPrSelections);
+  const [resolvedSelections, setResolvedSelections] = useState<ResolvedFeaturedPrSelection[]>([]);
+  const [variants, setVariants] = useState<FeaturedPrVariant[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -21,7 +23,11 @@ export function useFeaturedPrSelections({ enabled, syncBeforeSave }: UseFeatured
     setIsLoading(true);
     void featuredPrApi.get(controller.signal).then((result) => {
       if (controller.signal.aborted) return;
-      if (result.ok) setSelections(saveStoredFeaturedPrSelections(result.data.selections));
+      if (result.ok) {
+        setSelections(saveStoredFeaturedPrSelections(result.data.selections));
+        setResolvedSelections(result.data.resolvedSelections);
+        setVariants(result.data.variants);
+      }
       setIsLoading(false);
     });
     return () => controller.abort();
@@ -38,11 +44,13 @@ export function useFeaturedPrSelections({ enabled, syncBeforeSave }: UseFeatured
       if (!result.ok) return result;
       const canonical = saveStoredFeaturedPrSelections(result.data.selections);
       setSelections(canonical);
+      setResolvedSelections(result.data.resolvedSelections);
+      setVariants(result.data.variants);
       return { ok: true, data: { selections: canonical } };
     } finally {
       setIsSaving(false);
     }
   }, [enabled, isSaving, syncBeforeSave]);
 
-  return { selections, isLoading, isSaving, save };
+  return { selections, resolvedSelections, variants, isLoading, isSaving, save };
 }

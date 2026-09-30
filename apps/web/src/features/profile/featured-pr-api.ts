@@ -1,8 +1,8 @@
-import type { FeaturedPrSelection } from '@light-weight/domain';
+import type { FeaturedPrSelection, FeaturedPrShowcase } from '@light-weight/domain';
 import { apiEndpoint } from '../../lib/api-base.js';
 import { mapApiError, requestJson, type OperationResult } from '../../lib/api-errors.js';
 
-interface FeaturedPrResponse { selections: FeaturedPrSelection[] }
+export type FeaturedPrResponse = FeaturedPrShowcase;
 
 async function operation(request: () => Promise<FeaturedPrResponse>): Promise<OperationResult<FeaturedPrResponse>> {
   try { return { ok: true, data: await request() }; }

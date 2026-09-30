@@ -123,6 +123,8 @@ export function ProfileScreen({
             onClose={onClose}
             titleRef={titleRef}
             featuredPrSelections={featuredPrs.selections}
+            featuredPrResolvedSelections={featuredPrs.resolvedSelections}
+            featuredPrVariants={featuredPrs.variants}
             featuredPrLoading={featuredPrs.isLoading}
             featuredPrSaving={featuredPrs.isSaving}
             onSaveFeaturedPrSelections={featuredPrs.save}

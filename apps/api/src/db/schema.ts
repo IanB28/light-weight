@@ -191,7 +191,7 @@ export const profileFeaturedPrs = pgTable('profile_featured_prs', {
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   slot: integer('slot').notNull(),
   exerciseId: varchar('exercise_id', { length: 100 }).references(() => exercises.id, { onDelete: 'cascade' }).notNull(),
-  repCount: integer('rep_count').notNull(),
+  loadWeightKg: numeric('load_weight_kg', { precision: 6, scale: 2 }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
@@ -199,7 +199,7 @@ export const profileFeaturedPrs = pgTable('profile_featured_prs', {
   uniqueIndex('profile_featured_prs_user_exercise_uidx').on(table.userId, table.exerciseId),
   index('profile_featured_prs_user_id_idx').on(table.userId),
   check('profile_featured_prs_slot_check', sql`${table.slot} BETWEEN 1 AND 3`),
-  check('profile_featured_prs_rep_count_check', sql`${table.repCount} BETWEEN 1 AND 12`),
+  check('profile_featured_prs_load_weight_check', sql`${table.loadWeightKg} >= 0`),
 ]);
 
 export const friendships = pgTable('friendships', {

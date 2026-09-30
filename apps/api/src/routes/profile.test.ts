@@ -15,25 +15,29 @@ import { featuredPrValidation } from './profile.js';
 dotenv.config({ path: new URL('../../../.env', import.meta.url) });
 dotenv.config();
 
-test('featured PR payload validation enforces slots, reps, uniqueness, IDs, and maximum three', () => {
+test('featured PR payload validation enforces slots, normalized loads, uniqueness, IDs, and maximum three', () => {
   assert.deepEqual(featuredPrValidation.parseSelections([
-    { slot: 2, exerciseId: 'row', repCount: 8 },
-    { slot: 1, exerciseId: 'bench', repCount: 5 }
+    { slot: 2, exerciseId: 'row', loadWeightKg: 80.004 },
+    { slot: 1, exerciseId: 'bench', loadWeightKg: 100 }
   ]), [
-    { slot: 1, exerciseId: 'bench', repCount: 5 },
-    { slot: 2, exerciseId: 'row', repCount: 8 }
+    { slot: 1, exerciseId: 'bench', loadWeightKg: 100 },
+    { slot: 2, exerciseId: 'row', loadWeightKg: 80 }
   ]);
   const invalid = [
-    [{ slot: 0, exerciseId: 'bench', repCount: 5 }],
-    [{ slot: 4, exerciseId: 'bench', repCount: 5 }],
-    [{ slot: 1, exerciseId: 'bench', repCount: 0 }],
-    [{ slot: 1, exerciseId: 'bench', repCount: 13 }],
-    [{ slot: 1, exerciseId: 'bad id', repCount: 5 }],
-    [{ slot: 1, exerciseId: 'bench', repCount: 5 }, { slot: 1, exerciseId: 'row', repCount: 8 }],
-    [{ slot: 1, exerciseId: 'bench', repCount: 5 }, { slot: 2, exerciseId: 'bench', repCount: 8 }],
-    [1, 2, 3, 4].map((slot) => ({ slot, exerciseId: `ex-${slot}`, repCount: 5 }))
+    [{ slot: 0, exerciseId: 'bench', loadWeightKg: 100 }],
+    [{ slot: 4, exerciseId: 'bench', loadWeightKg: 100 }],
+    [{ slot: 1, exerciseId: 'bench', loadWeightKg: -1 }],
+    [{ slot: 1, exerciseId: 'bench', loadWeightKg: Number.NaN }],
+    [{ slot: 1, exerciseId: 'bench', repCount: 8 }],
+    [{ slot: 1, exerciseId: 'bad id', loadWeightKg: 100 }],
+    [{ slot: 1, exerciseId: 'bench', loadWeightKg: 100 }, { slot: 1, exerciseId: 'row', loadWeightKg: 80 }],
+    [{ slot: 1, exerciseId: 'bench', loadWeightKg: 100 }, { slot: 2, exerciseId: 'bench', loadWeightKg: 120 }],
+    [1, 2, 3, 4].map((slot) => ({ slot, exerciseId: `ex-${slot}`, loadWeightKg: 50 }))
   ];
   invalid.forEach((payload) => assert.throws(() => featuredPrValidation.parseSelections(payload)));
+  assert.deepEqual(featuredPrValidation.parseSelections([{ slot: 1, exerciseId: 'bodyweight', loadWeightKg: 0 }]), [
+    { slot: 1, exerciseId: 'bodyweight', loadWeightKg: 0 }
+  ]);
 });
 
 async function withServer(run: (baseUrl: string) => Promise<void>) {
@@ -85,20 +89,40 @@ test('HTTP featured PR configuration is authenticated, owned, atomic, sorted, an
               (${foreignExercise}, ${other}, 'Foreign custom', 'back', 'other', true)
           `;
           await tx`
-            INSERT INTO profile_featured_prs (user_id, slot, exercise_id, rep_count)
-            VALUES (${owner}, 1, ${systemExercise}, 5)
+            INSERT INTO profile_featured_prs (user_id, slot, exercise_id, load_weight_kg)
+            VALUES (${owner}, 1, ${systemExercise}, 100)
           `;
           for (const invalidInsert of [
-            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, rep_count) VALUES (${owner}, 0, ${ownedExercise}, 5)`,
-            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, rep_count) VALUES (${owner}, 4, ${ownedExercise}, 5)`,
-            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, rep_count) VALUES (${owner}, 2, ${ownedExercise}, 0)`,
-            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, rep_count) VALUES (${owner}, 2, ${ownedExercise}, 13)`,
-            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, rep_count) VALUES (${owner}, 1, ${ownedExercise}, 5)`,
-            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, rep_count) VALUES (${owner}, 2, ${systemExercise}, 5)`
+            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, load_weight_kg) VALUES (${owner}, 0, ${ownedExercise}, 50)`,
+            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, load_weight_kg) VALUES (${owner}, 4, ${ownedExercise}, 50)`,
+            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, load_weight_kg) VALUES (${owner}, 2, ${ownedExercise}, -1)`,
+            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, load_weight_kg) VALUES (${owner}, 1, ${ownedExercise}, 50)`,
+            () => tx`INSERT INTO profile_featured_prs (user_id, slot, exercise_id, load_weight_kg) VALUES (${owner}, 2, ${systemExercise}, 50)`
           ]) {
             await assert.rejects(tx.savepoint(async () => invalidInsert()));
           }
           await tx`DELETE FROM profile_featured_prs WHERE user_id = ${owner}`;
+          const oldTopSessionId = randomUUID();
+          await tx`
+            INSERT INTO workout_sessions (id, user_id, started_at, performed_date, entry_source)
+            VALUES (${oldTopSessionId}, ${owner}, ${'2024-01-01T10:00:00.000Z'}, '2024-01-01', 'live')
+          `;
+          await tx`
+            INSERT INTO logged_sets (session_id, exercise_id, set_index, weight_kg, reps, set_type, is_warmup, completed)
+            VALUES (${oldTopSessionId}, ${systemExercise}, 1, 100, 8, 'working', false, true)
+          `;
+          for (let index = 0; index < 50; index += 1) {
+            const recentSessionId = randomUUID();
+            const startedAt = new Date(Date.UTC(2025, 0, index + 1, 10));
+            await tx`
+              INSERT INTO workout_sessions (id, user_id, started_at, performed_date, entry_source)
+              VALUES (${recentSessionId}, ${owner}, ${startedAt.toISOString()}, ${startedAt.toISOString().slice(0, 10)}, 'live')
+            `;
+            await tx`
+              INSERT INTO logged_sets (session_id, exercise_id, set_index, weight_kg, reps, set_type, is_warmup, completed)
+              VALUES (${recentSessionId}, ${systemExercise}, 1, 60, 5, 'working', false, true)
+            `;
+          }
           await tx`
             INSERT INTO auth_sessions (user_id, token_hash, csrf_token_hash, expires_at) VALUES
               (${owner}, ${hashOpaqueToken(ownerToken)}, ${hashOpaqueToken(ownerCsrf)}, now() + interval '1 day'),
@@ -120,28 +144,48 @@ test('HTTP featured PR configuration is authenticated, owned, atomic, sorted, an
             const first = await fetch(`${baseUrl}/api/profile/featured-prs`, {
               method: 'PUT', headers: headers(ownerToken, ownerCsrf),
               body: JSON.stringify({ selections: [
-                { slot: 3, exerciseId: ownedExercise, repCount: 8 },
-                { slot: 1, exerciseId: systemExercise, repCount: 5 }
+                { slot: 3, exerciseId: ownedExercise, loadWeightKg: 80 },
+                { slot: 1, exerciseId: systemExercise, loadWeightKg: 100 }
               ] })
             });
             assert.equal(first.status, 200);
-            assert.deepEqual((await first.json() as { selections: Array<{ slot: number }> }).selections.map((item) => item.slot), [1, 3]);
+            const firstPayload = await first.json() as {
+              selections: Array<{ slot: number }>;
+              variants: Array<{ exerciseId: string; loadWeightKg: number; reps: number }>;
+            };
+            assert.deepEqual(firstPayload.selections.map((item) => item.slot), [1, 3]);
+            assert.equal(firstPayload.variants.find((item) => item.exerciseId === systemExercise && item.loadWeightKg === 100)?.reps, 8,
+              'complete-history resolver must retain a top set older than the newest 50 sessions');
+
+            const improvedSessionId = randomUUID();
+            await tx`
+              INSERT INTO workout_sessions (id, user_id, started_at, performed_date, entry_source)
+              VALUES (${improvedSessionId}, ${owner}, ${'2026-03-01T10:00:00.000Z'}, '2026-03-01', 'live')
+            `;
+            await tx`
+              INSERT INTO logged_sets (session_id, exercise_id, set_index, weight_kg, reps, set_type, is_warmup, completed)
+              VALUES (${improvedSessionId}, ${systemExercise}, 1, 100, 10, 'working', false, true)
+            `;
+            const improved = await fetch(`${baseUrl}/api/profile/featured-prs`, { headers: headers(ownerToken, ownerCsrf) });
+            const improvedPayload = await improved.json() as { variants: Array<{ exerciseId: string; loadWeightKg: number; reps: number }> };
+            assert.equal(improvedPayload.variants.find((item) => item.exerciseId === systemExercise && item.loadWeightKg === 100)?.reps, 10,
+              'selected load variant must automatically resolve to its improved performance');
 
             const single = await fetch(`${baseUrl}/api/profile/featured-prs`, {
               method: 'PUT', headers: headers(ownerToken, ownerCsrf),
-              body: JSON.stringify({ selections: [{ slot: 2, exerciseId: systemExercise, repCount: 1 }] })
+              body: JSON.stringify({ selections: [{ slot: 2, exerciseId: systemExercise, loadWeightKg: 0 }] })
             });
             assert.equal(single.status, 200);
             assert.deepEqual((await single.json() as { selections: unknown[] }).selections, [
-              { slot: 2, exerciseId: systemExercise, repCount: 1 }
+              { slot: 2, exerciseId: systemExercise, loadWeightKg: 0 }
             ]);
 
             const allThree = await fetch(`${baseUrl}/api/profile/featured-prs`, {
               method: 'PUT', headers: headers(ownerToken, ownerCsrf),
               body: JSON.stringify({ selections: [
-                { slot: 3, exerciseId: ownedExercise, repCount: 12 },
-                { slot: 1, exerciseId: systemExercise, repCount: 5 },
-                { slot: 2, exerciseId: secondSystemExercise, repCount: 8 }
+                { slot: 3, exerciseId: ownedExercise, loadWeightKg: 70 },
+                { slot: 1, exerciseId: systemExercise, loadWeightKg: 100 },
+                { slot: 2, exerciseId: secondSystemExercise, loadWeightKg: 120 }
               ] })
             });
             assert.equal(allThree.status, 200);
@@ -149,7 +193,7 @@ test('HTTP featured PR configuration is authenticated, owned, atomic, sorted, an
 
             const foreign = await fetch(`${baseUrl}/api/profile/featured-prs`, {
               method: 'PUT', headers: headers(ownerToken, ownerCsrf),
-              body: JSON.stringify({ selections: [{ slot: 1, exerciseId: foreignExercise, repCount: 5 }] })
+              body: JSON.stringify({ selections: [{ slot: 1, exerciseId: foreignExercise, loadWeightKg: 50 }] })
             });
             assert.equal(foreign.status, 403);
             const preserved = await fetch(`${baseUrl}/api/profile/featured-prs`, { headers: headers(ownerToken, ownerCsrf) });

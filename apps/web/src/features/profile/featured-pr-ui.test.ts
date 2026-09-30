@@ -2,124 +2,95 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import {
-  evaluateRelativeStrength,
-  resolveExerciseStrengthTarget,
-  type Exercise,
-  type FeaturedRepPerformance
-} from '@light-weight/domain';
+import { resolveSelectedFeaturedPrVariant, type Exercise, type FeaturedPrVariant } from '@light-weight/domain';
 import { RepBadge } from '../../components/RepBadge.js';
 import {
   completeFeaturedPrDraft,
   createFeaturedPrDraft,
-  FeaturedPrSheet,
   filterFeaturedPrExerciseOptions,
   nextFeaturedPrSlot
 } from './FeaturedPrSheet.js';
 import { readFileSync } from 'node:fs';
-import { formatFeaturedPerformanceLoad, resolveFeaturedPrRank } from './featured-pr-presentation.js';
+import { formatFeaturedVariantLoad } from './featured-pr-presentation.js';
 
 const exercise: Exercise = { id: 'bench', name: 'Barbell Bench Press', category: 'barbell', primaryMuscle: 'chest' };
+const variant = (loadWeightKg: number, reps: number): FeaturedPrVariant => ({
+  exerciseId: exercise.id,
+  loadWeightKg,
+  reps,
+  set: { setIndex: 1, weightKg: loadWeightKg, reps, completed: true, setType: 'working' },
+  effectiveLoadKg: loadWeightKg,
+  performedDate: '2026-01-01',
+  source: 'workout'
+});
 
-test('RepBadge renders each valid exact-rep medallion and rejects out-of-range values', () => {
-  for (let rep = 1; rep <= 12; rep += 1) {
-    const html = renderToStaticMarkup(React.createElement(RepBadge, { repCount: rep }));
-    assert.match(html, new RegExp(`aria-label="${rep}RM"`));
-    assert.match(html, new RegExp(`>${rep}<`));
+test('RepBadge renders actual positive reps including 45 and uses localized repetition semantics', () => {
+  for (const reps of [1, 8, 12, 20, 45, 120]) {
+    const html = renderToStaticMarkup(React.createElement(RepBadge, { repCount: reps }));
+    assert.match(html, new RegExp(`aria-label="${reps} repeticiones"`));
+    assert.match(html, new RegExp(`>${reps}<`));
   }
-  assert.equal(renderToStaticMarkup(React.createElement(RepBadge, { repCount: 13 })), '');
+  assert.equal(renderToStaticMarkup(React.createElement(RepBadge, { repCount: 0 })), '');
 });
 
-test('featured PR sheet exposes at most three slots and disables unavailable reps', () => {
-  const html = renderToStaticMarkup(React.createElement(FeaturedPrSheet, {
-    open: true,
-    selections: [{ slot: 1, exerciseId: 'bench', repCount: 8 }],
-    exercises: [{ exercise, availableRepCounts: [3, 5, 8, 10] }],
-    saving: false,
-    onClose: () => {},
-    onSave: async () => true
-  }));
-  assert.match(html, /8RM/);
-  assert.match(html, /aria-pressed="true"/);
-  assert.match(html, /aria-label="1RM"[^>]*disabled/);
-  assert.match(html, /Barbell Bench Press/);
-});
-
-test('featured PR draft supports one, two, or three slots and never offers a fourth', () => {
+test('featured PR draft persists a real load variant and supports at most three slots', () => {
   assert.deepEqual(createFeaturedPrDraft([]), [{ slot: 1 }]);
-  const one = [{ slot: 1 as const, exerciseId: 'bench', repCount: 8 }];
+  const one = [{ slot: 1 as const, exerciseId: 'bench', loadWeightKg: 100 }];
   assert.equal(nextFeaturedPrSlot(one), 2);
-  const two = [...one, { slot: 2 as const, exerciseId: 'row', repCount: 5 }];
+  const two = [...one, { slot: 2 as const, exerciseId: 'row', loadWeightKg: 80 }];
   assert.equal(nextFeaturedPrSlot(two), 3);
-  const three = [...two, { slot: 3 as const, exerciseId: 'curl', repCount: 10 }];
+  const three = [...two, { slot: 3 as const, exerciseId: 'curl', loadWeightKg: 20 }];
   assert.equal(nextFeaturedPrSlot(three), null);
   assert.deepEqual(completeFeaturedPrDraft(two), two);
+  assert.deepEqual(completeFeaturedPrDraft([{ slot: 1, exerciseId: 'pull-up', loadWeightKg: 0 }]), [{ slot: 1, exerciseId: 'pull-up', loadWeightKg: 0 }]);
   assert.equal(completeFeaturedPrDraft([{ slot: 1 }]), null);
 });
 
-test('exercise choices prevent duplicates while retaining the exercise being edited', () => {
+test('exercise search prevents duplicate featured exercises while retaining the slot being edited', () => {
   const row: Exercise = { ...exercise, id: 'row', name: 'Barbell Row' };
   const options = [
-    { exercise, availableRepCounts: [8] },
-    { exercise: row, availableRepCounts: [5] }
+    { exercise, variants: [variant(100, 8)], rank: null },
+    { exercise: row, variants: [{ ...variant(80, 10), exerciseId: row.id }], rank: null }
   ];
-  const draft = [
-    { slot: 1 as const, exerciseId: 'bench', repCount: 8 },
-    { slot: 2 as const }
-  ];
+  const draft = [{ slot: 1 as const, exerciseId: 'bench', loadWeightKg: 100 }, { slot: 2 as const }];
   assert.deepEqual(filterFeaturedPrExerciseOptions(options, draft, 2, '').map((item) => item.exercise.id), ['row']);
   assert.deepEqual(filterFeaturedPrExerciseOptions(options, draft, 1, 'bench').map((item) => item.exercise.id), ['bench']);
 });
 
-test('profile presentation keeps fallback, configured exact-rep rank, compact rows, and safe unavailable state', () => {
-  const source = readFileSync(new URL('../../../src/features/profile/ProfileView.tsx', import.meta.url), 'utf8');
-  assert.match(source, /featuredPrSelections\.length > 0\s*\? configuredRecords\s*:\s*summary\.records/);
-  assert.match(source, /resolveFeaturedPrRank\(exercise, performance, bodyweightKg, profile\.gender\)/);
-  assert.match(source, /formatFeaturedPerformanceLoad\(exercise, performance, preferences\.units\)/);
-  assert.match(source, /t\('profile\.featuredUnavailable'\)/);
-  assert.match(source, /className="flex min-h-14 items-center/);
-  assert.match(source, /record\.repCount !== undefined && <RepBadge/);
+test('profile and picker share ProfilePrRow and the obsolete 1..12 manual grid is gone', () => {
+  const profile = readFileSync(new URL('../../../src/features/profile/ProfileView.tsx', import.meta.url), 'utf8');
+  const sheet = readFileSync(new URL('../../../src/features/profile/FeaturedPrSheet.tsx', import.meta.url), 'utf8');
+  const row = readFileSync(new URL('../../../src/features/profile/ProfilePrRow.tsx', import.meta.url), 'utf8');
+  assert.match(profile, /<ProfilePrRow/);
+  assert.match(sheet, /<ProfilePrRow/);
+  assert.doesNotMatch(sheet, /Array\.from\(\{ length: 12 \}/);
+  assert.doesNotMatch(sheet, /featuredRepetitions/);
+  assert.match(sheet, /candidate\.variants\.map/);
+  assert.match(row, /aria-pressed/);
 });
 
-test('configured exact-rep rank falls back to current bodyweight without changing the selected performance', () => {
-  const performance: FeaturedRepPerformance = {
-    exerciseId: 'bench',
-    repCount: 8,
-    set: { setIndex: 1, weightKg: 110, reps: 8, completed: true, setType: 'working' },
-    effectiveLoadKg: 110,
-    canonicalOneRmKg: 139.33,
-    performedDate: '2026-01-01',
-    source: 'workout',
-    sessionId: 'old-workout-without-bodyweight'
-  };
-  const target = resolveExerciseStrengthTarget(exercise);
-  assert.ok(target);
-  const expected = evaluateRelativeStrength(target, performance.canonicalOneRmKg, 80, 'male')?.rank;
-  assert.equal(resolveFeaturedPrRank(exercise, performance, 80, 'male'), expected);
-  assert.equal(performance.bodyweightKg, undefined);
-  assert.equal(performance.sessionId, 'old-workout-without-bodyweight');
-  assert.equal(resolveFeaturedPrRank(exercise, performance, null, 'male'), null);
-});
-
-test('featured PR load formatter preserves the actual selected logged load notation', () => {
-  const performance: FeaturedRepPerformance = {
-    exerciseId: 'bench', repCount: 8,
-    set: { setIndex: 1, weightKg: 110, reps: 8, completed: true, setType: 'working' },
-    effectiveLoadKg: 110, canonicalOneRmKg: 139.33,
-    performedDate: '2026-01-01', source: 'workout'
-  };
-  assert.equal(formatFeaturedPerformanceLoad(exercise, performance, 'metric'), '110 kg');
+test('featured load formatting preserves logged load semantics rather than effective load', () => {
+  assert.equal(formatFeaturedVariantLoad(exercise, variant(100, 8), 'metric'), '100 kg');
   const weighted: Exercise = {
     ...exercise,
     id: 'weighted-pull-up',
     category: 'bodyweight',
     loading: { mechanism: 'bodyweight', loadMode: 'added_weight', supportsKeyboard: true, supportsPlates: false, supportsExternalLoad: true, includeBarWeight: false, bodyweightFactor: 1 }
   };
-  assert.equal(formatFeaturedPerformanceLoad(weighted, { ...performance, exerciseId: weighted.id, set: { ...performance.set, weightKg: 20 } }, 'metric'), '+20 kg');
-  assert.equal(formatFeaturedPerformanceLoad(weighted, { ...performance, exerciseId: weighted.id, set: { ...performance.set, weightKg: 0 } }, 'metric'), 'BW');
+  const assisted = { ...weighted, id: 'assisted', loading: { ...weighted.loading!, loadMode: 'assisted' as const } };
+  assert.equal(formatFeaturedVariantLoad(weighted, variant(20, 12), 'metric'), '+20 kg');
+  assert.equal(formatFeaturedVariantLoad(weighted, variant(0, 12), 'metric'), 'BW');
+  assert.equal(formatFeaturedVariantLoad(assisted, variant(20, 10), 'metric'), '-20 kg');
 });
 
-test('sheet only closes after a successful save and keeps an explicit error on failure', () => {
+test('a persisted load selection resolves newer reps without changing the selection', () => {
+  const selection = { slot: 1 as const, exerciseId: exercise.id, loadWeightKg: 100 };
+  assert.equal(resolveSelectedFeaturedPrVariant(selection, [variant(100, 8)])?.reps, 8);
+  assert.equal(resolveSelectedFeaturedPrVariant(selection, [variant(100, 10)])?.reps, 10);
+  assert.deepEqual(selection, { slot: 1, exerciseId: exercise.id, loadWeightKg: 100 });
+});
+
+test('failed save keeps the sheet open and reports an explicit error', () => {
   const source = readFileSync(new URL('../../../src/features/profile/FeaturedPrSheet.tsx', import.meta.url), 'utf8');
   assert.match(source, /if \(saved\) onClose\(\)/);
   assert.match(source, /else setError\(t\('profile\.featuredSaveError'\)\)/);

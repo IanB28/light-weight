@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@light-weight/ui';
-import { isValidFeaturedRepCount } from '@light-weight/domain';
+import { useI18n } from '../lib/i18n.js';
 
 interface RepBadgeProps {
   repCount: number;
@@ -8,14 +8,16 @@ interface RepBadgeProps {
 }
 
 export function RepBadge({ repCount, className }: RepBadgeProps) {
-  if (!isValidFeaturedRepCount(repCount)) return null;
+  const { t } = useI18n();
+  if (!Number.isInteger(repCount) || repCount <= 0) return null;
+  const label = t('profile.repBadgeLabel', { count: repCount });
   return (
     <span
       role="img"
-      aria-label={`${repCount}RM`}
-      title={`${repCount}RM`}
+      aria-label={label}
+      title={label}
       className={cn(
-        'inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-accent/55 bg-accent-soft text-[10px] font-black tabular-nums leading-none text-accent shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_12%,transparent)]',
+        'inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full border border-accent/45 bg-accent-soft px-1 text-[10px] font-black tabular-nums leading-none text-accent',
         className
       )}
     >
