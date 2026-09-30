@@ -46,23 +46,38 @@ test('RepBadge follows the production medal prototype geometry and four-digit sc
   const fourDigits = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 1200 }));
 
   assert.equal(REP_BADGE_ASSET_PATH, '/badges/medal.png');
-  assert.match(oneDigit, /w-5 aspect-\[420\/554\]/);
+  assert.match(oneDigit, /aspect-\[420\/554\].*w-5/);
   assert.match(oneDigit, /container-type:size/);
-  assert.match(oneDigit, /top-\[61%\]/);
+  assert.match(oneDigit, /--rep-badge-plate-x:50%/);
+  assert.match(oneDigit, /--rep-badge-plate-y:61%/);
+  assert.match(oneDigit, /--rep-badge-plate-diameter:47\.6cqw/);
+  assert.match(oneDigit, /left-\[var\(--rep-badge-plate-x\)\]/);
+  assert.match(oneDigit, /top-\[var\(--rep-badge-plate-y\)\]/);
   assert.match(oneDigit, /text-\[38cqw\]/);
   assert.match(twoDigits, /text-\[32cqw\]/);
   assert.match(threeDigits, /text-\[26cqw\]/);
   assert.match(fourDigits, /text-\[20cqw\]/);
   assert.match(oneDigit, /text-\[#6b3f0e\]/);
   assert.match(oneDigit, /line-height:1/);
+  assert.match(oneDigit, /0 0\.028em 0 rgba\(255, 238, 180, 0\.75\)/);
   assert.doesNotMatch(oneDigit, /brightness\(|saturate\(/);
+  assert.doesNotMatch(oneDigit, /object-contain/);
 });
 
 test('RepBadge uses the exact final production artwork without regeneration', () => {
   const artwork = readFileSync(new URL('../../../public/badges/medal.png', import.meta.url));
-  assert.equal(createHash('sha256').update(artwork).digest('hex'), '6983bdc1538972d4ba71bd93d12c73dc6b06f57b9a6694ff941987c901a8777e');
-  assert.equal(artwork.readUInt32BE(16), 1234);
-  assert.equal(artwork.readUInt32BE(20), 1275);
+  assert.equal(createHash('sha256').update(artwork).digest('hex'), '019273ab315432c19a77c3c74ba2be664bc4e666cbb9697ecd9bc5740f667ae1');
+  assert.equal(artwork.readUInt32BE(16), 420);
+  assert.equal(artwork.readUInt32BE(20), 554);
+});
+
+test('RepBadge supports reusable numeric widths without changing the medal ratio', () => {
+  for (const size of [64, 96, 120, 160]) {
+    const html = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 12, size }));
+    assert.match(html, /aspect-\[420\/554\]/);
+    assert.match(html, new RegExp(`width:${size}px`));
+    assert.match(html, /aria-label="12 repeticiones"/);
+  }
 });
 
 test('RepBadge derives a silhouette mask from canonical rank visuals without a rectangular shadow', () => {
@@ -111,7 +126,7 @@ test('ProfilePrRow makes the rank badge larger than the repetition medal and cal
     onSelect: () => undefined
   }));
   assert.match(html, /w-6 h-6/);
-  assert.match(html, /relative inline-flex shrink-0 select-none items-center justify-center overflow-visible w-5 aspect-\[420\/554\]/);
+  assert.match(html, /aspect-\[420\/554\].*width:18px/);
   assert.match(html, /border-border-active bg-surface-active/);
   assert.doesNotMatch(html, /border-accent bg-accent-soft/);
 });

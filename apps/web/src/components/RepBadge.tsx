@@ -9,15 +9,28 @@ export const REP_BADGE_ASSET_PATH = '/badges/medal.png';
 interface RepBadgeProps {
   repCount: number;
   rank?: StrengthRank | null;
-  size?: 'xs' | 'sm';
+  size?: number | 'xs' | 'sm';
   showGlow?: boolean;
   className?: string;
 }
 
-const badgeSizes = {
-  xs: 'w-5 aspect-[420/554]',
-  sm: 'w-6 aspect-[420/554]'
+const badgeWidths = {
+  xs: 'w-5',
+  sm: 'w-6'
 } as const;
+
+type RepBadgeGeometryStyle = React.CSSProperties & {
+  '--rep-badge-plate-x': string;
+  '--rep-badge-plate-y': string;
+  '--rep-badge-plate-diameter': string;
+};
+
+const repBadgeGeometryStyle: RepBadgeGeometryStyle = {
+  '--rep-badge-plate-x': '50%',
+  '--rep-badge-plate-y': '61%',
+  '--rep-badge-plate-diameter': '47.6cqw',
+  containerType: 'size'
+};
 
 const numberSizes = {
   single: 'text-[38cqw]',
@@ -58,6 +71,9 @@ export function RepBadge({
   const auraOpacity = resolveRepBadgeAuraOpacity(visual?.glowOpacity ?? 0);
   const showRankAura = showGlow && Boolean(visual) && auraOpacity.inner > 0 && !imgError;
   const auraColor = visual ? (visual.glow || visual.accent) : undefined;
+  const numericWidth = typeof size === 'number' && Number.isFinite(size) && size > 0
+    ? `${size}px`
+    : undefined;
   const maskStyle = {
     backgroundColor: auraColor,
     maskImage: `url("${REP_BADGE_ASSET_PATH}")`,
@@ -76,11 +92,11 @@ export function RepBadge({
       aria-label={label}
       title={label}
       className={cn(
-        'relative inline-flex shrink-0 select-none items-center justify-center overflow-visible',
-        badgeSizes[size],
+        'relative inline-flex aspect-[420/554] shrink-0 select-none items-center justify-center overflow-visible',
+        typeof size === 'number' ? undefined : badgeWidths[size],
         className
       )}
-      style={{ containerType: 'size' }}
+      style={{ ...repBadgeGeometryStyle, width: numericWidth }}
     >
       {showRankAura && (
         <span
@@ -113,7 +129,7 @@ export function RepBadge({
           loading="lazy"
           draggable={false}
           onError={() => setImgError(true)}
-          className="absolute inset-0 size-full object-contain"
+          className="absolute inset-0 block size-full"
         />
       ) : (
         <span
@@ -127,7 +143,7 @@ export function RepBadge({
         aria-hidden="true"
         data-testid="rep-badge-number"
         className={cn(
-          'pointer-events-none absolute left-1/2 top-[61%] z-10 -translate-x-1/2 -translate-y-1/2 font-[800] leading-none tabular-nums tracking-[-0.01em]',
+          'pointer-events-none absolute left-[var(--rep-badge-plate-x)] top-[var(--rep-badge-plate-y)] z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-[800] leading-none tabular-nums tracking-[-0.01em]',
           imgError ? 'text-text-primary' : 'text-[#6b3f0e]',
           getNumberSize(repCount)
         )}

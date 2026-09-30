@@ -46,7 +46,7 @@ export function ProfilePrRow({
             ? <StrengthRankBadge rank={rank} size="sm" showGlow />
             : <span data-testid="pr-rank-placeholder" aria-hidden="true" className="flex size-5 items-center justify-center rounded-full text-text-muted/40"><Shield className="size-3.5" /></span>}
         </span>
-        {repCount !== undefined && <RepBadge repCount={repCount} rank={rank} showGlow />}
+        {repCount !== undefined && <RepBadge repCount={repCount} rank={rank} size={18} showGlow />}
       </span>
       <span data-testid="pr-weight-slot" className="w-20 shrink-0 text-right text-xs font-bold tabular-nums text-accent sm:w-24 sm:text-sm">{displayLoad}</span>
     </>
