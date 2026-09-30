@@ -12,6 +12,7 @@ import {
   nextFeaturedPrSlot
 } from './FeaturedPrSheet.js';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { formatFeaturedVariantLoad } from './featured-pr-presentation.js';
 
 const exercise: Exercise = { id: 'bench', name: 'Barbell Bench Press', category: 'barbell', primaryMuscle: 'chest' };
@@ -38,10 +39,36 @@ test('RepBadge renders the user medal asset with real localized DOM text for one
   }
 });
 
+test('RepBadge follows the production medal prototype geometry and four-digit scaling', () => {
+  const oneDigit = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 8 }));
+  const twoDigits = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 12 }));
+  const threeDigits = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 120 }));
+  const fourDigits = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 1200 }));
+
+  assert.equal(REP_BADGE_ASSET_PATH, '/badges/medal.png');
+  assert.match(oneDigit, /w-5 aspect-\[420\/554\]/);
+  assert.match(oneDigit, /container-type:size/);
+  assert.match(oneDigit, /top-\[61%\]/);
+  assert.match(oneDigit, /text-\[38cqw\]/);
+  assert.match(twoDigits, /text-\[32cqw\]/);
+  assert.match(threeDigits, /text-\[26cqw\]/);
+  assert.match(fourDigits, /text-\[20cqw\]/);
+  assert.match(oneDigit, /text-\[#6b3f0e\]/);
+  assert.match(oneDigit, /line-height:1/);
+  assert.doesNotMatch(oneDigit, /brightness\(|saturate\(/);
+});
+
+test('RepBadge uses the exact final production artwork without regeneration', () => {
+  const artwork = readFileSync(new URL('../../../public/badges/medal.png', import.meta.url));
+  assert.equal(createHash('sha256').update(artwork).digest('hex'), '6983bdc1538972d4ba71bd93d12c73dc6b06f57b9a6694ff941987c901a8777e');
+  assert.equal(artwork.readUInt32BE(16), 1234);
+  assert.equal(artwork.readUInt32BE(20), 1275);
+});
+
 test('RepBadge derives a silhouette mask from canonical rank visuals without a rectangular shadow', () => {
   const immortal = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 8, rank: 'inmortal' }));
   assert.match(immortal, /data-testid="rep-badge-aura"/);
-  assert.match(immortal, /mask-image:url\(&quot;\/badges\/rep-badge-template\.png&quot;\)/);
+  assert.match(immortal, /mask-image:url\(&quot;\/badges\/medal\.png&quot;\)/);
   assert.match(immortal, /background-color:#C93C7A/i);
   assert.doesNotMatch(immortal, /box-shadow/);
 
@@ -84,8 +111,7 @@ test('ProfilePrRow makes the rank badge larger than the repetition medal and cal
     onSelect: () => undefined
   }));
   assert.match(html, /w-6 h-6/);
-  assert.match(html, /relative inline-flex shrink-0 select-none items-center justify-center overflow-visible size-5/);
-  assert.match(html, /filter:brightness\(0\.9\) saturate\(0\.9\)/);
+  assert.match(html, /relative inline-flex shrink-0 select-none items-center justify-center overflow-visible w-5 aspect-\[420\/554\]/);
   assert.match(html, /border-border-active bg-surface-active/);
   assert.doesNotMatch(html, /border-accent bg-accent-soft/);
 });

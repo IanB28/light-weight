@@ -4,7 +4,7 @@ import { cn } from '@light-weight/ui';
 import { useI18n } from '../lib/i18n.js';
 import { getStrengthRankVisual } from '../lib/strength-rank-visuals.js';
 
-export const REP_BADGE_ASSET_PATH = '/badges/rep-badge-template.png';
+export const REP_BADGE_ASSET_PATH = '/badges/medal.png';
 
 interface RepBadgeProps {
   repCount: number;
@@ -15,21 +15,15 @@ interface RepBadgeProps {
 }
 
 const badgeSizes = {
-  xs: 'size-5',
-  sm: 'size-6'
+  xs: 'w-5 aspect-[420/554]',
+  sm: 'w-6 aspect-[420/554]'
 } as const;
 
 const numberSizes = {
-  xs: {
-    single: 'text-[9px]',
-    double: 'text-[8px]',
-    triple: 'text-[6px]'
-  },
-  sm: {
-    single: 'text-[11px]',
-    double: 'text-[9px]',
-    triple: 'text-[7px]'
-  }
+  single: 'text-[38cqw]',
+  double: 'text-[32cqw]',
+  triple: 'text-[26cqw]',
+  quadruple: 'text-[20cqw]'
 } as const;
 
 function resolveRepBadgeAuraOpacity(glowOpacity: number) {
@@ -40,11 +34,12 @@ function resolveRepBadgeAuraOpacity(glowOpacity: number) {
   };
 }
 
-function getNumberSize(size: 'xs' | 'sm', repCount: number) {
+function getNumberSize(repCount: number) {
   const digits = String(repCount).length;
-  if (digits >= 3) return numberSizes[size].triple;
-  if (digits === 2) return numberSizes[size].double;
-  return numberSizes[size].single;
+  if (digits >= 4) return numberSizes.quadruple;
+  if (digits === 3) return numberSizes.triple;
+  if (digits === 2) return numberSizes.double;
+  return numberSizes.single;
 }
 
 export function RepBadge({
@@ -85,6 +80,7 @@ export function RepBadge({
         badgeSizes[size],
         className
       )}
+      style={{ containerType: 'size' }}
     >
       {showRankAura && (
         <span
@@ -117,8 +113,7 @@ export function RepBadge({
           loading="lazy"
           draggable={false}
           onError={() => setImgError(true)}
-          className="relative size-full object-contain"
-          style={{ filter: 'brightness(0.9) saturate(0.9)' }}
+          className="absolute inset-0 size-full object-contain"
         />
       ) : (
         <span
@@ -132,13 +127,16 @@ export function RepBadge({
         aria-hidden="true"
         data-testid="rep-badge-number"
         className={cn(
-          'pointer-events-none absolute left-1/2 top-[41.5%] z-10 -translate-x-1/2 -translate-y-1/2 font-[900] leading-none tabular-nums tracking-[-0.04em]',
-          imgError ? 'text-text-primary' : 'text-[#FFF4D6]',
-          getNumberSize(size, repCount)
+          'pointer-events-none absolute left-1/2 top-[61%] z-10 -translate-x-1/2 -translate-y-1/2 font-[800] leading-none tabular-nums tracking-[-0.01em]',
+          imgError ? 'text-text-primary' : 'text-[#6b3f0e]',
+          getNumberSize(repCount)
         )}
         style={{
-          fontFamily: '"Arial Narrow", "Roboto Condensed", sans-serif',
-          textShadow: imgError ? undefined : '0 1px 2px rgba(0, 0, 0, 0.75)'
+          fontFamily: '"Barlow Condensed", "Arial Narrow", Impact, sans-serif',
+          lineHeight: 1,
+          textShadow: imgError
+            ? undefined
+            : '0 0.028em 0 rgba(255, 238, 180, 0.75), 0 -0.012em 0 rgba(60, 30, 4, 0.35)'
         }}
       >
         {repCount}
