@@ -21,6 +21,13 @@ try {
       // Force a clean Drizzle ledger inside this transaction. Schema/data and
       // ledger are restored by rollback, so this never applies to Neon.
       await tx.unsafe('DROP TABLE IF EXISTS drizzle.__drizzle_migrations');
+      // Migration 0008 replaced the historical positive-reps constraint with
+      // this capped constraint. Remove only that post-0008 artifact inside the
+      // rollback boundary so replaying the real migration chain remains a
+      // faithful, non-destructive validation against a production-like schema.
+      await tx.unsafe(
+        'ALTER TABLE IF EXISTS historical_personal_records DROP CONSTRAINT IF EXISTS hpr_reps_range_check'
+      );
       // postgres-js transaction handles intentionally omit client options.
       // Drizzle's adapter only needs the parser registry from the root client.
       Object.defineProperty(tx, 'options', { value: sql.options });
@@ -31,7 +38,7 @@ try {
       const transactionalDb = drizzle(tx);
       await migrate(transactionalDb, { migrationsFolder: migrationFolder });
       const firstRun = await tx`SELECT hash FROM drizzle.__drizzle_migrations ORDER BY created_at`;
-      assert.equal(firstRun.length, 12, 'first migration run must apply migrations 0000 through 0011');
+      assert.equal(firstRun.length, 13, 'first migration run must apply migrations 0000 through 0012');
 
       await migrate(transactionalDb, { migrationsFolder: migrationFolder });
       const secondRun = await tx`SELECT hash FROM drizzle.__drizzle_migrations ORDER BY created_at`;
@@ -41,7 +48,7 @@ try {
   } catch (error) {
     if (error !== rollbackSignal) throw error;
   }
-  console.log('Drizzle migration pipeline validated: first run applies 0000 through 0011; second run is a no-op; transaction rolled back.');
+  console.log('Drizzle migration pipeline validated: first run applies 0000 through 0012; second run is a no-op; transaction rolled back.');
 } finally {
   await sql.end();
 }

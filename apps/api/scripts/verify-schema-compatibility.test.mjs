@@ -37,6 +37,7 @@ const PRODUCTION_LEDGER_0000_TO_0008 = Object.freeze([
 const CANONICAL_0009_HASH = '13e8cd9434c1873fcf53768371d564cf11e13021ee7dfce302009bd3817183ff';
 const CANONICAL_0010_HASH = '163e11921ccacd423c74d0cccb2aea555178602a1edfd4d949c9213bcb6cab72';
 const CANONICAL_0011_HASH = 'b2fc7458fc943df1f249e38d7f1ec74a6dbe479cb77288a16f57e2af28926c54';
+const CANONICAL_0012_HASH = '3828e75e7136e29f9bcf37d9e3cce4265532f5ea361350e504b8d4bdc1795812';
 
 const SYNTHETIC_LEDGER_0000_TO_0009 = Object.freeze([
   ...PRODUCTION_LEDGER_0000_TO_0008,
@@ -50,6 +51,10 @@ const SYNTHETIC_LEDGER_0000_TO_0011 = Object.freeze([
   ...SYNTHETIC_LEDGER_0000_TO_0010,
   { created_at: '1790400000000', hash: CANONICAL_0011_HASH }
 ]);
+const SYNTHETIC_LEDGER_0000_TO_0012 = Object.freeze([
+  ...SYNTHETIC_LEDGER_0000_TO_0011,
+  { created_at: '1790500000000', hash: CANONICAL_0012_HASH }
+]);
 
 test('deployment verifier accepts canonical and explicitly approved historical 0002 hashes only', () => {
   const expected = requiredMigrations();
@@ -58,17 +63,17 @@ test('deployment verifier accepts canonical and explicitly approved historical 0
   assert.ok(legacy0002);
   assert.equal(expected[2].hash, legacy0002.canonicalSourceHash);
 
-  // Canonical Linux/Git source and synthetic 0000–0011 ledger pass.
+  // Canonical Linux/Git source and synthetic 0000–0012 ledger pass.
   assert.equal(evaluateSchemaCompatibility(expected, matching).ok, true);
-  assert.equal(evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0011).ok, true);
+  assert.equal(evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0012).ok, true);
 
   // Current real production ledger (0000–0008) is missing all three feature migrations.
   const prodCheck = evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0008);
   assert.equal(prodCheck.ok, false);
-  assert.deepEqual(prodCheck.missing.map((entry) => entry.tag), ['0009_routine_template_v2', '0010_legacy_routine_template_reconciliation', '0011_legacy_routine_share_template_compatibility']);
+  assert.deepEqual(prodCheck.missing.map((entry) => entry.tag), ['0009_routine_template_v2', '0010_legacy_routine_template_reconciliation', '0011_legacy_routine_share_template_compatibility', '0012_featured_pr_showcase_v1']);
 
   // A same-timestamp hash passes only when it is in the explicit manifest.
-  const unknown0002 = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0011.map((entry) => (
+  const unknown0002 = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0012.map((entry) => (
     entry.created_at === '1789500000000' ? { ...entry, hash: 'not-an-approved-historical-hash' } : entry
   )));
   assert.equal(unknown0002.ok, false);
@@ -88,7 +93,7 @@ test('deployment verifier accepts canonical and explicitly approved historical 0
   assert.deepEqual(wrongHash.hashMismatches.map((entry) => entry.tag), [expected[4].tag]);
 
   // A newer DB migration does not block an older compatible build.
-  assert.equal(evaluateSchemaCompatibility(expected, [...matching, { created_at: '1790500000000', hash: 'future' }]).ok, true);
+  assert.equal(evaluateSchemaCompatibility(expected, [...matching, { created_at: '1790600000000', hash: 'future' }]).ok, true);
 });
 
 test('deployment verifier evaluates 0009: accepts synthetic ledger, reports real production as missing 0009, rejects unknown 0009 hash', () => {
@@ -141,7 +146,7 @@ test('0010 release gate: old 0000–0008 build accepts DB through 0010; new buil
 });
 
 test('0011 release gate: old 0000–0008 build accepts DB through 0011; new build rejects missing or wrong 0011', () => {
-  const expected = requiredMigrations();
+  const expected = requiredMigrations().slice(0, 12);
   assert.equal(expected.length, 12);
   assert.equal(expected[11].tag, '0011_legacy_routine_share_template_compatibility');
   assert.equal(expected[11].hash, CANONICAL_0011_HASH);
@@ -170,6 +175,30 @@ test('0011 release gate: old 0000–0008 build accepts DB through 0011; new buil
   ]);
   assert.equal(wrong0011.ok, false);
   assert.deepEqual(wrong0011.hashMismatches.map((e) => e.tag), ['0011_legacy_routine_share_template_compatibility']);
+});
+
+test('0012 release gate: old builds accept DB through 0012; new build rejects missing or wrong 0012', () => {
+  const expected = requiredMigrations();
+  assert.equal(expected.length, 13);
+  assert.equal(expected[12].tag, '0012_featured_pr_showcase_v1');
+  assert.equal(expected[12].hash, CANONICAL_0012_HASH);
+
+  const oldBuild = expected.slice(0, 12);
+  const oldAgainstNew = evaluateSchemaCompatibility(oldBuild, SYNTHETIC_LEDGER_0000_TO_0012);
+  assert.equal(oldAgainstNew.ok, true);
+  assert.deepEqual(oldAgainstNew.missing, []);
+
+  const missing0012 = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0011);
+  assert.equal(missing0012.ok, false);
+  assert.deepEqual(missing0012.missing.map((entry) => entry.tag), ['0012_featured_pr_showcase_v1']);
+  assert.equal(evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0012).ok, true);
+
+  const wrong0012 = evaluateSchemaCompatibility(expected, [
+    ...SYNTHETIC_LEDGER_0000_TO_0011,
+    { created_at: '1790500000000', hash: 'wrong-0012-hash' }
+  ]);
+  assert.equal(wrong0012.ok, false);
+  assert.deepEqual(wrong0012.hashMismatches.map((entry) => entry.tag), ['0012_featured_pr_showcase_v1']);
 });
 
 test('deployment verifier accepts canonical and CRLF hashes for 0007, rejecting unknown hashes', () => {
@@ -266,7 +295,7 @@ test('compatibility aliases never permit a modified local 0008 source file', asy
   }
 });
 
-test('production simulation: canonical Linux/Vercel LF source is compatible with synthetic ledger and reports real production missing 0009–0011', async () => {
+test('production simulation: canonical Linux/Vercel LF source is compatible with synthetic ledger and reports real production missing 0009–0012', async () => {
   const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
   const journalPath = fileURLToPath(new URL('../drizzle/meta/_journal.json', import.meta.url));
   const sandbox = await mkdtemp(join(tmpdir(), 'lightweight-schema-vercel-'));
@@ -282,13 +311,13 @@ test('production simulation: canonical Linux/Vercel LF source is compatible with
     }
 
     const expected = readExpectedMigrations(sandbox, journalPath);
-    assert.equal(expected.length, 12);
+    assert.equal(expected.length, 13);
 
     const prodResult = evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0008);
     assert.equal(prodResult.ok, false);
-    assert.deepEqual(prodResult.missing.map((e) => e.tag), ['0009_routine_template_v2', '0010_legacy_routine_template_reconciliation', '0011_legacy_routine_share_template_compatibility']);
+    assert.deepEqual(prodResult.missing.map((e) => e.tag), ['0009_routine_template_v2', '0010_legacy_routine_template_reconciliation', '0011_legacy_routine_share_template_compatibility', '0012_featured_pr_showcase_v1']);
 
-    const syntheticResult = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0011);
+    const syntheticResult = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0012);
     assert.equal(syntheticResult.ok, true, 'Canonical LF source on Vercel must be compatible with synthetic ledger');
   } finally {
     await rm(sandbox, { recursive: true, force: true });
@@ -308,13 +337,13 @@ test('cross-platform checkout: Windows CRLF source passes source integrity and i
     }
 
     const expected = readExpectedMigrations(sandbox, journalPath);
-    assert.equal(expected.length, 12);
+    assert.equal(expected.length, 13);
 
     const prodResult = evaluateSchemaCompatibility(expected, PRODUCTION_LEDGER_0000_TO_0008);
     assert.equal(prodResult.ok, false);
-    assert.deepEqual(prodResult.missing.map((e) => e.tag), ['0009_routine_template_v2', '0010_legacy_routine_template_reconciliation', '0011_legacy_routine_share_template_compatibility']);
+    assert.deepEqual(prodResult.missing.map((e) => e.tag), ['0009_routine_template_v2', '0010_legacy_routine_template_reconciliation', '0011_legacy_routine_share_template_compatibility', '0012_featured_pr_showcase_v1']);
 
-    const syntheticResult = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0011);
+    const syntheticResult = evaluateSchemaCompatibility(expected, SYNTHETIC_LEDGER_0000_TO_0012);
     assert.equal(syntheticResult.ok, true, 'Windows CRLF checkout must be compatible with synthetic ledger');
   } finally {
     await rm(sandbox, { recursive: true, force: true });
@@ -330,7 +359,7 @@ test('local 0009 modification changes expected hash and fails compatibility with
     await writeFile(join(sandbox, '0009_routine_template_v2.sql'), '-- modified 0009 SQL\n');
     const modifiedExpected = readExpectedMigrations(sandbox, journalPath);
     assert.notEqual(modifiedExpected[9].hash, CANONICAL_0009_HASH);
-    const check = evaluateSchemaCompatibility(modifiedExpected, SYNTHETIC_LEDGER_0000_TO_0011);
+    const check = evaluateSchemaCompatibility(modifiedExpected, SYNTHETIC_LEDGER_0000_TO_0012);
     assert.equal(check.ok, false);
     assert.deepEqual(check.hashMismatches.map((e) => e.tag), ['0009_routine_template_v2']);
   } finally {
@@ -347,7 +376,7 @@ test('local 0010 modification changes expected hash and fails compatibility with
     await writeFile(join(sandbox, '0010_legacy_routine_template_reconciliation.sql'), '-- modified 0010 SQL\n');
     const modifiedExpected = readExpectedMigrations(sandbox, journalPath);
     assert.notEqual(modifiedExpected[10].hash, CANONICAL_0010_HASH);
-    const check = evaluateSchemaCompatibility(modifiedExpected, SYNTHETIC_LEDGER_0000_TO_0011);
+    const check = evaluateSchemaCompatibility(modifiedExpected, SYNTHETIC_LEDGER_0000_TO_0012);
     assert.equal(check.ok, false);
     assert.deepEqual(check.hashMismatches.map((e) => e.tag), ['0010_legacy_routine_template_reconciliation']);
   } finally {
@@ -364,9 +393,26 @@ test('local 0011 modification changes expected hash and fails compatibility with
     await writeFile(join(sandbox, '0011_legacy_routine_share_template_compatibility.sql'), '-- modified 0011 SQL\n');
     const modifiedExpected = readExpectedMigrations(sandbox, journalPath);
     assert.notEqual(modifiedExpected[11].hash, CANONICAL_0011_HASH);
-    const check = evaluateSchemaCompatibility(modifiedExpected, SYNTHETIC_LEDGER_0000_TO_0011);
+    const check = evaluateSchemaCompatibility(modifiedExpected, SYNTHETIC_LEDGER_0000_TO_0012);
     assert.equal(check.ok, false);
     assert.deepEqual(check.hashMismatches.map((e) => e.tag), ['0011_legacy_routine_share_template_compatibility']);
+  } finally {
+    await rm(sandbox, { recursive: true, force: true });
+  }
+});
+
+test('local 0012 modification changes expected hash and fails compatibility without an alias', async () => {
+  const migrationsFolder = fileURLToPath(new URL('../drizzle/', import.meta.url));
+  const journalPath = fileURLToPath(new URL('../drizzle/meta/_journal.json', import.meta.url));
+  const sandbox = await mkdtemp(join(tmpdir(), 'lightweight-schema-0012-'));
+  try {
+    await cp(migrationsFolder, sandbox, { recursive: true });
+    await writeFile(join(sandbox, '0012_featured_pr_showcase_v1.sql'), '-- modified 0012 SQL\n');
+    const modifiedExpected = readExpectedMigrations(sandbox, journalPath);
+    assert.notEqual(modifiedExpected[12].hash, CANONICAL_0012_HASH);
+    const check = evaluateSchemaCompatibility(modifiedExpected, SYNTHETIC_LEDGER_0000_TO_0012);
+    assert.equal(check.ok, false);
+    assert.deepEqual(check.hashMismatches.map((entry) => entry.tag), ['0012_featured_pr_showcase_v1']);
   } finally {
     await rm(sandbox, { recursive: true, force: true });
   }

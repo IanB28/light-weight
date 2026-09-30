@@ -13,6 +13,7 @@ import type { SettingsTarget } from './profile-surface-state.js';
 import { ProfileView } from './ProfileView.js';
 import { countAcceptedFriends } from './profile-friends.js';
 import type { NormalizedAvatar } from './avatar-normalization.js';
+import { useFeaturedPrSelections } from './useFeaturedPrSelections.js';
 
 type ProfilePanel = 'summary' | 'friends';
 
@@ -31,6 +32,7 @@ interface ProfileScreenProps {
   avatarUploadAvailable: boolean;
   onClose: () => void;
   onOpenSettings: (target?: SettingsTarget) => void;
+  onSyncBeforeFeaturedPrSave: () => Promise<OperationResult<{ syncedCount: number }>>;
 }
 
 export function ProfileScreen({
@@ -47,6 +49,7 @@ export function ProfileScreen({
   onUploadAvatar,
   avatarUploadAvailable,
   onClose,
+  onSyncBeforeFeaturedPrSave,
   onOpenSettings
 }: ProfileScreenProps) {
   const { t } = useI18n();
@@ -55,6 +58,10 @@ export function ProfileScreen({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const friendsAvailable = authStatus === 'authenticated';
   const title = panel === 'friends' ? t('friends.title') : t('profile.title');
+  const featuredPrs = useFeaturedPrSelections({
+    enabled: authStatus === 'authenticated' && isAuthenticated,
+    syncBeforeSave: onSyncBeforeFeaturedPrSave
+  });
 
   useEffect(() => {
     titleRef.current?.focus({ preventScroll: true });
@@ -115,6 +122,11 @@ export function ProfileScreen({
             onConfigureGender={() => onOpenSettings('gender')}
             onClose={onClose}
             titleRef={titleRef}
+            featuredPrSelections={featuredPrs.selections}
+            featuredPrLoading={featuredPrs.isLoading}
+            featuredPrSaving={featuredPrs.isSaving}
+            onSaveFeaturedPrSelections={featuredPrs.save}
+            featuredPrCustomizationAvailable={authStatus === 'authenticated'}
             summaryAccessory={isAuthenticated ? (
               <div className="flex justify-center">
                 <button

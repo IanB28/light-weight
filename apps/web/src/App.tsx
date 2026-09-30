@@ -190,10 +190,11 @@ export function App() {
           bodyweightEntries={data.bodyweightEntries}
           historicalPersonalRecords={data.historicalPersonalRecords}
           onSave={handleSaveProfile}
-            onUploadAvatar={auth.uploadAvatar}
-            avatarUploadAvailable={auth.status === 'authenticated'}
-            onClose={() => dispatchSurface({ type: 'close_profile' })}
+          onUploadAvatar={auth.uploadAvatar}
+          avatarUploadAvailable={auth.status === 'authenticated'}
+          onClose={() => dispatchSurface({ type: 'close_profile' })}
           onOpenSettings={openSettings}
+          onSyncBeforeFeaturedPrSave={data.sync}
         /> : <>
         {currentTab === 'home' && <HomeView
           userName={data.profile.displayName === 'Atleta' ? data.userInfo.name : data.profile.displayName}

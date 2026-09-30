@@ -6,7 +6,9 @@ import {
   canonicalizeRoutineId,
   isDatabaseUuidLiteral,
   qualifyingPerformanceSets,
+  normalizeFeaturedPrSelections,
   type ExercisePerformanceHead,
+  type FeaturedPrSelection,
   type HistoricalPersonalRecord,
   type LegacyWorkoutSession,
   type Routine,
@@ -30,7 +32,8 @@ export const STORAGE_KEYS = {
   MACHINE_PROFILES: 'lightweight_machine_profiles',
   LAST_USED_MACHINE_PROFILES: 'lightweight_last_used_machine_profiles',
   HISTORICAL_PERSONAL_RECORDS: 'lightweight_historical_personal_records',
-  EXERCISE_PERFORMANCE_HEADS: 'lightweight_exercise_performance_heads'
+  EXERCISE_PERFORMANCE_HEADS: 'lightweight_exercise_performance_heads',
+  FEATURED_PRS: 'lightweight_featured_prs'
 };
 
 const PRIVATE_STORAGE_KEYS = Object.values(STORAGE_KEYS);
@@ -76,6 +79,21 @@ export function switchStoredUserScope(nextUserId: string | null): boolean {
   } catch {
     return false;
   }
+}
+
+export function getStoredFeaturedPrSelections(): FeaturedPrSelection[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.FEATURED_PRS);
+    return raw ? normalizeFeaturedPrSelections(JSON.parse(raw)) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredFeaturedPrSelections(value: unknown): FeaturedPrSelection[] {
+  const normalized = normalizeFeaturedPrSelections(value);
+  try { localStorage.setItem(STORAGE_KEYS.FEATURED_PRS, JSON.stringify(normalized)); } catch {}
+  return normalized;
 }
 
 export type WeekDay =

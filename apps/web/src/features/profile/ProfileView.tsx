@@ -1,14 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Camera, Dumbbell, Pencil, Shield, UserRound, X } from 'lucide-react';
+import { Award, Camera, Dumbbell, ListFilter, Pencil, Shield, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
   calculateWeeklyStreak,
   evaluateRelativeStrength,
   resolveBodyweightKgAtDate,
   resolveExerciseStrengthTarget,
+  resolveExerciseLoadingProfile,
+  resolveBestExactRepPerformance,
+  getAvailableFeaturedRepCounts,
   Exercise,
   WorkoutSession,
   BodyweightEntry,
+  type FeaturedPrSelection,
+  type FeaturedRepPerformance,
   type StrengthRank
 } from '@light-weight/domain';
 import {
@@ -30,6 +35,8 @@ import { AvatarNormalizationError, normalizeAvatarFile, type NormalizedAvatar } 
 import { calculateHistoricalSessionVolume } from '../../lib/historical-volume.js';
 import type { AuthUser, HistoricalPersonalRecord } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
+import { RepBadge } from '../../components/RepBadge.js';
+import { FeaturedPrSheet, type FeaturedPrExerciseOption } from './FeaturedPrSheet.js';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -47,6 +54,11 @@ interface ProfileViewProps {
   avatarUploadAvailable?: boolean;
   onClose?: () => void;
   titleRef?: React.Ref<HTMLHeadingElement>;
+  featuredPrSelections?: FeaturedPrSelection[];
+  featuredPrLoading?: boolean;
+  featuredPrSaving?: boolean;
+  featuredPrCustomizationAvailable?: boolean;
+  onSaveFeaturedPrSelections?: (selections: FeaturedPrSelection[]) => Promise<OperationResult<{ selections: FeaturedPrSelection[] }>>;
 }
 
 type ProfileMode = 'summary' | 'edit';
@@ -65,7 +77,12 @@ export function ProfileView({
   onUploadAvatar,
   avatarUploadAvailable = false,
   onClose,
-  titleRef
+  titleRef,
+  featuredPrSelections = [],
+  featuredPrLoading = false,
+  featuredPrSaving = false,
+  featuredPrCustomizationAvailable = false,
+  onSaveFeaturedPrSelections
 }: ProfileViewProps) {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
@@ -76,6 +93,7 @@ export function ProfileView({
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [featuredPrSheetOpen, setFeaturedPrSheetOpen] = useState(false);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -115,6 +133,62 @@ export function ProfileView({
         })
     };
   }, [bodyweightEntries, bodyweightKg, exercises, history, profile.gender, t, historicalPersonalRecords]);
+
+  const featuredOptions = useMemo<FeaturedPrExerciseOption[]>(() => {
+    const performedIds = new Set<string>();
+    history.forEach((session) => Object.keys(session.sets).forEach((exerciseId) => performedIds.add(exerciseId)));
+    historicalPersonalRecords.forEach((record) => performedIds.add(record.exerciseId));
+    return exercises.flatMap((exercise) => {
+      if (!performedIds.has(exercise.id)) return [];
+      const availableRepCounts = getAvailableFeaturedRepCounts({
+        exerciseId: exercise.id,
+        exercise,
+        history,
+        historicalPersonalRecords,
+        bodyweightEntries
+      });
+      return availableRepCounts.length ? [{ exercise, availableRepCounts }] : [];
+    }).sort((left, right) => left.exercise.name.localeCompare(right.exercise.name, locale));
+  }, [bodyweightEntries, exercises, historicalPersonalRecords, history, locale]);
+
+  const configuredRecords = useMemo(() => featuredPrSelections.map((selection) => {
+    const exercise = exercises.find((item) => item.id === selection.exerciseId) || findExerciseById(selection.exerciseId);
+    const performance = exercise ? resolveBestExactRepPerformance({
+      exerciseId: selection.exerciseId,
+      repCount: selection.repCount,
+      exercise,
+      history,
+      historicalPersonalRecords,
+      bodyweightEntries
+    }) : null;
+    const target = exercise ? resolveExerciseStrengthTarget(exercise) : null;
+    const evaluation = performance && target && performance.bodyweightKg && profile.gender
+      ? evaluateRelativeStrength(target, performance.canonicalOneRmKg, performance.bodyweightKg, profile.gender)
+      : undefined;
+    return {
+      key: `slot-${selection.slot}`,
+      exerciseId: selection.exerciseId,
+      name: resolveExerciseName(selection.exerciseId, exercises, history, t('profile.exerciseUnavailable')),
+      rank: evaluation?.rank ?? null,
+      repCount: selection.repCount,
+      performance,
+      displayLoad: exercise && performance
+        ? formatFeaturedPerformanceLoad(exercise, performance, preferences.units)
+        : t('profile.featuredUnavailable')
+    };
+  }), [bodyweightEntries, exercises, featuredPrSelections, historicalPersonalRecords, history, preferences.units, profile.gender, t]);
+
+  const recordsToRender = featuredPrSelections.length > 0
+    ? configuredRecords
+    : summary.records.map((record) => ({
+        key: record.exerciseId,
+        exerciseId: record.exerciseId,
+        name: record.name,
+        rank: record.rank,
+        repCount: undefined,
+        performance: undefined,
+        displayLoad: formatDisplayWeight(record.est1Rm, preferences.units)
+      }));
 
   const openEdit = () => {
     setDraft(createProfileDraft(profile, displayName));
@@ -297,17 +371,25 @@ export function ProfileView({
       />
 
       <section className="space-y-2" aria-labelledby="profile-records">
-        <h4 id="profile-records" className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-text-primary"><Award aria-hidden="true" className="size-4 text-accent" />{t('profile.records')}</h4>
-        {summary.records.length === 0 ? (
+        <div className="flex min-h-10 items-center justify-between gap-3">
+          <h4 id="profile-records" className="flex min-w-0 items-center gap-2 text-sm font-extrabold tracking-tight text-text-primary"><Award aria-hidden="true" className="size-4 shrink-0 text-accent" />{t('profile.records')}</h4>
+          {featuredPrCustomizationAvailable && onSaveFeaturedPrSelections && (
+            <button type="button" disabled={featuredPrLoading} onClick={() => setFeaturedPrSheetOpen(true)} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-accent outline-none hover:bg-accent-soft focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">
+              <ListFilter aria-hidden="true" className="size-3.5" />
+              {t('profile.featuredCustomize')}
+            </button>
+          )}
+        </div>
+        {recordsToRender.length === 0 ? (
           <EmptyState compact icon={<UserRound className="size-5" />} title={t('profile.noRecords')} />
         ) : (
           <div className="overflow-hidden rounded-ui-xl border border-border-subtle bg-surface">
-            {summary.records.map((record) => {
+            {recordsToRender.map((record) => {
               const exercise = exercises.find((ex) => ex.id === record.exerciseId) || findExerciseById(record.exerciseId);
               const imgUrl = getExerciseImgUrl(exercise);
               return (
                 <div
-                  key={record.exerciseId}
+                  key={record.key}
                   className="flex min-h-14 items-center gap-2.5 border-b border-border-subtle px-3 py-2 last:border-b-0 sm:gap-3"
                 >
                   {/* ZONE 1: THUMBNAIL (Fixed size, left) */}
@@ -337,21 +419,21 @@ export function ProfileView({
                   </span>
 
                   {/* ZONE 3: FIXED RANK BADGE SLOT (Fixed reserved slot before PR weight) */}
-                  <div
-                    data-testid="pr-rank-slot"
-                    className="flex w-7 shrink-0 items-center justify-center"
-                  >
-                    {record.rank ? (
-                      <StrengthRankBadge rank={record.rank} size="xs" showGlow={false} />
-                    ) : (
-                      <span
-                        data-testid="pr-rank-placeholder"
-                        aria-hidden="true"
-                        className="flex size-5 items-center justify-center rounded-full text-text-muted/40"
-                      >
-                        <Shield className="size-3.5" />
-                      </span>
-                    )}
+                  <div data-testid="pr-badge-slot" className="flex shrink-0 items-center gap-1">
+                    <div data-testid="pr-rank-slot" className="flex w-7 shrink-0 items-center justify-center">
+                      {record.rank ? (
+                        <StrengthRankBadge rank={record.rank} size="xs" showGlow={false} />
+                      ) : (
+                        <span
+                          data-testid="pr-rank-placeholder"
+                          aria-hidden="true"
+                          className="flex size-5 items-center justify-center rounded-full text-text-muted/40"
+                        >
+                          <Shield className="size-3.5" />
+                        </span>
+                      )}
+                    </div>
+                    {record.repCount !== undefined && <RepBadge repCount={record.repCount} />}
                   </div>
 
                   {/* ZONE 4: FIXED/STABLE PR WEIGHT SLOT (Right-aligned, tabular-nums) */}
@@ -359,7 +441,7 @@ export function ProfileView({
                     data-testid="pr-weight-slot"
                     className="w-20 shrink-0 text-right text-xs font-bold tabular-nums text-accent sm:w-24 sm:text-sm"
                   >
-                    {formatDisplayWeight(record.est1Rm, preferences.units)}
+                    {record.displayLoad}
                   </div>
                 </div>
               );
@@ -367,10 +449,34 @@ export function ProfileView({
           </div>
         )}
       </section>
+
+      {onSaveFeaturedPrSelections && (
+        <FeaturedPrSheet
+          open={featuredPrSheetOpen}
+          selections={featuredPrSelections}
+          exercises={featuredOptions}
+          saving={featuredPrSaving}
+          onClose={() => setFeaturedPrSheetOpen(false)}
+          onSave={async (selections) => (await onSaveFeaturedPrSelections(selections)).ok}
+        />
+      )}
     </div>
   );
 }
 
 export function createProfileDraft(profile: UserProfile, displayName: string): UserProfile {
   return { ...profile, displayName };
+}
+
+export function formatFeaturedPerformanceLoad(
+  exercise: Exercise,
+  performance: FeaturedRepPerformance,
+  units: 'metric' | 'imperial'
+): string {
+  const profile = resolveExerciseLoadingProfile(exercise).profile;
+  if (typeof profile.bodyweightFactor === 'number' && performance.set.weightKg === 0) return 'BW';
+  const formatted = formatDisplayWeight(Math.abs(performance.set.weightKg), units);
+  if (profile.loadMode === 'assisted') return `-${formatted}`;
+  if (profile.loadMode === 'added_weight') return `+${formatted}`;
+  return formatted;
 }

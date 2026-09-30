@@ -9,6 +9,7 @@ import { authRouter } from './routes/auth.js';
 import type { Router } from 'express';
 import { friendsRouter } from './routes/friends.js';
 import { routineSharesRouter } from './routes/routine-shares.js';
+import { profileRouter } from './routes/profile.js';
 import { apiErrorHandler, asyncRoute, notFoundHandler } from './lib/api-error.js';
 import { configuredOrigins, requireTrustedOrigin } from './lib/request-security.js';
 import { verifySchemaCompatibility } from './lib/schema-compatibility.js';
@@ -75,6 +76,7 @@ export function createApp(dependencies: AppDependencies = {}): Express {
   app.use('/api/friends', friendsRouter);
   app.use('/api/routine-shares', routineSharesRouter);
   app.use('/api/exercises', exerciseRouter);
+  app.use('/api/profile', profileRouter);
   app.use('/api/sync', syncRouter);
   app.get('/api/demo/onerm', (req, res) => {
     const weight = Number(req.query.weight) || 100;

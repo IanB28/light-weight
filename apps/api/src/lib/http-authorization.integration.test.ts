@@ -63,6 +63,12 @@ test('HTTP sync transaction rolls back mutations and preserves one PR row per ex
         Object.defineProperty(tx, 'begin', { value: async (callback: (client: typeof tx) => Promise<unknown>) => tx.savepoint(callback) });
         await tx.unsafe(migrationSql);
         await tx.unsafe(hprMigrationSql);
+        // The disposable database may already be migrated through 0008. Reset
+        // only the 0008 artifact inside this rolled-back transaction before
+        // replaying the real migration source.
+        await tx.unsafe(
+          'ALTER TABLE historical_personal_records DROP CONSTRAINT IF EXISTS hpr_reps_range_check'
+        );
         await tx.unsafe(hprRepsMigrationSql);
         await tx.unsafe(routineTemplateMigrationSql);
         const transactionalDb = drizzle(tx as never, { schema });
