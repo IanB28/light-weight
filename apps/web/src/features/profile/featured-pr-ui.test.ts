@@ -53,6 +53,12 @@ test('RepBadge derives a silhouette mask from canonical rank visuals without a r
   assert.match(unranked, new RegExp(`src="${REP_BADGE_ASSET_PATH}"`));
 });
 
+test('RepBadge keeps its shaped aura materially quieter than the canonical rank signal', () => {
+  const html = renderToStaticMarkup(React.createElement(RepBadge, { repCount: 8, rank: 'inmortal' }));
+  assert.match(html, /data-testid="rep-badge-aura-outer" class="pointer-events-none absolute -inset-px blur-\[2px\]" style="opacity:0.063"/);
+  assert.match(html, /data-testid="rep-badge-aura-inner" class="pointer-events-none absolute inset-0 blur-\[1px\]" style="opacity:0.231"/);
+});
+
 test('ProfilePrRow passes one rank authority to both shaped badge auras', () => {
   const html = renderToStaticMarkup(React.createElement(ProfilePrRow, {
     exercise,
@@ -65,6 +71,23 @@ test('ProfilePrRow passes one rank authority to both shaped badge auras', () => 
   assert.match(html, /data-testid="rep-badge-aura"/);
   assert.match(html, /alt="Inmortal"/);
   assert.match(html, /aria-label="8 repeticiones"/);
+});
+
+test('ProfilePrRow makes the rank badge larger than the repetition medal and calms selected rows', () => {
+  const html = renderToStaticMarkup(React.createElement(ProfilePrRow, {
+    exercise,
+    name: exercise.name,
+    rank: 'inmortal',
+    repCount: 8,
+    displayLoad: '170 kg',
+    selected: true,
+    onSelect: () => undefined
+  }));
+  assert.match(html, /w-6 h-6/);
+  assert.match(html, /relative inline-flex shrink-0 select-none items-center justify-center overflow-visible size-5/);
+  assert.match(html, /filter:brightness\(0\.9\) saturate\(0\.9\)/);
+  assert.match(html, /border-border-active bg-surface-active/);
+  assert.doesNotMatch(html, /border-accent bg-accent-soft/);
 });
 
 test('featured PR draft persists a real load variant and supports at most three slots', () => {

@@ -15,22 +15,30 @@ interface RepBadgeProps {
 }
 
 const badgeSizes = {
-  xs: 'size-7',
-  sm: 'size-8'
+  xs: 'size-5',
+  sm: 'size-6'
 } as const;
 
 const numberSizes = {
   xs: {
+    single: 'text-[9px]',
+    double: 'text-[8px]',
+    triple: 'text-[6px]'
+  },
+  sm: {
     single: 'text-[11px]',
     double: 'text-[9px]',
     triple: 'text-[7px]'
-  },
-  sm: {
-    single: 'text-[13px]',
-    double: 'text-[11px]',
-    triple: 'text-[9px]'
   }
 } as const;
+
+function resolveRepBadgeAuraOpacity(glowOpacity: number) {
+  const baseOpacity = Math.max(0, Math.min(1, glowOpacity)) * 0.35;
+  return {
+    inner: Math.round(Math.min(1, baseOpacity * 1.1) * 1000) / 1000,
+    outer: Math.round(Math.min(1, baseOpacity * 0.3) * 1000) / 1000
+  };
+}
 
 function getNumberSize(size: 'xs' | 'sm', repCount: number) {
   const digits = String(repCount).length;
@@ -52,8 +60,8 @@ export function RepBadge({
 
   const label = t('profile.repBadgeLabel', { count: repCount });
   const visual = rank ? getStrengthRankVisual(rank) : null;
-  const baseOpacity = (visual?.glowOpacity ?? 0) * 0.7;
-  const showRankAura = showGlow && Boolean(visual) && baseOpacity > 0 && !imgError;
+  const auraOpacity = resolveRepBadgeAuraOpacity(visual?.glowOpacity ?? 0);
+  const showRankAura = showGlow && Boolean(visual) && auraOpacity.inner > 0 && !imgError;
   const auraColor = visual ? (visual.glow || visual.accent) : undefined;
   const maskStyle = {
     backgroundColor: auraColor,
@@ -86,15 +94,15 @@ export function RepBadge({
         >
           <span
             data-testid="rep-badge-aura-outer"
-            className="pointer-events-none absolute -inset-1 blur-[3.5px]"
-            style={{ opacity: Math.min(1, baseOpacity * 0.55) }}
+            className="pointer-events-none absolute -inset-px blur-[2px]"
+            style={{ opacity: auraOpacity.outer }}
           >
             <span className="block size-full" style={maskStyle} />
           </span>
           <span
             data-testid="rep-badge-aura-inner"
-            className="pointer-events-none absolute -inset-0.5 blur-[1.5px]"
-            style={{ opacity: Math.min(1, baseOpacity * 1.15) }}
+            className="pointer-events-none absolute inset-0 blur-[1px]"
+            style={{ opacity: auraOpacity.inner }}
           >
             <span className="block size-full" style={maskStyle} />
           </span>
@@ -110,6 +118,7 @@ export function RepBadge({
           draggable={false}
           onError={() => setImgError(true)}
           className="relative size-full object-contain"
+          style={{ filter: 'brightness(0.9) saturate(0.9)' }}
         />
       ) : (
         <span

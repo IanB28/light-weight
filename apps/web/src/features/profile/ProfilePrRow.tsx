@@ -40,10 +40,10 @@ export function ProfilePrRow({
           : <Dumbbell className="size-4.5 stroke-[1.8]" />}
       </span>
       <span data-testid="pr-exercise-name" className="min-w-0 flex-1 truncate text-xs font-bold text-text-primary sm:text-sm">{name}</span>
-      <span data-testid="pr-badge-slot" className="flex shrink-0 items-center gap-1.5 overflow-visible">
+      <span data-testid="pr-badge-slot" className="flex shrink-0 items-center gap-1 overflow-visible">
         <span data-testid="pr-rank-slot" className="flex w-7 shrink-0 items-center justify-center">
           {rank
-            ? <StrengthRankBadge rank={rank} size="xs" showGlow />
+            ? <StrengthRankBadge rank={rank} size="sm" showGlow />
             : <span data-testid="pr-rank-placeholder" aria-hidden="true" className="flex size-5 items-center justify-center rounded-full text-text-muted/40"><Shield className="size-3.5" /></span>}
         </span>
         {repCount !== undefined && <RepBadge repCount={repCount} rank={rank} showGlow />}
@@ -55,7 +55,7 @@ export function ProfilePrRow({
   const classes = cn(
     'flex min-h-14 w-full items-center gap-2.5 px-3 py-2 text-left sm:gap-3',
     onSelect && 'rounded-ui-lg border border-border-subtle bg-surface outline-none transition-colors hover:bg-surface-active focus-visible:ring-2 focus-visible:ring-accent',
-    selected && 'border-accent bg-accent-soft',
+    selected && 'border-border-active bg-surface-active',
     disabled && 'cursor-not-allowed opacity-45',
     className
   );
