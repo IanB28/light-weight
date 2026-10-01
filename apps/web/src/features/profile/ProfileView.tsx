@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Camera, ListFilter, Pencil, UserRound, X } from 'lucide-react';
+import { Camera, ListFilter, Pencil, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
   calculateWeeklyStreak,
@@ -36,6 +36,8 @@ import type { OperationResult } from '../../lib/api-errors.js';
 import { FeaturedPrSheet, type FeaturedPrExerciseOption } from './FeaturedPrSheet.js';
 import { formatFeaturedVariantLoad } from './featured-pr-presentation.js';
 import { ProfilePrRow } from './ProfilePrRow.js';
+import { MaskedPngIcon } from '../../components/ui/MaskedPngIcon.js';
+import { SEMANTIC_ICON_ASSETS } from '../../components/ui/icon-assets.js';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -372,7 +374,7 @@ export function ProfileView({
 
       <section className="space-y-2" aria-labelledby="profile-records">
         <div className="flex min-h-10 items-center justify-between gap-3">
-          <h4 id="profile-records" className="flex min-w-0 items-center gap-2 text-sm font-extrabold tracking-tight text-text-primary"><Award aria-hidden="true" className="size-4 shrink-0 text-accent" />{t('profile.records')}</h4>
+          <h4 id="profile-records" className="flex min-w-0 items-center gap-2 text-sm font-extrabold tracking-tight text-text-primary"><MaskedPngIcon {...SEMANTIC_ICON_ASSETS.personalRecord} className="size-4 text-accent" />{t('profile.records')}</h4>
           {featuredPrCustomizationAvailable && onSaveFeaturedPrSelections && (
             <button type="button" disabled={featuredPrLoading} onClick={() => setFeaturedPrSheetOpen(true)} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-accent outline-none hover:bg-accent-soft focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">
               <ListFilter aria-hidden="true" className="size-3.5" />

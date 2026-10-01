@@ -74,6 +74,8 @@
   --nav-bg-solid: #0a0f1c;
   --nav-border: rgba(255, 255, 255, 0.12);
   --nav-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.75);
+  --nav-active-bg: color-mix(in srgb, var(--surface-active) 82%, var(--accent-color) 18%);
+  --nav-active-border: color-mix(in srgb, var(--border-active) 72%, var(--accent-color) 28%);
   --inert-body-fill: rgba(255, 255, 255, 0.12);
   --inert-body-stroke: rgba(255, 255, 255, 0.22);
   --untrained-muscle-fill: rgba(255, 255, 255, 0.07);
@@ -170,6 +172,23 @@ button, [role="button"] { touch-action: manipulation; }
   -webkit-backdrop-filter: blur(16px) saturate(145%);
   backdrop-filter: blur(16px) saturate(145%);
 }
+.bottom-nav-item {
+  flex: 1 1 0%;
+  border-color: transparent;
+  background: transparent;
+  transition:
+    flex-grow 280ms var(--ease-spring),
+    color 220ms var(--ease-in-out),
+    background-color 220ms var(--ease-in-out),
+    border-color 220ms var(--ease-in-out),
+    transform 150ms var(--ease-out);
+}
+.bottom-nav-item[data-active="true"] {
+  flex-grow: 1.55;
+  border-color: var(--nav-active-border);
+  background: var(--nav-active-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 16%, transparent);
+}
 .bottom-nav-surface::before {
   content: '';
   position: absolute;
@@ -198,6 +217,10 @@ button, [role="button"] { touch-action: manipulation; }
   .bottom-nav-surface {
     background: var(--nav-bg-solid);
     border-color: var(--text-secondary);
+  }
+  .bottom-nav-item[data-active="true"] {
+    border-color: currentColor;
+    background: var(--surface-active);
   }
 }
 

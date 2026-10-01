@@ -36,6 +36,8 @@ import { type UserProfile, type BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from '../components/charts/LineChart.js';
 import { ActivityHeatmap } from '../components/charts/ActivityHeatmap.js';
 import { BodyweightModal } from '../components/BodyweightModal.js';
+import { MaskedPngIcon } from '../components/ui/MaskedPngIcon.js';
+import { SEMANTIC_ICON_ASSETS } from '../components/ui/icon-assets.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
 import { TonnageEquivalenceModal } from '../components/TonnageEquivalenceModal.js';
 import { ViewHeader } from '../components/ViewHeader.js';
@@ -1155,7 +1157,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
-              <Scale className="w-5 h-5" />
+              <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
@@ -1196,7 +1198,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             </div>
 
             {bodyweightEntries.length === 0 ? (
-              <EmptyState title={t('weight.empty')} description={t('weight.emptyDescription')} icon={<Scale className="size-5" />} actionLabel={t('weight.log')} onAction={() => setIsBwModalOpen(true)} />
+              <EmptyState title={t('weight.empty')} description={t('weight.emptyDescription')} icon={<MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5" />} actionLabel={t('weight.log')} onAction={() => setIsBwModalOpen(true)} />
             ) : (<>
             {/* Metric Banner */}
             <div className="grid grid-cols-3 gap-2 p-3 glass-subcard rounded-2xl text-center">

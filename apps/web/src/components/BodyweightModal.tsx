@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Scale, Target, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { BottomSheet, Button } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 import { WeightWidget, getBodyweightBounds } from './WeightWidget.js';
+import { MaskedPngIcon } from './ui/MaskedPngIcon.js';
+import { SEMANTIC_ICON_ASSETS } from './ui/icon-assets.js';
 
 export interface BodyweightModalProps {
   isOpen: boolean;
@@ -127,7 +129,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <Scale className="w-3.5 h-3.5" />
+            <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-3.5" />
             {t('weight.logMode')}
           </button>
           <button
@@ -139,7 +141,7 @@ export const BodyweightModal: React.FC<BodyweightModalProps> = ({
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <Target className="w-3.5 h-3.5" />
+            <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5" />
             {t('weight.goalMode')}
           </button>
         </div>

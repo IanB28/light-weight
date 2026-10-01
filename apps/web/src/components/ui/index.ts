@@ -11,4 +11,6 @@ export * from './RirEducationModal.js';
 export * from './SectionHeader.js';
 export * from './PasswordField.js';
 export * from './MachineProfileModal.js';
+export * from './MaskedPngIcon.js';
+export * from './icon-assets.js';
 export * from '../brand/AppLogo.js';

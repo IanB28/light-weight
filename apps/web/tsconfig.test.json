@@ -124,6 +124,8 @@
     "src/components/WeightWidget.tsx",
     "src/components/BodyweightModal.tsx",
     "src/components/WeightWidget.test.ts",
+    "src/components/BottomNav.tsx",
+    "src/components/navigation-v2.test.ts",
     "src/components/DayDetailModal.tsx",
     "src/components/HistoricalWorkoutModal.tsx",
     "src/features/workouts/historical-workout-v2.test.ts",

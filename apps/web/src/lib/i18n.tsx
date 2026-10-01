@@ -7,8 +7,8 @@ const ES = {
   'nav.label': 'Navegación principal',
   'nav.home': 'Inicio',
   'nav.plan': 'Plan',
-  'nav.workout': 'Empezar',
-  'nav.workoutActive': 'Empezar: continuar entrenamiento activo',
+  'nav.workout': 'Entrenar',
+  'nav.workoutActive': 'Entrenar: continuar entrenamiento activo',
   'nav.stats': 'Progreso',
   'nav.exercises': 'Ejercicios',
   'nav.sessionActive': 'Sesión en curso',
@@ -540,8 +540,8 @@ const ES = {
 type TranslationKey = keyof typeof ES;
 
 const EN: Record<TranslationKey, string> = {
-  'nav.label': 'Main navigation', 'nav.home': 'Home', 'nav.plan': 'Plan', 'nav.workout': 'Start',
-  'nav.workoutActive': 'Start: continue active workout', 'nav.stats': 'Progress', 'nav.exercises': 'Exercises',
+  'nav.label': 'Main navigation', 'nav.home': 'Home', 'nav.plan': 'Plan', 'nav.workout': 'Train',
+  'nav.workoutActive': 'Train: continue active workout', 'nav.stats': 'Progress', 'nav.exercises': 'Exercises',
   'nav.sessionActive': 'Session in progress', 'common.back': 'Settings', 'common.close': 'Close',
   'common.cancel': 'Cancel', 'common.save': 'Save', 'common.saved': 'Saved', 'common.loading': 'Loading…',
   'common.retry': 'Retry', 'common.clear': 'Clear', 'common.selected': 'Selected',

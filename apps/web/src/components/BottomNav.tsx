@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart2, Calendar, Dumbbell, Home, List } from 'lucide-react';
 import { useI18n } from '../lib/i18n.js';
+import { MaskedPngIcon } from './ui/MaskedPngIcon.js';
+import { NAVIGATION_ICON_ASSETS } from './ui/icon-assets.js';
 
 export type TabType = 'home' | 'plan' | 'workout' | 'stats' | 'exercises';
 
@@ -12,6 +13,75 @@ interface BottomNavProps {
 
 const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable="true"]';
 
+interface BottomNavItemProps {
+  tab: {
+    id: TabType;
+    label: string;
+    icon: { src: string; opticalScale: number };
+  };
+  isActive: boolean;
+  isWorkoutActive: boolean;
+  mobileKeyboardOpen: boolean;
+  workoutActiveLabel: string;
+  sessionActiveLabel: string;
+  onSelectTab: (tab: TabType) => void;
+}
+
+export const BottomNavItem: React.FC<BottomNavItemProps> = ({
+  tab,
+  isActive,
+  isWorkoutActive,
+  mobileKeyboardOpen,
+  workoutActiveLabel,
+  sessionActiveLabel,
+  onSelectTab
+}) => {
+  const isActiveWorkout = tab.id === 'workout' && isWorkoutActive;
+  const accessibleLabel = isActiveWorkout ? workoutActiveLabel : tab.label;
+
+  return (
+    <button
+      type="button"
+      aria-current={isActive ? 'page' : undefined}
+      aria-label={accessibleLabel}
+      tabIndex={mobileKeyboardOpen ? -1 : undefined}
+      title={accessibleLabel}
+      onClick={() => onSelectTab(tab.id)}
+      data-active={isActive}
+      data-workout-running={isActiveWorkout || undefined}
+      className={`bottom-nav-item group relative z-10 flex min-h-11 min-w-0 select-none flex-col items-center justify-center gap-1 rounded-[20px] border px-0.5 outline-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${
+        isActive ? 'text-accent' : 'text-text-muted'
+      }`}
+    >
+      <span className="relative flex h-6 items-center justify-center">
+        <MaskedPngIcon
+          src={tab.icon.src}
+          opticalScale={tab.icon.opticalScale}
+          className={`size-[1.375rem] transition-[transform,color] duration-300 ease-[var(--ease-spring)] motion-reduce:transition-none ${
+            isActive ? '-translate-y-px scale-[1.08]' : 'scale-100'
+          }`}
+        />
+        {isActiveWorkout && (
+          <span
+            aria-hidden="true"
+            data-testid="workout-running-indicator"
+            className="absolute -right-1.5 -top-0.5 size-2 rounded-full border border-[var(--nav-bg-solid)] bg-accent shadow-[0_0_5px_var(--accent-glow)]"
+          />
+        )}
+      </span>
+
+      <span
+        className={`max-w-full truncate text-[10px] leading-none tracking-[-0.01em] transition-colors duration-200 min-[360px]:text-[11px] ${
+          isActive ? 'font-bold text-text-primary' : 'font-medium text-text-muted'
+        }`}
+      >
+        {tab.label}
+      </span>
+      {isActiveWorkout && <span className="sr-only">{sessionActiveLabel}</span>}
+    </button>
+  );
+};
+
 export const BottomNav: React.FC<BottomNavProps> = ({
   currentTab,
   onSelectTab,
@@ -19,13 +89,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 }) => {
   const { t } = useI18n();
   const tabs = [
-    { id: 'home', label: t('nav.home'), icon: Home },
-    { id: 'plan', label: t('nav.plan'), icon: Calendar },
-    { id: 'workout', label: t('nav.workout'), icon: Dumbbell },
-    { id: 'stats', label: t('nav.stats'), icon: BarChart2 },
-    { id: 'exercises', label: t('nav.exercises'), icon: List },
-  ] satisfies { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[];
-  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === currentTab));
+    { id: 'home', label: t('nav.home'), icon: NAVIGATION_ICON_ASSETS.home },
+    { id: 'plan', label: t('nav.plan'), icon: NAVIGATION_ICON_ASSETS.plan },
+    { id: 'workout', label: t('nav.workout'), icon: NAVIGATION_ICON_ASSETS.workout },
+    { id: 'stats', label: t('nav.stats'), icon: NAVIGATION_ICON_ASSETS.stats },
+    { id: 'exercises', label: t('nav.exercises'), icon: NAVIGATION_ICON_ASSETS.exercises },
+  ] satisfies { id: TabType; label: string; icon: { src: string; opticalScale: number } }[];
   const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -59,64 +128,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           mobileKeyboardOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
       >
-        <div className="relative flex h-full w-full items-stretch">
-          <div
-            aria-hidden="true"
-            className="absolute inset-y-0.5 left-0 w-1/5 rounded-[20px] border border-accent/25 bg-accent/12 shadow-[inset_0_1px_0_color-mix(in_srgb,white_20%,transparent),0_8px_22px_-12px_var(--accent-glow)] transition-transform duration-200 ease-[var(--ease-in-out)] motion-reduce:transition-none"
-            style={{ transform: `translate3d(${activeIndex * 100}%, 0, 0)` }}
-          />
-
-          {tabs.map((tab, index) => {
-            const Icon = tab.icon;
-            const isActive = index === activeIndex;
-            const isActiveWorkout = tab.id === 'workout' && isWorkoutActive;
-            const accessibleLabel = isActiveWorkout
-              ? t('nav.workoutActive')
-              : tab.label;
-
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                aria-current={isActive ? 'page' : undefined}
-                aria-label={accessibleLabel}
-                tabIndex={mobileKeyboardOpen ? -1 : undefined}
-                title={accessibleLabel}
-                onClick={() => onSelectTab(tab.id)}
-                className={`group relative z-10 flex min-h-11 min-w-0 flex-1 select-none flex-col items-center justify-center gap-1 rounded-[20px] px-0.5 outline-none transition-transform duration-150 ease-[var(--ease-out)] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${
-                  isActive ? 'text-accent' : 'text-text-muted'
-                }`}
-              >
-                <span className="relative flex h-6 items-center justify-center">
-                  <Icon
-                    className={`size-5 transition-[transform,color] duration-200 ease-[var(--ease-in-out)] motion-reduce:transition-none ${
-                      isActive
-                        ? '-translate-y-0.5 stroke-[2.5] drop-shadow-[0_0_8px_var(--accent-glow)]'
-                        : 'stroke-[2]'
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {isActiveWorkout && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute -right-2 -top-0.5 size-2 rounded-full border border-[var(--nav-bg-solid)] bg-accent shadow-[0_0_7px_var(--accent-glow)]"
-                    />
-                  )}
-                </span>
-
-                <span
-                  className={`max-w-full truncate text-[11px] leading-none tracking-[-0.01em] transition-colors duration-150 ${
-                    isActive
-                      ? 'font-bold text-text-primary'
-                      : 'font-medium text-text-muted'
-                  }`}
-                >
-                  {tab.label}
-                </span>
-                {isActiveWorkout && <span className="sr-only">{t('nav.sessionActive')}</span>}
-              </button>
-            );
-          })}
+        <div className="relative flex h-full w-full items-stretch gap-0.5">
+          {tabs.map((tab) => (
+            <BottomNavItem
+              key={tab.id}
+              tab={tab}
+              isActive={tab.id === currentTab}
+              isWorkoutActive={isWorkoutActive}
+              mobileKeyboardOpen={mobileKeyboardOpen}
+              workoutActiveLabel={t('nav.workoutActive')}
+              sessionActiveLabel={t('nav.sessionActive')}
+              onSelectTab={onSelectTab}
+            />
+          ))}
         </div>
       </nav>
     </div>

@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { Plus, Scale, Target } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from './charts/LineChart.js';
 import { EmptyState } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
+import { MaskedPngIcon } from './ui/MaskedPngIcon.js';
+import { SEMANTIC_ICON_ASSETS } from './ui/icon-assets.js';
 
 interface WeightTrackerCardProps {
   entries: BodyweightEntry[];
@@ -78,7 +80,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
               className="glass-btn-secondary flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-accent cursor-pointer rounded-full"
               title={t('weight.changeGoal')}
             >
-              <Target className="w-3.5 h-3.5 text-accent" />
+              <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5 text-accent" />
               <span>{displayWeight(targetWeight, units)} {unit}</span>
             </button>
           )}
@@ -96,7 +98,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
       </div>
 
       {!latestEntry ? (
-        <EmptyState compact icon={<Scale className="size-5" />} title={t('weight.empty')} description={t('weight.emptyDescription')} />
+        <EmptyState compact icon={<MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5" />} title={t('weight.empty')} description={t('weight.emptyDescription')} />
       ) : (<>
       {/* Main Stat: 78,7 kg  +  Date on the right */}
       <div className="flex items-baseline justify-between pt-0.5">
@@ -118,7 +120,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
           onClick={onOpenGoalModal}
           className="flex items-center gap-1.5 text-xs text-accent font-medium cursor-pointer hover:underline pt-0.5"
         >
-          <Target className="w-3.5 h-3.5 text-accent shrink-0" />
+          <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5 text-accent" />
           <span>
             {t('weight.goal')} {displayWeight(targetWeight, units)} {unit} · {diffToGoal} {unit} {isLosingGoal ? t('weight.toLose') : t('weight.toGain')}
           </span>
@@ -128,7 +130,7 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
           onClick={onOpenGoalModal}
           className="flex items-center gap-1.5 text-xs text-text-muted font-medium cursor-pointer hover:text-text-primary pt-0.5"
         >
-          <Target className="w-3.5 h-3.5 text-text-muted shrink-0" />
+          <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5 text-text-muted" />
           <span>{t('weight.setGoal')}</span>
         </div>
       )}

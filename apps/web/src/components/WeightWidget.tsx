@@ -8,8 +8,9 @@ import {
   type PanInfo,
   type MotionValue
 } from 'motion/react';
-import { Scale, Target } from 'lucide-react';
 import { displayWeight } from '../lib/weight-units.js';
+import { MaskedPngIcon } from './ui/MaskedPngIcon.js';
+import { SEMANTIC_ICON_ASSETS } from './ui/icon-assets.js';
 
 export const GESTURE_PIXELS_PER_UNIT = 80;
 export const REFERENCE_DIAL_WIDTH = 322;
@@ -482,9 +483,9 @@ export const WeightWidget: React.FC<WeightWidgetProps> = ({
       {/* Scale Faceplate Header Label */}
       <div className="flex items-center gap-1.5 pb-1">
         {icon === 'target' ? (
-          <Target className="size-3.5 text-accent stroke-[2.5]" />
+          <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5 text-accent" />
         ) : (
-          <Scale className="size-3.5 text-accent stroke-[2.5]" />
+          <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-3.5 text-accent" />
         )}
         <span className="font-sans text-xs font-bold uppercase tracking-wider text-text-muted">
           {label}
