@@ -22,7 +22,7 @@ function renderFriends(items: FriendshipSummary[], results: UserSearchResult[] =
   return ReactDOMServer.renderToStaticMarkup(React.createElement(FriendsContent, {
     items, results, loading, busyId: null,
     error: null,
-    onAdd: () => {}, onAccept: () => {}, onRemove: () => {}
+    onOpenProfile: () => {}, onAdd: () => {}, onAccept: () => {}, onRemove: () => {}
   }));
 }
 

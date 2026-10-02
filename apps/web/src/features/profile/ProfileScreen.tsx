@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, UsersRound, X } from 'lucide-react';
-import type { BodyweightEntry, Exercise, HistoricalPersonalRecord, WorkoutSession } from '@light-weight/domain';
+import type { BodyweightEntry, Exercise, HistoricalPersonalRecord, PublicUserSummary, WorkoutSession } from '@light-weight/domain';
 import type { AuthStatus } from '../../lib/auth-session-state.js';
 import type { AuthUser } from '@light-weight/domain';
 import type { OperationResult } from '../../lib/api-errors.js';
@@ -14,8 +14,12 @@ import { ProfileView } from './ProfileView.js';
 import { countAcceptedFriends } from './profile-friends.js';
 import type { NormalizedAvatar } from './avatar-normalization.js';
 import { useFeaturedPrSelections } from './useFeaturedPrSelections.js';
+import { FriendProfileView } from './FriendProfileView.js';
 
-type ProfilePanel = 'summary' | 'friends';
+type ProfilePanel =
+  | { type: 'summary' }
+  | { type: 'friends' }
+  | { type: 'friend-profile'; friend: PublicUserSummary };
 
 interface ProfileScreenProps {
   profile: UserProfile;
@@ -53,11 +57,11 @@ export function ProfileScreen({
   onOpenSettings
 }: ProfileScreenProps) {
   const { t } = useI18n();
-  const [panel, setPanel] = useState<ProfilePanel>('summary');
+  const [panel, setPanel] = useState<ProfilePanel>({ type: 'summary' });
   const [friendCount, setFriendCount] = useState<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const friendsAvailable = authStatus === 'authenticated';
-  const title = panel === 'friends' ? t('friends.title') : t('profile.title');
+  const title = panel.type === 'friends' ? t('friends.title') : t('profile.title');
   const featuredPrs = useFeaturedPrSelections({
     enabled: authStatus === 'authenticated' && isAuthenticated,
     syncBeforeSave: onSyncBeforeFeaturedPrSave
@@ -65,10 +69,10 @@ export function ProfileScreen({
 
   useEffect(() => {
     titleRef.current?.focus({ preventScroll: true });
-  }, [panel]);
+  }, [panel.type]);
 
   useEffect(() => {
-    if (!isAuthenticated || !friendsAvailable || panel !== 'summary') return;
+    if (!isAuthenticated || !friendsAvailable || panel.type !== 'summary') return;
     let disposed = false;
     void friendsApi.list().then(({ friendships }) => {
       if (!disposed) setFriendCount(countAcceptedFriends(friendships));
@@ -76,18 +80,24 @@ export function ProfileScreen({
       if (!disposed) setFriendCount(null);
     });
     return () => { disposed = true; };
-  }, [friendsAvailable, isAuthenticated, panel]);
+  }, [friendsAvailable, isAuthenticated, panel.type]);
 
   return (
     <section className="min-w-0 pb-2" aria-labelledby="profile-screen-title">
-      {panel === 'friends' ? (
+      {panel.type === 'friend-profile' ? (
+        <FriendProfileView
+          friend={panel.friend}
+          onBack={() => setPanel({ type: 'friends' })}
+          titleRef={titleRef}
+        />
+      ) : panel.type === 'friends' ? (
         <div className="space-y-5">
           <header className="flex min-h-12 items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <IconButton
                 variant="ghost"
                 aria-label={t('profile.backToProfile')}
-                onClick={() => setPanel('summary')}
+                onClick={() => setPanel({ type: 'summary' })}
                 className="-ml-1"
               >
                 <X aria-hidden="true" className="size-5" />
@@ -97,7 +107,7 @@ export function ProfileScreen({
           </header>
 
           {friendsAvailable
-            ? <FriendsPanel />
+            ? <FriendsPanel onOpenProfile={(item) => setPanel({ type: 'friend-profile', friend: item.user })} />
             : <p role="status" className="rounded-ui-xl border border-border-subtle bg-surface-input p-4 text-sm text-text-secondary">{t('profile.friendsOffline')}</p>}
         </div>
       ) : (
@@ -135,7 +145,7 @@ export function ProfileScreen({
                 <button
                   type="button"
                   disabled={!friendsAvailable}
-                  onClick={() => setPanel('friends')}
+                  onClick={() => setPanel({ type: 'friends' })}
                   className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border-subtle bg-surface-input px-3.5 py-2 text-sm font-bold tracking-tight text-text-primary transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <UsersRound aria-hidden="true" className="size-4 shrink-0 text-accent" />

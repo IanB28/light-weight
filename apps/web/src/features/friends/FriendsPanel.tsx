@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Search, UserMinus, UserPlus, UsersRound, X } from 'lucide-react';
+import { Check, ChevronRight, Search, UserMinus, UserPlus, UsersRound, X } from 'lucide-react';
 import type { FriendshipSummary } from '@light-weight/domain';
 import { friendsApi, type UserSearchResult } from '../../lib/social-api.js';
 import { mapApiError } from '../../lib/api-errors.js';
@@ -16,13 +16,14 @@ interface FriendsContentProps {
   error: TranslationKey | null;
   loading: boolean;
   busyId: string | null;
+  onOpenProfile: (item: FriendshipSummary) => void;
   onAdd: (user: UserSearchResult) => void;
   onAccept: (item: FriendshipSummary) => void;
   onRemove: (item: FriendshipSummary) => void;
 }
 
 /** Presentational ordering shared by populated and empty Friends states. */
-export function FriendsContent({ items, results, error, loading, busyId, onAdd, onAccept, onRemove }: FriendsContentProps) {
+export function FriendsContent({ items, results, error, loading, busyId, onOpenProfile, onAdd, onAccept, onRemove }: FriendsContentProps) {
   const { t } = useI18n();
   const friends = items.filter((item) => item.direction === 'friend');
   const incoming = items.filter((item) => item.direction === 'incoming');
@@ -46,9 +47,12 @@ export function FriendsContent({ items, results, error, loading, busyId, onAdd, 
       <h3 className="text-xs font-extrabold uppercase tracking-wide text-text-muted">{t('friends.title')}</h3>
       {!loading && friends.length === 0
         ? <EmptyState compact icon={<UsersRound className="size-5" />} title={t('friends.empty')} />
-        : friends.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-ui-xl border border-border-subtle bg-surface p-3">
-          <Avatar name={item.user.displayName} url={item.user.avatarUrl} />
-          <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-text-primary">{item.user.displayName}</p><p className="truncate text-xs text-text-muted">@{item.user.username}</p></div>
+        : friends.map((item) => <div key={item.id} className="flex items-center gap-1 rounded-ui-xl border border-border-subtle bg-surface p-2">
+          <button type="button" onClick={() => onOpenProfile(item)} aria-label={t('friends.openProfile', { name: item.user.displayName })} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-ui-lg p-1 text-left outline-none transition-colors hover:bg-surface-active focus-visible:ring-2 focus-visible:ring-accent">
+            <Avatar name={item.user.displayName} url={item.user.avatarUrl} />
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-text-primary">{item.user.displayName}</span><span className="block truncate text-xs text-text-muted">@{item.user.username}</span></span>
+            <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
+          </button>
           <button type="button" disabled={busyId !== null} className="flex size-11 items-center justify-center rounded-ui-lg border border-border-subtle text-text-muted focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50" aria-label={t('friends.remove')} onClick={() => onRemove(item)}><UserMinus className="size-4" /></button>
         </div>)}
     </section>
@@ -74,7 +78,7 @@ export function FriendsContent({ items, results, error, loading, busyId, onAdd, 
   </>;
 }
 
-export function FriendsPanel() {
+export function FriendsPanel({ onOpenProfile }: { onOpenProfile: (item: FriendshipSummary) => void }) {
   const { t } = useI18n();
   const [items, setItems] = useState<FriendshipSummary[]>([]);
   const [query, setQuery] = useState('');
@@ -115,6 +119,7 @@ export function FriendsPanel() {
       error={error}
       loading={loading}
       busyId={busyId}
+      onOpenProfile={onOpenProfile}
       onAdd={(user) => void act(user.id, () => friendsApi.send(user.id))}
       onAccept={(item) => void act(item.id, () => friendsApi.accept(item.id))}
       onRemove={(item) => void act(item.id, () => friendsApi.remove(item.id))}

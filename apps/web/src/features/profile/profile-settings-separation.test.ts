@@ -209,7 +209,7 @@ test('Block 19.3: Profile top surface uses X close control and eliminates Settin
 
   // Close semantics remain intact
   assert.ok(profileScreen.includes('onClose={onClose}'), 'Summary close control must pass onClose');
-  assert.ok(profileScreen.includes("onClick={() => setPanel('summary')}"), 'Friends close control must return to summary panel');
+  assert.ok(profileScreen.includes("onClick={() => setPanel({ type: 'summary' })}"), 'Friends close control must return to summary panel');
 });
 
 test('Block 19.3B: Friends action is horizontally centered and remains content-sized', () => {
