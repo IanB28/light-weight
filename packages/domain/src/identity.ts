@@ -1,3 +1,6 @@
+import type { StrengthRank } from './strengthStandards.js';
+import type { ExerciseLoadMode } from './types.js';
+
 export type UserGender = 'male' | 'female';
 
 export interface AuthUser {
@@ -27,6 +30,35 @@ export interface FriendshipSummary {
   direction: 'incoming' | 'outgoing' | 'friend';
   user: PublicUserSummary;
   createdAt: string;
+}
+
+export type PublicFeaturedPrLoad =
+  | { type: 'bodyweight' }
+  | { type: 'added_weight'; weightKg: number }
+  | { type: 'assisted'; weightKg: number }
+  | { type: 'weight'; weightKg: number; loadMode: Extract<ExerciseLoadMode, 'total' | 'per_side' | 'per_hand'> };
+
+/** Sanitized social card. It intentionally contains no raw set or bodyweight data. */
+export interface PublicFeaturedPrProjection {
+  slot: 1 | 2 | 3;
+  exercise: {
+    id: string;
+    name: string;
+  };
+  load: PublicFeaturedPrLoad;
+  reps?: number;
+  strengthRank: StrengthRank | null;
+  available: boolean;
+}
+
+export interface FriendProfileProjection {
+  user: PublicUserSummary;
+  stats: {
+    totalWorkouts: number;
+    weeklyStreak: number;
+  };
+  strengthRank: StrengthRank | null;
+  featuredPrs: PublicFeaturedPrProjection[];
 }
 
 export type RoutineShareStatus = 'pending' | 'imported' | 'dismissed';

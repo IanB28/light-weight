@@ -1,156 +1,121 @@
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import {
-  normalizeLoggedSet,
+  calculateWeeklyStreak,
+  resolveCanonicalStrengthProjection,
   resolveFeaturedPrVariants,
   resolveSelectedFeaturedPrVariant,
-  type BodyweightEntry,
+  projectPublicFeaturedPrLoad,
+  selectCanonicalPersonalRecordsByExercise,
   type FeaturedPrSelection,
   type FeaturedPrShowcase,
-  type HistoricalPersonalRecord,
-  type WorkoutSession
+  type PublicFeaturedPrProjection,
+  type StrengthRank
 } from '@light-weight/domain';
 import { db } from '../db/index.js';
-import {
-  bodyweightLogs,
-  exercises,
-  historicalPersonalRecords,
-  loggedSets,
-  profileFeaturedPrs,
-  workoutSessions
-} from '../db/schema.js';
-import { toDomainExercise } from '../routes/exercises.js';
+import { profileFeaturedPrs } from '../db/schema.js';
+import { loadFullUserTrainingProjection } from './user-training-projection.js';
 
-function iso(value: Date | null): string | undefined {
-  return value ? value.toISOString() : undefined;
+export interface UserFeaturedPrAuthority {
+  showcase: FeaturedPrShowcase;
+  publicFeaturedPrs: PublicFeaturedPrProjection[];
+  strengthRank: StrengthRank | null;
+  stats: {
+    totalWorkouts: number;
+    weeklyStreak: number;
+  };
 }
 
-export async function resolveUserFeaturedPrShowcase(
+export async function resolveUserFeaturedPrAuthority(
   userId: string,
   suppliedSelections?: readonly FeaturedPrSelection[]
-): Promise<FeaturedPrShowcase> {
-  const [selectionRows, sessionRows, bodyweightRows, hprRows] = await Promise.all([
-    suppliedSelections
-      ? Promise.resolve(suppliedSelections)
-      : db.select({
-          slot: profileFeaturedPrs.slot,
-          exerciseId: profileFeaturedPrs.exerciseId,
-          loadWeightKg: profileFeaturedPrs.loadWeightKg
-        }).from(profileFeaturedPrs).where(eq(profileFeaturedPrs.userId, userId)).orderBy(profileFeaturedPrs.slot),
-    db.select().from(workoutSessions).where(eq(workoutSessions.userId, userId)),
-    db.select().from(bodyweightLogs).where(eq(bodyweightLogs.userId, userId)),
-    db.select().from(historicalPersonalRecords).where(eq(historicalPersonalRecords.userId, userId))
-  ]);
+): Promise<UserFeaturedPrAuthority> {
+  const selectionRows = suppliedSelections
+    ? suppliedSelections
+    : await db.select({
+        slot: profileFeaturedPrs.slot,
+        exerciseId: profileFeaturedPrs.exerciseId,
+        loadWeightKg: profileFeaturedPrs.loadWeightKg
+      }).from(profileFeaturedPrs).where(eq(profileFeaturedPrs.userId, userId)).orderBy(profileFeaturedPrs.slot);
 
   const selections: FeaturedPrSelection[] = selectionRows.map((row) => ({
     slot: row.slot as FeaturedPrSelection['slot'],
     exerciseId: row.exerciseId,
     loadWeightKg: Number(row.loadWeightKg)
   })).sort((left, right) => left.slot - right.slot);
+  const training = await loadFullUserTrainingProjection(userId, selections.map((item) => item.exerciseId));
+  const exerciseIds = Object.keys(training.exercisesById);
+  const variants = exerciseIds.flatMap((exerciseId) => resolveFeaturedPrVariants({
+    exerciseId,
+    exercise: training.exercisesById[exerciseId],
+    history: training.history,
+    historicalPersonalRecords: training.historicalPersonalRecords,
+    bodyweightEntries: training.bodyweightEntries
+  }));
+  const resolvedSelections = selections.map((selection) => ({
+    ...selection,
+    variant: resolveSelectedFeaturedPrVariant(selection, variants)
+  }));
+  const strength = resolveCanonicalStrengthProjection(training.history, training.exercisesById, {
+    gender: training.gender,
+    bodyweightEntries: training.bodyweightEntries,
+    historicalPersonalRecords: training.historicalPersonalRecords
+  });
+  const strengthRanksByExercise = Object.fromEntries(Object.entries(strength.byExercise)
+    .map(([exerciseId, observation]) => [exerciseId, observation.evaluation.rank]));
 
-  const sessionIds = sessionRows.map((session) => session.id);
-  const setRows = sessionIds.length
-    ? await db.select().from(loggedSets).where(inArray(loggedSets.sessionId, sessionIds))
-    : [];
-
-  const exerciseIds = [...new Set([
-    ...setRows.map((set) => set.exerciseId),
-    ...hprRows.map((record) => record.exerciseId),
-    ...selections.map((selection) => selection.exerciseId)
-  ])];
-  const exerciseRows = exerciseIds.length
-    ? await db.select().from(exercises).where(inArray(exercises.id, exerciseIds))
-    : [];
-  const exercisesById = new Map(exerciseRows.map((row) => [row.id, toDomainExercise(row)]));
-
-  const sessionsById = new Map<string, WorkoutSession>(sessionRows.map((row) => [row.id, {
-    id: row.id,
-    userId: row.userId,
-    ...(row.routineId ? { routineId: row.routineId } : {}),
-    ...(row.routineName ? { routineName: row.routineName } : {}),
-    startedAt: row.startedAt.toISOString(),
-    ...(row.performedDate ? { performedDate: row.performedDate } : {}),
-    ...(iso(row.recordedAt) ? { recordedAt: iso(row.recordedAt) } : {}),
-    ...(row.entrySource ? { entrySource: row.entrySource } : {}),
-    ...(iso(row.endedAt) ? { endedAt: iso(row.endedAt) } : {}),
-    sets: {}
-  }]));
-  for (const row of setRows) {
-    const session = sessionsById.get(row.sessionId);
-    if (!session) continue;
-    const list = session.sets[row.exerciseId] ?? [];
-    list.push(normalizeLoggedSet({
-      setIndex: row.setIndex,
-      weightKg: Number(row.weightKg),
-      reps: row.reps,
-      rir: row.rir ?? undefined,
-      rpe: row.rpe === null ? undefined : Number(row.rpe),
-      setType: row.setType,
-      isWarmup: row.isWarmup,
-      completed: row.completed,
-      machineProfileId: row.machineProfileId ?? undefined,
-      machineProfileLabel: row.machineProfileLabel ?? undefined,
-      machineBaseResistanceKg: row.machineBaseResistanceKg === null ? undefined : Number(row.machineBaseResistanceKg),
-      machineBaseResistanceStatus: row.machineBaseResistanceStatus ?? undefined,
-      machineBaseSourceLabel: row.machineBaseSourceLabel ?? undefined,
-      machineBaseSourceUrl: row.machineBaseSourceUrl ?? undefined,
-      machineManufacturer: row.machineManufacturer ?? undefined,
-      machineModel: row.machineModel ?? undefined
-    }));
-    session.sets[row.exerciseId] = list;
+  let publicFeaturedPrs: PublicFeaturedPrProjection[];
+  if (selections.length > 0) {
+    publicFeaturedPrs = resolvedSelections.flatMap((resolved) => {
+      const exercise = training.exercisesById[resolved.exerciseId];
+      if (!exercise) return [];
+      const weightKg = resolved.variant?.loadWeightKg ?? resolved.loadWeightKg;
+      return [{
+        slot: resolved.slot,
+        exercise: { id: exercise.id, name: exercise.name },
+        load: projectPublicFeaturedPrLoad(exercise, weightKg),
+        ...(resolved.variant ? { reps: resolved.variant.reps } : {}),
+        strengthRank: strengthRanksByExercise[exercise.id] ?? null,
+        available: resolved.variant !== null
+      }];
+    });
+  } else {
+    const personalRecords = selectCanonicalPersonalRecordsByExercise(training.history, {
+      exercisesById: training.exercisesById,
+      bodyweightEntries: training.bodyweightEntries,
+      historicalPersonalRecords: training.historicalPersonalRecords
+    });
+    publicFeaturedPrs = Object.values(personalRecords)
+      .filter((record) => !training.exercisesById[record.exerciseId]?.isCustom)
+      .sort((left, right) => right.est1Rm - left.est1Rm)
+      .slice(0, 3)
+      .flatMap((record, index) => {
+        const exercise = training.exercisesById[record.exerciseId];
+        if (!exercise) return [];
+        return [{
+          slot: (index + 1) as PublicFeaturedPrProjection['slot'],
+          exercise: { id: exercise.id, name: exercise.name },
+          load: projectPublicFeaturedPrLoad(exercise, record.weightKg),
+          reps: record.reps,
+          strengthRank: strengthRanksByExercise[exercise.id] ?? null,
+          available: true
+        }];
+      });
   }
 
-  const bodyweightEntries: BodyweightEntry[] = bodyweightRows.map((row) => ({
-    date: row.loggedAt.toISOString(),
-    weightKg: Number(row.weightKg),
-    timestamp: row.loggedAt.getTime()
-  }));
-  const hprs: HistoricalPersonalRecord[] = hprRows.map((row) => ({
-    id: row.id,
-    userId: row.userId,
-    exerciseId: row.exerciseId,
-    performedDate: row.performedDate,
-    recordedAt: row.recordedAt.toISOString(),
-    bodyweightKg: Number(row.bodyweightKg),
-    source: 'historical_manual',
-    set: normalizeLoggedSet({
-      setIndex: 1,
-      weightKg: Number(row.weightKg),
-      reps: row.reps,
-      rir: row.rir ?? undefined,
-      rpe: row.rpe === null ? undefined : Number(row.rpe),
-      setType: row.setType,
-      isWarmup: row.setType === 'warmup',
-      completed: true,
-      machineProfileId: row.machineProfileId ?? undefined,
-      machineProfileLabel: row.machineProfileLabel ?? undefined,
-      machineBaseResistanceKg: row.machineBaseResistanceKg === null ? undefined : Number(row.machineBaseResistanceKg),
-      machineBaseResistanceStatus: row.machineBaseResistanceStatus ?? undefined,
-      machineBaseSourceLabel: row.machineBaseSourceLabel ?? undefined,
-      machineBaseSourceUrl: row.machineBaseSourceUrl ?? undefined,
-      machineManufacturer: row.machineManufacturer ?? undefined,
-      machineModel: row.machineModel ?? undefined
-    })
-  }));
-
-  const history = [...sessionsById.values()];
-  const variants = exerciseIds.flatMap((exerciseId) => {
-    const exercise = exercisesById.get(exerciseId);
-    if (!exercise) return [];
-    return resolveFeaturedPrVariants({
-      exerciseId,
-      exercise,
-      history,
-      historicalPersonalRecords: hprs,
-      bodyweightEntries
-    });
-  });
-
   return {
-    selections,
-    variants,
-    resolvedSelections: selections.map((selection) => ({
-      ...selection,
-      variant: resolveSelectedFeaturedPrVariant(selection, variants)
-    }))
+    showcase: { selections, variants, resolvedSelections, strengthRanksByExercise },
+    publicFeaturedPrs,
+    strengthRank: strength.overall?.rank ?? null,
+    stats: {
+      totalWorkouts: training.history.length,
+      weeklyStreak: calculateWeeklyStreak(training.history)
+    }
   };
+}
+
+export async function resolveUserFeaturedPrShowcase(
+  userId: string,
+  suppliedSelections?: readonly FeaturedPrSelection[]
+): Promise<FeaturedPrShowcase> {
+  return (await resolveUserFeaturedPrAuthority(userId, suppliedSelections)).showcase;
 }

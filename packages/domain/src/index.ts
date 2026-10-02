@@ -26,3 +26,5 @@ export * from './exercisePerformance.js';
 export * from './routineIdentity.js';
 export * from './avatar.js';
 export * from './featuredPr.js';
+export * from './strengthProjection.js';
+export * from './personalRecords.js';

@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { and, eq, ilike, inArray, ne, or } from 'drizzle-orm';
-import type { FriendshipSummary, PublicUserSummary } from '@light-weight/domain';
+import type { FriendProfileProjection, FriendshipSummary, PublicUserSummary } from '@light-weight/domain';
 import { db } from '../db/index.js';
 import { friendships, users } from '../db/schema.js';
 import { ApiError, asyncRoute } from '../lib/api-error.js';
 import { requireAuth, requireCsrf } from '../lib/auth-session.js';
 import { isUuid } from '../lib/client-id.js';
 import { assertCanSendFriendRequest, canAcceptFriendship, canManageFriendship } from '../lib/social-invariants.js';
+import { resolveUserFeaturedPrAuthority } from '../services/featured-prs.js';
 
 export const friendsRouter: Router = Router();
 
@@ -65,6 +66,31 @@ friendsRouter.get('/', asyncRoute(async (req, res) => {
     }];
   });
   res.json({ friendships: items });
+}));
+
+friendsRouter.get('/:userId/profile', asyncRoute(async (req, res) => {
+  const targetUserId = typeof req.params.userId === 'string' ? req.params.userId : '';
+  if (!isUuid(targetUserId)) throw new ApiError(422, 'VALIDATION_ERROR');
+  if (targetUserId === req.auth!.userId) throw new ApiError(404, 'FRIEND_PROFILE_NOT_FOUND');
+
+  const [userAId, userBId] = pair(req.auth!.userId, targetUserId);
+  const [friendship] = await db.select({ id: friendships.id }).from(friendships).where(and(
+    eq(friendships.userAId, userAId),
+    eq(friendships.userBId, userBId),
+    eq(friendships.status, 'accepted')
+  )).limit(1);
+  if (!friendship) throw new ApiError(404, 'FRIEND_PROFILE_NOT_FOUND');
+
+  const [target] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
+  if (!target || !target.username) throw new ApiError(404, 'FRIEND_PROFILE_NOT_FOUND');
+  const authority = await resolveUserFeaturedPrAuthority(targetUserId);
+  const projection: FriendProfileProjection = {
+    user: toPublicUser(target),
+    stats: authority.stats,
+    strengthRank: authority.strengthRank,
+    featuredPrs: authority.publicFeaturedPrs
+  };
+  res.json(projection);
 }));
 
 friendsRouter.post('/requests', requireCsrf, asyncRoute(async (req, res) => {

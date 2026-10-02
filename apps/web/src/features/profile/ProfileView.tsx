@@ -13,6 +13,7 @@ import {
   BodyweightEntry,
   type FeaturedPrSelection,
   type FeaturedPrVariant,
+  type StrengthRank,
   type ResolvedFeaturedPrSelection
 } from '@light-weight/domain';
 import {
@@ -58,6 +59,7 @@ interface ProfileViewProps {
   featuredPrSelections?: FeaturedPrSelection[];
   featuredPrResolvedSelections?: ResolvedFeaturedPrSelection[];
   featuredPrVariants?: FeaturedPrVariant[];
+  featuredPrStrengthRanks?: Record<string, StrengthRank> | null;
   featuredPrLoading?: boolean;
   featuredPrSaving?: boolean;
   featuredPrCustomizationAvailable?: boolean;
@@ -84,6 +86,7 @@ export function ProfileView({
   featuredPrSelections = [],
   featuredPrResolvedSelections = [],
   featuredPrVariants = [],
+  featuredPrStrengthRanks = null,
   featuredPrLoading = false,
   featuredPrSaving = false,
   featuredPrCustomizationAvailable = false,
@@ -140,6 +143,13 @@ export function ProfileView({
     };
   }, [bodyweightEntries, bodyweightKg, exercises, history, profile.gender, t, historicalPersonalRecords]);
 
+  const effectiveRankByExercise = useMemo(
+    () => featuredPrStrengthRanks === null
+      ? summary.rankByExercise
+      : new Map(Object.entries(featuredPrStrengthRanks)),
+    [featuredPrStrengthRanks, summary.rankByExercise]
+  );
+
   const featuredOptions = useMemo<FeaturedPrExerciseOption[]>(() => {
     let effectiveVariants = featuredPrVariants;
     if (effectiveVariants.length === 0) {
@@ -158,9 +168,9 @@ export function ProfileView({
     }
     return [...variantsByExercise.entries()].flatMap(([exerciseId, variants]) => {
       const exercise = exercises.find((item) => item.id === exerciseId) || findExerciseById(exerciseId);
-      return exercise ? [{ exercise, variants, rank: summary.rankByExercise.get(exerciseId) ?? null }] : [];
+      return exercise ? [{ exercise, variants, rank: effectiveRankByExercise.get(exerciseId) ?? null }] : [];
     }).sort((left, right) => left.exercise.name.localeCompare(right.exercise.name, locale));
-  }, [bodyweightEntries, exercises, featuredPrVariants, historicalPersonalRecords, history, locale, summary.rankByExercise]);
+  }, [bodyweightEntries, effectiveRankByExercise, exercises, featuredPrVariants, historicalPersonalRecords, history, locale]);
 
   const configuredRecords = useMemo(() => featuredPrSelections.map((selection) => {
     const exercise = exercises.find((item) => item.id === selection.exerciseId) || findExerciseById(selection.exerciseId);
@@ -173,13 +183,13 @@ export function ProfileView({
       key: `slot-${selection.slot}`,
       exerciseId: selection.exerciseId,
       name: resolveExerciseName(selection.exerciseId, exercises, history, t('profile.exerciseUnavailable')),
-      rank: summary.rankByExercise.get(selection.exerciseId) ?? null,
+      rank: effectiveRankByExercise.get(selection.exerciseId) ?? null,
       repCount: variant?.reps,
       displayLoad: exercise && variant
         ? formatFeaturedVariantLoad(exercise, variant, preferences.units)
         : t('profile.featuredUnavailable')
     };
-  }), [exercises, featuredOptions, featuredPrResolvedSelections, featuredPrSelections, preferences.units, summary.rankByExercise, t]);
+  }), [effectiveRankByExercise, exercises, featuredOptions, featuredPrResolvedSelections, featuredPrSelections, preferences.units, t]);
 
   const recordsToRender = featuredPrSelections.length > 0
     ? configuredRecords
@@ -187,7 +197,7 @@ export function ProfileView({
         key: record.exerciseId,
         exerciseId: record.exerciseId,
         name: record.name,
-        rank: record.rank,
+        rank: effectiveRankByExercise.get(record.exerciseId) ?? record.rank,
         repCount: undefined,
         displayLoad: formatDisplayWeight(record.est1Rm, preferences.units)
       }));

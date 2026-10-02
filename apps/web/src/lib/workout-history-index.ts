@@ -1,12 +1,10 @@
 import {
-  calculateCanonicalStrengthOneRm,
-  calculateSetOneRm,
-  isSetEligibleForPersonalRecord,
-  resolveBodyweightKgAtDate,
-  resolveWorkoutDateKey,
   resolveExerciseLoadingProfile,
   compareExercisePerformanceHeads,
   qualifyingPerformanceSets,
+  resolveWorkoutDateKey,
+  selectCanonicalPersonalRecordsByExercise,
+  type CanonicalPersonalRecord,
   type ExercisePerformanceHead,
   type BodyweightEntry,
   type Exercise,
@@ -15,15 +13,7 @@ import {
   type WorkoutSession
 } from '@light-weight/domain';
 
-export interface PersonalRecordInfo {
-  exerciseId: string;
-  weightKg: number;
-  reps: number;
-  est1Rm: number;
-  date: string;
-  bodyweightKg?: number;
-  source?: 'workout' | 'historical_manual';
-}
+export type PersonalRecordInfo = CanonicalPersonalRecord;
 
 export interface PreviousExercisePerformance {
   lastDate?: string;
@@ -71,10 +61,6 @@ export function buildWorkoutHistoryIndex(
     const dateKey = resolveWorkoutDateKey(session);
     (index.sessionsByDate[dateKey] ||= []).push(session);
 
-    const sessionBw = options?.bodyweightEntries
-      ? resolveBodyweightKgAtDate(options.bodyweightEntries, dateKey)
-      : null;
-
     for (const [exerciseId, sets] of Object.entries(session.sets)) {
       (index.sessionsByExercise[exerciseId] ||= []).push(session);
       const exercise = options?.exercisesById?.[exerciseId];
@@ -87,24 +73,6 @@ export function buildWorkoutHistoryIndex(
         };
         if (!localHeads[exerciseId] || compareExercisePerformanceHeads(head, localHeads[exerciseId]) > 0) {
           localHeads[exerciseId] = head;
-        }
-      }
-
-      for (const set of sets) {
-        if (!isSetEligibleForPersonalRecord({ set, exercise, bodyweightKg: sessionBw })) continue;
-        const est1Rm = calculateCanonicalStrengthOneRm(set, { exercise, bodyweightKg: sessionBw });
-        if (est1Rm === null) continue;
-        const existing = index.personalRecordsByExercise[exerciseId];
-        if (!existing || est1Rm > existing.est1Rm) {
-          index.personalRecordsByExercise[exerciseId] = {
-            exerciseId,
-            weightKg: set.weightKg,
-            reps: set.reps,
-            est1Rm,
-            date: session.startedAt,
-            bodyweightKg: sessionBw ?? undefined,
-            source: 'workout'
-          };
         }
       }
     }
@@ -129,26 +97,11 @@ export function buildWorkoutHistoryIndex(
     index.latestPerformanceByExercise[exerciseId] = { lastDate: head.startedAt, sets: head.sets, summary, head };
   }
 
-  if (Array.isArray(options?.historicalPersonalRecords)) {
-    for (const record of options.historicalPersonalRecords) {
-      const exercise = options?.exercisesById?.[record.exerciseId];
-      if (!isSetEligibleForPersonalRecord({ set: record.set, exercise, bodyweightKg: record.bodyweightKg })) continue;
-      const est1Rm = calculateCanonicalStrengthOneRm(record.set, { exercise, bodyweightKg: record.bodyweightKg });
-      if (est1Rm === null) continue;
-      const existing = index.personalRecordsByExercise[record.exerciseId];
-      if (!existing || est1Rm > existing.est1Rm) {
-        index.personalRecordsByExercise[record.exerciseId] = {
-          exerciseId: record.exerciseId,
-          weightKg: record.set.weightKg,
-          reps: record.set.reps,
-          est1Rm,
-          date: record.performedDate,
-          bodyweightKg: record.bodyweightKg,
-          source: 'historical_manual'
-        };
-      }
-    }
-  }
+  index.personalRecordsByExercise = selectCanonicalPersonalRecordsByExercise(history, {
+    exercisesById: options?.exercisesById,
+    bodyweightEntries: options?.bodyweightEntries,
+    historicalPersonalRecords: options?.historicalPersonalRecords
+  });
 
   return index;
 }

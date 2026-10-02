@@ -3,6 +3,9 @@ import { calculateEffectiveLoadKg, isSetEligibleForPersonalRecord } from './setS
 import type { BodyweightEntry, Exercise, HistoricalPersonalRecord, LoggedSet, WorkoutSession } from './types.js';
 import { resolveBodyweightKgAtDate } from './weight.js';
 import { resolveWorkoutDateKey } from './workoutTemporal.js';
+import type { StrengthRank } from './strengthStandards.js';
+import { resolveExerciseLoadingProfile } from './exerciseLoading.js';
+import type { PublicFeaturedPrLoad } from './identity.js';
 
 export type FeaturedPrSlot = 1 | 2 | 3;
 
@@ -33,6 +36,8 @@ export interface FeaturedPrShowcase {
   selections: FeaturedPrSelection[];
   resolvedSelections: ResolvedFeaturedPrSelection[];
   variants: FeaturedPrVariant[];
+  /** Full-history server authority for authenticated own-profile presentation. */
+  strengthRanksByExercise?: Record<string, StrengthRank>;
 }
 
 export interface FeaturedPrResolverInput {
@@ -41,6 +46,17 @@ export interface FeaturedPrResolverInput {
   history: readonly WorkoutSession[];
   historicalPersonalRecords?: readonly HistoricalPersonalRecord[];
   bodyweightEntries?: readonly BodyweightEntry[];
+}
+
+export function projectPublicFeaturedPrLoad(exercise: Exercise, weightKg: number): PublicFeaturedPrLoad {
+  const profile = resolveExerciseLoadingProfile(exercise).profile;
+  if (typeof profile.bodyweightFactor === 'number' && weightKg === 0) return { type: 'bodyweight' };
+  if (profile.loadMode === 'added_weight') return { type: 'added_weight', weightKg };
+  if (profile.loadMode === 'assisted') return { type: 'assisted', weightKg };
+  const loadMode = profile.loadMode === 'per_side' || profile.loadMode === 'per_hand'
+    ? profile.loadMode
+    : 'total';
+  return { type: 'weight', weightKg, loadMode };
 }
 
 interface Candidate extends FeaturedPrVariant {

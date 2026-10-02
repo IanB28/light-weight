@@ -125,6 +125,7 @@ export function ProfileScreen({
             featuredPrSelections={featuredPrs.selections}
             featuredPrResolvedSelections={featuredPrs.resolvedSelections}
             featuredPrVariants={featuredPrs.variants}
+            featuredPrStrengthRanks={featuredPrs.strengthRanksByExercise}
             featuredPrLoading={featuredPrs.isLoading}
             featuredPrSaving={featuredPrs.isSaving}
             onSaveFeaturedPrSelections={featuredPrs.save}

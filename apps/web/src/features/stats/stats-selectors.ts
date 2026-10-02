@@ -1,22 +1,17 @@
 import {
-  calculateCanonicalStrengthOneRm,
   calculateMuscleFatigue,
-  calculateOverallStrength,
   calculateSetOneRm,
   calculateWeeklyStreak,
-  evaluateRelativeStrength,
   getExerciseProgressSeries,
   getNeglectedMuscles,
   isSetEligibleForPersonalRecord,
+  resolveCanonicalStrengthProjection,
   resolveBodyweightKgAtDate,
   resolveWorkoutDateKey,
-  resolveExerciseStrengthTarget,
-  REP_CAP,
   type BodyweightEntry,
   type Exercise,
   type Gender,
   type MuscleGroup,
-  type StrengthEvaluation,
   type WorkoutSession,
   type HistoricalPersonalRecord
 } from '@light-weight/domain';
@@ -77,14 +72,6 @@ export interface SelectStrengthSnapshotOptions {
   historicalPersonalRecords?: HistoricalPersonalRecord[];
 }
 
-interface BestMuscleStrengthRecord {
-  top1Rm: number;
-  exerciseId: string;
-  exerciseName: string;
-  performedAt: string;
-  evaluation: StrengthEvaluation;
-}
-
 /**
  * Pure selector that processes entire training history to derive the best valid
  * strength observation per MuscleGroup and the Overall Strength evaluation.
@@ -106,138 +93,16 @@ export function selectStrengthSnapshot(
   exercisesById: Record<string, Exercise>,
   options: SelectStrengthSnapshotOptions
 ): StrengthSnapshot {
-  const { bodyweightKg, gender, bodyweightEntries, historicalPersonalRecords } = options;
-  const bestByMuscle = new Map<MuscleGroup, BestMuscleStrengthRecord>();
-
-  if (gender === 'male' || gender === 'female') {
-    const considerCandidate = (
-      targetMuscle: MuscleGroup,
-      set1Rm: number,
-      exercise: Exercise,
-      performedAt: string,
-      evaluation: StrengthEvaluation
-    ) => {
-      const currentBest = bestByMuscle.get(targetMuscle);
-      if (!currentBest) {
-        bestByMuscle.set(targetMuscle, {
-          top1Rm: set1Rm,
-          exerciseId: exercise.id,
-          exerciseName: exercise.name,
-          performedAt,
-          evaluation
-        });
-        return;
-      }
-
-      const isHigherScore = evaluation.strengthScore > currentBest.evaluation.strengthScore;
-      const isSameScore = evaluation.strengthScore === currentBest.evaluation.strengthScore;
-      const isHigher1Rm = evaluation.oneRmKg > currentBest.top1Rm;
-      const isSame1Rm = evaluation.oneRmKg === currentBest.top1Rm;
-      const isNewerDate = Date.parse(performedAt) > Date.parse(currentBest.performedAt);
-
-      const isWinner =
-        isHigherScore ||
-        (isSameScore && isHigher1Rm) ||
-        (isSameScore && isSame1Rm && isNewerDate);
-
-      if (isWinner) {
-        bestByMuscle.set(targetMuscle, {
-          top1Rm: set1Rm,
-          exerciseId: exercise.id,
-          exerciseName: exercise.name,
-          performedAt,
-          evaluation
-        });
-      }
-    };
-
-    for (const session of history) {
-      const sessionDate = session.startedAt;
-      const sessionCalendarDate = resolveWorkoutDateKey(session);
-      // Every session is stored history. Current bodyweight is never evidence
-      // for a past physical observation, including legacy/live provenance.
-      const sessionBw = resolveBodyweightKgAtDate(bodyweightEntries || [], sessionCalendarDate);
-
-      if (!sessionBw || sessionBw <= 0) {
-        continue;
-      }
-
-      for (const [exerciseId, sets] of Object.entries(session.sets || {})) {
-        const exercise = exercisesById[exerciseId];
-        if (!exercise) continue;
-
-        const targetMuscle = resolveExerciseStrengthTarget(exercise);
-        if (!targetMuscle) continue;
-
-        for (const set of sets) {
-          if (!isSetEligibleForPersonalRecord({ set, exercise, bodyweightKg: sessionBw })) {
-            continue;
-          }
-
-          if (!Number.isFinite(set.reps) || set.reps < 1 || set.reps > REP_CAP) {
-            continue;
-          }
-
-          const set1Rm = calculateCanonicalStrengthOneRm(set, {
-            exercise,
-            bodyweightKg: sessionBw
-          });
-
-          if (!set1Rm || set1Rm <= 0) continue;
-
-          const evaluation = evaluateRelativeStrength(targetMuscle, set1Rm, sessionBw, gender);
-          if (!evaluation) continue;
-
-          considerCandidate(targetMuscle, set1Rm, exercise, sessionDate, evaluation);
-        }
-      }
-    }
-
-    if (Array.isArray(historicalPersonalRecords)) {
-      for (const record of historicalPersonalRecords) {
-        const sessionBw = record.bodyweightKg;
-        if (!Number.isFinite(sessionBw) || sessionBw <= 0) {
-          continue;
-        }
-
-        const exercise = exercisesById[record.exerciseId];
-        if (!exercise) continue;
-
-        const targetMuscle = resolveExerciseStrengthTarget(exercise);
-        if (!targetMuscle) continue;
-
-        const set = record.set;
-        if (!isSetEligibleForPersonalRecord({ set, exercise, bodyweightKg: sessionBw })) {
-          continue;
-        }
-
-        if (!Number.isFinite(set.reps) || set.reps < 1 || set.reps > REP_CAP) {
-          continue;
-        }
-
-        const set1Rm = calculateCanonicalStrengthOneRm(set, {
-          exercise,
-          bodyweightKg: sessionBw
-        });
-
-        if (!set1Rm || set1Rm <= 0) continue;
-
-        const evaluation = evaluateRelativeStrength(targetMuscle, set1Rm, sessionBw, gender);
-        if (!evaluation) continue;
-
-        considerCandidate(targetMuscle, set1Rm, exercise, record.performedDate, evaluation);
-      }
-    }
-  }
+  const projection = resolveCanonicalStrengthProjection(history, exercisesById, {
+    gender: options.gender,
+    bodyweightEntries: options.bodyweightEntries,
+    historicalPersonalRecords: options.historicalPersonalRecords
+  });
 
   const muscles = {} as Record<MuscleGroup, StatsMuscleAnalytics>;
-  const evaluationsMap: Partial<Record<MuscleGroup, StrengthEvaluation>> = {};
 
   for (const muscle of ALL_MUSCLE_GROUPS) {
-    const best = bestByMuscle.get(muscle);
-    if (best) {
-      evaluationsMap[muscle] = best.evaluation;
-    }
+    const best = projection.byMuscle[muscle];
     muscles[muscle] = {
       muscle,
       nameEs: SPANISH_MUSCLE_NAMES[muscle] || muscle,
@@ -248,17 +113,14 @@ export function selectStrengthSnapshot(
       recoveryPct: 100,
       lastTrainedHoursAgo: null,
       recentHardSetsCount: 0,
-      topEst1RmKg: best ? best.top1Rm : 0,
+      topEst1RmKg: best?.oneRmKg ?? 0,
       topExerciseId: best?.exerciseId,
       topExerciseName: best?.exerciseName,
       performedAt: best?.performedAt,
       strengthEvaluation: best?.evaluation
     };
   }
-
-  const overall = calculateOverallStrength(evaluationsMap);
-
-  return { muscles, overall };
+  return { muscles, overall: projection.overall };
 }
 
 export function selectMuscleAnalytics(
