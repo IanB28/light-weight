@@ -85,7 +85,6 @@ export async function resolveUserFeaturedPrAuthority(
       historicalPersonalRecords: training.historicalPersonalRecords
     });
     publicFeaturedPrs = Object.values(personalRecords)
-      .filter((record) => !training.exercisesById[record.exerciseId]?.isCustom)
       .sort((left, right) => right.est1Rm - left.est1Rm)
       .slice(0, 3)
       .flatMap((record, index) => {

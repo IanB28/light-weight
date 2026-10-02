@@ -5,11 +5,12 @@ import test from 'node:test';
 import dotenv from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import type { FriendProfileProjection } from '@light-weight/domain';
+import { selectCanonicalPersonalRecordsByExercise, type FriendProfileProjection } from '@light-weight/domain';
 import { createApp } from '../app.js';
 import { db, replaceDatabaseForTesting } from '../db/index.js';
 import * as schema from '../db/schema.js';
 import { hashOpaqueToken } from '../lib/auth-session.js';
+import { loadFullUserTrainingProjection } from '../services/user-training-projection.js';
 
 dotenv.config({ path: new URL('../../../.env', import.meta.url) });
 dotenv.config();
@@ -124,11 +125,23 @@ test('HTTP friend profile is accepted-friend-only, full-history authoritative, s
             const defaultResponse = await profile(baseUrl, target);
             assert.equal(defaultResponse.status, 200);
             const defaultPayload = await defaultResponse.json() as FriendProfileProjection;
+            const training = await loadFullUserTrainingProjection(target);
+            const canonicalDefaultIds = Object.values(selectCanonicalPersonalRecordsByExercise(training.history, {
+              exercisesById: training.exercisesById,
+              bodyweightEntries: training.bodyweightEntries,
+              historicalPersonalRecords: training.historicalPersonalRecords
+            }))
+              .sort((left, right) => right.est1Rm - left.est1Rm)
+              .slice(0, 3)
+              .map((record) => record.exerciseId);
             assert.equal(defaultPayload.featuredPrs.length, 3);
-            assert.deepEqual(defaultPayload.featuredPrs.map((item) => item.exercise.name), ['Public Bench', 'Public Row', 'Public Squat']);
-            assert.equal(defaultPayload.featuredPrs[0].strengthRank, 'maestro', 'old strength result outside newest 50 must remain authoritative');
+            assert.deepEqual(defaultPayload.featuredPrs.map((item) => item.exercise.id), canonicalDefaultIds,
+              'friend default showcase must match the canonical own-profile top three');
+            assert.ok(defaultPayload.featuredPrs.some((item) => item.exercise.id === custom),
+              'a custom exercise in the canonical top three must remain eligible');
+            assert.equal(defaultPayload.featuredPrs.find((item) => item.exercise.id === bench)?.strengthRank, 'maestro',
+              'old strength result outside newest 50 must remain authoritative');
             assert.equal(defaultPayload.stats.totalWorkouts, 52);
-            assert.ok(!JSON.stringify(defaultPayload).includes('Private Custom Lift'));
             assert.ok(!JSON.stringify(defaultPayload).includes('Unselected Press'));
             const forbidden = ['email', 'birthDate', 'gender', 'currentBodyweightKg', 'bodyweightKg', 'bodyweightEntries',
               'history', 'sessions', 'sets', 'set', 'rir', 'rpe', 'effectiveLoadKg', 'preferences', 'routines', 'variants'];
@@ -142,6 +155,8 @@ test('HTTP friend profile is accepted-friend-only, full-history authoritative, s
             assert.deepEqual(onePayload.featuredPrs[0].load, { type: 'weight', weightKg: 100, loadMode: 'total' });
             assert.equal(onePayload.featuredPrs[0].reps, 8);
             assert.ok(!JSON.stringify(onePayload).includes('"weightKg":120'));
+            assert.ok(!JSON.stringify(onePayload).includes('Private Custom Lift'));
+            assert.ok(!JSON.stringify(onePayload).includes('Unselected Press'));
 
             const improvedSession = randomUUID();
             await tx`INSERT INTO workout_sessions (id, user_id, started_at, performed_date, entry_source) VALUES (${improvedSession}, ${target}, '2026-09-01T10:00:00.000Z', '2026-09-01', 'live')`;
