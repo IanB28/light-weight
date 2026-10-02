@@ -146,7 +146,7 @@ button, [role="button"] { touch-action: manipulation; }
 .glass-btn-secondary { background: var(--surface-input); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
 .pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
 .pt-safe { padding-top: max(0.75rem, env(safe-area-inset-top)); }
-.pb-page-safe { padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 2rem); }
+.pb-page-safe { padding-bottom: calc(var(--bottom-nav-height) + max(0px, env(safe-area-inset-bottom) - 0.5rem)); }
 .bottom-above-nav { bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 0.75rem); }
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }

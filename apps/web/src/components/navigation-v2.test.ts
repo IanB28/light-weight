@@ -79,10 +79,16 @@ test('BottomNavItem invokes the selected tab and keeps running workout state ind
 test('navigation layout keeps equal tab widths and visual-only selection with accessibility fallbacks', () => {
   const source = readFileSync(new URL('../../src/components/BottomNav.tsx', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
   assert.match(source, /EDITABLE_SELECTOR/);
   assert.match(source, /addEventListener\('focusin'/);
   assert.match(source, /inert=\{mobileKeyboardOpen\}/);
+  assert.match(source, /aria-hidden=\{mobileKeyboardOpen \|\| undefined\}/);
   assert.match(source, /safe-area-inset-bottom/);
+  assert.match(source, /pointer-events-none fixed inset-x-0 bottom-0/);
+  assert.doesNotMatch(source, /pointer-events-none (?:sticky|absolute) inset-x-0 bottom-0/);
+  assert.match(source, /createPortal\(navigation, document\.body\)/);
+  assert.match(source, /mobileKeyboardOpen \? 'translate-y-\[120%\]' : 'transform-none'/);
   assert.match(source, /motion-reduce:transition-none/);
   assert.doesNotMatch(source, /w-1\/5/);
   assert.doesNotMatch(source, /translate3d/);
@@ -96,6 +102,9 @@ test('navigation layout keeps equal tab widths and visual-only selection with ac
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /prefers-reduced-transparency/);
   assert.match(css, /prefers-contrast: more/);
+  assert.match(css, /\.pb-page-safe\s*\{[^}]*--bottom-nav-height[^}]*safe-area-inset-bottom/s);
+  assert.match(app, /min-h-\[100dvh\][^"\n]*overflow-x-clip/);
+  assert.doesNotMatch(app, /overflow-x-hidden/);
 });
 
 test('semantic icon call sites use bodyweight artwork while Stats balance retains Scale', () => {

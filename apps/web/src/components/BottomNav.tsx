@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '../lib/i18n.js';
 import { MaskedPngIcon } from './ui/MaskedPngIcon.js';
 import { NAVIGATION_ICON_ASSETS } from './ui/icon-assets.js';
@@ -112,12 +113,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     };
   }, []);
 
-  return (
+  const navigation = (
     <div
       aria-hidden={mobileKeyboardOpen || undefined}
       inert={mobileKeyboardOpen}
       className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] transition-transform duration-200 ease-[var(--ease-out)] motion-reduce:transition-none min-[360px]:px-3 ${
-        mobileKeyboardOpen ? 'translate-y-[120%]' : 'translate-y-0'
+        mobileKeyboardOpen ? 'translate-y-[120%]' : 'transform-none'
       }`}
     >
       <nav
@@ -143,4 +144,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       </nav>
     </div>
   );
+
+  // Keep the viewport-fixed surface outside App's scrolling and compositing tree.
+  return typeof document === 'undefined' ? navigation : createPortal(navigation, document.body);
 };
