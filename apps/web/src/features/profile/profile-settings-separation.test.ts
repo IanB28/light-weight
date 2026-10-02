@@ -225,13 +225,16 @@ test('Block 19.3B: Friends action is horizontally centered and remains content-s
 
 test('Block 19.3: ProfileStrengthSection hero badge has no decorative background orb', () => {
   const strengthSection = source('features/profile/ProfileStrengthSection.tsx');
+  const overallCard = source('features/profile/OverallStrengthCard.tsx');
+  const strengthPresentation = `${strengthSection}\n${overallCard}`;
   // No orb divs at all behind the badge — glow comes exclusively from the badge PNG itself
-  assert.ok(!strengthSection.includes('size-40'), 'Hero card must not use size-40 orb');
-  assert.ok(!strengthSection.includes('size-20'), 'Hero card must not use size-20 orb either');
-  assert.ok(!strengthSection.includes('blur-2xl'), 'No blur-2xl orb behind badge');
-  assert.ok(!strengthSection.includes('blur-3xl'), 'No blur-3xl orb behind badge');
+  assert.ok(!strengthPresentation.includes('size-40'), 'Hero card must not use size-40 orb');
+  assert.ok(!strengthPresentation.includes('size-20'), 'Hero card must not use size-20 orb either');
+  assert.ok(!strengthPresentation.includes('blur-2xl'), 'No blur-2xl orb behind badge');
+  assert.ok(!strengthPresentation.includes('blur-3xl'), 'No blur-3xl orb behind badge');
   // Glow must be via showGlow prop (drop-shadow on the transparent PNG image)
-  assert.ok(strengthSection.includes('showGlow'), 'Badge glow must be applied via showGlow prop on the transparent PNG image');
+  assert.ok(strengthSection.includes('<OverallStrengthCard overall={overall} />'), 'Own profile must use the shared Overall presentation');
+  assert.ok(overallCard.includes('showGlow'), 'Badge glow must be applied via showGlow prop on the transparent PNG image');
 });
 
 test('Block 19.3: Rank legend shows all 9 names in full — no truncation or clipping', () => {

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import {
   calculateWeeklyStreak,
+  projectPublicStrength,
   resolveCanonicalStrengthProjection,
   resolveFeaturedPrVariants,
   resolveSelectedFeaturedPrVariant,
@@ -9,7 +10,7 @@ import {
   type FeaturedPrSelection,
   type FeaturedPrShowcase,
   type PublicFeaturedPrProjection,
-  type StrengthRank
+  type PublicStrengthProjection
 } from '@light-weight/domain';
 import { db } from '../db/index.js';
 import { profileFeaturedPrs } from '../db/schema.js';
@@ -18,7 +19,7 @@ import { loadFullUserTrainingProjection } from './user-training-projection.js';
 export interface UserFeaturedPrAuthority {
   showcase: FeaturedPrShowcase;
   publicFeaturedPrs: PublicFeaturedPrProjection[];
-  strengthRank: StrengthRank | null;
+  strength: PublicStrengthProjection;
   stats: {
     totalWorkouts: number;
     weeklyStreak: number;
@@ -104,7 +105,7 @@ export async function resolveUserFeaturedPrAuthority(
   return {
     showcase: { selections, variants, resolvedSelections, strengthRanksByExercise },
     publicFeaturedPrs,
-    strengthRank: strength.overall?.rank ?? null,
+    strength: projectPublicStrength(strength, training.gender),
     stats: {
       totalWorkouts: training.history.length,
       weeklyStreak: calculateWeeklyStreak(training.history)

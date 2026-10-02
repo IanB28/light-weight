@@ -5,13 +5,14 @@ import { mapApiError } from '../../lib/api-errors.js';
 import type { FriendProfileProjection, PublicUserSummary } from '@light-weight/domain';
 import { friendsApi } from '../../lib/social-api.js';
 import { usePreferences } from '../../lib/preferences-context.js';
-import { useI18n, type TranslationKey } from '../../lib/i18n.js';
+import { useI18n } from '../../lib/i18n.js';
 import { findExerciseById } from '../../lib/exercises.js';
 import { AppCard, EmptyState, ErrorState, IconButton } from '../../components/ui/index.js';
-import { StrengthRankBadge } from '../../components/StrengthRankBadge.js';
+import { AnatomicalBodyMap } from '../../components/charts/AnatomicalBodyMap.js';
 import { ProfileAvatar } from './ProfileIdentityButton.js';
 import { ProfilePrRow } from './ProfilePrRow.js';
 import { formatPublicFeaturedPrLoad } from './featured-pr-presentation.js';
+import { OverallStrengthCard } from './OverallStrengthCard.js';
 
 interface FriendProfileViewProps {
   friend: PublicUserSummary;
@@ -71,22 +72,24 @@ export function FriendProfileContent({ profile }: { profile: FriendProfileProjec
 
       <section className="space-y-2" aria-labelledby="friend-strength-rank">
         <h3 id="friend-strength-rank" className="text-sm font-extrabold tracking-tight text-text-primary">{t('friends.strengthRank')}</h3>
-        <AppCard compact className="flex min-h-24 items-center gap-4 overflow-visible">
-          {profile.strengthRank ? (
-            <>
-              <StrengthRankBadge rank={profile.strengthRank} size="lg" showGlow />
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-text-muted">{t('profile.overall')}</p>
-                <p className="truncate text-lg font-extrabold text-text-primary">{t(`ranks.${profile.strengthRank}` as TranslationKey)}</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-input text-text-muted"><Shield aria-hidden="true" className="size-5" /></span>
-              <p className="text-sm font-semibold text-text-muted">{t('friends.strengthUnavailable')}</p>
-            </>
-          )}
-        </AppCard>
+        {profile.strength.overall ? (
+          <div className="space-y-4">
+            <OverallStrengthCard overall={profile.strength.overall} />
+            <div className="rounded-ui-xl border border-border-subtle bg-surface p-3">
+              <AnatomicalBodyMap
+                mode="strength"
+                strengthPresentation="social"
+                strengthRanksByMuscle={profile.strength.muscleRanks}
+                gender={profile.strength.anatomy}
+              />
+            </div>
+          </div>
+        ) : (
+          <AppCard compact className="flex min-h-24 items-center gap-4">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-input text-text-muted"><Shield aria-hidden="true" className="size-5" /></span>
+            <p className="text-sm font-semibold text-text-muted">{t('friends.strengthUnavailable')}</p>
+          </AppCard>
+        )}
       </section>
 
       <section className="space-y-2" aria-labelledby="friend-featured-records">

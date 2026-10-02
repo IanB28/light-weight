@@ -1,5 +1,5 @@
 import type { StrengthRank } from './strengthStandards.js';
-import type { ExerciseLoadMode } from './types.js';
+import type { ExerciseLoadMode, MuscleGroup } from './types.js';
 
 export type UserGender = 'male' | 'female';
 
@@ -51,12 +51,36 @@ export interface PublicFeaturedPrProjection {
   available: boolean;
 }
 
+/** Aggregate strength result safe to expose on an accepted friend's profile. */
+export interface PublicOverallStrengthProjection {
+  rank: StrengthRank;
+  overallScore: number;
+  nextRank: StrengthRank | null;
+  progressPctToNextRank: number;
+  ratedMuscleCount: number;
+  totalMuscleCount: number;
+  coveragePct: number;
+  isComplete: boolean;
+}
+
+/**
+ * Sanitized social strength result. Per-muscle entries intentionally expose
+ * only the final rank, never the private observations used to calculate it.
+ */
+export interface PublicStrengthProjection {
+  overall: PublicOverallStrengthProjection | null;
+  muscleRanks: Partial<Record<MuscleGroup, StrengthRank>>;
+  anatomy?: UserGender;
+}
+
 export interface FriendProfileProjection {
   user: PublicUserSummary;
   stats: {
     totalWorkouts: number;
     weeklyStreak: number;
   };
+  strength: PublicStrengthProjection;
+  /** @deprecated Compatibility alias; strength.overall is authoritative. */
   strengthRank: StrengthRank | null;
   featuredPrs: PublicFeaturedPrProjection[];
 }

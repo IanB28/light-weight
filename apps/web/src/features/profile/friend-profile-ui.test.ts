@@ -32,6 +32,20 @@ function renderFriendProfile(profile: FriendProfileProjection): string {
 const publicProfile: FriendProfileProjection = {
   user: { id: 'friend-a', displayName: 'Taylor Athlete', username: 'taylor', avatarUrl: 'https://example.com/avatar.jpg' },
   stats: { totalWorkouts: 42, weeklyStreak: 7 },
+  strength: {
+    overall: {
+      rank: 'gladiador',
+      overallScore: 3.45,
+      nextRank: 'elite',
+      progressPctToNextRank: 45,
+      ratedMuscleCount: 2,
+      totalMuscleCount: 11,
+      coveragePct: 18,
+      isComplete: false
+    },
+    muscleRanks: { chest: 'gladiador', back: 'principiante' },
+    anatomy: 'male'
+  },
   strengthRank: 'gladiador',
   featuredPrs: [
     { slot: 1, exercise: { id: 'bench', name: 'Bench Press' }, load: { type: 'weight', weightKg: 100, loadMode: 'total' }, reps: 5, strengthRank: 'gladiador', available: true },
@@ -47,6 +61,21 @@ test('friend profile renders only the public read-only projection in server orde
   assert.match(html, />42</);
   assert.match(html, />7</);
   assert.match(html, /Gladiador/);
+  assert.match(html, /3\.45/);
+  assert.match(html, /2 \/ 11 grupos evaluados/);
+  assert.match(html, /45% hacia Élite/);
+  assert.match(html, /role="progressbar"/);
+  assert.match(html, /aria-valuenow="45"/);
+  assert.match(html, /Vista frontal anatómica/);
+  assert.match(html, /Vista dorsal anatómica/);
+  assert.match(html, /data-muscle="chest"[^>]*data-strength-rank="gladiador"[^>]*data-interactive="false"/);
+  assert.match(html, /data-muscle="back"[^>]*data-strength-rank="principiante"[^>]*data-interactive="false"/);
+  assert.match(html, /data-muscle="forearms"[^>]*data-interactive="false"/);
+  assert.match(html, /fill="#8A5A1F"/, 'public Gladiador rank must drive the map color');
+  assert.match(html, /fill="#B5652D"/, 'public Principiante rank must drive the map color');
+  assert.match(html, /var\(--untrained-muscle-fill/, 'unevaluated regions must retain the neutral map treatment');
+  assert.doesNotMatch(html, /data-interactive="true"|cursor-pointer/);
+  assert.doesNotMatch(html, /Toca cualquier grupo muscular|Fuerza relativa|1RM estimado|Siguiente rango|Cerrar/);
   assert.ok(html.indexOf('Bench Press') < html.indexOf('Weighted Pull-Up'));
   assert.ok(html.indexOf('Weighted Pull-Up') < html.indexOf('Private Custom Lift'));
   assert.match(html, /100 kg/);
@@ -54,6 +83,34 @@ test('friend profile renders only the public read-only projection in server orde
   assert.match(html, />BW</);
   assert.match(html, /No disponible/);
   assert.doesNotMatch(html, /Editar perfil|Cambiar foto|Peso corporal|Rutinas/);
+});
+
+test('friend Overall handles maximum rank and no-data states without fabricating strength', () => {
+  const maxRank = renderFriendProfile({
+    ...publicProfile,
+    strengthRank: 'dios',
+    strength: {
+      ...publicProfile.strength,
+      overall: {
+        ...publicProfile.strength.overall!,
+        rank: 'dios',
+        overallScore: 9,
+        nextRank: null,
+        progressPctToNextRank: 100
+      }
+    }
+  });
+  assert.match(maxRank, /Dios/);
+  assert.match(maxRank, /Rango máximo/);
+  assert.doesNotMatch(maxRank, /role="progressbar"/);
+
+  const noData = renderFriendProfile({
+    ...publicProfile,
+    strengthRank: null,
+    strength: { overall: null, muscleRanks: {}, anatomy: 'female' }
+  });
+  assert.match(noData, /Sin nivel de fuerza disponible/);
+  assert.doesNotMatch(noData, /data-testid="overall-strength-card"|Vista frontal anatómica/);
 });
 
 test('public load formatter respects safe load semantics and viewer units', () => {
@@ -106,7 +163,7 @@ test('profile navigation is nested and friend fetch aborts stale requests', () =
 
 test('friend profile does not persist or consume private training fields', () => {
   const view = source('features/profile/FriendProfileView.tsx');
-  for (const privateField of ['localStorage', 'sessionStorage', 'effectiveLoadKg', 'bodyweightKg', '.history', '.sets', '.rpe', '.rir']) {
+  for (const privateField of ['localStorage', 'sessionStorage', 'effectiveLoadKg', 'bodyweightKg', 'strengthEvaluation', '.history', '.sets', '.rpe', '.rir']) {
     assert.ok(!view.includes(privateField), `${privateField} must stay outside the friend profile boundary`);
   }
 });
@@ -116,7 +173,8 @@ test('friend profile copy is complete in Spanish and English', () => {
     'friends.openProfile', 'friends.profileTitle', 'friends.backToFriends', 'friends.profileLoading',
     'friends.profileUnavailable', 'friends.profileUnavailableDescription', 'friends.profileLoadError',
     'friends.profileLoadErrorDescription', 'friends.retryProfile', 'friends.strengthRank',
-    'friends.strengthUnavailable', 'friends.featuredRecords', 'friends.noRecords'
+    'friends.strengthUnavailable', 'friends.strengthUnevaluated', 'friends.featuredRecords', 'friends.noRecords',
+    'stats.front', 'stats.back', 'stats.frontAnatomy', 'stats.backAnatomy'
   ] as const;
   for (const key of keys) {
     assert.ok(dictionaries.es[key], `Missing Spanish translation for ${key}`);

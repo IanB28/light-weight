@@ -278,6 +278,7 @@ test('AnatomicalBodyMap: renders 9-rank colors in strength mode with profile pre
   assert.ok(!html.includes('whitespace-nowrap'), 'Legend must not use whitespace-nowrap');
   assert.ok(!html.includes('truncate leading-tight'), 'Legend must not truncate rank names — all 9 must be fully readable');
   assert.ok(html.includes('break-words'), 'Legend must use break-words to allow full names to wrap instead of clip');
+  assert.ok(html.includes('data-interactive="true"'), 'Own-profile muscle paths must remain interactive');
 });
 
 test('STRENGTH_RANK_VISUALS: final canonical rank tokens match approved specification', () => {

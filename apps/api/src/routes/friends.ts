@@ -87,7 +87,8 @@ friendsRouter.get('/:userId/profile', asyncRoute(async (req, res) => {
   const projection: FriendProfileProjection = {
     user: toPublicUser(target),
     stats: authority.stats,
-    strengthRank: authority.strengthRank,
+    strength: authority.strength,
+    strengthRank: authority.strength.overall?.rank ?? null,
     featuredPrs: authority.publicFeaturedPrs
   };
   res.json(projection);

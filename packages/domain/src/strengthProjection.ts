@@ -12,6 +12,7 @@ import {
 import type { BodyweightEntry, Exercise, HistoricalPersonalRecord, MuscleGroup, WorkoutSession } from './types.js';
 import { resolveBodyweightKgAtDate } from './weight.js';
 import { resolveWorkoutDateKey } from './workoutTemporal.js';
+import type { PublicStrengthProjection, UserGender } from './identity.js';
 
 export interface CanonicalStrengthObservation {
   exerciseId: string;
@@ -32,6 +33,37 @@ export interface CanonicalStrengthProjectionOptions {
   gender?: Gender;
   bodyweightEntries?: readonly BodyweightEntry[];
   historicalPersonalRecords?: readonly HistoricalPersonalRecord[];
+}
+
+/**
+ * Projects canonical private training evidence onto the rank-only social
+ * contract. No observation, exercise, bodyweight, or per-muscle calculation
+ * crosses this boundary.
+ */
+export function projectPublicStrength(
+  projection: CanonicalStrengthProjection,
+  anatomy?: UserGender
+): PublicStrengthProjection {
+  const muscleRanks: PublicStrengthProjection['muscleRanks'] = {};
+  for (const [muscle, observation] of Object.entries(projection.byMuscle)) {
+    if (observation) muscleRanks[muscle as MuscleGroup] = observation.evaluation.rank;
+  }
+
+  const overall = projection.overall;
+  return {
+    overall: overall ? {
+      rank: overall.rank,
+      overallScore: overall.overallScore,
+      nextRank: overall.nextRank,
+      progressPctToNextRank: overall.progressPctToNextRank,
+      ratedMuscleCount: overall.ratedMuscleCount,
+      totalMuscleCount: overall.totalMuscleCount,
+      coveragePct: overall.coveragePct,
+      isComplete: overall.isComplete
+    } : null,
+    muscleRanks,
+    ...(anatomy ? { anatomy } : {})
+  };
 }
 
 function observationWins(

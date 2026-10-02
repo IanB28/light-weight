@@ -5,7 +5,11 @@ import test from 'node:test';
 import dotenv from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { selectCanonicalPersonalRecordsByExercise, type FriendProfileProjection } from '@light-weight/domain';
+import {
+  resolveCanonicalStrengthProjection,
+  selectCanonicalPersonalRecordsByExercise,
+  type FriendProfileProjection
+} from '@light-weight/domain';
 import { createApp } from '../app.js';
 import { db, replaceDatabaseForTesting } from '../db/index.js';
 import * as schema from '../db/schema.js';
@@ -126,6 +130,11 @@ test('HTTP friend profile is accepted-friend-only, full-history authoritative, s
             assert.equal(defaultResponse.status, 200);
             const defaultPayload = await defaultResponse.json() as FriendProfileProjection;
             const training = await loadFullUserTrainingProjection(target);
+            const canonicalStrength = resolveCanonicalStrengthProjection(training.history, training.exercisesById, {
+              gender: training.gender,
+              bodyweightEntries: training.bodyweightEntries,
+              historicalPersonalRecords: training.historicalPersonalRecords
+            });
             const canonicalDefaultIds = Object.values(selectCanonicalPersonalRecordsByExercise(training.history, {
               exercisesById: training.exercisesById,
               bodyweightEntries: training.bodyweightEntries,
@@ -141,6 +150,35 @@ test('HTTP friend profile is accepted-friend-only, full-history authoritative, s
               'a custom exercise in the canonical top three must remain eligible');
             assert.equal(defaultPayload.featuredPrs.find((item) => item.exercise.id === bench)?.strengthRank, 'maestro',
               'old strength result outside newest 50 must remain authoritative');
+            assert.deepEqual(defaultPayload.strength.overall, canonicalStrength.overall && {
+              rank: canonicalStrength.overall.rank,
+              overallScore: canonicalStrength.overall.overallScore,
+              nextRank: canonicalStrength.overall.nextRank,
+              progressPctToNextRank: canonicalStrength.overall.progressPctToNextRank,
+              ratedMuscleCount: canonicalStrength.overall.ratedMuscleCount,
+              totalMuscleCount: canonicalStrength.overall.totalMuscleCount,
+              coveragePct: canonicalStrength.overall.coveragePct,
+              isComplete: canonicalStrength.overall.isComplete
+            });
+            assert.equal(defaultPayload.strength.anatomy, 'male', 'anatomy is intentional public presentation metadata');
+            assert.equal(defaultPayload.strengthRank, defaultPayload.strength.overall?.rank ?? null,
+              'legacy strengthRank must remain an exact compatibility alias of authoritative strength.overall');
+            assert.equal(defaultPayload.strength.muscleRanks.chest, canonicalStrength.byMuscle.chest?.evaluation.rank,
+              'the old strength-defining chest observation outside the newest 50 sessions must color the public map');
+            assert.equal(defaultPayload.strength.muscleRanks.back, canonicalStrength.byMuscle.back?.evaluation.rank);
+            assert.equal(defaultPayload.strength.muscleRanks.forearms, undefined,
+              'unevaluated muscles must stay absent instead of being fabricated as Novato');
+
+            const musclePayload = JSON.stringify(defaultPayload.strength.muscleRanks);
+            for (const privateMuscleField of [
+              'evaluation', 'strengthEvaluation', 'strengthScore', 'currentRatio', 'oneRmKg',
+              'bodyweightKg', 'targetRatio', 'targetOneRmKg', 'kgToNextRank',
+              'progressPctToNextRank', 'topExerciseId', 'topExerciseName', 'performedAt',
+              'exerciseName', 'exerciseId', 'workoutId', 'sessionId', 'sets', 'history'
+            ]) {
+              assert.ok(!musclePayload.includes(privateMuscleField),
+                `public muscle ranks must not contain ${privateMuscleField}`);
+            }
             assert.equal(defaultPayload.stats.totalWorkouts, 52);
             assert.ok(!JSON.stringify(defaultPayload).includes('Unselected Press'));
             const forbidden = ['email', 'birthDate', 'gender', 'currentBodyweightKg', 'bodyweightKg', 'bodyweightEntries',

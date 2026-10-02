@@ -30,6 +30,7 @@ import { useI18n, useExerciseLabels } from '../../lib/i18n.js';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { formatDisplayWeight } from '../../lib/weight-units.js';
 import { AppCard, Button, EmptyState } from '../../components/ui/index.js';
+import { OverallStrengthCard } from './OverallStrengthCard.js';
 
 export interface ProfileStrengthSectionProps {
   history: WorkoutSession[];
@@ -70,8 +71,6 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
 
   const overall = strengthSnapshot.overall;
   const overallVisual = overall ? getStrengthRankVisual(overall.rank) : null;
-  const nextOverallVisual = overall?.nextRank ? getStrengthRankVisual(overall.nextRank) : null;
-
   const selectedMuscleData = selectedMuscle ? strengthSnapshot.muscles[selectedMuscle] : null;
   const selectedEval = selectedMuscleData?.strengthEvaluation;
   const selectedMuscleVisual = selectedEval ? getStrengthRankVisual(selectedEval.rank) : null;
@@ -164,96 +163,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
         />
       ) : (
         <div className="space-y-4">
-          {/* Overall Strength Hero Card */}
-          <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle p-4.5 shadow-card">
-            <div className="relative flex items-center gap-4">
-              {/* Hero Badge — silhouette aura is rendered via dual mask-image on a background layer */}
-              <div className="shrink-0">
-                <StrengthRankBadge
-                  rank={overall.rank}
-                  size="xl"
-                  showGlow
-                />
-              </div>
-
-              {/* Hero Info */}
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                    {t('profile.overall')}
-                  </span>
-                  {overall.isComplete ? (
-                    <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-                      {t('profile.overallComplete')}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                      {t('profile.overallProvisional')}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-baseline gap-2">
-                  <h3
-                    className="text-xl font-extrabold tracking-tight"
-                    style={{ color: overallVisual?.color }}
-                  >
-                    {t(`ranks.${overall.rank}`)}
-                  </h3>
-                  <span className="text-sm font-bold tabular-nums text-text-secondary">
-                    {overall.overallScore.toFixed(2)}
-                    <span className="text-[11px] font-normal text-text-muted"> / 9.00</span>
-                  </span>
-                </div>
-
-                <p className="text-[11px] font-medium text-text-muted">
-                  {t('profile.evaluatedGroups', {
-                    rated: overall.ratedMuscleCount,
-                    total: overall.totalMuscleCount
-                  })}
-                </p>
-              </div>
-            </div>
-
-            {/* Overall Progress to next rank */}
-            <div className="mt-3.5 space-y-1.5 border-t border-border-subtle pt-3">
-              <div className="flex items-center justify-between text-xs">
-                {overall.nextRank ? (
-                  <>
-                    <span className="text-[11px] font-medium text-text-muted truncate">
-                      {t('profile.progressToward', {
-                        pct: Math.round(overall.progressPctToNextRank),
-                        nextRank: t(`ranks.${overall.nextRank}`)
-                      })}
-                    </span>
-                    <span
-                      className="text-[11px] font-bold tabular-nums shrink-0 ml-2"
-                      style={{ color: nextOverallVisual?.color ?? overallVisual?.color }}
-                    >
-                      {Math.round(overall.progressPctToNextRank)}%
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-accent font-bold text-xs flex items-center gap-1">
-                    <Sparkles className="size-3.5 text-accent inline" />
-                    {t('stats.maxRank')}
-                  </span>
-                )}
-              </div>
-
-              {overall.nextRank && (
-                <div className="h-1.5 w-full rounded-full bg-surface-raised overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, overall.progressPctToNextRank))}%`,
-                      backgroundColor: overallVisual?.color
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          <OverallStrengthCard overall={overall} />
 
           {/* Anatomical Body Map (Strength Mode) */}
           <div className="space-y-2 rounded-ui-xl border border-border-subtle bg-surface p-3">

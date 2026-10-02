@@ -9,7 +9,7 @@ import {
 } from '@light-weight/domain';
 import BODY_PATHS, { BodyViewData } from '../../lib/body-paths.js';
 import { usePreferences } from '../../lib/preferences-context.js';
-import { useI18n } from '../../lib/i18n.js';
+import { useExerciseLabels, useI18n } from '../../lib/i18n.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import {
   STRENGTH_RANK_VISUALS,
@@ -45,18 +45,19 @@ export interface MuscleAnalytics {
 }
 
 interface AnatomicalBodyMapProps {
-  data: Record<MuscleGroup, MuscleAnalytics>;
+  data?: Partial<Record<MuscleGroup, MuscleAnalytics>>;
   balanceByPath?: Partial<Record<BodyMusclePath, BalanceBodyPathData>>;
   fatigueByPath?: Partial<Record<BodyMusclePath, FatigueBodyPathData>>;
   mode: AnalysisMode;
   gender?: Gender;
-  selectedMuscle: MuscleGroup | null;
-  onSelectMuscle: (muscle: MuscleGroup | null) => void;
+  selectedMuscle?: MuscleGroup | null;
+  onSelectMuscle?: (muscle: MuscleGroup | null) => void;
   selectedPath?: BodyMusclePath | null;
   onSelectPath?: (path: BodyMusclePath | null) => void;
   onConfigureGender?: () => void;
   onSelectGender?: (gender: Gender) => void;
-  strengthPresentation?: 'summary' | 'profile';
+  strengthPresentation?: 'summary' | 'profile' | 'social';
+  strengthRanksByMuscle?: Partial<Record<MuscleGroup, StrengthRank>>;
   className?: string;
 }
 
@@ -107,22 +108,25 @@ export const SPANISH_MUSCLE_NAMES: Record<MuscleGroup, string> = {
 };
 
 export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
-  data,
+  data = {},
   balanceByPath,
   fatigueByPath,
   mode,
   gender,
-  selectedMuscle,
+  selectedMuscle = null,
   onSelectMuscle,
   selectedPath,
   onSelectPath,
   onConfigureGender,
   onSelectGender,
   strengthPresentation = 'summary',
+  strengthRanksByMuscle,
   className = ''
 }) => {
   const { preferences } = usePreferences();
   const { t } = useI18n();
+  const { muscleLabel } = useExerciseLabels();
+  const isSocialStrength = mode === 'strength' && strengthPresentation === 'social';
 
   // Guard clause: If user hasn't set gender, display an informative state prompting selection
   if (!gender) {
@@ -171,10 +175,30 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   const genderPaths = BODY_PATHS[gender];
+  const strengthRankFor = (muscle: MuscleGroup): StrengthRank | undefined => {
+    const publicRank = strengthRanksByMuscle?.[muscle];
+    if (publicRank) return publicRank;
+    const item = data[muscle];
+    return item?.strengthEvaluation && item.topEst1RmKg > 0
+      ? item.strengthEvaluation.rank
+      : undefined;
+  };
 
   // Determine fill color and stroke for a given muscle group based on mode
   const getMuscleColor = (muscle: MuscleGroup): { fill: string; stroke: string; strokeWidth: number } => {
     const item = data[muscle];
+    if (mode === 'strength') {
+      const rank = strengthRankFor(muscle);
+      if (!rank) {
+        return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
+      }
+      const visual = getStrengthRankVisual(rank);
+      return {
+        fill: visual.fill,
+        stroke: visual.rank === 'semidios' || visual.rank === 'dios' ? visual.accent : visual.stroke,
+        strokeWidth: visual.rank === 'semidios' || visual.rank === 'dios' ? 1.2 : 1.0
+      };
+    }
     // Base fallback: clearly visible against dark glass
     if (!item) return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
 
@@ -184,20 +208,6 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
     if (mode === 'fatigue') {
       return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
-    }
-
-    if (mode === 'strength') {
-      if (!item.strengthEvaluation || item.topEst1RmKg === 0) {
-        return { fill: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))', stroke: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))', strokeWidth: 0.8 };
-      }
-      const visual = getStrengthRankVisual(item.strengthEvaluation.rank);
-      if (visual.rank === 'semidios') {
-        return { fill: visual.fill, stroke: visual.accent, strokeWidth: 1.2 };
-      }
-      if (visual.rank === 'dios') {
-        return { fill: visual.fill, stroke: visual.accent, strokeWidth: 1.2 };
-      }
-      return { fill: visual.fill, stroke: visual.stroke, strokeWidth: 1.0 };
     }
 
     return { fill: 'rgba(255, 255, 255, 0.07)', stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 0.8 };
@@ -274,7 +284,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         viewBox={view.vb}
         className="h-[285px] sm:h-[320px] w-auto max-w-full drop-shadow-xl select-none transition-all duration-200"
         role="img"
-        aria-label={isFront ? 'Vista frontal anatómica' : 'Vista dorsal anatómica'}
+        aria-label={t(isFront ? 'stats.frontAnatomy' : 'stats.backAnatomy')}
       >
         {/* Render inert silhouette parts with distinct openGym contrast */}
         {Object.entries(view.p).map(([key, paths]) => {
@@ -305,10 +315,11 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           const isSelected = isSemanticMode && onSelectPath
             ? selectedPath === (key as BodyMusclePath)
             : mode === 'strength'
-            ? selectedMuscle === muscle
+            ? !isSocialStrength && selectedMuscle === muscle
             : false;
           const isStrengthMode = mode === 'strength';
-          const rankVisual = isStrengthMode && item?.strengthEvaluation ? getStrengthRankVisual(item.strengthEvaluation.rank) : null;
+          const strengthRank = isStrengthMode ? strengthRankFor(muscle) : undefined;
+          const rankVisual = strengthRank ? getStrengthRankVisual(strengthRank) : null;
 
           let renderedFill = fill;
           let renderedStroke = stroke;
@@ -367,12 +378,16 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               : '';
             titleText = `${pathDisplayName} (${feuVal} FEU • ${stateLabel}${qualityNote})`;
           } else if (isStrengthMode) {
-            const rankText = item?.strengthEvaluation ? t(`ranks.${item.strengthEvaluation.rank}`) : 'Sin evaluar';
-            const broadName = SPANISH_MUSCLE_NAMES[muscle] || muscle;
-            if (pathDisplayName && pathDisplayName.toLowerCase() !== broadName.toLowerCase()) {
-              titleText = `${pathDisplayName} (Proyección: ${broadName} • ${rankText})`;
+            const rankText = strengthRank ? t(`ranks.${strengthRank}`) : t('friends.strengthUnevaluated');
+            if (isSocialStrength) {
+              titleText = `${muscleLabel(muscle)} (${rankText})`;
             } else {
-              titleText = `${broadName} (${rankText})`;
+              const broadName = SPANISH_MUSCLE_NAMES[muscle] || muscle;
+              if (pathDisplayName && pathDisplayName.toLowerCase() !== broadName.toLowerCase()) {
+                titleText = `${pathDisplayName} (Proyección: ${broadName} • ${rankText})`;
+              } else {
+                titleText = `${broadName} (${rankText})`;
+              }
             }
           }
 
@@ -383,14 +398,19 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               fill={renderedFill}
               stroke={renderedStroke}
               strokeWidth={renderedStrokeWidth}
-              className="cursor-pointer transition-colors duration-150 active:opacity-80"
+              className={isSocialStrength
+                ? 'transition-colors duration-150'
+                : 'cursor-pointer transition-colors duration-150 active:opacity-80'}
+              data-muscle={muscle}
+              data-strength-rank={strengthRank}
+              data-interactive={isSocialStrength ? 'false' : 'true'}
               style={{
                 filter: renderedFilter
               }}
-              onClick={() => {
+              onClick={isSocialStrength ? undefined : () => {
                 if (isSemanticMode && onSelectPath) {
                   onSelectPath(selectedPath === (key as BodyMusclePath) ? null : (key as BodyMusclePath));
-                } else if (mode === 'strength') {
+                } else if (mode === 'strength' && onSelectMuscle) {
                   onSelectMuscle(selectedMuscle === muscle ? null : muscle);
                 }
               }}
@@ -411,7 +431,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       <div className="flex items-center justify-center gap-3 sm:gap-6 py-3 px-2 sm:px-4 bg-gradient-to-b from-white/[0.07] to-white/[0.02] rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-xl">
         <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
           <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
-            Frente
+            {t('stats.front')}
           </span>
           {renderView(genderPaths.front, true)}
         </div>
@@ -420,7 +440,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
         <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
           <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
-            Dorso
+            {t('stats.back')}
           </span>
           {renderView(genderPaths.back, false)}
         </div>
@@ -476,7 +496,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       )}
 
       {/* Detail Card (Suppressed when strengthPresentation === 'profile' to let Profile render its own dedicated panel) */}
-      {strengthPresentation !== 'profile' && (
+      {strengthPresentation !== 'profile' && strengthPresentation !== 'social' && (
         mode === 'balance' ? (
           selectedPath ? (
             (() => {
@@ -712,7 +732,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               </div>
 
               <button
-                onClick={() => onSelectMuscle(null)}
+                onClick={() => onSelectMuscle?.(null)}
                 className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
               >
                 Cerrar

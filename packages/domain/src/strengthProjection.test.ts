@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   resolveCanonicalStrengthProjection,
+  projectPublicStrength,
   projectPublicFeaturedPrLoad,
   selectCanonicalPersonalRecordsByExercise
 } from './index.js';
@@ -38,6 +39,30 @@ test('canonical strength projection preserves full-history score, 1RM and date t
   assert.equal(projection.byMuscle.chest?.exerciseId, 'bench');
   assert.equal(projection.overall?.rank, projection.byExercise.bench.evaluation.rank);
   assert.ok(projection.byExercise.bench.evaluation.strengthScore > 1);
+});
+
+test('public strength projection exposes aggregate results and rank-only muscle entries', () => {
+  const projection = resolveCanonicalStrengthProjection([
+    session('old-strong', '2024-01-01T10:00:00.000Z', 100, 8)
+  ], { bench }, {
+    gender: 'male',
+    bodyweightEntries: [{ date: '2023-12-31', timestamp: 0, weightKg: 80 }]
+  });
+
+  const publicProjection = projectPublicStrength(projection, 'male');
+  assert.equal(publicProjection.anatomy, 'male');
+  assert.equal(publicProjection.muscleRanks.chest, projection.byMuscle.chest?.evaluation.rank);
+  assert.equal(publicProjection.overall?.rank, projection.overall?.rank);
+  assert.equal(typeof publicProjection.muscleRanks.chest, 'string');
+
+  const serialized = JSON.stringify(publicProjection.muscleRanks);
+  for (const privateField of [
+    'strengthScore', 'currentRatio', 'oneRmKg', 'bodyweightKg', 'targetRatio',
+    'targetOneRmKg', 'kgToNextRank', 'progressPctToNextRank', 'exerciseId',
+    'exerciseName', 'performedAt'
+  ]) {
+    assert.ok(!serialized.includes(privateField), `${privateField} must not cross the social projection boundary`);
+  }
 });
 
 test('public featured load projection preserves presentation semantics without effective bodyweight load', () => {
