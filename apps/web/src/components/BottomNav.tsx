@@ -49,17 +49,15 @@ export const BottomNavItem: React.FC<BottomNavItemProps> = ({
       onClick={() => onSelectTab(tab.id)}
       data-active={isActive}
       data-workout-running={isActiveWorkout || undefined}
-      className={`bottom-nav-item group relative z-10 flex min-h-11 min-w-0 select-none flex-col items-center justify-center gap-1 rounded-[20px] border px-0.5 outline-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${
+      className={`bottom-nav-item group relative z-10 flex min-h-11 min-w-0 select-none flex-col items-center justify-center gap-0.5 rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${
         isActive ? 'text-accent' : 'text-text-muted'
       }`}
     >
-      <span className="relative flex h-6 items-center justify-center">
+      <span className="relative z-10 flex h-[22px] items-center justify-center">
         <MaskedPngIcon
           src={tab.icon.src}
           opticalScale={tab.icon.opticalScale}
-          className={`size-[1.375rem] transition-[transform,color] duration-300 ease-[var(--ease-spring)] motion-reduce:transition-none ${
-            isActive ? '-translate-y-px scale-[1.08]' : 'scale-100'
-          }`}
+          className="size-[1.375rem]"
         />
         {isActiveWorkout && (
           <span
@@ -71,7 +69,7 @@ export const BottomNavItem: React.FC<BottomNavItemProps> = ({
       </span>
 
       <span
-        className={`max-w-full truncate text-[10px] leading-none tracking-[-0.01em] transition-colors duration-200 min-[360px]:text-[11px] ${
+        className={`relative z-10 max-w-full truncate text-[10px] leading-none tracking-[-0.01em] transition-colors duration-200 min-[360px]:text-[11px] ${
           isActive ? 'font-bold text-text-primary' : 'font-medium text-text-muted'
         }`}
       >
@@ -124,11 +122,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     >
       <nav
         aria-label={t('nav.label')}
-        className={`bottom-nav-surface relative mx-auto flex h-[72px] max-w-md overflow-hidden rounded-[26px] border border-[var(--nav-border)] p-1.5 ${
+        className={`bottom-nav-surface relative mx-auto flex h-16 max-w-md overflow-hidden rounded-full border border-[var(--nav-border)] p-1 ${
           mobileKeyboardOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
       >
-        <div className="relative flex h-full w-full items-stretch gap-0.5">
+        <div className="relative flex h-full w-full items-stretch">
           {tabs.map((tab) => (
             <BottomNavItem
               key={tab.id}

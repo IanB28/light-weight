@@ -65,17 +65,17 @@
   --section-gap: 1rem;
   --card-padding: 1.25rem;
   --compact-card-padding: 0.875rem;
-  --bottom-nav-height: 5.75rem;
+  --bottom-nav-height: 5.25rem;
   --orb-1: rgba(59, 130, 246, 0.16);
   --orb-2: rgba(99, 102, 241, 0.14);
   --orb-3: rgba(14, 165, 233, 0.1);
   --orb-brand: rgba(34, 197, 94, 0.08);
   --nav-bg: rgba(10, 15, 28, 0.86);
   --nav-bg-solid: #0a0f1c;
-  --nav-border: rgba(255, 255, 255, 0.12);
-  --nav-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.75);
-  --nav-active-bg: color-mix(in srgb, var(--surface-active) 82%, var(--accent-color) 18%);
-  --nav-active-border: color-mix(in srgb, var(--border-active) 72%, var(--accent-color) 28%);
+  --nav-border: rgba(255, 255, 255, 0.09);
+  --nav-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.55);
+  --nav-active-bg: color-mix(in srgb, var(--surface-active) 90%, var(--accent-color) 10%);
+  --nav-active-border: color-mix(in srgb, var(--border-active) 55%, transparent);
   --inert-body-fill: rgba(255, 255, 255, 0.12);
   --inert-body-stroke: rgba(255, 255, 255, 0.22);
   --untrained-muscle-fill: rgba(255, 255, 255, 0.07);
@@ -106,7 +106,7 @@ html[data-theme="frost"] {
   --border-subtle: rgba(15, 23, 42, 0.1); --border-active: rgba(15, 23, 42, 0.22); --border-glass: rgba(255, 255, 255, 0.88);
   --text-primary: #09090b; --text-secondary: #3f3f46; --text-muted: #64646f; --danger: #be123c; --danger-soft: rgba(225, 29, 72, 0.1); --success: #047857;
   --shadow-card: 0 20px 48px -24px rgba(100, 116, 139, 0.35), inset 0 1px rgba(255, 255, 255, 0.9); --shadow-floating: 0 18px 42px -14px rgba(100, 116, 139, 0.35); --shadow-modal: 0 28px 80px -22px rgba(71, 85, 105, 0.35);
-  --nav-bg: rgba(255, 255, 255, 0.9); --nav-bg-solid: #fff; --nav-border: rgba(255, 255, 255, 0.94); --nav-shadow: 0 16px 36px -8px rgba(100, 116, 145, 0.22);
+  --nav-bg: rgba(255, 255, 255, 0.9); --nav-bg-solid: #fff; --nav-border: rgba(255, 255, 255, 0.78); --nav-shadow: 0 10px 24px -10px rgba(100, 116, 145, 0.18);
   --orb-1: rgba(56, 189, 248, 0.2); --orb-2: rgba(192, 132, 252, 0.15); --orb-3: rgba(251, 146, 60, 0.12);
   --inert-body-fill: rgba(0, 0, 0, 0.08); --inert-body-stroke: rgba(0, 0, 0, 0.2); --untrained-muscle-fill: rgba(0, 0, 0, 0.05); --untrained-muscle-stroke: rgba(0, 0, 0, 0.15);
 }
@@ -168,26 +168,31 @@ button, [role="button"] { touch-action: manipulation; }
 
 .bottom-nav-surface {
   background: var(--nav-bg);
-  box-shadow: var(--nav-shadow), inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(145%);
-  backdrop-filter: blur(16px) saturate(145%);
+  box-shadow: var(--nav-shadow), inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(125%);
+  backdrop-filter: blur(12px) saturate(125%);
 }
 .bottom-nav-item {
   flex: 1 1 0%;
-  border-color: transparent;
-  background: transparent;
-  transition:
-    flex-grow 280ms var(--ease-spring),
-    color 220ms var(--ease-in-out),
-    background-color 220ms var(--ease-in-out),
-    border-color 220ms var(--ease-in-out),
-    transform 150ms var(--ease-out);
+  transition: color 200ms var(--ease-in-out);
 }
-.bottom-nav-item[data-active="true"] {
-  flex-grow: 1.55;
+.bottom-nav-item::before {
+  content: '';
+  position: absolute;
+  inset: 2px 1px;
+  z-index: 0;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms var(--ease-in-out);
+}
+.bottom-nav-item[data-active="true"]::before {
   border-color: var(--nav-active-border);
   background: var(--nav-active-bg);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 16%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+  opacity: 1;
 }
 .bottom-nav-surface::before {
   content: '';
@@ -197,7 +202,7 @@ button, [role="button"] { touch-action: manipulation; }
   left: 2rem;
   height: 1px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, white 42%, transparent), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, white 26%, transparent), transparent);
   pointer-events: none;
 }
 
@@ -218,7 +223,7 @@ button, [role="button"] { touch-action: manipulation; }
     background: var(--nav-bg-solid);
     border-color: var(--text-secondary);
   }
-  .bottom-nav-item[data-active="true"] {
+  .bottom-nav-item[data-active="true"]::before {
     border-color: currentColor;
     background: var(--surface-active);
   }

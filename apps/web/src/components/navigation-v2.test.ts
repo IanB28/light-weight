@@ -30,7 +30,7 @@ test('MaskedPngIcon uses both CSS mask engines, currentColor, className, and dec
   assert.doesNotMatch(html, /<img/);
 });
 
-test('BottomNav renders all translated destinations with the selected expanding item and exact assets', () => {
+test('BottomNav renders five equal-width destinations with one selected internal pill and exact assets', () => {
   for (const currentTab of tabs) {
     const html = renderToStaticMarkup(React.createElement(BottomNav, {
       currentTab,
@@ -41,6 +41,8 @@ test('BottomNav renders all translated destinations with the selected expanding 
     assert.equal((html.match(/type="button"/g) || []).length, 5);
     assert.equal((html.match(/aria-current="page"/g) || []).length, 1);
     assert.equal((html.match(/data-active="true"/g) || []).length, 1);
+    assert.equal((html.match(/bottom-nav-item /g) || []).length, 5);
+    assert.match(html, /bottom-nav-surface[^\"]*rounded-full/);
     assert.match(html, /Inicio/);
     assert.match(html, /Plan/);
     assert.match(html, /Entrenar/);
@@ -74,7 +76,7 @@ test('BottomNavItem invokes the selected tab and keeps running workout state ind
   assert.match(html, /Sesión en curso/);
 });
 
-test('navigation source preserves mobile keyboard and reduced-motion behavior without the old fixed indicator', () => {
+test('navigation layout keeps equal tab widths and visual-only selection with accessibility fallbacks', () => {
   const source = readFileSync(new URL('../../src/components/BottomNav.tsx', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
   assert.match(source, /EDITABLE_SELECTOR/);
@@ -84,9 +86,13 @@ test('navigation source preserves mobile keyboard and reduced-motion behavior wi
   assert.match(source, /motion-reduce:transition-none/);
   assert.doesNotMatch(source, /w-1\/5/);
   assert.doesNotMatch(source, /translate3d/);
+  assert.doesNotMatch(source, /scale-\[1\.08\]|active:scale/);
   assert.doesNotMatch(source, /BarChart2|Calendar|Dumbbell|\bHome\b|\bList\b/);
-  assert.match(css, /flex-grow: 1\.55/);
-  assert.match(css, /flex-grow 280ms var\(--ease-spring\)/);
+  assert.match(css, /\.bottom-nav-item\s*\{\s*flex: 1 1 0%/);
+  assert.doesNotMatch(css, /flex-grow|transition:\s*width|transition:\s*flex/);
+  assert.match(css, /\.bottom-nav-item::before\s*\{[^}]*border-radius: 9999px/s);
+  assert.match(css, /\.bottom-nav-item\[data-active="true"\]::before\s*\{[^}]*background: var\(--nav-active-bg\)/s);
+  assert.match(css, /@supports not \(\(backdrop-filter:/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /prefers-reduced-transparency/);
   assert.match(css, /prefers-contrast: more/);
