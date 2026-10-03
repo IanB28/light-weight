@@ -105,6 +105,8 @@
     "src/features/routines/routine-editor-draft.ts",
     "src/features/routines/routine-editor-draft.test.ts",
     "src/features/routines/routine-editor-integration.test.ts",
+    "src/features/routines/routine-sharing-plan.test.ts",
+    "src/features/routines/routine-share-action.test.ts",
     "src/components/RoutineEditorModal.tsx",
     "src/features/workouts/types.ts",
     "src/features/workouts/routine-previous-performance.ts",

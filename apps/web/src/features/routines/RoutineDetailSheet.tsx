@@ -77,8 +77,8 @@ export function RoutineDetailSheet({
             <EmptyState
               compact
               icon={<Dumbbell className="size-5" />}
-              title="Esta rutina no tiene ejercicios disponibles"
-              description="Puedes crear otra rutina desde la sección de planificación."
+              title={t('sharing.noAvailableExercises')}
+              description={t('sharing.noAvailableExercisesDescription')}
             />
           )}
 
@@ -95,10 +95,10 @@ export function RoutineDetailSheet({
 
           <Button className="w-full" onClick={() => onStart(routine.id)} disabled={!routineExercises.length}>
             <Play className="size-4" />
-            Empezar rutina
+            {t('sharing.startRoutine')}
           </Button>
 
-          {auth.isAuthenticated && (
+          {auth.isAuthenticated && routine.userId === auth.user?.id && (
             <Button variant="secondary" className="w-full" onClick={() => setSharing(true)}>
               <Send className="size-4" />
               {t('sharing.share')}
@@ -110,14 +110,14 @@ export function RoutineDetailSheet({
               variant="danger"
               className="w-full"
               onClick={() => {
-                if (window.confirm(`¿Eliminar la rutina “${routine.name}”?`)) {
+                if (window.confirm(t('sharing.confirmDelete', { name: routine.name }))) {
                   onDelete(routine.id);
                   onClose();
                 }
               }}
             >
               <Trash2 className="size-4" />
-              Eliminar rutina
+              {t('sharing.deleteRoutine')}
             </Button>
           )}
         </div>

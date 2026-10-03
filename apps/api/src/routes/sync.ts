@@ -578,6 +578,7 @@ syncRouter.get('/pull', requireAuth, asyncRoute(async (req, res) => {
       profile,
       routines: userRoutines.map((r) => ({
         id: r.id,
+        userId: r.userId,
         name: r.name,
         description: r.description ?? undefined,
         exerciseIds: r.exerciseIds,

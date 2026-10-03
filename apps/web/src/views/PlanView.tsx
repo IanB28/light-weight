@@ -94,7 +94,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
         </AppCard>
       </section>
 
-      <ReceivedRoutines onImport={onSaveRoutine} />
+      <ReceivedRoutines onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
 
       <section className="space-y-2.5">
         <SectionHeader
@@ -137,6 +137,9 @@ export const PlanView: React.FC<PlanViewProps> = ({
                       <p className="mt-0.5 text-xs text-text-muted">
                         {exerciseCount} {exerciseCount === 1 ? t('library.exercise') : t('library.exercises')}
                       </p>
+                      {routine.origin?.type === 'shared' && <p className="mt-0.5 truncate text-xs text-text-muted">
+                        {t('sharing.sharedBy', { username: routine.origin.sharedBy.username })}
+                      </p>}
                     </div>
                   </div>
                   <ChevronRight className="size-5 shrink-0 text-text-muted" />
