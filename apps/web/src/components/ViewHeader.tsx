@@ -45,14 +45,14 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
   const isOffline = !isOnline || syncStatus.state === 'offline';
 
   return (
-    <header className="relative px-1 pb-1 pt-2">
+    <header className="relative min-w-0 px-1 pb-1 pt-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-3 text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary">
+          <h1 className="ui-screen-title flex min-w-0 items-center gap-2 font-extrabold text-text-primary sm:gap-3">
             {leading}
             <span className="truncate">{title}</span>
           </h1>
-          {subtitle && <p className="mt-1.5 max-w-xs text-xs font-medium leading-relaxed text-text-muted">{subtitle}</p>}
+          {subtitle && <p className="ui-body-secondary mt-1.5 max-w-sm break-words">{subtitle}</p>}
         </div>
 
         {(profileIdentity || onOpenSettings) && (
@@ -81,15 +81,15 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
       {((isWorkoutActive && onNavigateToWorkout) || isOffline || syncStatus.state === 'error' || syncStatus.state === 'syncing') && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {isWorkoutActive && onNavigateToWorkout && (
-            <button type="button" onClick={onNavigateToWorkout} className="focus-visible:ring-accent inline-flex min-h-9 items-center gap-2 rounded-full border border-accent/30 bg-accent/15 px-3 text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2">
+            <button type="button" onClick={onNavigateToWorkout} className="ui-focus-visible inline-flex min-h-11 items-center gap-2 rounded-full border border-border-active bg-accent-soft px-3 text-xs font-bold text-text-primary">
               <span className="size-2 rounded-full bg-accent motion-safe:animate-pulse" aria-hidden="true" />
               <span>{t('header.activeSession')}</span>
-              <span className="font-mono">{activeWorkoutDuration}</span>
+              <span className="tabular-nums">{activeWorkoutDuration}</span>
             </button>
           )}
           {syncStatus.state === 'syncing' && <Badge><RefreshCw aria-hidden="true" className="mr-1.5 size-3 motion-safe:animate-spin" />{t('header.syncing')}</Badge>}
           {isOffline
-            ? <Badge className="border-amber-500/25 text-amber-400">{t('header.offline')}</Badge>
+            ? <Badge className="border-warning/30 bg-warning-soft text-warning">{t('header.offline')}</Badge>
             : syncStatus.state === 'error' && <Badge className="border-danger/30 text-danger">{t('header.syncError')}</Badge>}
         </div>
       )}

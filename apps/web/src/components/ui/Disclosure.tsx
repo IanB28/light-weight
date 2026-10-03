@@ -71,7 +71,7 @@ export function Modal({ open, onClose, title, description, children, className }
   if (!open) return null;
   const content = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-xl"
+      className="ui-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -84,14 +84,14 @@ export function Modal({ open, onClose, title, description, children, className }
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          'glass-surface max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-ui-xl border border-border-glass bg-surface-elevated p-5 shadow-modal outline-none',
+          'ui-modal-surface max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-ui-xl border p-5 outline-none',
           className
         )}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <h2 id={titleId} className="text-lg font-extrabold text-text-primary">{title}</h2>
-            {description && <p id={descriptionId} className="mt-1 text-xs text-text-muted">{description}</p>}
+          <div className="min-w-0 flex-1">
+            <h2 id={titleId} className="break-words text-lg font-extrabold leading-tight text-text-primary">{title}</h2>
+            {description && <p id={descriptionId} className="ui-caption mt-1 break-words">{description}</p>}
           </div>
           <IconButton variant="ghost" aria-label={t('common.close')} onClick={onClose}>
             <X className="size-4" />

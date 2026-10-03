@@ -12,8 +12,8 @@ export function AppCard({ elevated, interactive, compact, className, ...props }:
     <div
       className={cn(
         'glass-surface relative rounded-ui-xl border border-border-subtle',
-        elevated && 'bg-surface-elevated shadow-modal',
-        interactive && 'transition-[transform,border-color,background-color] hover:border-border-active active:scale-[0.99]',
+        elevated && 'ui-elevated-surface',
+        interactive && 'ui-interactive-surface transition-[border-color] duration-150',
         compact ? 'p-card-compact' : 'p-card',
         className
       )}
@@ -35,7 +35,7 @@ export function ElevatedSurface({
   return (
     <Component
       className={cn(
-        'glass-surface rounded-ui-xl border border-border-glass bg-surface-elevated shadow-modal',
+        'ui-elevated-surface rounded-ui-xl border',
         className
       )}
       {...props}
