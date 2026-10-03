@@ -42,25 +42,30 @@ export const normalizeExerciseSearch = (value: string) => value
   .toLocaleLowerCase('es')
   .trim();
 
-const MUSCLE_QUERY_ALIASES: Readonly<Record<string, MuscleGroup>> = {
-  biceps: 'biceps', triceps: 'triceps', pecho: 'chest', chest: 'chest',
-  espalda: 'back', back: 'back', hombros: 'shoulders', shoulders: 'shoulders',
-  cuadriceps: 'quadriceps', quadriceps: 'quadriceps', hamstrings: 'hamstrings',
-  femoral: 'hamstrings', gluteos: 'glutes', glutes: 'glutes',
-  gemelos: 'calves', calves: 'calves', antebrazos: 'forearms',
-  forearms: 'forearms', core: 'core', abs: 'core'
+const MUSCLE_SEARCH_ALIASES: Readonly<Record<MuscleGroup, readonly string[]>> = {
+  chest: ['pecho', 'chest'],
+  back: ['espalda', 'back'],
+  shoulders: ['hombros', 'shoulders'],
+  quadriceps: ['cuadriceps', 'quadriceps'],
+  hamstrings: ['femoral', 'hamstrings'],
+  glutes: ['gluteos', 'glutes'],
+  biceps: ['biceps'],
+  triceps: ['triceps'],
+  forearms: ['antebrazos', 'forearms'],
+  core: ['core', 'abs'],
+  calves: ['gemelos', 'calves']
 };
 
+const MUSCLE_QUERY_ALIASES = Object.fromEntries(
+  Object.entries(MUSCLE_SEARCH_ALIASES).flatMap(([muscle, aliases]) =>
+    aliases.map((alias) => [alias, muscle])
+  )
+) as Readonly<Record<string, MuscleGroup>>;
+
 export function resolveExerciseSearchIntent(normalizedQuery: string) {
-  const words = normalizedQuery.match(/[\p{L}\p{N}]+/gu) ?? [];
-  const muscles = new Set<MuscleGroup>();
-  const remaining: string[] = [];
-  for (const word of words) {
-    const muscle = MUSCLE_QUERY_ALIASES[word];
-    if (muscle) muscles.add(muscle);
-    else remaining.push(word);
-  }
-  return { muscles, terms: remaining };
+  const muscle = MUSCLE_QUERY_ALIASES[normalizedQuery];
+  const terms = muscle ? [] : normalizedQuery.match(/[\p{L}\p{N}]+/gu) ?? [];
+  return { muscle, terms };
 }
 
 export function matchesExerciseFilters(
@@ -72,12 +77,12 @@ export function matchesExerciseFilters(
   if (muscle !== 'all' && exercise.primaryMuscle !== muscle) return false;
   if (equipment !== 'all' && exercise.category !== equipment) return false;
 
-  const { muscles, terms } = resolveExerciseSearchIntent(normalizedQuery);
-  if ([...muscles].some((intent) => exercise.primaryMuscle !== intent)) return false;
+  const { muscle: muscleIntent, terms } = resolveExerciseSearchIntent(normalizedQuery);
+  if (muscleIntent && exercise.primaryMuscle !== muscleIntent) return false;
   const searchableText = normalizeExerciseSearch([
     exercise.name,
     exercise.targetMuscle || '',
-    MUSCLE_LABELS[exercise.primaryMuscle],
+    ...MUSCLE_SEARCH_ALIASES[exercise.primaryMuscle],
     EQUIPMENT_LABELS[exercise.category]
   ].join(' '));
 

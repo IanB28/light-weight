@@ -41,6 +41,45 @@ test('ES/EN muscle intents constrain the canonical primary target', () => {
   }
 });
 
+test('every real catalog exercise is searchable by its own full name', () => {
+  assert.equal(catalog.length, 1324);
+  const failures = catalog.filter((exercise) =>
+    !matchesExerciseFilters(exercise, normalizeExerciseSearch(exercise.name), 'all', 'all')
+  );
+  assert.deepEqual(failures.map((exercise) => `${exercise.id}: ${exercise.name}`), []);
+});
+
+test('muscle words inside exercise names remain ordinary text, not hidden facets', () => {
+  const collisions = [
+    ['ex-1461', 'barbell full squat (back pov)', 'glutes'],
+    ['ex-0039', 'barbell front chest squat', 'glutes'],
+    ['ex-0104', 'barbell standing back wrist curl', 'forearms'],
+    ['ex-1750', 'medicine ball supine chest throw', 'triceps']
+  ] as const;
+  for (const [id, name, primaryMuscle] of collisions) {
+    const exercise = catalog.find((item) => item.id === id);
+    assert.ok(exercise, id);
+    assert.equal(normalizeExerciseSearch(exercise.name), name);
+    assert.equal(exercise.primaryMuscle, primaryMuscle);
+    assert.ok(find(name).some((item) => item.id === id), id);
+  }
+  assert.ok(!find('back').some((exercise) => exercise.id === 'ex-1461'));
+  assert.ok(!find('chest').some((exercise) => exercise.id === 'ex-0039'));
+});
+
+test('mixed muscle words search names and primary aliases without secondary-muscle leakage', () => {
+  for (const query of ['biceps curl', 'chest fly', 'back extension', 'back wrist curl', 'front chest squat']) {
+    assert.ok(find(query).length > 0, query);
+  }
+  assert.ok(find('back wrist curl').some((exercise) => exercise.id === 'ex-0104'));
+  assert.ok(find('front chest squat').some((exercise) => exercise.id === 'ex-0039'));
+  const secondaryOnly: Exercise = {
+    id: 'secondary-only', name: 'Dumbbell Curl', primaryMuscle: 'back',
+    secondaryMuscles: ['biceps'], category: 'dumbbell', isCustom: true
+  };
+  assert.equal(matchesExerciseFilters(secondaryOnly, normalizeExerciseSearch('biceps curl'), 'all', 'all'), false);
+});
+
 test('all equipment facets are exact on real EXDB; no cross-category leakage', () => {
   for (const category of ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'other'] as const) {
     const results = find('', 'all', category);
@@ -64,6 +103,11 @@ test('muscle, equipment and search compose with AND, including custom exercises'
   assert.equal(matchesExerciseFilters(custom, 'biceps', 'all', 'dumbbell'), false);
   assert.equal(matchesExerciseFilters(custom, 'curl', 'back', 'dumbbell'), true);
   assert.equal(matchesExerciseFilters(custom, 'curl', 'back', 'machine'), false);
+  const bicepsCurl = find('curl', 'biceps', 'dumbbell');
+  assert.ok(bicepsCurl.length > 0);
+  assert.ok(bicepsCurl.every((exercise) => exercise.primaryMuscle === 'biceps' && exercise.category === 'dumbbell'));
+  assert.ok(find('front chest squat', 'glutes', 'barbell').some((exercise) => exercise.id === 'ex-0039'));
+  assert.ok(!find('front chest squat', 'chest').some((exercise) => exercise.id === 'ex-0039'));
 });
 
 test('generic names remain searchable; ranking only receives strict candidates', () => {
