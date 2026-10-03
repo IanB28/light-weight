@@ -3,7 +3,7 @@ import type { ExerciseLoadingProfile, LoggedSet, WorkoutSetType, MachineProfile,
 import { normalizeWorkoutSetType, poundsToKilograms, resolveExerciseLoadingProfile, resolvePlateBaseWeightKg, isPlateLoadedMachine } from '@light-weight/domain';
 import { Check, Disc3, Dumbbell, Eye, SkipForward, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { Button, IconButton, MachineProfileModal, OptionPicker, RirHeaderButton, RirPicker } from '../../components/ui/index.js';
-import { getExerciseImgUrl } from '../../lib/exercises.js';
+import { ExerciseThumbnail } from '../../components/ExerciseThumbnail.js';
 import { useExerciseLabels, useI18n } from '../../lib/i18n.js';
 import type { AppPreferences, WeightInputMode } from '../../lib/preferences.js';
 import { formatDisplayWeight } from '../../lib/weight-units.js';
@@ -205,7 +205,6 @@ export function ExerciseSessionCard({
   const [isMachineModalOpen, setIsMachineModalOpen] = useState(false);
   const loading = resolveExerciseLoadingProfile(exercise).profile;
   const isPlateMachine = loading.mechanism === 'plate_loaded' || Boolean(loading.hasMachineBase);
-  const imgUrl = getExerciseImgUrl(exercise);
   const hasCompletedSets = session.sets.some((set) => set.completed && isValidWorkoutSet(set));
   const effectiveStartRestTimer = mode === 'historical' ? () => {} : onStartRestTimer;
 
@@ -220,11 +219,7 @@ export function ExerciseSessionCard({
             className="group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title={t('workout.viewTechnique', { name: exercise.name })}
           >
-            {imgUrl ? (
-              <img src={imgUrl} alt="" loading="lazy" className="h-full w-full object-cover grayscale transition-transform group-hover:scale-105" />
-            ) : (
-              <Dumbbell className="size-6 text-text-muted stroke-[1.8]" />
-            )}
+            <ExerciseThumbnail exercise={exercise} size="fill" className="border-0 grayscale" />
             <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-app/30 opacity-0 transition-opacity group-hover:opacity-100">
               <Eye className="size-4 text-accent" />
             </div>
@@ -302,11 +297,7 @@ export function ExerciseSessionCard({
           className="group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           title={t('workout.viewTechnique', { name: exercise.name })}
         >
-          {imgUrl ? (
-            <img src={imgUrl} alt="" loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-          ) : (
-            <Dumbbell className="size-6 text-text-muted stroke-[1.8]" />
-          )}
+          <ExerciseThumbnail exercise={exercise} size="fill" className="border-0" />
           <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-app/30 opacity-0 transition-opacity group-hover:opacity-100">
             <Eye className="size-4 text-accent" />
           </div>

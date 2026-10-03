@@ -33,7 +33,7 @@ import {
 import { useI18n, useExerciseLabels } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
-import { getExerciseImgUrl } from '../lib/exercises.js';
+import { ExerciseThumbnail } from './ExerciseThumbnail.js';
 import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
 import {
   type ExerciseEquipmentFilter,
@@ -834,18 +834,7 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
                             : 'hover:bg-surface-active'
                         }`}
                       >
-                        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted">
-                          {getExerciseImgUrl(exercise) ? (
-                            <img
-                              src={getExerciseImgUrl(exercise) || ''}
-                              alt=""
-                              loading="lazy"
-                              className="size-full object-cover"
-                            />
-                          ) : (
-                            <Dumbbell className="size-4" />
-                          )}
-                        </span>
+                        <ExerciseThumbnail exercise={exercise} size="sm" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold text-text-primary">
                             {exercise.name}
@@ -886,17 +875,7 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
             <div className="space-y-4">
               {/* Exercise Header Card */}
               <div className="flex items-center gap-3 rounded-ui-xl border border-border-subtle bg-surface-card p-3">
-                <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted">
-                  {getExerciseImgUrl(selectedExercise) ? (
-                    <img
-                      src={getExerciseImgUrl(selectedExercise) || ''}
-                      alt=""
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <Dumbbell className="size-5" />
-                  )}
-                </span>
+                <ExerciseThumbnail exercise={selectedExercise} size="lg" />
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-sm font-bold text-text-primary">
                     {selectedExercise.name}
@@ -1162,17 +1141,7 @@ export const HistoricalPersonalRecordModal: React.FC<HistoricalPersonalRecordMod
               <div className="rounded-ui-xl border border-border-subtle bg-surface-card p-3 sm:p-4 space-y-2.5 sm:space-y-3">
                 {/* Exercise and Date Overview */}
                 <div className="flex items-center gap-3 border-b border-border-subtle pb-2.5 sm:pb-3">
-                  <span className="flex size-10 sm:size-11 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted">
-                    {getExerciseImgUrl(selectedExercise) ? (
-                      <img
-                        src={getExerciseImgUrl(selectedExercise) || ''}
-                        alt=""
-                        className="size-full object-cover"
-                      />
-                    ) : (
-                      <Dumbbell className="size-5" />
-                    )}
-                  </span>
+                  <ExerciseThumbnail exercise={selectedExercise} size="md" />
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-base font-extrabold text-text-primary">
                       {selectedExercise.name}

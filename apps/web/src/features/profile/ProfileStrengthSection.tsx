@@ -31,6 +31,7 @@ import { usePreferences } from '../../lib/preferences-context.js';
 import { formatDisplayWeight } from '../../lib/weight-units.js';
 import { AppCard, Button, EmptyState } from '../../components/ui/index.js';
 import { OverallStrengthCard } from './OverallStrengthCard.js';
+import { ExerciseThumbnail } from '../../components/ExerciseThumbnail.js';
 
 export interface ProfileStrengthSectionProps {
   history: WorkoutSession[];
@@ -247,7 +248,7 @@ export const ProfileStrengthSection: React.FC<ProfileStrengthSectionProps> = ({
                   {(selectedExercise || selectedMuscleData?.topExerciseId) && (
                     <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-1 text-xs">
                       <div className="min-w-0 flex items-center gap-1.5">
-                        <Dumbbell className="size-3 text-text-muted shrink-0" />
+                        {selectedExercise ? <ExerciseThumbnail exercise={selectedExercise} size="xs" /> : <Dumbbell className="size-3 text-text-muted shrink-0" />}
                         <span className="text-text-muted text-[11px] truncate">
                           {t('profile.topExercise')}:{' '}
                           <strong className="text-text-primary">

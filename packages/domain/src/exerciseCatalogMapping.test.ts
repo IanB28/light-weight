@@ -55,6 +55,32 @@ test('1. Web/API dataset mapper parity: pure functions preserve historical mappi
   assert.deepEqual(secondaryWithPrimary, ['triceps']);
 });
 
+test('EXDB equipment vocabulary is exhaustively classified without substring fallthrough', () => {
+  const expected = {
+    assisted: 'bodyweight', band: 'other', barbell: 'barbell', 'body weight': 'bodyweight',
+    'bosu ball': 'other', cable: 'cable', dumbbell: 'dumbbell',
+    'elliptical machine': 'machine', 'ez barbell': 'barbell', hammer: 'other',
+    kettlebell: 'other', 'leverage machine': 'machine', 'medicine ball': 'other',
+    'olympic barbell': 'barbell', 'resistance band': 'other', roller: 'other',
+    rope: 'other', 'skierg machine': 'machine', 'sled machine': 'machine',
+    'smith machine': 'machine', 'stability ball': 'other', 'stationary bike': 'other',
+    'stepmill machine': 'machine', tire: 'other', 'trap bar': 'other',
+    'upper body ergometer': 'other', weighted: 'other', 'wheel roller': 'other'
+  } as const;
+  const rawValues = [...new Set(EXDB.map((exercise) => exercise.eq))].sort();
+  assert.deepEqual(rawValues, Object.keys(expected).sort());
+  assert.equal(rawValues.length, 28);
+  for (const raw of rawValues) assert.equal(mapDatasetEquipmentToCategory(raw), expected[raw as keyof typeof expected], raw);
+  assert.equal(mapDatasetEquipmentToCategory('unlisted smith attachment'), 'other');
+  assert.equal(mapDatasetEquipmentToCategory('novel dumbbell-like tool'), 'other');
+  const counts: Record<string, number> = {};
+  for (const exercise of EXDB) {
+    const category = mapDatasetEquipmentToCategory(exercise.eq);
+    counts[category] = (counts[category] ?? 0) + 1;
+  }
+  assert.deepEqual(counts, { bodyweight: 340, cable: 157, machine: 147, other: 207, barbell: 179, dumbbell: 294 });
+});
+
 test('2. Audit record count matches EXDB.length exactly (1324) and all IDs unique', () => {
   assert.equal(EXDB.length, 1324);
   const { records, summary } = auditExerciseCatalog(EXDB);

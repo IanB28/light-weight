@@ -22,7 +22,7 @@ const share: RoutineShareSummary = {
   exerciseIds: ['row', 'bench'], template, status: 'pending', createdAt: '2026-10-02T00:00:00.000Z'
 };
 const exercises: Exercise[] = [
-  { id: 'row', name: 'Barbell Row', category: 'barbell', primaryMuscle: 'back', secondaryMuscles: [] },
+  { id: 'row', name: 'Barbell Row', category: 'barbell', primaryMuscle: 'back', secondaryMuscles: [], img: 'row-demo.jpg' },
   { id: 'bench', name: 'Bench Press', category: 'barbell', primaryMuscle: 'chest', secondaryMuscles: [] }
 ];
 
@@ -39,6 +39,8 @@ test('received preview is read-only and displays snapshot order, sets, weights a
   assert.ok(html.indexOf('Barbell Row') < html.indexOf('Bench Press'));
   assert.match(html, /Compartida por @ian/);
   assert.match(html, /A snapshot/);
+  assert.match(html, /row-demo\.jpg/);
+  assert.equal((html.match(/data-testid="exercise-thumbnail"/g) ?? []).length, 2);
   assert.match(html, /2 series/);
   assert.match(html, /20 kg/);
   assert.match(html, /Importar copia/);
@@ -55,6 +57,7 @@ test('received preview uses viewer units and safe fallback for unresolved system
   }));
   assert.match(html, /44.1 lb/);
   assert.match(html, /Ejercicio no disponible \(bench\)/);
+  assert.match(html, /lucide-dumbbell/);
 });
 
 test('server-imported routine retains exact ID, owner, template and origin through local storage and pull', () => {

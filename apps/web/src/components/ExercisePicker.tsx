@@ -11,6 +11,7 @@ import { ExerciseFilterControls } from './ExerciseFilterControls.js';
 import { BottomSheet, Button, EmptyState, SearchInput } from './ui/index.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
+import { ExerciseThumbnail } from './ExerciseThumbnail.js';
 
 interface ExercisePickerProps {
   label: string;
@@ -73,9 +74,7 @@ export function ExercisePicker({ label, value, exercises, onChange, history = []
         }}
         className="flex min-h-12 w-full items-center gap-3 rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left transition-[background-color,border-color] hover:border-border-active hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface text-accent">
-          <Dumbbell aria-hidden="true" className="size-4" />
-        </span>
+        <ExerciseThumbnail exercise={selectedExercise} size="xs" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold text-text-primary">
             {selectedExercise?.name || t('exercise.search')}
@@ -142,6 +141,7 @@ export function ExercisePicker({ label, value, exercises, onChange, history = []
                     onClick={() => handleSelect(exercise.id)}
                     className={`flex min-h-12 w-full items-center gap-3 rounded-ui-lg border px-3 py-2 text-left transition-[background-color,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft' : 'border-transparent hover:border-border-subtle hover:bg-surface-active'}`}
                   >
+                    <ExerciseThumbnail exercise={exercise} size="sm" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-text-primary">{exercise.name}</span>
                       <span className="block truncate text-[11px] text-text-muted">

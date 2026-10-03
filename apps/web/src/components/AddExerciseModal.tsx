@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dumbbell, Plus } from 'lucide-react';
 import { Exercise, MuscleGroup, WorkoutSession } from '@light-weight/domain';
-import { getExerciseImgUrl } from '../lib/exercises.js';
+import { ExerciseThumbnail } from './ExerciseThumbnail.js';
 import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
 import {
   ExerciseEquipmentFilter, ExerciseMuscleFilter,
@@ -58,7 +58,7 @@ export function AddExerciseModal({ isOpen, onClose, availableExercises, history,
   const featuredTitle = discovery.featuredKind === 'recent' ? t('exercise.recent') : discovery.featuredKind === 'frequent' ? t('exercise.frequent') : t('exercise.recommended');
 
   const row = (exercise: Exercise) => <button key={exercise.id} type="button" onClick={() => choose(exercise)} className="flex min-h-14 w-full items-center gap-3 rounded-ui-lg px-2.5 py-2 text-left hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted">{getExerciseImgUrl(exercise) ? <img src={getExerciseImgUrl(exercise) || ''} alt="" loading="lazy" className="size-full object-cover" /> : <Dumbbell className="size-4" />}</span>
+    <ExerciseThumbnail exercise={exercise} size="sm" />
     <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-text-primary">{exercise.name}</span><span className="block truncate text-[11px] text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}</span></span>
     <Plus aria-hidden="true" className="size-4 shrink-0 text-accent" />
   </button>;

@@ -337,7 +337,7 @@ test('RoutineDetailSheet: replaces numeric order with exercise thumbnail and fal
 
   // 1. Must render thumbnail image for exercise with img
   assert.ok(html.includes('bench.webp"'), 'Must render exercise thumbnail img');
-  assert.ok(html.includes('object-cover'), 'Exercise image must use object-cover');
+  assert.ok(html.includes('object-contain'), 'Exercise movement must remain fully visible in the shared thumbnail');
 
   // 2. Must render neutral Dumbbell fallback for exercise without img
   assert.ok(html.includes('lucide-dumbbell'), 'Must render Dumbbell icon fallback when no image');

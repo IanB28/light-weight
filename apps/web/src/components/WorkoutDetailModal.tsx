@@ -6,6 +6,7 @@ import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
 import { useI18n } from '../lib/i18n.js';
 import { calculateHistoricalSessionVolume } from '../lib/historical-volume.js';
+import { ExerciseThumbnail } from './ExerciseThumbnail.js';
 
 interface WorkoutDetailModalProps {
   session: WorkoutSession | null;
@@ -105,14 +106,17 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
                 key={exId}
                 className="p-3.5 rounded-2xl glass-subcard border border-white/[0.06] space-y-2.5"
               >
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <ExerciseThumbnail exercise={exercise} size="sm" />
+                    <div className="min-w-0">
                     <h4 className="text-sm font-bold text-white">{exercise.name}</h4>
                     <span className="text-[10px] font-mono capitalize text-zinc-400">
                       {exercise.primaryMuscle}
                     </span>
+                    </div>
                   </div>
-                  <span className="text-xs font-mono font-bold text-zinc-400">
+                  <span className="shrink-0 text-xs font-mono font-bold text-zinc-400">
                     {completedSets.length} series
                   </span>
                 </div>

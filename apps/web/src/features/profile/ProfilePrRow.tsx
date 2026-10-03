@@ -1,10 +1,10 @@
 import React from 'react';
-import { Dumbbell, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import type { Exercise, StrengthRank } from '@light-weight/domain';
 import { cn } from '@light-weight/ui';
 import { RepBadge } from '../../components/RepBadge.js';
 import { StrengthRankBadge } from '../../components/StrengthRankBadge.js';
-import { getExerciseImgUrl } from '../../lib/exercises.js';
+import { ExerciseThumbnail } from '../../components/ExerciseThumbnail.js';
 
 interface ProfilePrRowProps {
   exercise?: Exercise | null;
@@ -31,14 +31,9 @@ export function ProfilePrRow({
   ariaLabel,
   className
 }: ProfilePrRowProps) {
-  const imageUrl = getExerciseImgUrl(exercise ?? undefined);
   const content = (
     <>
-      <span aria-hidden="true" data-testid="pr-exercise-badge" className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted shadow-sm">
-        {imageUrl
-          ? <img src={imageUrl} alt="" loading="lazy" className="size-full object-cover" />
-          : <Dumbbell className="size-4.5 stroke-[1.8]" />}
-      </span>
+      <span aria-hidden="true" data-testid="pr-exercise-badge"><ExerciseThumbnail exercise={exercise} size="sm" /></span>
       <span data-testid="pr-exercise-name" className="min-w-0 flex-1 truncate text-xs font-bold text-text-primary sm:text-sm">{name}</span>
       <span data-testid="pr-badge-slot" className="flex shrink-0 items-center gap-1 overflow-visible">
         <span data-testid="pr-rank-slot" className="flex w-7 shrink-0 items-center justify-center">

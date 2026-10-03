@@ -4,7 +4,7 @@ import { Exercise, Routine, getRoutineExerciseIds } from '@light-weight/domain';
 import { BottomSheet, Button, EmptyState } from '../../components/ui/index.js';
 import { useAuth } from '../../lib/auth-context.js';
 import { useI18n } from '../../lib/i18n.js';
-import { getExerciseImgUrl } from '../../lib/exercises.js';
+import { ExerciseThumbnail } from '../../components/ExerciseThumbnail.js';
 import { RoutineShareSheet } from './RoutineShareSheet.js';
 
 export interface RoutineDetailSheetProps {
@@ -55,16 +55,9 @@ export function RoutineDetailSheet({
           {routineExercises.length ? (
             <div className="divide-y divide-border-subtle overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input">
               {routineExercises.map((exercise) => {
-                const imgUrl = getExerciseImgUrl(exercise);
                 return (
                   <div key={exercise.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
-                    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-ui-md border border-border-subtle bg-surface-input text-text-muted">
-                      {imgUrl ? (
-                        <img src={imgUrl} alt="" loading="lazy" className="size-full object-cover" />
-                      ) : (
-                        <Dumbbell className="size-4" />
-                      )}
-                    </span>
+                    <ExerciseThumbnail exercise={exercise} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-text-primary">{exercise.name}</p>
                       <p className="text-[11px] capitalize text-text-muted">{`${exercise.primaryMuscle} · ${exercise.category}`}</p>

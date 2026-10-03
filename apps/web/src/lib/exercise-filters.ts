@@ -42,12 +42,38 @@ export const normalizeExerciseSearch = (value: string) => value
   .toLocaleLowerCase('es')
   .trim();
 
+const MUSCLE_QUERY_ALIASES: Readonly<Record<string, MuscleGroup>> = {
+  biceps: 'biceps', triceps: 'triceps', pecho: 'chest', chest: 'chest',
+  espalda: 'back', back: 'back', hombros: 'shoulders', shoulders: 'shoulders',
+  cuadriceps: 'quadriceps', quadriceps: 'quadriceps', hamstrings: 'hamstrings',
+  femoral: 'hamstrings', gluteos: 'glutes', glutes: 'glutes',
+  gemelos: 'calves', calves: 'calves', antebrazos: 'forearms',
+  forearms: 'forearms', core: 'core', abs: 'core'
+};
+
+export function resolveExerciseSearchIntent(normalizedQuery: string) {
+  const words = normalizedQuery.match(/[\p{L}\p{N}]+/gu) ?? [];
+  const muscles = new Set<MuscleGroup>();
+  const remaining: string[] = [];
+  for (const word of words) {
+    const muscle = MUSCLE_QUERY_ALIASES[word];
+    if (muscle) muscles.add(muscle);
+    else remaining.push(word);
+  }
+  return { muscles, terms: remaining };
+}
+
 export function matchesExerciseFilters(
   exercise: Exercise,
   normalizedQuery: string,
   muscle: ExerciseMuscleFilter,
   equipment: ExerciseEquipmentFilter
 ) {
+  if (muscle !== 'all' && exercise.primaryMuscle !== muscle) return false;
+  if (equipment !== 'all' && exercise.category !== equipment) return false;
+
+  const { muscles, terms } = resolveExerciseSearchIntent(normalizedQuery);
+  if ([...muscles].some((intent) => exercise.primaryMuscle !== intent)) return false;
   const searchableText = normalizeExerciseSearch([
     exercise.name,
     exercise.targetMuscle || '',
@@ -55,9 +81,5 @@ export function matchesExerciseFilters(
     EQUIPMENT_LABELS[exercise.category]
   ].join(' '));
 
-  return Boolean(
-    (normalizedQuery.length === 0 || searchableText.includes(normalizedQuery)) &&
-    (muscle === 'all' || exercise.primaryMuscle === muscle || Boolean(exercise.secondaryMuscles?.includes(muscle))) &&
-    (equipment === 'all' || exercise.category === equipment)
-  );
+  return terms.every((term) => searchableText.includes(term));
 }

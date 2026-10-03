@@ -8,6 +8,7 @@ import { useI18n, type TranslationKey } from '../../lib/i18n.js';
 import type { AppPreferences } from '../../lib/preferences.js';
 import { routineSharesApi } from '../../lib/social-api.js';
 import { formatDisplayWeight } from '../../lib/weight-units.js';
+import { ExerciseThumbnail } from '../../components/ExerciseThumbnail.js';
 
 const setTypeKeys: Record<WorkoutSetType, TranslationKey> = {
   warmup: 'workout.warmupSet', working: 'workout.workingSet',
@@ -39,7 +40,7 @@ export function ReceivedRoutinePreview({ share, exercises, preferences, busy, on
           const exercise = byId.get(id);
           const sets = templateById.get(id)?.sets ?? [];
           return <div key={`${id}-${index}`} className="min-w-0 space-y-1.5 p-3">
-            <p className="break-words text-sm font-bold text-text-primary">{index + 1}. {exercise?.name ?? t('sharing.snapshotUnavailable', { id })}</p>
+            <div className="flex min-w-0 items-center gap-2.5"><ExerciseThumbnail exercise={exercise} size="sm" /><p className="min-w-0 break-words text-sm font-bold text-text-primary">{index + 1}. {exercise?.name ?? t('sharing.snapshotUnavailable', { id })}</p></div>
             {sets.length > 0 && <p className="text-xs text-text-muted">{t('sharing.setCount', { count: sets.length })}</p>}
             {sets.map((set, setIndex) => <p key={setIndex} className="text-xs text-text-secondary">
               {setIndex + 1}. {t(setTypeKeys[set.setType])} · {t('sharing.targetWeight', { weight: formatDisplayWeight(set.targetWeightKg, preferences?.units ?? 'metric') })}

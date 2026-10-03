@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Dumbbell, Check, Eye, ChevronRight, List, LayoutGrid, SlidersHorizontal } from 'lucide-react';
 import { Exercise, WorkoutSession } from '@light-weight/domain';
-import { getExerciseImgUrl } from '../lib/exercises.js';
+import { ExerciseThumbnail } from '../components/ExerciseThumbnail.js';
 import {
   ExerciseEquipmentFilter,
   ExerciseMuscleFilter,
@@ -187,7 +187,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         {filteredExercises.length} {filteredExercises.length === 1 ? t('library.exercise') : t('library.exercises')}
       </div>
 
-      {discovery.featured.length > 0 && <section className="space-y-2"><SectionHeader title={featuredTitle} /><div className="glass-surface divide-y divide-border-subtle overflow-hidden rounded-ui-xl border border-border-subtle">{discovery.featured.map((exercise) => <div key={exercise.id} className="flex min-h-14 items-center gap-2 px-3"><button type="button" onClick={() => setSelectedMediaExercise(exercise)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><span className="block truncate text-sm font-bold text-text-primary">{exercise.name}</span><span className="block truncate text-[11px] text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}</span></button><Button size="sm" variant="secondary" onClick={() => handleAction(exercise)}>{isWorkoutActive ? <Plus className="size-3.5" /> : <Dumbbell className="size-3.5" />}<span className="sr-only">{exercise.name}</span></Button></div>)}</div><SectionHeader title={t('exercise.all')} /></section>}
+      {discovery.featured.length > 0 && <section className="space-y-2"><SectionHeader title={featuredTitle} /><div className="glass-surface divide-y divide-border-subtle overflow-hidden rounded-ui-xl border border-border-subtle">{discovery.featured.map((exercise) => <div key={exercise.id} className="flex min-h-14 items-center gap-2 px-3"><ExerciseThumbnail exercise={exercise} size="sm" /><button type="button" onClick={() => setSelectedMediaExercise(exercise)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><span className="block truncate text-sm font-bold text-text-primary">{exercise.name}</span><span className="block truncate text-[11px] text-text-muted">{muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}</span></button><Button size="sm" variant="secondary" onClick={() => handleAction(exercise)}>{isWorkoutActive ? <Plus className="size-3.5" /> : <Dumbbell className="size-3.5" />}<span className="sr-only">{exercise.name}</span></Button></div>)}</div><SectionHeader title={t('exercise.all')} /></section>}
 
       {/* 6. Contenido Principal: Lista vs Recuadros */}
       {filteredExercises.length === 0 ? (

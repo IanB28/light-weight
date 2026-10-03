@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dumbbell, Eye, Check, Plus, ChevronRight } from 'lucide-react';
 import { Exercise } from '@light-weight/domain';
-import { getExerciseImgUrl } from '../lib/exercises.js';
+import { ExerciseThumbnail } from './ExerciseThumbnail.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 
 export interface ExerciseCatalogCardProps {
@@ -27,7 +27,6 @@ export const ExerciseCatalogCard: React.FC<ExerciseCatalogCardProps> = ({
 }) => {
   const { t } = useI18n();
   const { muscleLabel, equipmentLabel } = useExerciseLabels();
-  const imgUrl = getExerciseImgUrl(exercise);
 
   if (mode === 'routine-selection') {
     return (
@@ -48,16 +47,7 @@ export const ExerciseCatalogCard: React.FC<ExerciseCatalogCardProps> = ({
               selected ? 'border-accent/50' : 'border-border-subtle group-hover:border-border-active'
             }`}
           >
-            {imgUrl ? (
-              <img
-                src={imgUrl}
-                alt=""
-                loading="lazy"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-              />
-            ) : (
-              <Dumbbell className="size-8 stroke-[1.6] text-text-muted" />
-            )}
+            <ExerciseThumbnail exercise={exercise} size="fill" className="border-0" />
 
             {/* Muscle floating tag */}
             <span className="absolute left-2 top-2 max-w-[65%] truncate rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-semibold capitalize text-text-secondary shadow-sm">
@@ -105,16 +95,7 @@ export const ExerciseCatalogCard: React.FC<ExerciseCatalogCardProps> = ({
       >
         {/* Square Image Box */}
         <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input transition-colors group-hover:border-border-active">
-          {imgUrl ? (
-            <img
-              src={imgUrl}
-              alt=""
-              loading="lazy"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-            />
-          ) : (
-            <Dumbbell className="size-8 stroke-[1.6] text-text-muted" />
-          )}
+          <ExerciseThumbnail exercise={exercise} size="fill" className="border-0" />
 
           {/* Floating Muscle Tag */}
           <span className="absolute left-2 top-2 max-w-[80%] truncate rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-semibold capitalize text-text-secondary shadow-sm">
@@ -124,10 +105,9 @@ export const ExerciseCatalogCard: React.FC<ExerciseCatalogCardProps> = ({
           {/* Hover Overlay to view technique */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 flex items-center justify-center gap-1 bg-app/45 text-xs font-medium text-text-primary opacity-0 transition-opacity group-hover:opacity-100"
+            className="absolute inset-0 flex items-center justify-center bg-app/45 opacity-0 transition-opacity group-hover:opacity-100"
           >
-            <Eye className="size-3.5 text-accent" />
-            <span>{t('workout.viewTechnique', { name: exercise.name })}</span>
+            <Eye className="size-5 text-accent" />
           </div>
         </div>
 
@@ -206,7 +186,6 @@ export const ExerciseCatalogRow: React.FC<ExerciseCatalogRowProps> = ({
 }) => {
   const { t } = useI18n();
   const { muscleLabel, equipmentLabel } = useExerciseLabels();
-  const imgUrl = getExerciseImgUrl(exercise);
 
   if (mode === 'routine-selection') {
     return (
@@ -221,22 +200,7 @@ export const ExerciseCatalogRow: React.FC<ExerciseCatalogRowProps> = ({
         }`}
       >
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3 pr-2">
-          <div
-            className={`relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border bg-surface-input text-text-muted shadow-sm transition-colors ${
-              selected ? 'border-accent/40' : 'border-border-subtle group-hover:border-border-active'
-            }`}
-          >
-            {imgUrl ? (
-              <img
-                src={imgUrl}
-                alt=""
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-              />
-            ) : (
-              <Dumbbell className="size-5 stroke-[1.8] text-text-muted" />
-            )}
-          </div>
+          <ExerciseThumbnail exercise={exercise} size="md" className={selected ? 'border-accent/40' : 'group-hover:border-border-active'} />
 
           <div className="min-w-0">
             <span
@@ -276,17 +240,8 @@ export const ExerciseCatalogRow: React.FC<ExerciseCatalogRowProps> = ({
         aria-label={t('library.viewTechnique', { name: exercise.name })}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-ui-md pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted shadow-sm transition-colors group-hover:border-border-active">
-          {imgUrl ? (
-            <img
-              src={imgUrl}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            />
-          ) : (
-            <Dumbbell className="size-5 stroke-[1.8] text-text-muted" />
-          )}
+        <div className="relative size-11 shrink-0">
+          <ExerciseThumbnail exercise={exercise} size="md" className="group-hover:border-border-active" />
           <div
             aria-hidden="true"
             className="absolute inset-0 flex items-center justify-center bg-app/30 opacity-0 transition-opacity group-hover:opacity-100"

@@ -42,14 +42,41 @@ export function mapDatasetBodypartToMuscle(bp = '', tg = ''): MuscleGroup {
 }
 
 export function mapDatasetEquipmentToCategory(equipment = ''): ExerciseCategory {
-  const value = (equipment || '').toLowerCase();
-  if (value.includes('barbell') || value.includes('olympic')) return 'barbell';
-  if (value.includes('dumbbell')) return 'dumbbell';
-  if (value.includes('cable')) return 'cable';
-  if (value.includes('body weight') || value.includes('assisted')) return 'bodyweight';
-  if (value.includes('machine') || value.includes('leverage') || value.includes('smith')) return 'machine';
-  return 'other';
+  return DATASET_EQUIPMENT_CATEGORIES[equipment.trim().toLowerCase()] ?? 'other';
 }
+
+// Exhaustive EXDB `eq` vocabulary. Unknown equipment must not inherit a facet
+// merely because its name contains a familiar substring.
+const DATASET_EQUIPMENT_CATEGORIES: Readonly<Record<string, ExerciseCategory>> = {
+  assisted: 'bodyweight',
+  band: 'other',
+  barbell: 'barbell',
+  'body weight': 'bodyweight',
+  'bosu ball': 'other',
+  cable: 'cable',
+  dumbbell: 'dumbbell',
+  'elliptical machine': 'machine',
+  'ez barbell': 'barbell',
+  hammer: 'other',
+  kettlebell: 'other',
+  'leverage machine': 'machine',
+  'medicine ball': 'other',
+  'olympic barbell': 'barbell',
+  'resistance band': 'other',
+  roller: 'other',
+  rope: 'other',
+  'skierg machine': 'machine',
+  'sled machine': 'machine',
+  'smith machine': 'machine',
+  'stability ball': 'other',
+  'stationary bike': 'other',
+  'stepmill machine': 'machine',
+  tire: 'other',
+  'trap bar': 'other',
+  'upper body ergometer': 'other',
+  weighted: 'other',
+  'wheel roller': 'other'
+};
 
 export function mapDatasetSecondaryMuscles(rawSm: string[] = [], primaryMuscle?: MuscleGroup): MuscleGroup[] {
   const secondary = (rawSm || [])

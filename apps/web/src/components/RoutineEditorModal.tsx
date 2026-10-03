@@ -31,7 +31,7 @@ import {
 } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { ViewMode } from '../views/LibraryView.js';
-import { getExerciseImgUrl } from '../lib/exercises.js';
+import { ExerciseThumbnail } from './ExerciseThumbnail.js';
 import { AppPreferences } from '../lib/preferences.js';
 import { displayWeight, parseDisplayWeight } from '../lib/weight-units.js';
 import {
@@ -272,7 +272,6 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                     {draft.exercises.map((exDraft, index) => {
                       const exercise = exerciseMap.get(exDraft.exerciseId);
                       const isExpanded = expandedExerciseId === exDraft.exerciseId;
-                      const imgUrl = exercise ? getExerciseImgUrl(exercise) : null;
                       const setsCount = exDraft.sets.length;
                       const setsCountLabel =
                         setsCount === 1
@@ -306,13 +305,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                             </div>
 
                             {/* Thumbnail */}
-                            <div className="size-9 shrink-0 flex items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-zinc-400 overflow-hidden">
-                              {imgUrl ? (
-                                <img src={imgUrl} alt="" loading="lazy" className="size-full object-cover" />
-                              ) : (
-                                <Dumbbell className="size-4" />
-                              )}
-                            </div>
+                            <ExerciseThumbnail exercise={exercise} size="xs" />
 
                             {/* Exercise Name & Info */}
                             <button
