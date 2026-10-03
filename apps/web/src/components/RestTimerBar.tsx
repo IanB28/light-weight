@@ -1,5 +1,6 @@
 import React from 'react';
 import { Timer, Plus, Minus, X } from 'lucide-react';
+import { useI18n } from '../lib/i18n.js';
 
 interface RestTimerBarProps {
   secondsLeft: number;
@@ -14,6 +15,7 @@ export const RestTimerBar: React.FC<RestTimerBarProps> = ({
   onAddSeconds,
   onDismiss
 }) => {
+  const { t } = useI18n();
   if (secondsLeft <= 0) return null;
 
   const minutes = Math.floor(secondsLeft / 60);
@@ -23,54 +25,57 @@ export const RestTimerBar: React.FC<RestTimerBarProps> = ({
 
   return (
     <div className="bottom-above-nav fixed left-3 right-3 z-40 mx-auto max-w-md motion-safe:animate-in motion-safe:slide-in-from-bottom-5 motion-safe:duration-200">
-      <div className="relative overflow-hidden rounded-3xl bg-black/65 border border-sky-400/25 p-3.5 shadow-2xl shadow-sky-500/15 backdrop-blur-2xl ring-1 ring-white/10 transition-all">
-        {/* Progress Background Bar with smooth linear fade */}
+      <div className="ui-elevated-surface relative overflow-hidden rounded-ui-xl border border-border-active p-2.5 sm:p-3">
         <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-sky-500/15 to-sky-400/25 transition-all duration-1000 ease-linear pointer-events-none"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-surface-input"
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 h-1 bg-accent transition-[width] duration-1000 ease-linear"
           style={{ width: `${percentage}%` }}
         />
 
-        <div className="relative z-10 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-sm shadow-sky-500/20">
-              <Timer className="w-5 h-5 motion-safe:animate-spin [animation-duration:8s]" />
+        <div className="relative z-10 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-accent-soft text-accent">
+              <Timer aria-hidden="true" className="size-4" />
             </div>
-            <div>
-              <p className="text-[10px] uppercase font-mono font-bold tracking-wider text-sky-400">
-                Descanso
+            <div className="min-w-0">
+              <p className="truncate text-[10px] font-bold uppercase tracking-wide text-text-secondary">
+                {t('workout.restTimer')}
               </p>
-              <p className="text-xl font-extrabold text-white font-mono tabular-nums leading-none tracking-tight">
+              <p className="font-mono text-xl font-bold tabular-nums leading-none tracking-tight text-text-primary">
                 {formattedTime}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 font-mono">
+          <div className="flex items-center gap-1 font-mono">
             <button
+              type="button"
               onClick={() => onAddSeconds(-15)}
-              aria-label="Restar 15 segundos al descanso"
-              className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.93] text-zinc-300 text-xs font-bold flex items-center gap-0.5 border border-white/[0.08] transition-all cursor-pointer"
-              title="Restar 15 segundos"
+              aria-label={t('workout.subtractRestSeconds', { seconds: 15 })}
+              className="ui-focus-visible ui-pressable flex size-11 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-xs font-bold tabular-nums text-text-secondary transition-[background-color,border-color] duration-150 hover:border-border-active hover:bg-surface-active"
+              title={t('workout.subtractRestSeconds', { seconds: 15 })}
             >
-              <Minus className="w-3 h-3 stroke-[2.5]" />
-              15s
+              <Minus aria-hidden="true" className="size-3" />15s
             </button>
             <button
+              type="button"
               onClick={() => onAddSeconds(30)}
-              aria-label="Sumar 30 segundos al descanso"
-              className="px-2.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.93] text-zinc-300 text-xs font-bold flex items-center gap-0.5 border border-white/[0.08] transition-all cursor-pointer"
-              title="Sumar 30 segundos"
+              aria-label={t('workout.addRestSeconds', { seconds: 30 })}
+              className="ui-focus-visible ui-pressable flex size-11 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-xs font-bold tabular-nums text-text-secondary transition-[background-color,border-color] duration-150 hover:border-border-active hover:bg-surface-active"
+              title={t('workout.addRestSeconds', { seconds: 30 })}
             >
-              <Plus className="w-3 h-3 stroke-[2.5]" />
-              30s
+              <Plus aria-hidden="true" className="size-3" />30s
             </button>
             <button
+              type="button"
               onClick={onDismiss}
-              aria-label="Saltar descanso"
-              className="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-rose-500/20 active:scale-[0.93] text-zinc-400 hover:text-rose-400 flex items-center justify-center border border-white/[0.08] transition-all cursor-pointer ml-0.5"
-              title="Saltar descanso"
+              aria-label={t('workout.skipRest')}
+              className="ui-focus-visible ui-pressable flex size-11 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-text-muted transition-[background-color,border-color,color] duration-150 hover:border-danger hover:bg-danger-soft hover:text-danger"
+              title={t('workout.skipRest')}
             >
-              <X className="w-4 h-4 stroke-[2.5]" />
+              <X aria-hidden="true" className="size-4" />
             </button>
           </div>
         </div>
