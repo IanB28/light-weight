@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from './charts/LineChart.js';
-import { EmptyState } from './ui/index.js';
+import { AppCard, Button, EmptyState } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
@@ -54,6 +54,11 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
     : null;
 
   const isLosingGoal = latestEntry && targetWeight !== null && targetWeight < latestEntry.weightKg;
+  const goalSummary = targetWeight === null
+    ? t('weight.setGoal')
+    : `${t('weight.goal')} ${displayWeight(targetWeight, units)} ${unit}${diffToGoal !== null
+      ? ` · ${diffToGoal} ${unit} ${isLosingGoal ? t('weight.toLose') : t('weight.toGain')}`
+      : ''}`;
 
   // Puntos para la gráfica
   const chartPoints: ChartPoint[] = useMemo(() => {
@@ -67,85 +72,62 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
   }, [sortedEntries, unit, units]);
 
   return (
-    <div className="glass-surface rounded-ui-xl border border-border-subtle p-5 space-y-2 select-none shadow-card transition-all hover:border-border-active">
-      {/* Top row: Label | Target Button | + Registrar */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-text-muted font-medium tracking-tight">{t('weight.title')}</span>
-
-        <div className="flex items-center gap-2">
-          {targetWeight !== null && (
-            <button
-              type="button"
-              onClick={onOpenGoalModal}
-              className="glass-btn-secondary flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-accent cursor-pointer rounded-full"
-              title={t('weight.changeGoal')}
-            >
-              <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5 text-accent" />
-              <span>{displayWeight(targetWeight, units)} {unit}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onOpenLogModal}
-            className="glass-btn-solid flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold cursor-pointer"
-            title={t('weight.logToday')}
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
-            <span>{t('weight.log')}</span>
-          </button>
-        </div>
+    <AppCard className="min-w-0 space-y-3 select-none">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <h3 className="ui-section-title min-w-0 flex-1 text-text-secondary">{t('weight.title')}</h3>
+        <Button size="md" onClick={onOpenLogModal} className="shrink-0 rounded-full px-3" aria-label={t('weight.logToday')}>
+          <Plus aria-hidden="true" className="size-4" />
+          <span>{t('weight.log')}</span>
+        </Button>
       </div>
 
       {!latestEntry ? (
-        <EmptyState compact icon={<MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5" />} title={t('weight.empty')} description={t('weight.emptyDescription')} />
+        <div className="space-y-1">
+          <EmptyState compact icon={<MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5" />} title={t('weight.empty')} description={t('weight.emptyDescription')} />
+          {targetWeight !== null && (
+            <Button variant="ghost" size="md" onClick={onOpenGoalModal} className="w-full justify-start px-2 text-left text-xs" aria-label={`${t('weight.changeGoal')}: ${goalSummary}`}>
+              <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-4 shrink-0 text-accent" />
+              <span className="min-w-0 break-words">{goalSummary}</span>
+            </Button>
+          )}
+        </div>
       ) : (<>
-      {/* Main Stat: 78,7 kg  +  Date on the right */}
-      <div className="flex items-baseline justify-between pt-0.5">
-        <div className="flex items-baseline gap-1">
-          <span className="text-4xl font-extrabold text-text-primary tracking-tight">
+      <div className="flex min-w-0 flex-wrap items-end justify-between gap-x-3 gap-y-1">
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <span className="ui-metric text-3xl tracking-tight text-text-primary sm:text-4xl">
             {latestWeightFormatted}
           </span>
-          <span className="text-base text-text-muted font-normal">{unit}</span>
+          <span className="ui-unit">{unit}</span>
         </div>
 
-        <span className="text-xs text-text-muted font-normal lowercase">
+        <span className="ui-caption break-words lowercase">
           {latestDateStr}
         </span>
       </div>
 
-      {/* Subtitle: Meta 77 kg · 1,7 kg por perder */}
-      {targetWeight !== null && diffToGoal !== null ? (
-        <div
-          onClick={onOpenGoalModal}
-          className="flex items-center gap-1.5 text-xs text-accent font-medium cursor-pointer hover:underline pt-0.5"
-        >
-          <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5 text-accent" />
-          <span>
-            {t('weight.goal')} {displayWeight(targetWeight, units)} {unit} · {diffToGoal} {unit} {isLosingGoal ? t('weight.toLose') : t('weight.toGain')}
-          </span>
-        </div>
-      ) : (
-        <div
-          onClick={onOpenGoalModal}
-          className="flex items-center gap-1.5 text-xs text-text-muted font-medium cursor-pointer hover:text-text-primary pt-0.5"
-        >
-          <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-3.5 text-text-muted" />
-          <span>{t('weight.setGoal')}</span>
-        </div>
-      )}
+      <Button
+        variant="ghost"
+        size="md"
+        onClick={onOpenGoalModal}
+        aria-label={targetWeight !== null ? `${t('weight.changeGoal')}: ${goalSummary}` : goalSummary}
+        className="max-w-full justify-start px-2 text-left text-xs font-medium text-text-secondary"
+      >
+        <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.goalWeight} className="size-4 shrink-0 text-accent" />
+        <span className="min-w-0 break-words">
+          {goalSummary}
+        </span>
+      </Button>
 
-      {/* Minimalist SVG Chart matching openGym / dark glassmorphism */}
-      <div className="pt-2">
+      <div className="min-w-0 overflow-hidden pt-1">
         <LineChart
           points={chartPoints}
           height={130}
           unit={unit}
-          color="var(--accent-color, #EAFF55)"
+          color="var(--accent-color)"
           goal={targetWeight === null ? null : displayWeight(targetWeight, units)}
         />
       </div>
       </>)}
-    </div>
+    </AppCard>
   );
 };

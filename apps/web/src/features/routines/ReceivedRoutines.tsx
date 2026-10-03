@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronRight, Download, X } from 'lucide-react';
 import type { Exercise, Routine, RoutineShareSummary, WorkoutSetType } from '@light-weight/domain';
-import { BottomSheet, Button, SectionHeader } from '../../components/ui/index.js';
+import { AppCard, BottomSheet, Button, SectionHeader } from '../../components/ui/index.js';
 import { mapApiError } from '../../lib/api-errors.js';
 import { useAuth } from '../../lib/auth-context.js';
 import { useI18n, type TranslationKey } from '../../lib/i18n.js';
@@ -124,18 +124,20 @@ export function ReceivedRoutines({ onImport, exercises, preferences }: {
     }
   };
 
-  return <section className="space-y-2.5">
+  return <section className="space-y-2">
     {shares.length > 0 && <SectionHeader title={t('sharing.received')} meta={String(shares.length)} />}
     {error && <p role="alert" className="rounded-ui-md border border-danger/30 bg-danger-soft p-3 text-xs font-semibold text-danger">{t(error)}</p>}
     {notice && <p role="status" className="rounded-ui-md border border-success/30 bg-success/10 p-3 text-xs font-semibold text-success">{t(notice)}</p>}
     <div className="space-y-2">
-      {shares.map((share) => <div key={share.id} className="rounded-ui-xl border border-border-subtle bg-surface p-3">
-        <p className="truncate text-sm font-bold text-text-primary">{share.routineName}</p>
-        <p className="mt-0.5 text-xs text-text-muted">{t('sharing.sharedBy', { username: share.sender.username })} · {t(share.exerciseIds.length === 1 ? 'sharing.exerciseCount_one' : 'sharing.exerciseCount', { count: share.exerciseIds.length })}</p>
-        <Button size="sm" variant="secondary" className="mt-3 w-full" disabled={busyId !== null} onClick={() => setSelected(share)}>
-          {t('sharing.review')}<ChevronRight className="size-4" />
+      {shares.map((share) => <AppCard key={share.id} compact className="flex min-w-0 items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="ui-card-title truncate text-text-primary">{share.routineName}</p>
+          <p className="ui-caption mt-1 break-words">{t('sharing.sharedBy', { username: share.sender.username })} · {t(share.exerciseIds.length === 1 ? 'sharing.exerciseCount_one' : 'sharing.exerciseCount', { count: share.exerciseIds.length })}</p>
+        </div>
+        <Button size="sm" variant="secondary" className="min-h-11 shrink-0 px-3" disabled={busyId !== null} onClick={() => setSelected(share)}>
+          {t('sharing.review')}<ChevronRight aria-hidden="true" className="size-4" />
         </Button>
-      </div>)}
+      </AppCard>)}
     </div>
     {selected && <ReceivedRoutinePreview share={selected} exercises={exercises} preferences={preferences} busy={busyId !== null}
       onImport={() => void importShare(selected)} onDismiss={() => void dismiss(selected)} onClose={() => setSelected(null)} />}

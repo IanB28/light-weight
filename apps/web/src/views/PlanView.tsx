@@ -57,7 +57,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
   };
 
   return (
-    <div className="space-y-5 pb-28">
+    <div className="space-y-section">
       <ViewHeader
         title={t('plan.title')}
         subtitle={t('plan.subtitle')}
@@ -67,7 +67,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
         onOpenSettings={onOpenSettings}
       />
 
-      <section className="space-y-2.5">
+      <section className="space-y-2">
         <SectionHeader
           title={t('plan.thisWeek')}
           meta={`${assignedCount} ${assignedCount === 1 ? t('plan.assignedDay') : t('plan.assignedDays')}`}
@@ -76,13 +76,14 @@ export const PlanView: React.FC<PlanViewProps> = ({
           {assignedCount === 0 && (
             <EmptyState
               compact
+              className="py-3"
               title={t('plan.noSchedule')}
               description={routines.length ? t('plan.chooseRoutine') : t('plan.createThenAssign')}
             />
           )}
           {DAYS_LIST.map((day) => (
-            <div key={day} className="grid min-h-14 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
-              <span className="text-xs font-bold text-text-secondary">{dayLabel(day, 'short')}</span>
+            <div key={day} className="grid min-h-14 grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
+              <span className="min-w-0 text-xs font-semibold text-text-secondary">{dayLabel(day, 'short')}</span>
               <RoutinePicker
                 dayLabel={dayLabel(day, 'full')}
                 value={weeklySchedule[day]}
@@ -96,7 +97,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
       <ReceivedRoutines onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
 
-      <section className="space-y-2.5">
+      <section className="space-y-2">
         <SectionHeader
           title={t('plan.myRoutines')}
           meta={`${routines.length} ${t('plan.saved')}`}
@@ -108,8 +109,9 @@ export const PlanView: React.FC<PlanViewProps> = ({
           }
         />
         {routines.length === 0 ? (
-          <AppCard>
+          <AppCard compact>
             <EmptyState
+              compact
               icon={<Dumbbell className="size-5" />}
               title={t('plan.noRoutines')}
               description={t('plan.noRoutinesDescription')}
@@ -126,18 +128,18 @@ export const PlanView: React.FC<PlanViewProps> = ({
                   key={routine.id}
                   type="button"
                   onClick={() => setSelectedRoutine(routine)}
-                  className="glass-surface flex min-h-[72px] w-full items-center justify-between gap-3 rounded-ui-xl border border-border-subtle p-4 text-left transition-all hover:border-border-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-[0.99]"
+                  className="glass-surface ui-interactive-surface ui-focus-visible ui-pressable flex min-h-16 w-full min-w-0 items-center justify-between gap-3 rounded-ui-xl border p-card-compact text-left transition-[border-color,transform] duration-150"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
                       <Dumbbell className="size-5" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="truncate text-sm font-bold text-text-primary">{routine.name}</h3>
-                      <p className="mt-0.5 text-xs text-text-muted">
+                      <h3 className="ui-card-title truncate text-text-primary">{routine.name}</h3>
+                      <p className="ui-caption mt-0.5">
                         {exerciseCount} {exerciseCount === 1 ? t('library.exercise') : t('library.exercises')}
                       </p>
-                      {routine.origin?.type === 'shared' && <p className="mt-0.5 truncate text-xs text-text-muted">
+                      {routine.origin?.type === 'shared' && <p className="ui-caption mt-0.5 truncate">
                         {t('sharing.sharedBy', { username: routine.origin.sharedBy.username })}
                       </p>}
                     </div>

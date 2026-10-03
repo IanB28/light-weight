@@ -53,7 +53,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
           setQuery('');
           setOpen(true);
         }}
-        className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-ui-md border border-border-subtle bg-surface-input px-3 text-left transition-[background-color,border-color,opacity] hover:border-border-active hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
+        className="ui-focus-visible ui-control-surface flex min-h-11 w-full min-w-0 items-center gap-2 rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left transition-[background-color,border-color,opacity] duration-150 hover:border-border-active hover:bg-surface-active disabled:cursor-not-allowed disabled:opacity-60"
       >
         {selectedRoutine ? (
           <Dumbbell aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
@@ -83,19 +83,19 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
             />
           )}
 
-          <div className="max-h-[56dvh] space-y-1 overflow-y-auto overscroll-contain pr-1" aria-label={`Rutinas disponibles para ${dayLabel}`}>
+          <div className="max-h-[56dvh] space-y-1 overflow-y-auto overscroll-contain pr-1" aria-label={t('routine.forDay', { day: dayLabel })}>
             <button
               type="button"
               aria-pressed={!value || !selectedRoutine}
               onClick={() => selectRoutine(null)}
-              className={`flex min-h-14 w-full items-center gap-3 rounded-ui-lg border px-3 py-2.5 text-left transition-[background-color,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${!value || !selectedRoutine ? 'border-accent bg-accent-soft' : 'border-transparent hover:border-border-subtle hover:bg-surface-active'}`}
+              className={`ui-focus-visible ui-control-surface flex min-h-14 w-full items-center gap-3 rounded-ui-lg border px-3 py-2.5 text-left transition-[background-color,border-color] duration-150 ${!value || !selectedRoutine ? 'ui-selected-option' : 'border-border-subtle bg-surface-input hover:border-border-active hover:bg-surface-active'}`}
             >
               <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-text-muted">
                 <Moon aria-hidden="true" className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-text-primary">{t('routine.rest')}</span>
-                <span className="block text-[11px] text-text-muted">{t('routine.noneScheduled')}</span>
+                <span className="ui-caption block">{t('routine.noneScheduled')}</span>
               </span>
               {(!value || !selectedRoutine) && <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />}
             </button>
@@ -108,14 +108,14 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
                   type="button"
                   aria-pressed={selected}
                   onClick={() => selectRoutine(routine.id)}
-                  className={`flex min-h-14 w-full items-center gap-3 rounded-ui-lg border px-3 py-2.5 text-left transition-[background-color,border-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-accent bg-accent-soft' : 'border-transparent hover:border-border-subtle hover:bg-surface-active'}`}
+                  className={`ui-focus-visible ui-control-surface flex min-h-14 w-full items-center gap-3 rounded-ui-lg border px-3 py-2.5 text-left transition-[background-color,border-color] duration-150 ${selected ? 'ui-selected-option' : 'border-border-subtle bg-surface-input hover:border-border-active hover:bg-surface-active'}`}
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-ui-md border border-border-subtle bg-surface-input text-accent">
                     <Dumbbell aria-hidden="true" className="size-4" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-text-primary">{routine.name}</span>
-                    <span className="block truncate text-[11px] text-text-muted">
+                    <span className="ui-caption block truncate">
                       {getRoutineExerciseIds(routine).length} {getRoutineExerciseIds(routine).length === 1 ? t('library.exercise') : t('library.exercises')}
                     </span>
                   </span>

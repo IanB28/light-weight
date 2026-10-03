@@ -102,6 +102,7 @@
     "src/components/RoutinePicker.tsx",
     "src/features/routines/ReceivedRoutines.tsx",
     "src/views/PlanView.tsx",
+    "src/views/home-plan-visual-polish.test.ts",
     "src/views/LibraryView.tsx",
     "src/views/WorkoutView.tsx",
     "src/features/routines/RoutineDetailSheet.tsx",
