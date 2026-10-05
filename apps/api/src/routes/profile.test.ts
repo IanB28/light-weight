@@ -6,6 +6,7 @@ import test from 'node:test';
 import dotenv from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { lockPostgresFixture } from '../test-support/postgres-fixture-lock.js';
 import { createApp } from '../app.js';
 import { db, replaceDatabaseForTesting } from '../db/index.js';
 import * as schema from '../db/schema.js';
@@ -70,7 +71,7 @@ test('HTTP featured PR configuration is authenticated, owned, atomic, sorted, an
     const migration = await readFile(new URL('../../drizzle/0012_featured_pr_showcase_v1.sql', import.meta.url), 'utf8');
     try {
       await sql.begin(async (tx) => {
-        await tx`SELECT pg_advisory_xact_lock(198, 32)`;
+        await lockPostgresFixture(tx);
         Object.defineProperty(tx, 'options', { value: sql.options });
         Object.defineProperty(tx, 'begin', { value: async (callback: (client: typeof tx) => Promise<unknown>) => tx.savepoint(callback) });
         await tx.unsafe(migration);

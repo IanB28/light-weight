@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import dotenv from 'dotenv';
 import postgres from 'postgres';
+import { lockPostgresFixture } from '../test-support/postgres-fixture-lock.js';
 import { normalizeRoutine } from '@light-weight/domain';
 
 dotenv.config({ path: new URL('../../../.env', import.meta.url) });
@@ -37,8 +38,7 @@ test('old-main share creation and import preserve V2 snapshots through rollback 
   try {
     try {
       await sql.begin(async (tx) => {
-        // Serialize transactional DDL across integration-test files.
-        await tx`SELECT pg_advisory_xact_lock(198, 31)`;
+        await lockPostgresFixture(tx);
         // All DDL and fixtures stay inside this rolled-back disposable-DB transaction.
         for (const migration of migrations) {
           const source = await readFile(migration, 'utf8');
