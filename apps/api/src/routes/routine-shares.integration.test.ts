@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import dotenv from 'dotenv';
 import postgres from 'postgres';
+import { withSharedPostgresFixture } from '../test-support/postgres-fixture-lock.js';
 import { createApp } from '../app.js';
 import { hashOpaqueToken } from '../lib/auth-session.js';
 
@@ -15,6 +16,14 @@ const connectionString = process.env.DATABASE_URL;
 test('HTTP routine sharing uses immutable, private snapshots and recipient-owned idempotent imports', async (t) => {
   if (!connectionString) { t.skip('DATABASE_URL is not configured'); return; }
   const sql = postgres(connectionString, { max: 5, ssl: 'require' });
+  try {
+    await withSharedPostgresFixture(sql, () => runRoutineSharing(t, sql));
+  } finally {
+    await sql.end();
+  }
+});
+
+async function runRoutineSharing(t: TestContext, sql: postgres.Sql) {
   const ids = { sender: randomUUID(), recipient: randomUUID(), pending: randomUUID(), outsider: randomUUID(), source: randomUUID() };
   const exerciseA = `v1d-public-a-${randomUUID()}`;
   const exerciseB = `v1d-public-b-${randomUUID()}`;
@@ -220,9 +229,8 @@ test('HTTP routine sharing uses immutable, private snapshots and recipient-owned
   } finally {
     await sql`DELETE FROM users WHERE id IN (${ids.sender}, ${ids.recipient}, ${ids.pending}, ${ids.outsider})`;
     await sql`DELETE FROM exercises WHERE id IN (${exerciseA}, ${exerciseB}, ${custom}, ${privateExercise})`;
-    await sql.end();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     if (previousOrigins === undefined) delete process.env.WEB_ORIGINS;
     else process.env.WEB_ORIGINS = previousOrigins;
   }
-});
+}

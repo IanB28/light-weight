@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import dotenv from 'dotenv';
 import postgres from 'postgres';
+import { lockPostgresFixture } from '../test-support/postgres-fixture-lock.js';
 import { assertRoutineHasNoCustomExercises, cloneRoutineSnapshot } from './social-invariants.js';
 
 dotenv.config({ path: new URL('../../../.env', import.meta.url) });
@@ -38,8 +39,7 @@ test('authorization guards and idempotent routine import hold inside a rolled-ba
     const routineTemplateMigrationSql = await readFile(routineTemplateMigrationUrl, 'utf8');
     try {
       await sql.begin(async (tx) => {
-        // Serialize transactional DDL across integration-test files.
-        await tx`SELECT pg_advisory_xact_lock(198, 31)`;
+        await lockPostgresFixture(tx);
         await tx.unsafe(migrationSql);
         await tx.unsafe(routineTemplateMigrationSql);
         await tx`

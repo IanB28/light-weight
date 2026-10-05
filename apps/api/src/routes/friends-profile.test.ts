@@ -5,6 +5,7 @@ import test from 'node:test';
 import dotenv from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { lockPostgresFixture } from '../test-support/postgres-fixture-lock.js';
 import {
   resolveCanonicalStrengthProjection,
   selectCanonicalPersonalRecordsByExercise,
@@ -60,6 +61,9 @@ test('HTTP friend profile is accepted-friend-only, full-history authoritative, s
   try {
     try {
       await sql.begin(async (tx) => {
+        await lockPostgresFixture(tx, 'shared');
+        // Fixed identities also need per-fixture exclusion across duplicate runs.
+        // Always acquire this AFTER the shared gate and BEFORE table access.
         await tx`SELECT pg_advisory_xact_lock(201, 10)`;
         Object.defineProperty(tx, 'options', { value: sql.options });
         Object.defineProperty(tx, 'begin', { value: async (callback: (client: typeof tx) => Promise<unknown>) => tx.savepoint(callback) });
