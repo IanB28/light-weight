@@ -84,7 +84,7 @@ test('navigation layout keeps equal tab widths and visual-only selection with ac
   assert.match(source, /addEventListener\('focusin'/);
   assert.match(source, /inert=\{mobileKeyboardOpen\}/);
   assert.match(source, /aria-hidden=\{mobileKeyboardOpen \|\| undefined\}/);
-  assert.match(source, /safe-area-inset-bottom/);
+  assert.match(css, /--bottom-nav-bottom-gap: max\(0\.5rem, env\(safe-area-inset-bottom\)\)/);
   assert.match(source, /pointer-events-none fixed inset-x-0 bottom-0/);
   assert.doesNotMatch(source, /pointer-events-none (?:sticky|absolute) inset-x-0 bottom-0/);
   assert.match(source, /createPortal\(navigation, document\.body\)/);
@@ -102,9 +102,26 @@ test('navigation layout keeps equal tab widths and visual-only selection with ac
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /prefers-reduced-transparency/);
   assert.match(css, /prefers-contrast: more/);
+  assert.match(css, /@media \(forced-colors: active\)\s*\{\s*\.bottom-nav-surface/);
   assert.match(css, /\.pb-page-safe\s*\{[^}]*--bottom-nav-height[^}]*safe-area-inset-bottom/s);
   assert.match(app, /min-h-\[100dvh\][^"\n]*overflow-x-clip/);
   assert.doesNotMatch(app, /overflow-x-hidden/);
+});
+
+test('keyboard-hidden destinations leave the tab order without changing selection or labels', () => {
+  const html = renderToStaticMarkup(React.createElement(BottomNavItem, {
+    tab: { id: 'plan', label: 'Plan', icon: NAVIGATION_ICON_ASSETS.plan },
+    isActive: true,
+    isWorkoutActive: false,
+    mobileKeyboardOpen: true,
+    workoutActiveLabel: 'Continuar entrenamiento activo',
+    sessionActiveLabel: 'Sesión en curso',
+    onSelectTab: () => undefined
+  }));
+  assert.match(html, /tabindex="-1"/);
+  assert.match(html, /aria-current="page"/);
+  assert.match(html, /aria-label="Plan"/);
+  assert.doesNotMatch(html, /workout-running-indicator/);
 });
 
 test('semantic icon call sites use bodyweight artwork while Stats balance retains Scale', () => {
