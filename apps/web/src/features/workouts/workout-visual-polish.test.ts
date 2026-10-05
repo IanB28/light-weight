@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveExerciseLoadingProfile, type Exercise } from '@light-weight/domain';
 import { RestTimerBar } from '../../components/RestTimerBar.js';
 import { RirPicker } from '../../components/ui/RirPicker.js';
+import { KeyboardWeightInput } from './WeightEntry.js';
 import { dictionaries } from '../../lib/i18n.js';
 import { DEFAULT_APP_PREFERENCES } from '../../lib/preferences.js';
 import { PreferencesProvider } from '../../lib/preferences-context.js';
@@ -80,6 +81,25 @@ test('SetRow keeps weight, reps, compact RIR and completion semantics', () => {
   assert.match(html, /aria-haspopup="dialog"/);
   assert.match(html, /aria-pressed="false"/);
   assert.match(html, /min-\[390px\]:flex/);
+});
+
+test('numeric input render preserves full decimal weight and three-digit reps values with signs separate from values', () => {
+  for (const [valueKg, units, displayed] of [[80, 'metric', '80'], [100, 'metric', '100'], [102.5, 'metric', '102.5'], [225.5, 'metric', '225.5']] as const) {
+    const html = renderToStaticMarkup(React.createElement(KeyboardWeightInput, {
+      valueKg, units, label: 'Weight for set 1', onChange: noop
+    }));
+    assert.match(html, new RegExp(`value="${displayed.replace('.', '\\.') }"`));
+    assert.match(html, /inputMode="decimal"/);
+    assert.match(html, /aria-label="Weight for set 1"/);
+    assert.doesNotMatch(html, /maxLength=/);
+  }
+  const signed = renderToStaticMarkup(React.createElement(KeyboardWeightInput, {
+    valueKg: 100, units: 'metric', label: 'Weight for set 1', prefix: '-', onChange: noop
+  }));
+  assert.match(signed, />-<\/span>/);
+  assert.match(signed, /value="100"/);
+  const threeDigitReps = row(session(exercise, { sets: [{ setIndex: 1, weightKg: 80, reps: 123, completed: false, setType: 'working' }] }));
+  assert.match(threeDigitReps, /aria-label="Repeticiones de la serie 1"[^>]*value="123"/);
 });
 
 test('invalid, unknown-machine, base-violation and completed rows remain distinct', () => {

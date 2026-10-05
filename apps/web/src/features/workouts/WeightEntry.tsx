@@ -34,7 +34,7 @@ export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }:
   return (
     <div className="relative flex min-w-0 w-full items-center justify-center">
       {prefix && (
-        <span className="pointer-events-none absolute left-2 font-mono text-xs font-bold text-text-primary">
+        <span className="pointer-events-none absolute left-2 font-mono text-xs font-bold text-text-primary min-[390px]:left-1">
           {prefix}
         </span>
       )}
@@ -54,8 +54,8 @@ export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }:
           }
         }}
         aria-label={label}
-        className={`ui-focus-visible ui-control-surface h-11 min-w-0 w-full rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary min-[390px]:w-12 ${
-          prefix ? 'pl-5 pr-1' : ''
+        className={`ui-focus-visible ui-control-surface h-11 min-w-0 w-full flex-1 rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary ${
+          prefix ? 'pl-5 pr-1 min-[390px]:pl-3 min-[390px]:pr-0 min-[390px]:text-[15px]' : ''
         }`}
       />
     </div>
