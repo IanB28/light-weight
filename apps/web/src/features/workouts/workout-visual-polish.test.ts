@@ -81,8 +81,8 @@ test('SetRow keeps weight, reps, compact RIR and completion semantics', () => {
   assert.match(html, /aria-label="RIR de la serie 1"/);
   assert.match(html, /aria-haspopup="dialog"/);
   assert.match(html, /aria-pressed="false"/);
-  assert.ok(html.includes('[@container(min-width:36rem)]:flex'));
-  assert.ok(html.includes('[container-type:inline-size]'));
+  assert.match(html, /col-span-12 grid grid-cols-2/);
+  assert.doesNotMatch(html, /@container|hidden h-11/);
 });
 
 test('numeric input render preserves full decimal weight and three-digit reps values with signs separate from values', () => {
@@ -134,13 +134,32 @@ test('prefixed metric and imperial keyboard and plate values retain all digits',
   }
 });
 
-test('inline steppers use row width, not viewport width, and have 44px targets when shown', () => {
-  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
-  assert.equal((contents.match(/hidden h-11 w-11/g) ?? []).length, 4);
-  assert.equal(contents.split('[@container(min-width:36rem)]:flex').length - 1, 4);
-  assert.ok(contents.includes('[container-type:inline-size]'));
-  assert.doesNotMatch(contents, /min-\[768px\]:flex/);
-  assert.doesNotMatch(contents, /hidden h-11 w-6/);
+test('numeric steppers stay accessible below inputs without an unreachable width gate', () => {
+  const html = row();
+  const steppers = html.match(/<button[^>]+aria-label="(?:Reducir|Aumentar)[^"]+"[^>]*>/g) ?? [];
+  assert.equal(steppers.length, 4);
+  for (const button of steppers) {
+    assert.match(button, /flex h-11 w-11/);
+    assert.match(button, /ui-focus-visible/);
+    assert.doesNotMatch(button, /hidden|@container|min-\[/);
+  }
+  assert.match(html, /col-span-12 grid grid-cols-2/);
+  assert.doesNotMatch(html, /w-6|@container/);
+});
+
+test('secondary controls do not introduce weight steppers for plates or unloaded bodyweight', () => {
+  for (const [mode, usesAddedWeight] of [['plates', true], ['keyboard', false]] as const) {
+    const value = session();
+    const html = renderToStaticMarkup(React.createElement(SetRow, {
+      exerciseId: value.exercise.id, set: value.sets[0], session: value,
+      loading: resolveExerciseLoadingProfile(value.exercise).profile,
+      usesAddedWeight, weightInputMode: mode, preferences: DEFAULT_APP_PREFERENCES,
+      onUpdateSet: noop, onToggleSet: noop, onStartRestTimer: noop, onOpenPlates: noop
+    }));
+    assert.doesNotMatch(html, /aria-label="(?:Reducir|Aumentar) peso/);
+    assert.match(html, /aria-label="Reducir repeticiones/);
+    assert.match(html, /aria-label="Aumentar repeticiones/);
+  }
 });
 
 test('invalid, unknown-machine, base-violation and completed rows remain distinct', () => {
