@@ -100,7 +100,7 @@ export function RirHeaderButton({ className = '' }: RirHeaderButtonProps) {
         aria-label={t('workout.rirInfoTitle')}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`group inline-flex min-h-9 min-w-9 items-center justify-center gap-1 rounded-md px-2 text-[10px] font-bold uppercase tracking-wider text-text-muted transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${className}`}
+        className={`ui-focus-visible group inline-flex min-h-9 min-w-9 h-11 w-full items-center justify-center gap-0.5 rounded-ui-md px-0.5 text-[10px] font-bold uppercase tracking-wider text-text-muted transition-colors hover:text-text-primary ${className}`}
       >
         <span>RIR</span>
         <CircleHelp aria-hidden="true" className="size-3 shrink-0 text-text-muted transition-colors group-hover:text-text-primary" />

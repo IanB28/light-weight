@@ -34,7 +34,7 @@ export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }:
   return (
     <div className="relative flex min-w-0 w-full items-center justify-center">
       {prefix && (
-        <span className="pointer-events-none absolute left-2 font-mono text-xs font-bold text-accent">
+        <span className="pointer-events-none absolute left-2 font-mono text-xs font-bold text-text-primary">
           {prefix}
         </span>
       )}
@@ -42,7 +42,7 @@ export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }:
         type="text"
         inputMode="decimal"
         value={draft}
-        placeholder={prefix ? `${prefix}0` : '0'}
+        placeholder="0"
         onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setDraft(event.target.value.replace(/[^0-9.,]/g, ''))}
         onBlur={commit}
@@ -54,7 +54,7 @@ export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }:
           }
         }}
         aria-label={label}
-        className={`h-11 min-w-0 w-full rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/25 min-[390px]:w-16 ${
+        className={`ui-focus-visible ui-control-surface h-11 min-w-0 w-full flex-1 rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary ${
           prefix ? 'pl-5 pr-1' : ''
         }`}
       />
@@ -71,7 +71,7 @@ export function PlateWeightButton({ valueKg, units, label, prefix, onClick }: { 
       onFocus={() => preloadPlateAssets(units)}
       onTouchStart={() => preloadPlateAssets(units)}
       aria-label={label}
-      className="flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="ui-focus-visible ui-control-surface flex h-11 w-full min-w-0 items-center justify-center gap-1 rounded-ui-md border border-accent/35 bg-accent-soft px-1 font-mono text-xs font-bold tabular-nums text-text-primary transition-[background-color,border-color] duration-150 hover:border-accent hover:bg-surface-active"
     >
       <Disc3 aria-hidden="true" className="size-3.5 shrink-0" />
       <span className="truncate">{prefix ? `${prefix}${displayWeight(valueKg, units)}` : displayWeight(valueKg, units)}</span>

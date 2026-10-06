@@ -9,6 +9,7 @@ export interface RirPickerProps {
   onChange: (value: number | undefined) => void;
   ariaLabel: string;
   className?: string;
+  compact?: boolean;
 }
 
 interface RirOption {
@@ -21,7 +22,8 @@ export function RirPicker({
   value,
   onChange,
   ariaLabel,
-  className = ''
+  className = '',
+  compact = false
 }: RirPickerProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -59,10 +61,10 @@ export function RirPicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
-        className={`flex min-h-11 w-full items-center justify-between rounded-ui-lg border border-border-subtle bg-surface-input px-3 text-left text-xs font-bold text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent ${className}`}
+        className={`ui-focus-visible ui-control-surface flex min-h-11 w-full items-center rounded-ui-md border border-border-subtle bg-surface-input text-xs font-bold text-text-primary transition-[background-color,border-color] duration-150 hover:border-border-active ${compact ? 'min-w-11 justify-center gap-0.5 px-1' : 'min-w-0 justify-between px-3 text-left'} ${className}`}
       >
         <span className="truncate">{displayLabel}</span>
-        <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
+        <ChevronDown aria-hidden="true" className={`${compact ? 'hidden min-[390px]:block min-[390px]:size-3' : 'size-4'} shrink-0 text-text-muted`} />
       </button>
 
       <BottomSheet
@@ -89,9 +91,9 @@ export function RirPicker({
                   onChange(option.value);
                   setOpen(false);
                 }}
-                className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-ui-lg border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                className={`ui-focus-visible ui-control-surface flex min-h-11 w-full items-center justify-between gap-3 rounded-ui-lg border px-3 py-2 text-left transition-[background-color,border-color] duration-150 ${
                   selected
-                    ? 'border-accent bg-accent-soft text-accent'
+                    ? 'ui-selected-option text-text-primary'
                     : 'border-border-subtle bg-surface-input text-text-primary'
                 }`}
               >
