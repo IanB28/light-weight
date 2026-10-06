@@ -81,8 +81,15 @@ test('SetRow keeps weight, reps, compact RIR and completion semantics', () => {
   assert.match(html, /aria-label="RIR de la serie 1"/);
   assert.match(html, /aria-haspopup="dialog"/);
   assert.match(html, /aria-pressed="false"/);
-  assert.match(html, /col-span-12 grid grid-cols-2/);
-  assert.doesNotMatch(html, /@container|hidden h-11/);
+  assert.deepEqual([...html.matchAll(/class="col-span-(\d+) /g)].map(match => Number(match[1])), [1, 4, 3, 2, 2]);
+  assert.match(html, /grid grid-cols-12 items-center gap-1 rounded-2xl p-1\.5/);
+  assert.doesNotMatch(html, /col-span-12|grid-cols-2|@container/);
+  for (const field of ['peso', 'repeticiones']) {
+    const reduce = html.indexOf(`aria-label="Reducir ${field}`);
+    const input = html.indexOf(field === 'peso' ? 'inputMode="decimal"' : 'inputMode="numeric"');
+    const increase = html.indexOf(`aria-label="Aumentar ${field}`);
+    assert.ok(reduce < input && input < increase, `${field}: decrement -> input -> increment`);
+  }
 });
 
 test('numeric input render preserves full decimal weight and three-digit reps values with signs separate from values', () => {
@@ -134,20 +141,24 @@ test('prefixed metric and imperial keyboard and plate values retain all digits',
   }
 });
 
-test('numeric steppers stay accessible below inputs without an unreachable width gate', () => {
+test('historical inline steppers use the reachable 390px gate and retain nominal widths and focus', () => {
   const html = row();
   const steppers = html.match(/<button[^>]+aria-label="(?:Reducir|Aumentar)[^"]+"[^>]*>/g) ?? [];
   assert.equal(steppers.length, 4);
   for (const button of steppers) {
-    assert.match(button, /flex h-11 w-11/);
+    assert.match(button, /hidden h-11 w-(?:7|6)/);
     assert.match(button, /ui-focus-visible/);
-    assert.doesNotMatch(button, /hidden|@container|min-\[/);
+    assert.match(button, /min-\[390px\]:flex/);
+    assert.doesNotMatch(button, /shrink-0|@container/);
   }
-  assert.match(html, /col-span-12 grid grid-cols-2/);
-  assert.doesNotMatch(html, /w-6|@container/);
+  assert.equal(steppers.filter(button => button.includes('w-7')).length, 2);
+  assert.equal(steppers.filter(button => button.includes('w-6')).length, 2);
+  assert.match(html, /min-\[390px\]:w-16/);
+  assert.match(html, /min-\[390px\]:w-9/);
+  assert.doesNotMatch(html, /col-span-12|grid-cols-2|flex-1|border-t/);
 });
 
-test('secondary controls do not introduce weight steppers for plates or unloaded bodyweight', () => {
+test('inline controls do not introduce weight steppers for plates or unloaded bodyweight', () => {
   for (const [mode, usesAddedWeight] of [['plates', true], ['keyboard', false]] as const) {
     const value = session();
     const html = renderToStaticMarkup(React.createElement(SetRow, {
@@ -182,6 +193,15 @@ test('completion callback ordering and rest gate remain frozen', () => {
   assert.match(contents, /onToggleSet\(exerciseId, set\.setIndex\);\s*if \(!set\.completed && canComplete\) onStartRestTimer\(preferences\.defaultRestSeconds\)/);
   assert.match(contents, /disabled=\{!set\.completed && !canComplete\}/);
   assert.match(contents, /aria-pressed=\{set\.completed\}/);
+});
+
+test('completion retains historical alignment and natural shrink inside its narrow cell', () => {
+  const html = row();
+  assert.match(html, /col-span-2 flex items-center justify-end pr-1/);
+  const completion = html.match(/<button[^>]+aria-pressed="false"[^>]*>/)?.[0];
+  assert.ok(completion);
+  assert.match(completion, /flex size-11 items-center justify-center/);
+  assert.doesNotMatch(completion, /shrink-0|min-w-|min-width|absolute|translate|overflow/);
 });
 
 test('SetTable keeps canonical columns, set types, remove, and keyboard/plate mode', () => {
