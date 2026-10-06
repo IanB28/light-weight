@@ -7,7 +7,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveExerciseLoadingProfile, type Exercise } from '@light-weight/domain';
 import { RestTimerBar } from '../../components/RestTimerBar.js';
 import { RirPicker } from '../../components/ui/RirPicker.js';
-import { KeyboardWeightInput } from './WeightEntry.js';
+import { KeyboardWeightInput, PlateWeightButton } from './WeightEntry.js';
+import { parseDisplayWeight } from '../../lib/weight-units.js';
 import { dictionaries } from '../../lib/i18n.js';
 import { DEFAULT_APP_PREFERENCES } from '../../lib/preferences.js';
 import { PreferencesProvider } from '../../lib/preferences-context.js';
@@ -80,7 +81,8 @@ test('SetRow keeps weight, reps, compact RIR and completion semantics', () => {
   assert.match(html, /aria-label="RIR de la serie 1"/);
   assert.match(html, /aria-haspopup="dialog"/);
   assert.match(html, /aria-pressed="false"/);
-  assert.match(html, /min-\[390px\]:flex/);
+  assert.ok(html.includes('[@container(min-width:36rem)]:flex'));
+  assert.ok(html.includes('[container-type:inline-size]'));
 });
 
 test('numeric input render preserves full decimal weight and three-digit reps values with signs separate from values', () => {
@@ -100,6 +102,45 @@ test('numeric input render preserves full decimal weight and three-digit reps va
   assert.match(signed, /value="100"/);
   const threeDigitReps = row(session(exercise, { sets: [{ setIndex: 1, weightKg: 80, reps: 123, completed: false, setType: 'working' }] }));
   assert.match(threeDigitReps, /aria-label="Repeticiones de la serie 1"[^>]*value="123"/);
+});
+
+test('zero keyboard weight has a single separate prefix, never a signed placeholder', () => {
+  for (const units of ['metric', 'imperial'] as const) {
+    for (const prefix of ['+', '-']) {
+      const html = renderToStaticMarkup(React.createElement(KeyboardWeightInput, {
+        valueKg: 0, units, prefix, label: 'Weight', onChange: noop
+      }));
+      assert.match(html, /value=""/);
+      assert.match(html, /placeholder="0"/);
+      assert.equal((html.match(new RegExp(`>${prefix === '+' ? '\\+' : '-'}<\\/span>`, 'g')) ?? []).length, 1);
+      assert.doesNotMatch(html, /placeholder="[+-]0"/);
+      assert.doesNotMatch(html, /text-\[15px\]/);
+    }
+  }
+});
+
+test('prefixed metric and imperial keyboard and plate values retain all digits', () => {
+  for (const units of ['metric', 'imperial'] as const) {
+    for (const value of [0, 80, 100, 102.5, 225.5]) {
+      for (const prefix of ['+', '-']) {
+        const props = { valueKg: parseDisplayWeight(value, units), units, prefix, label: 'Weight' };
+        const input = renderToStaticMarkup(React.createElement(KeyboardWeightInput, { ...props, onChange: noop }));
+        assert.ok(input.includes(`value="${value === 0 ? '' : value}"`));
+        assert.ok(!input.includes(`value="${prefix}${value}"`));
+        const plate = renderToStaticMarkup(React.createElement(PlateWeightButton, { ...props, onClick: noop }));
+        assert.ok(plate.includes(`>${prefix}${value}</span>`));
+      }
+    }
+  }
+});
+
+test('inline steppers use row width, not viewport width, and have 44px targets when shown', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+  assert.equal((contents.match(/hidden h-11 w-11/g) ?? []).length, 4);
+  assert.equal(contents.split('[@container(min-width:36rem)]:flex').length - 1, 4);
+  assert.ok(contents.includes('[container-type:inline-size]'));
+  assert.doesNotMatch(contents, /min-\[768px\]:flex/);
+  assert.doesNotMatch(contents, /hidden h-11 w-6/);
 });
 
 test('invalid, unknown-machine, base-violation and completed rows remain distinct', () => {
