@@ -50,7 +50,7 @@ export const BottomNavItem: React.FC<BottomNavItemProps> = ({
       onClick={() => onSelectTab(tab.id)}
       data-active={isActive}
       data-workout-running={isActiveWorkout || undefined}
-      className={`bottom-nav-item group relative z-10 flex min-h-11 min-w-0 select-none flex-col items-center justify-center gap-0.5 rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent motion-reduce:transition-none ${
+      className={`bottom-nav-item group relative z-10 flex min-h-11 min-w-0 select-none flex-col items-center justify-center gap-0.5 rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring motion-reduce:transition-none ${
         isActive ? 'text-accent' : 'text-text-muted'
       }`}
     >
@@ -97,17 +97,26 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false);
 
   useEffect(() => {
+    let focusOutTimeout: number | undefined;
     const hasCoarsePointer = () => window.matchMedia('(pointer: coarse)').matches;
     const updateFromFocus = (target: EventTarget | null) => {
       const element = target instanceof HTMLElement ? target : null;
       setMobileKeyboardOpen(Boolean(hasCoarsePointer() && element?.matches(EDITABLE_SELECTOR)));
     };
-    const onFocusIn = (event: FocusEvent) => updateFromFocus(event.target);
-    const onFocusOut = () => window.setTimeout(() => updateFromFocus(document.activeElement), 0);
+    const onFocusIn = (event: FocusEvent) => {
+      window.clearTimeout(focusOutTimeout);
+      updateFromFocus(event.target);
+    };
+    const onFocusOut = () => {
+      window.clearTimeout(focusOutTimeout);
+      focusOutTimeout = window.setTimeout(() => updateFromFocus(document.activeElement), 0);
+    };
 
+    updateFromFocus(document.activeElement);
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
     return () => {
+      window.clearTimeout(focusOutTimeout);
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);
     };
@@ -117,13 +126,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     <div
       aria-hidden={mobileKeyboardOpen || undefined}
       inert={mobileKeyboardOpen}
-      className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] transition-transform duration-200 ease-[var(--ease-out)] motion-reduce:transition-none min-[360px]:px-3 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 px-2.5 pb-[var(--bottom-nav-bottom-gap)] transition-transform duration-200 ease-[var(--ease-out)] motion-reduce:transition-none min-[360px]:px-3 ${
         mobileKeyboardOpen ? 'translate-y-[120%]' : 'transform-none'
       }`}
     >
       <nav
         aria-label={t('nav.label')}
-        className={`bottom-nav-surface relative mx-auto flex h-16 max-w-md overflow-hidden rounded-full border border-[var(--nav-border)] p-1 ${
+        className={`bottom-nav-surface relative mx-auto flex h-[var(--bottom-nav-surface-height)] max-w-md overflow-hidden rounded-full border border-[var(--nav-border)] p-1 ${
           mobileKeyboardOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
       >
