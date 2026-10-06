@@ -54,7 +54,7 @@ export function KeyboardWeightInput({ valueKg, units, label, prefix, onChange }:
           }
         }}
         aria-label={label}
-        className={`ui-focus-visible ui-control-surface h-11 min-w-0 w-full flex-1 rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary ${
+        className={`ui-focus-visible ui-control-surface h-11 min-w-0 w-full rounded-ui-md border border-border-subtle bg-surface-input py-0.5 text-center font-mono text-base font-bold tabular-nums text-text-primary min-[390px]:w-16 ${
           prefix ? 'pl-5 pr-1' : ''
         }`}
       />
