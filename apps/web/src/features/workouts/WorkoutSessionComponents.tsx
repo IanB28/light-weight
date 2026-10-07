@@ -248,7 +248,7 @@ export function ExerciseSessionCard({
             <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-text-secondary">
               {exercise.name}
             </h3>
-            <div className="flex min-w-0 items-center justify-between gap-3 pt-0.5 text-xs">
+            <div className="flex min-w-0 items-center justify-between gap-3 text-xs">
               <span className="min-w-0 truncate capitalize text-text-muted">
                 {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
               </span>
@@ -340,19 +340,19 @@ export function ExerciseSessionCard({
           <h3 className="line-clamp-2 break-words text-base font-extrabold leading-snug text-text-primary sm:text-lg" title={exercise.name}>
             {exercise.name}
           </h3>
-          <div className="flex min-w-0 items-center justify-between gap-3 pt-0.5 text-xs">
+          <div className="flex min-w-0 items-center justify-between gap-3 text-xs">
             <span className="min-w-0 truncate capitalize text-text-muted">
               {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
             </span>
             {bestRecord && <span className="shrink-0 font-semibold text-warning">PR {bestRecord}</span>}
           </div>
           {previousRecord && (
-            <p className="pt-0.5 font-mono text-[11px] leading-relaxed text-text-muted">
+            <p className="font-mono text-[11px] leading-relaxed text-text-muted">
               <span className="font-semibold text-text-secondary">{t('workout.previous')}</span> {previousRecord}
             </p>
           )}
           {isPlateMachine && (
-            <div className="pt-1.5">
+            <div>
               <button
                 type="button"
                 onClick={() => setIsMachineModalOpen(true)}

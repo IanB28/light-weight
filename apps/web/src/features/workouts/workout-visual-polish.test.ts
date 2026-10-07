@@ -290,3 +290,54 @@ test('VP.3 visual guard excludes legacy dark palette in owned core, not deferred
   assert.match(source('views/WorkoutView.tsx'), /pb-36/);
   assert.match(source('components/RestTimerBar.tsx'), /bottom-above-nav/);
 });
+
+test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-hoc padding overrides', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+  // Confirm the metadata column uses space-y-1 for clean, uniform 4px vertical rhythm
+  assert.match(contents, /<div className="min-w-0 flex-1 space-y-1">/);
+
+  // Assert absence of ad-hoc padding overrides (pt-0.5, pt-1.5) in the active metadata block
+  const activeMetadataBlock = contents.slice(
+    contents.lastIndexOf('min-w-0 flex-1 space-y-1'),
+    contents.indexOf('{/* Set table / list */}')
+  );
+  assert.doesNotMatch(activeMetadataBlock, /\bpt-0\.5\b/);
+  assert.doesNotMatch(activeMetadataBlock, /\bpt-1\.5\b/);
+
+  // Assert absence of ad-hoc padding overrides in the skipped card metadata block
+  const skippedMetadataBlock = contents.slice(
+    contents.indexOf('min-w-0 flex-1 space-y-1'),
+    contents.lastIndexOf('min-w-0 flex-1 space-y-1')
+  );
+  assert.doesNotMatch(skippedMetadataBlock, /\bpt-0\.5\b/);
+  assert.doesNotMatch(skippedMetadataBlock, /\bpt-1\.5\b/);
+
+  // Case A: Base exercise (name + muscle/category only)
+  const htmlBase = card(session(exercise));
+  assert.match(htmlBase, /line-clamp-2 break-words/);
+  assert.match(htmlBase, /flex min-w-0 items-center justify-between gap-3 text-xs/);
+  assert.doesNotMatch(htmlBase, /text-warning">PR/);
+  assert.doesNotMatch(htmlBase, /Anterior:/);
+
+  // Case B: Exercise with PR only
+  const htmlPR = card(session(exercise, { bestRecord: '100 kg × 5' }));
+  assert.match(htmlPR, /<span class="shrink-0 font-semibold text-warning">PR 100 kg × 5<\/span>/);
+  assert.doesNotMatch(htmlPR, /Anterior:/);
+
+  // Case C: Exercise with Previous record only
+  const htmlPrev = card(session(exercise, { previousRecord: '80 kg × 8' }));
+  assert.match(htmlPrev, /<p class="font-mono text-\[11px\] leading-relaxed text-text-muted">/);
+  assert.match(htmlPrev, /Anterior:<\/span> 80 kg × 8/);
+  assert.doesNotMatch(htmlPrev, /text-warning">PR/);
+
+  // Case D: Exercise with PR + Previous record
+  const htmlPRPrev = card(session(exercise, { bestRecord: '100 kg × 5', previousRecord: '80 kg × 8' }));
+  assert.match(htmlPRPrev, /text-warning">PR 100 kg × 5/);
+  assert.match(htmlPRPrev, /Anterior:<\/span> 80 kg × 8/);
+
+  // Case E: Plate-loaded machine with PR + Previous record + Machine control
+  const htmlMachineFull = card(session(machine, { bestRecord: '120 kg × 10', previousRecord: '100 kg × 10' }));
+  assert.match(htmlMachineFull, /text-warning">PR 120 kg × 10/);
+  assert.match(htmlMachineFull, /Anterior:<\/span> 100 kg × 10/);
+  assert.match(htmlMachineFull, /ui-control-surface inline-flex min-h-11 max-w-full items-center/);
+});
