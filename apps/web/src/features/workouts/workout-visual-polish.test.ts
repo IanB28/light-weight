@@ -290,3 +290,140 @@ test('VP.3 visual guard excludes legacy dark palette in owned core, not deferred
   assert.match(source('views/WorkoutView.tsx'), /pb-36/);
   assert.match(source('components/RestTimerBar.tsx'), /bottom-above-nav/);
 });
+
+test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-hoc padding overrides', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+  // Confirm the metadata column uses space-y-1 for clean, uniform 4px vertical rhythm
+  assert.match(contents, /<div className="min-w-0 flex-1 space-y-1">/);
+
+  // 1. Isolate and assert skipped metadata block boundaries
+  const skippedStart = contents.indexOf('<div className="min-w-0 flex-1 space-y-1">');
+  const skippedEnd = contents.indexOf('<div className="glass-surface flex flex-col', skippedStart);
+  assert.ok(skippedStart !== -1, 'Skipped metadata start marker must exist in source');
+  assert.ok(skippedEnd !== -1 && skippedEnd > skippedStart, 'Skipped metadata end marker must exist after start');
+  const skippedMetadataBlock = contents.slice(skippedStart, skippedEnd);
+  assert.doesNotMatch(skippedMetadataBlock, /\bpt-0\.5\b/, 'Skipped metadata block must not contain pt-0.5');
+  assert.doesNotMatch(skippedMetadataBlock, /\bpt-1\.5\b/, 'Skipped metadata block must not contain pt-1.5');
+
+  // 2. Isolate and assert active metadata block boundaries
+  const activeStart = contents.lastIndexOf('<div className="min-w-0 flex-1 space-y-1">');
+  const activeEnd = contents.indexOf('<SetTable', activeStart);
+  assert.ok(activeStart !== -1, 'Active metadata start marker must exist in source');
+  assert.ok(activeEnd !== -1 && activeEnd > activeStart, 'Active metadata end marker (<SetTable) must exist after start');
+  assert.ok(activeStart > skippedEnd, 'Active metadata block must follow skipped block in source');
+  const activeMetadataBlock = contents.slice(activeStart, activeEnd);
+  assert.doesNotMatch(activeMetadataBlock, /\bpt-0\.5\b/, 'Active metadata block must not contain pt-0.5');
+  assert.doesNotMatch(activeMetadataBlock, /\bpt-1\.5\b/, 'Active metadata block must not contain pt-1.5');
+
+  // Case A: Base exercise (name + muscle/category only)
+  const htmlBase = card(session(exercise));
+  assert.match(htmlBase, /line-clamp-2 break-words/);
+  assert.match(htmlBase, /flex min-w-0 items-center justify-between gap-3 text-xs/);
+  assert.doesNotMatch(htmlBase, /text-warning">PR/);
+  assert.doesNotMatch(htmlBase, /Anterior:/);
+
+  // Case B: Exercise with PR only
+  const htmlPR = card(session(exercise, { bestRecord: '100 kg × 5' }));
+  assert.match(htmlPR, /<span class="shrink-0 font-semibold text-warning">PR 100 kg × 5<\/span>/);
+  assert.doesNotMatch(htmlPR, /Anterior:/);
+
+  // Case C: Exercise with Previous record only
+  const htmlPrev = card(session(exercise, { previousRecord: '80 kg × 8' }));
+  assert.match(htmlPrev, /<p class="font-mono text-\[11px\] leading-relaxed text-text-muted">/);
+  assert.match(htmlPrev, /Anterior:<\/span> 80 kg × 8/);
+  assert.doesNotMatch(htmlPrev, /text-warning">PR/);
+
+  // Case D: Exercise with PR + Previous record
+  const htmlPRPrev = card(session(exercise, { bestRecord: '100 kg × 5', previousRecord: '80 kg × 8' }));
+  assert.match(htmlPRPrev, /text-warning">PR 100 kg × 5/);
+  assert.match(htmlPRPrev, /Anterior:<\/span> 80 kg × 8/);
+
+  // Case E: Plate-loaded machine with PR + Previous record + Machine control
+  const htmlMachineFull = card(session(machine, { bestRecord: '120 kg × 10', previousRecord: '100 kg × 10' }));
+  assert.match(htmlMachineFull, /text-warning">PR 120 kg × 10/);
+  assert.match(htmlMachineFull, /Anterior:<\/span> 100 kg × 10/);
+  assert.match(htmlMachineFull, /ui-control-surface inline-flex min-h-12 max-w-full items-center/);
+
+  // Case F: Skipped card flow
+  const htmlSkipped = card(session(exercise, { skipped: true }));
+
+  // 3. Rendered markup boundary isolation: ensure rendered metadata columns never contain pt-0.5 or pt-1.5
+  const renderedCases = [
+    { name: 'Case A (base)', html: htmlBase },
+    { name: 'Case B (PR only)', html: htmlPR },
+    { name: 'Case C (Previous only)', html: htmlPrev },
+    { name: 'Case D (PR + Previous)', html: htmlPRPrev },
+    { name: 'Case E (Machine full)', html: htmlMachineFull },
+    { name: 'Case F (Skipped card)', html: htmlSkipped },
+  ];
+  for (const { name, html } of renderedCases) {
+    const renderedStart = html.indexOf('class="min-w-0 flex-1 space-y-1"');
+    const renderedEnd = html.indexOf('class="glass-surface', renderedStart);
+    assert.ok(renderedStart !== -1, `${name}: rendered metadata start marker must exist`);
+    assert.ok(renderedEnd !== -1 && renderedEnd > renderedStart, `${name}: rendered metadata end marker must exist`);
+    const renderedMeta = html.slice(renderedStart, renderedEnd);
+    assert.doesNotMatch(renderedMeta, /\bpt-0\.5\b/, `${name} rendered metadata must not contain pt-0.5`);
+    assert.doesNotMatch(renderedMeta, /\bpt-1\.5\b/, `${name} rendered metadata must not contain pt-1.5`);
+  }
+});
+
+test('WORKOUT-UI-2: SetTable header aligns columns symmetrically with SetRow and machine profile button has updated proportions', () => {
+  const tableHtml = table();
+  const rowHtml = row();
+
+  // 1. SetTable header grid structure and symmetry with SetRow
+  // Header container must match SetRow's gap-1 and horizontal padding px-1.5
+  assert.match(tableHtml, /<div class="grid grid-cols-12 items-center gap-1 px-1\.5 pb-1 text-center text-\[10px\] font-bold uppercase tracking-wider text-text-muted">/);
+  assert.match(rowHtml, /<div class="[^"]*grid grid-cols-12 items-center gap-1 rounded-2xl p-1\.5[^"]*">/);
+
+  // Assert canonical column spans matching SetRow [1, 4, 3, 2, 2]
+  assert.deepEqual(
+    [...tableHtml.matchAll(/class="col-span-(\d+) /g)].slice(0, 5).map(match => Number(match[1])),
+    [1, 4, 3, 2, 2],
+    'SetTable header must have column spans [1, 4, 3, 2, 2] matching SetRow'
+  );
+
+  // Column 1 (#): centered
+  assert.match(tableHtml, /<div class="col-span-1 flex items-center justify-center"><span>#<\/span><\/div>/);
+
+  // Column 2 (Weight): centered, allowing natural wrapping without truncation ellipsis
+  assert.match(tableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="leading-tight text-center">PESO \(KG\)<\/span><\/div>/);
+
+  // Column 2 Assisted loadMode: rendered with leading-tight text-center and strictly without truncate
+  const assistedExercise: Exercise = {
+    ...exercise,
+    id: 'assisted-chin-up',
+    name: 'Assisted Chin-up',
+    category: 'machine',
+    loading: {
+      mechanism: 'selectorized',
+      loadMode: 'assisted',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+  const assistedTableHtml = table(session(assistedExercise));
+  assert.match(assistedTableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="leading-tight text-center">Asistencia \(KG\)<\/span><\/div>/);
+  assert.doesNotMatch(assistedTableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="truncate">/, 'SetTable weight header must not use truncate class to avoid clipping narrow labels');
+
+  // Column 3 (Reps): centered
+  assert.match(tableHtml, /<div class="col-span-3 flex items-center justify-center text-center"><span>REPS<\/span><\/div>/);
+
+  // Column 4 (RIR): centered
+  assert.match(tableHtml, /<div class="col-span-2 flex items-center justify-center">/);
+
+  // Column 5 (Completion): header check icon container matches SetRow's col-span-2 flex items-center justify-end pr-1
+  assert.match(tableHtml, /<div class="col-span-2 flex items-center justify-end pr-1"><span class="flex size-11 items-center justify-center"><svg[^>]*class="[^"]*size-3\.5 text-accent/);
+  assert.match(rowHtml, /<div class="col-span-2 flex items-center justify-end pr-1"><button[^>]*class="[^"]*flex size-11 items-center justify-center/);
+
+  // 2. Machine Profile Button: updated proportions (min-h-12, px-2, py-1.5, gap-1)
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+  assert.match(contents, /min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1\.5 text-\[11px\]/);
+
+  // Rendered machine profile card assertions
+  const machineCard = card(session(machine, { machineBaseResistanceStatus: 'unknown' }));
+  assert.match(machineCard, /ui-control-surface inline-flex min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1\.5 text-\[11px\] font-semibold/);
+  assert.match(machineCard, /Sin configurar/);
+});
