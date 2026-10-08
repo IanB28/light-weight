@@ -428,11 +428,11 @@ test('WORKOUT-UI-2: SetTable header aligns columns symmetrically with SetRow and
   assert.match(machineCard, /Sin configurar/);
 });
 
-test('WORKOUT-UI-3: ExerciseSessionCard metadata layout harmony, size-20 thumbnail anchor, and left-aligned machine CTA', () => {
+test('WORKOUT-UI-3: ExerciseSessionCard metadata layout harmony, compact thumbnail anchor, and left-aligned machine CTA', () => {
   const contents = source('features/workouts/WorkoutSessionComponents.tsx');
 
-  // 1. Thumbnail anchors metadata with size-20 in both active and skipped flows
-  assert.equal((contents.match(/flex size-20 shrink-0 items-center justify-center/g) ?? []).length, 2);
+  // 1. Thumbnail anchors metadata with compact square sizing in both active and skipped flows
+  assert.equal((contents.match(/flex size-14 shrink-0 items-center justify-center/g) ?? []).length, 2);
 
   // 2. Active metadata stack: position, title, muscle/category, PR, previous, machine CTA in left-aligned column
   const cardHtml = card(session(machine, { bestRecord: '100 kg × 5', previousRecord: '90 kg × 5', machineBaseResistanceStatus: 'unknown' }));
@@ -464,8 +464,8 @@ test('WORKOUT-UI-3: ExerciseSessionCard metadata layout harmony, size-20 thumbna
 test('WORKOUT-UI-3H: Exercise card composition matches product owner wireframe with Section A identity and Section B machine CTA', () => {
   const contents = source('features/workouts/WorkoutSessionComponents.tsx');
 
-  // 1. Strict 1:1 aspect ratio thumbnail sizing (size-20 min-[360px]:size-[88px]) in active and skipped
-  assert.equal((contents.match(/flex size-20 shrink-0 items-center justify-center[^"]*min-\[360px\]:size-\[88px\]/g) ?? []).length, 2);
+  // 1. Strict 1:1 aspect ratio compact thumbnail sizing (size-14 min-[360px]:size-16) in active and skipped
+  assert.equal((contents.match(/flex size-14 shrink-0 items-center justify-center[^"]*min-\[360px\]:size-16/g) ?? []).length, 2);
 
   // 2. Section B machine CTA rendered outside Section A flex container, left-aligned
   assert.match(contents, /<\/div>\s*<\/div>\s*\{isPlateMachine && \(\s*<div className="flex justify-start">[\s\S]*?className=\{`ui-focus-visible ui-control-surface inline-flex min-h-11 w-full max-w-\[60%\] items-center justify-center/);
@@ -492,4 +492,20 @@ test('WORKOUT-UI-3H: Exercise card composition matches product owner wireframe w
 
   // 4. Section B machine button styling & touch target
   assert.match(fullCard, /<div class="flex justify-start"><button[^>]*class="[^"]*min-h-11 w-full max-w-\[60%\] items-center justify-center gap-1\.5 rounded-ui-md border px-3 py-2 text-xs font-semibold[^"]*sm:max-w-\[280px\]/);
+});
+
+test('WORKOUT-UI-3V: Restores compact square thumbnail (56px / 64px max) and preserves wireframe hierarchy', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+
+  // 1. Thumbnail strictly uses size-14 (56px) with min-[360px]:size-16 (64px) in active and skipped
+  assert.equal((contents.match(/flex size-14 shrink-0 items-center justify-center[^"]*min-\[360px\]:size-16/g) ?? []).length, 2);
+
+  // 2. Thumbnail never uses oversized classes (size-20, 72px, 80px, 88px, 96px)
+  assert.equal((contents.match(/size-20|size-\[72px\]|size-\[80px\]|size-\[88px\]|size-\[96px\]/g) ?? []).length, 0);
+
+  // 3. Thumbnail preserves square aspect ratio, object-contain, and technique preview
+  assert.match(contents, /<ExerciseThumbnail exercise=\{exercise\} size="fill" className="border-0" \/>/);
+
+  // 4. Section B machine CTA remains flush left and below Section A
+  assert.match(contents, /<\/div>\s*<\/div>\s*\{isPlateMachine && \(\s*<div className="flex justify-start">/);
 });

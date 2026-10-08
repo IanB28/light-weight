@@ -235,7 +235,7 @@ export function ExerciseSessionCard({
             type="button"
             onClick={() => onViewTechnique(exercise)}
             aria-label={t('workout.viewTechnique', { name: exercise.name })}
-            className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-[88px]"
+            className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-16"
             title={t('workout.viewTechnique', { name: exercise.name })}
           >
             <ExerciseThumbnail exercise={exercise} size="fill" className="border-0 grayscale" />
@@ -311,7 +311,7 @@ export function ExerciseSessionCard({
           type="button"
           onClick={() => onViewTechnique(exercise)}
           aria-label={t('workout.viewTechnique', { name: exercise.name })}
-          className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-[88px]"
+          className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-16"
           title={t('workout.viewTechnique', { name: exercise.name })}
         >
           <ExerciseThumbnail exercise={exercise} size="fill" className="border-0" />
