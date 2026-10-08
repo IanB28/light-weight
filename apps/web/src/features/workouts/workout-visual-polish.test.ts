@@ -386,8 +386,27 @@ test('WORKOUT-UI-2: SetTable header aligns columns symmetrically with SetRow and
   // Column 1 (#): centered
   assert.match(tableHtml, /<div class="col-span-1 flex items-center justify-center"><span>#<\/span><\/div>/);
 
-  // Column 2 (Weight): centered
-  assert.match(tableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="truncate">PESO \(KG\)<\/span><\/div>/);
+  // Column 2 (Weight): centered, allowing natural wrapping without truncation ellipsis
+  assert.match(tableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="leading-tight text-center">PESO \(KG\)<\/span><\/div>/);
+
+  // Column 2 Assisted loadMode: rendered with leading-tight text-center and strictly without truncate
+  const assistedExercise: Exercise = {
+    ...exercise,
+    id: 'assisted-chin-up',
+    name: 'Assisted Chin-up',
+    category: 'machine',
+    loading: {
+      mechanism: 'selectorized',
+      loadMode: 'assisted',
+      supportsKeyboard: true,
+      supportsPlates: false,
+      supportsExternalLoad: true,
+      includeBarWeight: false
+    }
+  };
+  const assistedTableHtml = table(session(assistedExercise));
+  assert.match(assistedTableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="leading-tight text-center">Asistencia \(KG\)<\/span><\/div>/);
+  assert.doesNotMatch(assistedTableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="truncate">/, 'SetTable weight header must not use truncate class to avoid clipping narrow labels');
 
   // Column 3 (Reps): centered
   assert.match(tableHtml, /<div class="col-span-3 flex items-center justify-center text-center"><span>REPS<\/span><\/div>/);

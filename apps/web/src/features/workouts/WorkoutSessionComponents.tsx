@@ -154,7 +154,7 @@ export function SetTable({ session, preferences, onUpdateSet, onUpdateSetRir, on
         <span>#</span>
       </div>
       <div className="col-span-4 flex items-center justify-center text-center">
-        <span className="truncate">{loading.loadMode === 'assisted' ? t('workout.assistance') : t('workout.weight')} ({preferences.units === 'imperial' ? 'LB' : 'KG'})</span>
+        <span className="leading-tight text-center">{loading.loadMode === 'assisted' ? t('workout.assistance') : t('workout.weight')} ({preferences.units === 'imperial' ? 'LB' : 'KG'})</span>
       </div>
       <div className="col-span-3 flex items-center justify-center text-center">
         <span>{t('workout.reps')}</span>
