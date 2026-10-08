@@ -149,7 +149,25 @@ export function SetTable({ session, preferences, onUpdateSet, onUpdateSetRir, on
     {loading.supportsPlates && !loading.supportsKeyboard && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2"><span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.weightMode')}</span><span className="inline-flex items-center gap-1.5 text-xs font-bold text-text-primary"><Disc3 aria-hidden="true" className="size-4 text-accent" />{t('workout.plates')}</span></div>}
     {loading.loadMode === 'added_weight' && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2"><span className="ui-caption font-bold uppercase tracking-wider">{t('workout.additionalWeight')}</span><button type="button" aria-pressed={usesAddedWeight} onClick={() => onToggleAddedWeight(exercise.id, !usesAddedWeight)} className={`ui-focus-visible ui-control-surface min-h-11 rounded-ui-md border px-3 text-xs font-bold transition-[background-color,border-color] duration-150 ${usesAddedWeight ? 'ui-selected-option text-text-primary' : 'border-border-subtle bg-surface-input text-text-secondary'}`}>{usesAddedWeight ? t('workout.additionalWeightActive') : t('workout.addWeight')}</button></div>}
     {loading.loadMode === 'assisted' && <div className="flex min-h-10 items-center justify-between gap-2 border-b border-border-subtle pb-2"><span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{t('workout.machineAssistance')}</span><span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-text-primary">{t('workout.counterweight')}</span></div>}
-    <div className="grid grid-cols-12 gap-px px-0.5 pb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-muted min-[360px]:gap-1 min-[360px]:px-1"><span className="col-span-1">#</span><span className="col-span-4">{loading.loadMode === 'assisted' ? t('workout.assistance') : t('workout.weight')} ({preferences.units === 'imperial' ? 'LB' : 'KG'})</span><span className="col-span-3">{t('workout.reps')}</span><span className="col-span-2 flex items-center justify-center"><RirHeaderButton /></span><span className="col-span-2 flex justify-end pr-2"><Check className="size-3.5 text-accent" /></span></div>
+    <div className="grid grid-cols-12 items-center gap-1 px-1.5 pb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-muted">
+      <div className="col-span-1 flex items-center justify-center">
+        <span>#</span>
+      </div>
+      <div className="col-span-4 flex items-center justify-center text-center">
+        <span className="truncate">{loading.loadMode === 'assisted' ? t('workout.assistance') : t('workout.weight')} ({preferences.units === 'imperial' ? 'LB' : 'KG'})</span>
+      </div>
+      <div className="col-span-3 flex items-center justify-center text-center">
+        <span>{t('workout.reps')}</span>
+      </div>
+      <div className="col-span-2 flex items-center justify-center">
+        <RirHeaderButton />
+      </div>
+      <div className="col-span-2 flex items-center justify-end pr-1">
+        <span className="flex size-11 items-center justify-center">
+          <Check className="size-3.5 text-accent" />
+        </span>
+      </div>
+    </div>
     {sets.map((set) => <SetRow key={set.setIndex} exerciseId={exercise.id} set={set} session={session} loading={loading} usesAddedWeight={usesAddedWeight} weightInputMode={weightInputMode} preferences={preferences} onUpdateSet={onUpdateSet} onUpdateSetRir={onUpdateSetRir} onToggleSet={onToggleSet} onStartRestTimer={onStartRestTimer} onOpenPlates={onOpenPlates} />)}
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pt-2 text-xs font-semibold"><OptionPicker value="" options={[{ value: 'working', label: t('workout.workingSet') }, { value: 'warmup', label: t('workout.warmupSet') }, { value: 'drop', label: t('workout.dropSet') }, { value: 'backoff', label: t('workout.backoffSet') }]} onChange={(setType) => onAddSet(exercise.id, setType as WorkoutSetType)} ariaLabel={t('workout.addSetType')} triggerLabel={`+ ${t('workout.addSet')}`} /><Button variant="ghost" size="sm" onClick={() => onRemoveSet(exercise.id)} disabled={sets.length <= 1} className="justify-start px-2 text-xs font-normal text-text-muted/80 hover:text-danger">— {t('workout.removeLastSet')}</Button></div>
   </div>;
@@ -356,7 +374,7 @@ export function ExerciseSessionCard({
               <button
                 type="button"
                 onClick={() => setIsMachineModalOpen(true)}
-                className={`ui-focus-visible ui-control-surface inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-ui-md border px-2.5 py-1 text-[11px] font-semibold transition-[background-color,border-color] duration-150 ${
+                className={`ui-focus-visible ui-control-surface inline-flex min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1.5 text-[11px] font-semibold transition-[background-color,border-color] duration-150 ${
                   session.machineBaseResistanceStatus === 'unknown' || !session.machineBaseResistanceStatus
                     ? 'border-warning/40 bg-warning-soft text-warning hover:border-warning'
                     : session.machineBaseResistanceStatus === 'suggested'

@@ -342,7 +342,7 @@ test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-
   const htmlMachineFull = card(session(machine, { bestRecord: '120 kg × 10', previousRecord: '100 kg × 10' }));
   assert.match(htmlMachineFull, /text-warning">PR 120 kg × 10/);
   assert.match(htmlMachineFull, /Anterior:<\/span> 100 kg × 10/);
-  assert.match(htmlMachineFull, /ui-control-surface inline-flex min-h-11 max-w-full items-center/);
+  assert.match(htmlMachineFull, /ui-control-surface inline-flex min-h-12 max-w-full items-center/);
 
   // Case F: Skipped card flow
   const htmlSkipped = card(session(exercise, { skipped: true }));
@@ -365,4 +365,46 @@ test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-
     assert.doesNotMatch(renderedMeta, /\bpt-0\.5\b/, `${name} rendered metadata must not contain pt-0.5`);
     assert.doesNotMatch(renderedMeta, /\bpt-1\.5\b/, `${name} rendered metadata must not contain pt-1.5`);
   }
+});
+
+test('WORKOUT-UI-2: SetTable header aligns columns symmetrically with SetRow and machine profile button has updated proportions', () => {
+  const tableHtml = table();
+  const rowHtml = row();
+
+  // 1. SetTable header grid structure and symmetry with SetRow
+  // Header container must match SetRow's gap-1 and horizontal padding px-1.5
+  assert.match(tableHtml, /<div class="grid grid-cols-12 items-center gap-1 px-1\.5 pb-1 text-center text-\[10px\] font-bold uppercase tracking-wider text-text-muted">/);
+  assert.match(rowHtml, /<div class="[^"]*grid grid-cols-12 items-center gap-1 rounded-2xl p-1\.5[^"]*">/);
+
+  // Assert canonical column spans matching SetRow [1, 4, 3, 2, 2]
+  assert.deepEqual(
+    [...tableHtml.matchAll(/class="col-span-(\d+) /g)].slice(0, 5).map(match => Number(match[1])),
+    [1, 4, 3, 2, 2],
+    'SetTable header must have column spans [1, 4, 3, 2, 2] matching SetRow'
+  );
+
+  // Column 1 (#): centered
+  assert.match(tableHtml, /<div class="col-span-1 flex items-center justify-center"><span>#<\/span><\/div>/);
+
+  // Column 2 (Weight): centered
+  assert.match(tableHtml, /<div class="col-span-4 flex items-center justify-center text-center"><span class="truncate">PESO \(KG\)<\/span><\/div>/);
+
+  // Column 3 (Reps): centered
+  assert.match(tableHtml, /<div class="col-span-3 flex items-center justify-center text-center"><span>REPS<\/span><\/div>/);
+
+  // Column 4 (RIR): centered
+  assert.match(tableHtml, /<div class="col-span-2 flex items-center justify-center">/);
+
+  // Column 5 (Completion): header check icon container matches SetRow's col-span-2 flex items-center justify-end pr-1
+  assert.match(tableHtml, /<div class="col-span-2 flex items-center justify-end pr-1"><span class="flex size-11 items-center justify-center"><svg[^>]*class="[^"]*size-3\.5 text-accent/);
+  assert.match(rowHtml, /<div class="col-span-2 flex items-center justify-end pr-1"><button[^>]*class="[^"]*flex size-11 items-center justify-center/);
+
+  // 2. Machine Profile Button: updated proportions (min-h-12, px-2, py-1.5, gap-1)
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+  assert.match(contents, /min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1\.5 text-\[11px\]/);
+
+  // Rendered machine profile card assertions
+  const machineCard = card(session(machine, { machineBaseResistanceStatus: 'unknown' }));
+  assert.match(machineCard, /ui-control-surface inline-flex min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1\.5 text-\[11px\] font-semibold/);
+  assert.match(machineCard, /Sin configurar/);
 });
