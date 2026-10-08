@@ -342,7 +342,7 @@ test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-
   const htmlMachineFull = card(session(machine, { bestRecord: '120 kg × 10', previousRecord: '100 kg × 10' }));
   assert.match(htmlMachineFull, /text-warning">PR 120 kg × 10/);
   assert.match(htmlMachineFull, /Anterior:<\/span> 100 kg × 10/);
-  assert.match(htmlMachineFull, /ui-control-surface inline-flex min-h-12 max-w-full items-center/);
+  assert.match(htmlMachineFull, /ui-control-surface inline-flex min-h-10 max-w-full items-center/);
 
   // Case F: Skipped card flow
   const htmlSkipped = card(session(exercise, { skipped: true }));
@@ -418,12 +418,44 @@ test('WORKOUT-UI-2: SetTable header aligns columns symmetrically with SetRow and
   assert.match(tableHtml, /<div class="col-span-2 flex items-center justify-end pr-1"><span class="flex size-11 items-center justify-center"><svg[^>]*class="[^"]*size-3\.5 text-accent/);
   assert.match(rowHtml, /<div class="col-span-2 flex items-center justify-end pr-1"><button[^>]*class="[^"]*flex size-11 items-center justify-center/);
 
-  // 2. Machine Profile Button: updated proportions (min-h-12, px-2, py-1.5, gap-1)
+  // 2. Machine Profile Button: updated proportions (min-h-10, px-2, py-1, gap-1)
   const contents = source('features/workouts/WorkoutSessionComponents.tsx');
-  assert.match(contents, /min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1\.5 text-\[11px\]/);
+  assert.match(contents, /min-h-10 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1 text-\[11px\]/);
 
   // Rendered machine profile card assertions
   const machineCard = card(session(machine, { machineBaseResistanceStatus: 'unknown' }));
-  assert.match(machineCard, /ui-control-surface inline-flex min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1\.5 text-\[11px\] font-semibold/);
+  assert.match(machineCard, /ui-control-surface inline-flex min-h-10 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1 text-\[11px\] font-semibold/);
   assert.match(machineCard, /Sin configurar/);
+});
+
+test('WORKOUT-UI-3: ExerciseSessionCard metadata layout harmony, size-20 thumbnail anchor, and left-aligned machine CTA', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+
+  // 1. Thumbnail anchors metadata with size-20 in both active and skipped flows
+  assert.equal((contents.match(/flex size-20 shrink-0 items-center justify-center/g) ?? []).length, 2);
+
+  // 2. Active metadata stack: position, title, muscle/category, previous, machine CTA in left-aligned column
+  const cardHtml = card(session(machine, { bestRecord: '100 kg × 5', previousRecord: '90 kg × 5', machineBaseResistanceStatus: 'unknown' }));
+  const metaStart = cardHtml.indexOf('class="min-w-0 flex-1 space-y-1"');
+  assert.ok(metaStart !== -1, 'Metadata stack container must exist');
+
+  const titleIdx = cardHtml.indexOf('Plate-loaded chest press');
+  const muscleIdx = cardHtml.indexOf('Pecho · Máquina');
+  const prIdx = cardHtml.indexOf('PR 100 kg × 5');
+  const prevIdx = cardHtml.indexOf('Anterior:');
+  const machineIdx = cardHtml.indexOf('Sin configurar');
+
+  assert.ok(titleIdx !== -1, 'Title must be present');
+  assert.ok(muscleIdx !== -1, 'Muscle/equipment must be present');
+  assert.ok(prIdx !== -1, 'PR must be present');
+  assert.ok(prevIdx !== -1, 'Previous record must be present');
+  assert.ok(machineIdx !== -1, 'Machine CTA must be present');
+
+  // Assert vertical order: Title -> Muscle -> Previous -> Machine CTA
+  assert.ok(titleIdx < muscleIdx, 'Title must precede muscle info');
+  assert.ok(muscleIdx < prevIdx, 'Muscle info must precede previous record');
+  assert.ok(prevIdx < machineIdx, 'Previous record must precede machine CTA');
+
+  // 3. Compact machine CTA below metadata stack
+  assert.match(cardHtml, /ui-control-surface inline-flex min-h-10 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1 text-\[11px\] font-semibold/);
 });

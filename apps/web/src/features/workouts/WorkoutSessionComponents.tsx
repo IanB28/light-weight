@@ -235,7 +235,7 @@ export function ExerciseSessionCard({
             type="button"
             onClick={() => onViewTechnique(exercise)}
             aria-label={t('workout.viewTechnique', { name: exercise.name })}
-            className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted"
+            className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted"
             title={t('workout.viewTechnique', { name: exercise.name })}
           >
             <ExerciseThumbnail exercise={exercise} size="fill" className="border-0 grayscale" />
@@ -313,7 +313,7 @@ export function ExerciseSessionCard({
           type="button"
           onClick={() => onViewTechnique(exercise)}
           aria-label={t('workout.viewTechnique', { name: exercise.name })}
-          className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted"
+          className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted"
           title={t('workout.viewTechnique', { name: exercise.name })}
         >
           <ExerciseThumbnail exercise={exercise} size="fill" className="border-0" />
@@ -374,7 +374,7 @@ export function ExerciseSessionCard({
               <button
                 type="button"
                 onClick={() => setIsMachineModalOpen(true)}
-                className={`ui-focus-visible ui-control-surface inline-flex min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1.5 text-[11px] font-semibold transition-[background-color,border-color] duration-150 ${
+                className={`ui-focus-visible ui-control-surface inline-flex min-h-10 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1 text-[11px] font-semibold transition-[background-color,border-color] duration-150 ${
                   session.machineBaseResistanceStatus === 'unknown' || !session.machineBaseResistanceStatus
                     ? 'border-warning/40 bg-warning-soft text-warning hover:border-warning'
                     : session.machineBaseResistanceStatus === 'suggested'
