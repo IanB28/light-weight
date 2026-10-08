@@ -235,7 +235,7 @@ export function ExerciseSessionCard({
             type="button"
             onClick={() => onViewTechnique(exercise)}
             aria-label={t('workout.viewTechnique', { name: exercise.name })}
-            className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted"
+            className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-[88px]"
             title={t('workout.viewTechnique', { name: exercise.name })}
           >
             <ExerciseThumbnail exercise={exercise} size="fill" className="border-0 grayscale" />
@@ -266,12 +266,10 @@ export function ExerciseSessionCard({
             <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-text-secondary">
               {exercise.name}
             </h3>
-            <div className="flex min-w-0 items-center justify-between gap-3 text-xs">
-              <span className="min-w-0 truncate capitalize text-text-muted">
-                {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
-              </span>
-              {bestRecord && <span className="shrink-0 font-semibold text-text-muted">PR {bestRecord}</span>}
-            </div>
+            <p className="truncate text-xs capitalize text-text-muted">
+              {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
+            </p>
+            {bestRecord && <p className="text-xs font-semibold text-text-muted">PR {bestRecord}</p>}
           </div>
         </div>
         <div className="glass-surface flex flex-col gap-3 rounded-ui-xl border border-dashed border-border-active p-3.5 sm:flex-row sm:items-center sm:justify-between">
@@ -313,7 +311,7 @@ export function ExerciseSessionCard({
           type="button"
           onClick={() => onViewTechnique(exercise)}
           aria-label={t('workout.viewTechnique', { name: exercise.name })}
-          className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted"
+          className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-[88px]"
           title={t('workout.viewTechnique', { name: exercise.name })}
         >
           <ExerciseThumbnail exercise={exercise} size="fill" className="border-0" />
@@ -358,60 +356,62 @@ export function ExerciseSessionCard({
           <h3 className="line-clamp-2 break-words text-base font-extrabold leading-snug text-text-primary sm:text-lg" title={exercise.name}>
             {exercise.name}
           </h3>
-          <div className="flex min-w-0 items-center justify-between gap-3 text-xs">
-            <span className="min-w-0 truncate capitalize text-text-muted">
-              {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
-            </span>
-            {bestRecord && <span className="shrink-0 font-semibold text-warning">PR {bestRecord}</span>}
-          </div>
+          <p className="truncate text-xs capitalize text-text-muted">
+            {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
+          </p>
+          {bestRecord && (
+            <p className="text-xs font-semibold text-warning">
+              PR {bestRecord}
+            </p>
+          )}
           {previousRecord && (
             <p className="font-mono text-[11px] leading-relaxed text-text-muted">
               <span className="font-semibold text-text-secondary">{t('workout.previous')}</span> {previousRecord}
             </p>
           )}
-          {isPlateMachine && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setIsMachineModalOpen(true)}
-                className={`ui-focus-visible ui-control-surface inline-flex min-h-12 max-w-full items-center gap-1 rounded-ui-md border px-2 py-1.5 text-[11px] font-semibold transition-[background-color,border-color] duration-150 ${
-                  session.machineBaseResistanceStatus === 'unknown' || !session.machineBaseResistanceStatus
-                    ? 'border-warning/40 bg-warning-soft text-warning hover:border-warning'
-                    : session.machineBaseResistanceStatus === 'suggested'
-                      ? 'border-accent/40 bg-accent-soft text-text-primary hover:border-accent'
-                      : session.machineBaseResistanceStatus === 'none'
-                        ? 'border-border-subtle bg-surface-input text-text-secondary hover:border-border-active'
-                        : 'border-border-active bg-surface-active text-text-primary hover:border-accent'
-                }`}
-                title={t('workout.machineBaseResistance')}
-              >
-                <SlidersHorizontal className="size-3 shrink-0" />
-                {session.machineProfileLabel ? (
-                  <>
-                    <span className="truncate max-w-[140px]">{session.machineProfileLabel}</span>
-                    <span className="font-mono text-text-primary">
-                      ({session.machineBaseResistanceKg !== undefined
-                        ? formatDisplayWeight(session.machineBaseResistanceKg, preferences.units)
-                        : t('workout.machineBaseUnknown')})
-                    </span>
-                  </>
-                ) : session.machineBaseResistanceStatus === 'none' ? (
-                  <span>{t('workout.machineBaseNone')} (0 {preferences.units === 'imperial' ? 'lb' : 'kg'})</span>
-                ) : session.machineBaseResistanceStatus === 'suggested' && session.machineBaseResistanceKg !== undefined ? (
-                  <>
-                    <span>{t('workout.machineBaseSuggested')}</span>
-                    <span className="font-mono text-text-primary">
-                      ({formatDisplayWeight(session.machineBaseResistanceKg, preferences.units)})
-                    </span>
-                  </>
-                ) : (
-                  <span>{t('workout.machineBaseUnconfigured')}</span>
-                )}
-              </button>
-            </div>
-          )}
         </div>
       </div>
+      {isPlateMachine && (
+        <div className="flex justify-start">
+          <button
+            type="button"
+            onClick={() => setIsMachineModalOpen(true)}
+            className={`ui-focus-visible ui-control-surface inline-flex min-h-11 w-full max-w-[60%] items-center justify-center gap-1.5 rounded-ui-md border px-3 py-2 text-xs font-semibold transition-[background-color,border-color] duration-150 sm:max-w-[280px] ${
+              session.machineBaseResistanceStatus === 'unknown' || !session.machineBaseResistanceStatus
+                ? 'border-warning/40 bg-warning-soft text-warning hover:border-warning'
+                : session.machineBaseResistanceStatus === 'suggested'
+                  ? 'border-accent/40 bg-accent-soft text-text-primary hover:border-accent'
+                  : session.machineBaseResistanceStatus === 'none'
+                    ? 'border-border-subtle bg-surface-input text-text-secondary hover:border-border-active'
+                    : 'border-border-active bg-surface-active text-text-primary hover:border-accent'
+            }`}
+            title={t('workout.machineBaseResistance')}
+          >
+            <SlidersHorizontal className="size-3.5 shrink-0" />
+            {session.machineProfileLabel ? (
+              <>
+                <span className="truncate">{session.machineProfileLabel}</span>
+                <span className="font-mono text-text-primary shrink-0">
+                  ({session.machineBaseResistanceKg !== undefined
+                    ? formatDisplayWeight(session.machineBaseResistanceKg, preferences.units)
+                    : t('workout.machineBaseUnknown')})
+                </span>
+              </>
+            ) : session.machineBaseResistanceStatus === 'none' ? (
+              <span>{t('workout.machineBaseNone')} (0 {preferences.units === 'imperial' ? 'lb' : 'kg'})</span>
+            ) : session.machineBaseResistanceStatus === 'suggested' && session.machineBaseResistanceKg !== undefined ? (
+              <>
+                <span>{t('workout.machineBaseSuggested')}</span>
+                <span className="font-mono text-text-primary shrink-0">
+                  ({formatDisplayWeight(session.machineBaseResistanceKg, preferences.units)})
+                </span>
+              </>
+            ) : (
+              <span>{t('workout.machineBaseUnconfigured')}</span>
+            )}
+          </button>
+        </div>
+      )}
       <SetTable
         session={session}
         preferences={preferences}
