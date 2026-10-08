@@ -296,21 +296,24 @@ test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-
   // Confirm the metadata column uses space-y-1 for clean, uniform 4px vertical rhythm
   assert.match(contents, /<div className="min-w-0 flex-1 space-y-1">/);
 
-  // Assert absence of ad-hoc padding overrides (pt-0.5, pt-1.5) in the active metadata block
-  const activeMetadataBlock = contents.slice(
-    contents.lastIndexOf('min-w-0 flex-1 space-y-1'),
-    contents.indexOf('{/* Set table / list */}')
-  );
-  assert.doesNotMatch(activeMetadataBlock, /\bpt-0\.5\b/);
-  assert.doesNotMatch(activeMetadataBlock, /\bpt-1\.5\b/);
+  // 1. Isolate and assert skipped metadata block boundaries
+  const skippedStart = contents.indexOf('<div className="min-w-0 flex-1 space-y-1">');
+  const skippedEnd = contents.indexOf('<div className="glass-surface flex flex-col', skippedStart);
+  assert.ok(skippedStart !== -1, 'Skipped metadata start marker must exist in source');
+  assert.ok(skippedEnd !== -1 && skippedEnd > skippedStart, 'Skipped metadata end marker must exist after start');
+  const skippedMetadataBlock = contents.slice(skippedStart, skippedEnd);
+  assert.doesNotMatch(skippedMetadataBlock, /\bpt-0\.5\b/, 'Skipped metadata block must not contain pt-0.5');
+  assert.doesNotMatch(skippedMetadataBlock, /\bpt-1\.5\b/, 'Skipped metadata block must not contain pt-1.5');
 
-  // Assert absence of ad-hoc padding overrides in the skipped card metadata block
-  const skippedMetadataBlock = contents.slice(
-    contents.indexOf('min-w-0 flex-1 space-y-1'),
-    contents.lastIndexOf('min-w-0 flex-1 space-y-1')
-  );
-  assert.doesNotMatch(skippedMetadataBlock, /\bpt-0\.5\b/);
-  assert.doesNotMatch(skippedMetadataBlock, /\bpt-1\.5\b/);
+  // 2. Isolate and assert active metadata block boundaries
+  const activeStart = contents.lastIndexOf('<div className="min-w-0 flex-1 space-y-1">');
+  const activeEnd = contents.indexOf('<SetTable', activeStart);
+  assert.ok(activeStart !== -1, 'Active metadata start marker must exist in source');
+  assert.ok(activeEnd !== -1 && activeEnd > activeStart, 'Active metadata end marker (<SetTable) must exist after start');
+  assert.ok(activeStart > skippedEnd, 'Active metadata block must follow skipped block in source');
+  const activeMetadataBlock = contents.slice(activeStart, activeEnd);
+  assert.doesNotMatch(activeMetadataBlock, /\bpt-0\.5\b/, 'Active metadata block must not contain pt-0.5');
+  assert.doesNotMatch(activeMetadataBlock, /\bpt-1\.5\b/, 'Active metadata block must not contain pt-1.5');
 
   // Case A: Base exercise (name + muscle/category only)
   const htmlBase = card(session(exercise));
@@ -340,4 +343,26 @@ test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-
   assert.match(htmlMachineFull, /text-warning">PR 120 kg × 10/);
   assert.match(htmlMachineFull, /Anterior:<\/span> 100 kg × 10/);
   assert.match(htmlMachineFull, /ui-control-surface inline-flex min-h-11 max-w-full items-center/);
+
+  // Case F: Skipped card flow
+  const htmlSkipped = card(session(exercise, { skipped: true }));
+
+  // 3. Rendered markup boundary isolation: ensure rendered metadata columns never contain pt-0.5 or pt-1.5
+  const renderedCases = [
+    { name: 'Case A (base)', html: htmlBase },
+    { name: 'Case B (PR only)', html: htmlPR },
+    { name: 'Case C (Previous only)', html: htmlPrev },
+    { name: 'Case D (PR + Previous)', html: htmlPRPrev },
+    { name: 'Case E (Machine full)', html: htmlMachineFull },
+    { name: 'Case F (Skipped card)', html: htmlSkipped },
+  ];
+  for (const { name, html } of renderedCases) {
+    const renderedStart = html.indexOf('class="min-w-0 flex-1 space-y-1"');
+    const renderedEnd = html.indexOf('class="glass-surface', renderedStart);
+    assert.ok(renderedStart !== -1, `${name}: rendered metadata start marker must exist`);
+    assert.ok(renderedEnd !== -1 && renderedEnd > renderedStart, `${name}: rendered metadata end marker must exist`);
+    const renderedMeta = html.slice(renderedStart, renderedEnd);
+    assert.doesNotMatch(renderedMeta, /\bpt-0\.5\b/, `${name} rendered metadata must not contain pt-0.5`);
+    assert.doesNotMatch(renderedMeta, /\bpt-1\.5\b/, `${name} rendered metadata must not contain pt-1.5`);
+  }
 });
