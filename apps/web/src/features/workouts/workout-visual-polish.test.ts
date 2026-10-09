@@ -509,3 +509,64 @@ test('WORKOUT-UI-3V: Restores compact square thumbnail (56px / 64px max) and pre
   // 4. Section B machine CTA remains flush left and below Section A
   assert.match(contents, /<\/div>\s*<\/div>\s*\{isPlateMachine && \(\s*<div className="flex justify-start">/);
 });
+
+test('WORKOUT-UI-3A: Exercise identity layout eliminates empty action row, displays position indicator for single and multi-exercise, and anchors title directly below position', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+
+  // 1. Grid structure separates metadata stack from action buttons in both active and skipped cards
+  assert.equal((contents.match(/grid grid-cols-\[1fr_auto\] items-start gap-x-2/g) ?? []).length, 2);
+
+  // 2. Single exercise renders position indicator (e.g. "1 de 1" in Spanish)
+  const singleCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(exercise), exerciseIndex: 0, totalExercises: 1, preferences: DEFAULT_APP_PREFERENCES,
+      onViewTechnique: noop, onRemoveExercise: noop, onSkipExercise: noop,
+      onResumeExercise: noop, onAddReplacement: noop, onUpdateSet: noop, onUpdateSetRir: noop,
+      onToggleSet: noop, onStartRestTimer: noop, onOpenPlates: noop,
+      onAddSet: noop, onRemoveSet: noop, onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop, onUpdateMachineProfile: noop
+    }))
+  );
+  assert.match(singleCardHtml, /<p class="text-\[11px\] font-medium leading-tight text-text-muted">1 de 1<\/p>/);
+
+  // 3. ExerciseSessionCard does not have a min-h-10 action row spacer forcing title down
+  assert.doesNotMatch(singleCardHtml, /min-h-10 items-center justify-between/);
+
+  // 4. Multi-exercise renders position indicator (e.g. "3 de 8")
+  const multiCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(exercise), exerciseIndex: 2, totalExercises: 8, preferences: DEFAULT_APP_PREFERENCES,
+      onViewTechnique: noop, onRemoveExercise: noop, onSkipExercise: noop,
+      onResumeExercise: noop, onAddReplacement: noop, onUpdateSet: noop, onUpdateSetRir: noop,
+      onToggleSet: noop, onStartRestTimer: noop, onOpenPlates: noop,
+      onAddSet: noop, onRemoveSet: noop, onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop, onUpdateMachineProfile: noop
+    }))
+  );
+  assert.match(multiCardHtml, /<p class="text-\[11px\] font-medium leading-tight text-text-muted">3 de 8<\/p>/);
+
+  // 5. Title appears directly below position indicator without an intermediate action button
+  const posPos = multiCardHtml.indexOf('3 de 8');
+  const titlePos = multiCardHtml.indexOf('<h3');
+  assert.ok(posPos !== -1 && titlePos !== -1);
+  assert.ok(posPos < titlePos);
+  const intermediateHtml = multiCardHtml.slice(posPos, titlePos);
+  assert.doesNotMatch(intermediateHtml, /<button|<IconButton/);
+
+  // 6. Skipped exercise card consistency
+  const skippedCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(exercise, { skipped: true }), exerciseIndex: 0, totalExercises: 1, preferences: DEFAULT_APP_PREFERENCES,
+      onViewTechnique: noop, onRemoveExercise: noop, onSkipExercise: noop,
+      onResumeExercise: noop, onAddReplacement: noop, onUpdateSet: noop, onUpdateSetRir: noop,
+      onToggleSet: noop, onStartRestTimer: noop, onOpenPlates: noop,
+      onAddSet: noop, onRemoveSet: noop, onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop, onUpdateMachineProfile: noop
+    }))
+  );
+  assert.match(skippedCardHtml, /<p class="text-\[11px\] font-medium leading-tight text-text-muted">1 de 1<\/p>/);
+  assert.match(skippedCardHtml, /grid grid-cols-\[1fr_auto\] items-start gap-x-2/);
+
+  // 7. Actions touch targets preserved (sm size = size-11 / 44px min-h)
+  assert.match(singleCardHtml, /size-11 min-h-11/);
+});
