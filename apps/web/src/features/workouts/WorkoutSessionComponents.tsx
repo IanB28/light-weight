@@ -229,13 +229,30 @@ export function ExerciseSessionCard({
 
   if (skipped) {
     return (
-      <div className="space-y-3 pt-2" data-testid={`skipped-card-${exercise.id}`}>
-        <div className="flex items-start gap-3">
+      <div className="space-y-2 pt-2" data-testid={`skipped-card-${exercise.id}`}>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-medium leading-tight text-text-muted">
+            {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+          </p>
+          <div className="flex items-center justify-end gap-1">
+            <IconButton
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemoveExercise(exercise.id)}
+              aria-label={t('workout.removeExercise', { name: exercise.name })}
+              className="text-text-muted hover:text-danger"
+              title={t('workout.removeExercise', { name: exercise.name })}
+            >
+              <Trash2 className="size-4" />
+            </IconButton>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => onViewTechnique(exercise)}
             aria-label={t('workout.viewTechnique', { name: exercise.name })}
-            className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-[88px]"
+            className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-16"
             title={t('workout.viewTechnique', { name: exercise.name })}
           >
             <ExerciseThumbnail exercise={exercise} size="fill" className="border-0 grayscale" />
@@ -244,26 +261,7 @@ export function ExerciseSessionCard({
             </div>
           </button>
           <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex min-h-10 items-center justify-between gap-2">
-              {totalExercises > 1 ? (
-                <span className="text-[11px] font-medium text-text-muted">
-                  {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
-                </span>
-              ) : (
-                <span />
-              )}
-              <IconButton
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemoveExercise(exercise.id)}
-                aria-label={t('workout.removeExercise', { name: exercise.name })}
-                className="text-text-muted hover:text-danger"
-                title={t('workout.removeExercise', { name: exercise.name })}
-              >
-                <Trash2 className="size-4" />
-              </IconButton>
-            </div>
-            <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-text-secondary">
+            <h3 className="break-words text-base font-bold leading-snug text-text-secondary">
               {exercise.name}
             </h3>
             <p className="truncate text-xs capitalize text-text-muted">
@@ -305,13 +303,42 @@ export function ExerciseSessionCard({
   }
 
   return (
-    <div className="space-y-3 pt-2">
-      <div className="flex items-start gap-3">
+    <div className="space-y-2 pt-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium leading-tight text-text-muted">
+          {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+        </p>
+        <div className={`flex items-center justify-end gap-1 ${mode !== 'historical' && onSkipExercise ? 'min-w-[5.75rem]' : ''}`}>
+          {mode !== 'historical' && onSkipExercise && !hasCompletedSets && (
+            <IconButton
+              variant="ghost"
+              size="sm"
+              onClick={() => onSkipExercise(exercise.id)}
+              aria-label={t('workout.skipExerciseNamed', { name: exercise.name })}
+              className="text-text-muted hover:text-text-primary"
+              title={t('workout.skipExercise')}
+            >
+              <SkipForward className="size-4" />
+            </IconButton>
+          )}
+          <IconButton
+            variant="ghost"
+            size="sm"
+            onClick={() => onRemoveExercise(exercise.id)}
+            aria-label={t('workout.removeExercise', { name: exercise.name })}
+            className="text-text-muted hover:text-danger"
+            title={t('workout.removeExercise', { name: exercise.name })}
+          >
+            <Trash2 className="size-4" />
+          </IconButton>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => onViewTechnique(exercise)}
           aria-label={t('workout.viewTechnique', { name: exercise.name })}
-          className="ui-focus-visible group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-[88px]"
+          className="ui-focus-visible group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-ui-lg border border-border-subtle bg-surface-input text-text-muted min-[360px]:size-16"
           title={t('workout.viewTechnique', { name: exercise.name })}
         >
           <ExerciseThumbnail exercise={exercise} size="fill" className="border-0" />
@@ -320,40 +347,7 @@ export function ExerciseSessionCard({
           </div>
         </button>
         <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex min-h-10 items-center justify-between gap-2">
-            {totalExercises > 1 ? (
-              <span className="text-[11px] font-medium text-text-muted">
-                {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
-              </span>
-            ) : (
-              <span />
-            )}
-            <div className="flex items-center gap-1">
-              {mode !== 'historical' && onSkipExercise && !hasCompletedSets && (
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onSkipExercise(exercise.id)}
-                  aria-label={t('workout.skipExerciseNamed', { name: exercise.name })}
-                  className="text-text-muted hover:text-text-primary"
-                  title={t('workout.skipExercise')}
-                >
-                  <SkipForward className="size-4" />
-                </IconButton>
-              )}
-              <IconButton
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemoveExercise(exercise.id)}
-                aria-label={t('workout.removeExercise', { name: exercise.name })}
-                className="text-text-muted hover:text-danger"
-                title={t('workout.removeExercise', { name: exercise.name })}
-              >
-                <Trash2 className="size-4" />
-              </IconButton>
-            </div>
-          </div>
-          <h3 className="line-clamp-2 break-words text-base font-extrabold leading-snug text-text-primary sm:text-lg" title={exercise.name}>
+          <h3 className="break-words text-base font-extrabold leading-snug text-text-primary sm:text-lg" title={exercise.name}>
             {exercise.name}
           </h3>
           <p className="truncate text-xs capitalize text-text-muted">

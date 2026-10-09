@@ -625,7 +625,7 @@ test('15. Block 19.6B: Visual polish copy, exercise position indicator, and hook
     sets: [{ setIndex: 1, weightKg: 80, reps: 8, completed: false, setType: 'working', isWarmup: false }]
   };
 
-  // When totalExercises === 1: position indicator must NOT be shown
+  // When totalExercises === 1: position indicator is shown (WORKOUT-UI-3A)
   const singleHtml = ReactDOMServer.renderToStaticMarkup(
     React.createElement(ExerciseSessionCard, {
       session: singleExerciseSession,
@@ -644,7 +644,7 @@ test('15. Block 19.6B: Visual polish copy, exercise position indicator, and hook
       onToggleAddedWeight: () => {}
     })
   );
-  assert.equal(singleHtml.includes('1 de 1'), false);
+  assert.equal(singleHtml.includes('1 de 1'), true);
   assert.equal(singleHtml.includes('Ejercicio 1'), false);
 
   // When totalExercises > 1: compact position indicator is shown
