@@ -570,3 +570,130 @@ test('WORKOUT-UI-3A: Exercise identity layout eliminates empty action row, displ
   // 7. Actions touch targets preserved (sm size = size-11 / 44px min-h)
   assert.match(singleCardHtml, /size-11 min-h-11/);
 });
+
+test('WORKOUT-UI-3AH: Prevents horizontal metadata compression and action-induced layout shifts', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+
+  // 1. Lower metadata stack (muscle, PR, previous) is placed outside the action grid in active and skipped cards
+  // In both active and skipped cards, the grid only wraps position/title + actions
+  const gridMatches = contents.match(/grid grid-cols-\[1fr_auto\] items-start gap-x-2/g) ?? [];
+  assert.equal(gridMatches.length, 2, 'Exactly 2 action header grids must exist (active and skipped)');
+
+  // 2. Active card renders muscle/equipment, PR, and previous record as siblings outside the header grid
+  const activeCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(machine, { bestRecord: '220 lb × 8', previousRecord: '220 lb × 7' }),
+      exerciseIndex: 0,
+      totalExercises: 2,
+      preferences: DEFAULT_APP_PREFERENCES,
+      mode: 'live',
+      onViewTechnique: noop,
+      onRemoveExercise: noop,
+      onSkipExercise: noop,
+      onResumeExercise: noop,
+      onAddReplacement: noop,
+      onUpdateSet: noop,
+      onToggleSet: noop,
+      onStartRestTimer: noop,
+      onOpenPlates: noop,
+      onAddSet: noop,
+      onRemoveSet: noop,
+      onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop,
+      onUpdateMachineProfile: noop
+    }))
+  );
+
+  // Isolate the header grid closing tag and verify lower metadata follows it
+  const gridEndIdx = activeCardHtml.indexOf('</div><p class="truncate text-xs capitalize text-text-muted">');
+  assert.ok(gridEndIdx !== -1, 'Muscle/equipment line must immediately follow the header grid closing tag');
+
+  // Verify full hierarchy: position -> title -> actions in grid, then muscle -> PR -> previous outside grid
+  const metaStart = activeCardHtml.indexOf('class="min-w-0 flex-1 space-y-1"');
+  assert.ok(metaStart !== -1, 'Metadata stack container must exist');
+  const posIdx = activeCardHtml.indexOf('1 de 2', metaStart);
+  const titleIdx = activeCardHtml.indexOf('<h3', metaStart);
+  const muscleIdx = activeCardHtml.indexOf('Pecho · Máquina', metaStart);
+  const prIdx = activeCardHtml.indexOf('PR 220 lb × 8', metaStart);
+  const prevIdx = activeCardHtml.indexOf('Anterior:', metaStart);
+  const machineIdx = activeCardHtml.indexOf('Sin configurar', metaStart);
+
+  assert.ok(posIdx !== -1 && titleIdx !== -1 && muscleIdx !== -1 && prIdx !== -1 && prevIdx !== -1 && machineIdx !== -1);
+  assert.ok(posIdx < titleIdx, 'Position must precede title');
+  assert.ok(titleIdx < muscleIdx, 'Title must precede muscle info');
+  assert.ok(muscleIdx < prIdx, 'Muscle info must precede PR');
+  assert.ok(prIdx < prevIdx, 'PR must precede previous record');
+  assert.ok(prevIdx < machineIdx, 'Previous record must precede machine CTA');
+
+  // 3. Action container reserves stable width (min-w-[5.75rem] / 92px) in live sessions to prevent layout shifts
+  assert.match(contents, /min-w-\[5\.75rem\]/);
+  assert.match(activeCardHtml, /min-w-\[5\.75rem\]/);
+
+  // 4. When a set is completed (hasCompletedSets: true), Skip button is hidden but action container maintains stability
+  const completedSession = session(machine, {
+    bestRecord: '220 lb × 8',
+    previousRecord: '220 lb × 7',
+    sets: [
+      { setIndex: 1, weightKg: 100, reps: 8, completed: true, setType: 'working' },
+      { setIndex: 2, weightKg: 100, reps: 8, completed: false, setType: 'working' }
+    ]
+  });
+  const completedCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: completedSession,
+      exerciseIndex: 0,
+      totalExercises: 2,
+      preferences: DEFAULT_APP_PREFERENCES,
+      mode: 'live',
+      onViewTechnique: noop,
+      onRemoveExercise: noop,
+      onSkipExercise: noop,
+      onResumeExercise: noop,
+      onAddReplacement: noop,
+      onUpdateSet: noop,
+      onToggleSet: noop,
+      onStartRestTimer: noop,
+      onOpenPlates: noop,
+      onAddSet: noop,
+      onRemoveSet: noop,
+      onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop,
+      onUpdateMachineProfile: noop
+    }))
+  );
+
+  // Skip button must not be rendered when set 1 is completed
+  assert.doesNotMatch(completedCardHtml, /aria-label="Saltar ejercicio/);
+  // Remove button must still be rendered
+  assert.match(completedCardHtml, /aria-label="Eliminar .* del entrenamiento"/);
+  // Action container retains min-w-[5.75rem] to eliminate title reflow and card height shift
+  assert.match(completedCardHtml, /min-w-\[5\.75rem\]/);
+
+  // 5. In historical mode, Skip is not available and min-w-[5.75rem] is not forced
+  const historicalCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(machine),
+      exerciseIndex: 0,
+      totalExercises: 2,
+      preferences: DEFAULT_APP_PREFERENCES,
+      mode: 'historical',
+      onViewTechnique: noop,
+      onRemoveExercise: noop,
+      onSkipExercise: noop,
+      onResumeExercise: noop,
+      onAddReplacement: noop,
+      onUpdateSet: noop,
+      onToggleSet: noop,
+      onStartRestTimer: noop,
+      onOpenPlates: noop,
+      onAddSet: noop,
+      onRemoveSet: noop,
+      onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop,
+      onUpdateMachineProfile: noop
+    }))
+  );
+  assert.doesNotMatch(historicalCardHtml, /aria-label="Omitir ejercicio/);
+  assert.match(historicalCardHtml, /aria-label="Eliminar .* del entrenamiento"/);
+  assert.doesNotMatch(historicalCardHtml, /min-w-\[5\.75rem\]/);
+});

@@ -245,17 +245,13 @@ export function ExerciseSessionCard({
           </button>
           <div className="min-w-0 flex-1 space-y-1">
             <div className="grid grid-cols-[1fr_auto] items-start gap-x-2">
-              <div className="min-w-0 space-y-1">
+              <div className="min-w-0">
                 <p className="text-[11px] font-medium leading-tight text-text-muted">
                   {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
                 </p>
                 <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-text-secondary">
                   {exercise.name}
                 </h3>
-                <p className="truncate text-xs capitalize text-text-muted">
-                  {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
-                </p>
-                {bestRecord && <p className="text-xs font-semibold text-text-muted">PR {bestRecord}</p>}
               </div>
               <div className="flex items-center gap-1 self-start">
                 <IconButton
@@ -270,6 +266,10 @@ export function ExerciseSessionCard({
                 </IconButton>
               </div>
             </div>
+            <p className="truncate text-xs capitalize text-text-muted">
+              {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
+            </p>
+            {bestRecord && <p className="text-xs font-semibold text-text-muted">PR {bestRecord}</p>}
           </div>
         </div>
         <div className="glass-surface flex flex-col gap-3 rounded-ui-xl border border-dashed border-border-active p-3.5 sm:flex-row sm:items-center sm:justify-between">
@@ -321,28 +321,15 @@ export function ExerciseSessionCard({
         </button>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="grid grid-cols-[1fr_auto] items-start gap-x-2">
-            <div className="min-w-0 space-y-1">
+            <div className="min-w-0">
               <p className="text-[11px] font-medium leading-tight text-text-muted">
                 {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
               </p>
               <h3 className="line-clamp-2 break-words text-base font-extrabold leading-snug text-text-primary sm:text-lg" title={exercise.name}>
                 {exercise.name}
               </h3>
-              <p className="truncate text-xs capitalize text-text-muted">
-                {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
-              </p>
-              {bestRecord && (
-                <p className="text-xs font-semibold text-warning">
-                  PR {bestRecord}
-                </p>
-              )}
-              {previousRecord && (
-                <p className="font-mono text-[11px] leading-relaxed text-text-muted">
-                  <span className="font-semibold text-text-secondary">{t('workout.previous')}</span> {previousRecord}
-                </p>
-              )}
             </div>
-            <div className="flex items-center gap-1 self-start">
+            <div className={`flex items-center justify-end gap-1 self-start ${mode !== 'historical' && onSkipExercise ? 'min-w-[5.75rem]' : ''}`}>
               {mode !== 'historical' && onSkipExercise && !hasCompletedSets && (
                 <IconButton
                   variant="ghost"
@@ -367,6 +354,19 @@ export function ExerciseSessionCard({
               </IconButton>
             </div>
           </div>
+          <p className="truncate text-xs capitalize text-text-muted">
+            {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
+          </p>
+          {bestRecord && (
+            <p className="text-xs font-semibold text-warning">
+              PR {bestRecord}
+            </p>
+          )}
+          {previousRecord && (
+            <p className="font-mono text-[11px] leading-relaxed text-text-muted">
+              <span className="font-semibold text-text-secondary">{t('workout.previous')}</span> {previousRecord}
+            </p>
+          )}
         </div>
       </div>
       {isPlateMachine && (
