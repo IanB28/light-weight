@@ -476,7 +476,7 @@ test('WORKOUT-UI-3H: Exercise card composition matches product owner wireframe w
   // Section A stack ordering: position/actions -> title -> muscle -> PR -> previous
   const metaStart = fullCard.indexOf('class="min-w-0 flex-1 space-y-1"');
   assert.ok(metaStart !== -1, 'Metadata stack container must exist');
-  const posIdx = fullCard.indexOf('1 de 2', metaStart);
+  const posIdx = fullCard.indexOf('1 de 2');
   const titleIdx = fullCard.indexOf('<h3', metaStart);
   const muscleIdx = fullCard.indexOf('Pecho · Máquina', metaStart);
   const prIdx = fullCard.indexOf('PR 220 lb × 8', metaStart);
@@ -545,13 +545,14 @@ test('WORKOUT-UI-3A: Exercise identity layout eliminates empty action row, displ
   );
   assert.match(multiCardHtml, /<p class="text-\[11px\] font-medium leading-tight text-text-muted">3 de 8<\/p>/);
 
-  // 5. Title appears directly below the header row containing position indicator and actions
-  const headerEndPos = multiCardHtml.indexOf('</div><h3');
-  assert.ok(headerEndPos !== -1);
+  // 5. Header row containing position indicator and actions precedes thumbnail and title
+  const headerPos = multiCardHtml.indexOf('flex items-center justify-between gap-2');
+  const identityPos = multiCardHtml.indexOf('flex items-center gap-3');
   const posPos = multiCardHtml.indexOf('3 de 8');
   const titlePos = multiCardHtml.indexOf('<h3');
-  assert.ok(posPos !== -1 && titlePos !== -1);
-  assert.ok(posPos < titlePos);
+  assert.ok(headerPos !== -1 && identityPos !== -1 && posPos !== -1 && titlePos !== -1);
+  assert.ok(headerPos < identityPos, 'Header row must precede identity row');
+  assert.ok(posPos < titlePos, 'Position must precede title');
 
   // 6. Skipped exercise card consistency
   const skippedCardHtml = renderToStaticMarkup(
@@ -603,14 +604,15 @@ test('WORKOUT-UI-3AH: Prevents horizontal metadata compression and action-induce
     }))
   );
 
-  // Isolate the header row closing tag and verify title follows it
-  const headerEndIdx = activeCardHtml.indexOf('</div><h3');
-  assert.ok(headerEndIdx !== -1, 'Title must immediately follow the header row closing tag');
+  // Verify header row precedes identity row
+  const headerIdx = activeCardHtml.indexOf('flex items-center justify-between gap-2');
+  const identityIdx = activeCardHtml.indexOf('flex items-center gap-3');
+  assert.ok(headerIdx !== -1 && identityIdx !== -1 && headerIdx < identityIdx, 'Header row must precede identity row');
 
-  // Verify full hierarchy: position -> title -> actions in grid, then muscle -> PR -> previous outside grid
+  // Verify full hierarchy: position & actions in header, then title -> muscle -> PR -> previous in metadata stack
+  const posIdx = activeCardHtml.indexOf('1 de 2');
   const metaStart = activeCardHtml.indexOf('class="min-w-0 flex-1 space-y-1"');
   assert.ok(metaStart !== -1, 'Metadata stack container must exist');
-  const posIdx = activeCardHtml.indexOf('1 de 2', metaStart);
   const titleIdx = activeCardHtml.indexOf('<h3', metaStart);
   const muscleIdx = activeCardHtml.indexOf('Pecho · Máquina', metaStart);
   const prIdx = activeCardHtml.indexOf('PR 220 lb × 8', metaStart);
@@ -756,4 +758,108 @@ test('WORKOUT-UI-3AF: Final exercise card composition, responsive visual harmony
 
   // 6. Machine CTA remains beneath the complete identity row with flush-left alignment
   assert.match(activeCardHtml, /<div class="flex justify-start">/);
+});
+
+test('WORKOUT-UI-3AG: Structurally separates top exercise control header from responsive identity composition', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+
+  // 1. Three distinct regions exist in active card:
+  // Region A: Header row (<div className="flex items-center justify-between gap-2">)
+  // Region B: Identity row (<div className="flex items-center gap-3">)
+  // Region C: Machine CTA ({isPlateMachine && <div className="flex justify-start">)
+  assert.equal((contents.match(/<div className="flex items-center justify-between gap-2">/g) ?? []).length, 2, 'Region A header in active and skipped cards');
+  assert.equal((contents.match(/<div className="flex items-center gap-3">/g) ?? []).length, 2, 'Region B identity row in active and skipped cards');
+  assert.match(contents, /\{isPlateMachine && \(\s*<div className="flex justify-start">/, 'Region C machine CTA');
+
+  // 2. Outer container uses space-y-2 pt-2 for clean 8px visual rhythm
+  assert.equal((contents.match(/className="space-y-2 pt-2"/g) ?? []).length, 2, 'space-y-2 pt-2 container in active and skipped cards');
+
+  // 3. Compact square thumbnail strictly uses size-14 (56px) and min-[360px]:size-16 (64px)
+  assert.equal((contents.match(/flex size-14 shrink-0 items-center justify-center[^"]*min-\[360px\]:size-16/g) ?? []).length, 2);
+
+  // 4. Region B centers thumbnail vertically against ONLY actual identity metadata (items-center gap-3)
+  // Actions and position indicator are in Region A, completely decoupled from thumbnail height
+  const activeCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(machine, { bestRecord: '220 lb × 8', previousRecord: '220 lb × 7' }),
+      exerciseIndex: 0,
+      totalExercises: 2,
+      preferences: DEFAULT_APP_PREFERENCES,
+      mode: 'live',
+      onViewTechnique: noop,
+      onRemoveExercise: noop,
+      onSkipExercise: noop,
+      onResumeExercise: noop,
+      onAddReplacement: noop,
+      onUpdateSet: noop,
+      onToggleSet: noop,
+      onStartRestTimer: noop,
+      onOpenPlates: noop,
+      onAddSet: noop,
+      onRemoveSet: noop,
+      onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop,
+      onUpdateMachineProfile: noop
+    }))
+  );
+
+  // Region A precedes Region B, which precedes Region C
+  const regionAIdx = activeCardHtml.indexOf('flex items-center justify-between gap-2');
+  const regionBIdx = activeCardHtml.indexOf('flex items-center gap-3');
+  const regionCIdx = activeCardHtml.indexOf('flex justify-start');
+  assert.ok(regionAIdx !== -1 && regionBIdx !== -1 && regionCIdx !== -1);
+  assert.ok(regionAIdx < regionBIdx, 'Region A header must precede Region B identity row');
+  assert.ok(regionBIdx < regionCIdx, 'Region B identity row must precede Region C machine CTA');
+
+  // Region A contains position and actions
+  const posIdx = activeCardHtml.indexOf('1 de 2');
+  const actionIdx = activeCardHtml.indexOf('aria-label="Omitir ejercicio');
+  assert.ok(posIdx > regionAIdx && posIdx < regionBIdx, 'Position indicator must reside inside Region A');
+  assert.ok(actionIdx > regionAIdx && actionIdx < regionBIdx, 'Action buttons must reside inside Region A');
+
+  // Region B contains thumbnail, title, muscle/equipment, PR, previous
+  const titleIdx = activeCardHtml.indexOf('<h3');
+  const muscleIdx = activeCardHtml.indexOf('Pecho · Máquina');
+  const prIdx = activeCardHtml.indexOf('PR 220 lb × 8');
+  const prevIdx = activeCardHtml.indexOf('Anterior:');
+  assert.ok(titleIdx > regionBIdx && titleIdx < regionCIdx, 'Title must reside inside Region B');
+  assert.ok(muscleIdx > regionBIdx && muscleIdx < regionCIdx, 'Muscle info must reside inside Region B');
+  assert.ok(prIdx > regionBIdx && prIdx < regionCIdx, 'PR must reside inside Region B');
+  assert.ok(prevIdx > regionBIdx && prevIdx < regionCIdx, 'Previous must reside inside Region B');
+
+  // Title has full width break-words and no line-clamp-2
+  assert.doesNotMatch(contents, /line-clamp-2/);
+  assert.match(contents, /break-words text-base font-extrabold/);
+
+  // Live action container preserves min-w-[5.75rem] (92px)
+  assert.match(activeCardHtml, /min-w-\[5\.75rem\]/);
+
+  // Skipped card structure preserves the same 3-region layout
+  const skippedCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(exercise, { skipped: true }),
+      exerciseIndex: 0,
+      totalExercises: 1,
+      preferences: DEFAULT_APP_PREFERENCES,
+      onViewTechnique: noop,
+      onRemoveExercise: noop,
+      onSkipExercise: noop,
+      onResumeExercise: noop,
+      onAddReplacement: noop,
+      onUpdateSet: noop,
+      onToggleSet: noop,
+      onStartRestTimer: noop,
+      onOpenPlates: noop,
+      onAddSet: noop,
+      onRemoveSet: noop,
+      onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop,
+      onUpdateMachineProfile: noop
+    }))
+  );
+
+  const skippedHeaderIdx = skippedCardHtml.indexOf('flex items-center justify-between gap-2');
+  const skippedIdentityIdx = skippedCardHtml.indexOf('flex items-center gap-3');
+  assert.ok(skippedHeaderIdx !== -1 && skippedIdentityIdx !== -1);
+  assert.ok(skippedHeaderIdx < skippedIdentityIdx, 'Skipped card header must precede identity row');
 });
