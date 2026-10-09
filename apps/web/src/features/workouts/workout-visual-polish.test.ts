@@ -225,7 +225,7 @@ test('exercise card preserves technique, actions, reference, PR and machine trig
   assert.match(html, /aria-label="Eliminar/);
   assert.match(html, /Anterior:/);
   assert.match(html, /text-warning">PR/);
-  assert.match(html, /line-clamp-2/);
+  assert.match(html, /break-words/);
   const machineHtml = card(session(machine, { machineBaseResistanceStatus: 'unknown' }));
   assert.match(machineHtml, /Sin configurar/);
   assert.match(machineHtml, /border-warning\/40 bg-warning-soft/);
@@ -317,7 +317,7 @@ test('ExerciseSessionCard metadata maintains uniform vertical rhythm without ad-
 
   // Case A: Base exercise (name + muscle/category only)
   const htmlBase = card(session(exercise));
-  assert.match(htmlBase, /line-clamp-2 break-words/);
+  assert.match(htmlBase, /break-words/);
   assert.match(htmlBase, /<p class="truncate text-xs capitalize text-text-muted">/);
   assert.doesNotMatch(htmlBase, /text-warning">PR/);
   assert.doesNotMatch(htmlBase, /Anterior:/);
@@ -513,8 +513,8 @@ test('WORKOUT-UI-3V: Restores compact square thumbnail (56px / 64px max) and pre
 test('WORKOUT-UI-3A: Exercise identity layout eliminates empty action row, displays position indicator for single and multi-exercise, and anchors title directly below position', () => {
   const contents = source('features/workouts/WorkoutSessionComponents.tsx');
 
-  // 1. Grid structure separates metadata stack from action buttons in both active and skipped cards
-  assert.equal((contents.match(/grid grid-cols-\[1fr_auto\] items-start gap-x-2/g) ?? []).length, 2);
+  // 1. Header row pairs position indicator with action buttons in both active and skipped cards
+  assert.equal((contents.match(/<div className="flex items-center justify-between gap-2">/g) ?? []).length, 2);
 
   // 2. Single exercise renders position indicator (e.g. "1 de 1" in Spanish)
   const singleCardHtml = renderToStaticMarkup(
@@ -545,13 +545,13 @@ test('WORKOUT-UI-3A: Exercise identity layout eliminates empty action row, displ
   );
   assert.match(multiCardHtml, /<p class="text-\[11px\] font-medium leading-tight text-text-muted">3 de 8<\/p>/);
 
-  // 5. Title appears directly below position indicator without an intermediate action button
+  // 5. Title appears directly below the header row containing position indicator and actions
+  const headerEndPos = multiCardHtml.indexOf('</div><h3');
+  assert.ok(headerEndPos !== -1);
   const posPos = multiCardHtml.indexOf('3 de 8');
   const titlePos = multiCardHtml.indexOf('<h3');
   assert.ok(posPos !== -1 && titlePos !== -1);
   assert.ok(posPos < titlePos);
-  const intermediateHtml = multiCardHtml.slice(posPos, titlePos);
-  assert.doesNotMatch(intermediateHtml, /<button|<IconButton/);
 
   // 6. Skipped exercise card consistency
   const skippedCardHtml = renderToStaticMarkup(
@@ -565,7 +565,7 @@ test('WORKOUT-UI-3A: Exercise identity layout eliminates empty action row, displ
     }))
   );
   assert.match(skippedCardHtml, /<p class="text-\[11px\] font-medium leading-tight text-text-muted">1 de 1<\/p>/);
-  assert.match(skippedCardHtml, /grid grid-cols-\[1fr_auto\] items-start gap-x-2/);
+  assert.match(skippedCardHtml, /flex items-center justify-between gap-2/);
 
   // 7. Actions touch targets preserved (sm size = size-11 / 44px min-h)
   assert.match(singleCardHtml, /size-11 min-h-11/);
@@ -574,12 +574,11 @@ test('WORKOUT-UI-3A: Exercise identity layout eliminates empty action row, displ
 test('WORKOUT-UI-3AH: Prevents horizontal metadata compression and action-induced layout shifts', () => {
   const contents = source('features/workouts/WorkoutSessionComponents.tsx');
 
-  // 1. Lower metadata stack (muscle, PR, previous) is placed outside the action grid in active and skipped cards
-  // In both active and skipped cards, the grid only wraps position/title + actions
-  const gridMatches = contents.match(/grid grid-cols-\[1fr_auto\] items-start gap-x-2/g) ?? [];
-  assert.equal(gridMatches.length, 2, 'Exactly 2 action header grids must exist (active and skipped)');
+  // 1. Actions are placed in the top header row alongside position indicator in active and skipped cards
+  const headerMatches = contents.match(/<div className="flex items-center justify-between gap-2">/g) ?? [];
+  assert.equal(headerMatches.length, 2, 'Exactly 2 action header rows must exist (active and skipped)');
 
-  // 2. Active card renders muscle/equipment, PR, and previous record as siblings outside the header grid
+  // 2. Active card renders title, muscle/equipment, PR, and previous record outside the header row
   const activeCardHtml = renderToStaticMarkup(
     React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
       session: session(machine, { bestRecord: '220 lb × 8', previousRecord: '220 lb × 7' }),
@@ -604,9 +603,9 @@ test('WORKOUT-UI-3AH: Prevents horizontal metadata compression and action-induce
     }))
   );
 
-  // Isolate the header grid closing tag and verify lower metadata follows it
-  const gridEndIdx = activeCardHtml.indexOf('</div><p class="truncate text-xs capitalize text-text-muted">');
-  assert.ok(gridEndIdx !== -1, 'Muscle/equipment line must immediately follow the header grid closing tag');
+  // Isolate the header row closing tag and verify title follows it
+  const headerEndIdx = activeCardHtml.indexOf('</div><h3');
+  assert.ok(headerEndIdx !== -1, 'Title must immediately follow the header row closing tag');
 
   // Verify full hierarchy: position -> title -> actions in grid, then muscle -> PR -> previous outside grid
   const metaStart = activeCardHtml.indexOf('class="min-w-0 flex-1 space-y-1"');
@@ -696,4 +695,65 @@ test('WORKOUT-UI-3AH: Prevents horizontal metadata compression and action-induce
   assert.doesNotMatch(historicalCardHtml, /aria-label="Omitir ejercicio/);
   assert.match(historicalCardHtml, /aria-label="Eliminar .* del entrenamiento"/);
   assert.doesNotMatch(historicalCardHtml, /min-w-\[5\.75rem\]/);
+});
+
+test('WORKOUT-UI-3AF: Final exercise card composition, responsive visual harmony, and full title visibility', () => {
+  const contents = source('features/workouts/WorkoutSessionComponents.tsx');
+
+  // 1. Thumbnail is vertically centered with the metadata stack in both active and skipped cards (flex items-center gap-3)
+  assert.equal((contents.match(/flex items-center gap-3/g) ?? []).length, 2);
+
+  // 2. Square thumbnail remains size-14 (56px) / min-[360px]:size-16 (64px)
+  assert.equal((contents.match(/flex size-14 shrink-0 items-center justify-center[^"]*min-\[360px\]:size-16/g) ?? []).length, 2);
+
+  // 3. Top header row pairs position indicator with action buttons (flex items-center justify-between gap-2)
+  assert.equal((contents.match(/<div className="flex items-center justify-between gap-2">/g) ?? []).length, 2);
+
+  // 4. Exercise title spans full width below the header row with break-words and no line-clamp-2
+  assert.doesNotMatch(contents, /line-clamp-2/);
+  assert.match(contents, /break-words text-base font-extrabold/);
+
+  // 5. Active card renders complete hierarchy: position + actions -> title -> muscle/equip -> PR -> Previous -> Machine CTA
+  const activeCardHtml = renderToStaticMarkup(
+    React.createElement(PreferencesProvider, null, React.createElement(ExerciseSessionCard, {
+      session: session(machine, { bestRecord: '220 lb × 8', previousRecord: '220 lb × 7' }),
+      exerciseIndex: 0,
+      totalExercises: 2,
+      preferences: DEFAULT_APP_PREFERENCES,
+      mode: 'live',
+      onViewTechnique: noop,
+      onRemoveExercise: noop,
+      onSkipExercise: noop,
+      onResumeExercise: noop,
+      onAddReplacement: noop,
+      onUpdateSet: noop,
+      onToggleSet: noop,
+      onStartRestTimer: noop,
+      onOpenPlates: noop,
+      onAddSet: noop,
+      onRemoveSet: noop,
+      onUpdateWeightInputMode: noop,
+      onToggleAddedWeight: noop,
+      onUpdateMachineProfile: noop
+    }))
+  );
+
+  const posIdx = activeCardHtml.indexOf('1 de 2');
+  const actionIdx = activeCardHtml.indexOf('aria-label="Omitir ejercicio');
+  const titleIdx = activeCardHtml.indexOf('<h3');
+  const muscleIdx = activeCardHtml.indexOf('Pecho · Máquina');
+  const prIdx = activeCardHtml.indexOf('PR 220 lb × 8');
+  const prevIdx = activeCardHtml.indexOf('Anterior:');
+  const machineIdx = activeCardHtml.indexOf('Sin configurar');
+
+  assert.ok(posIdx !== -1 && actionIdx !== -1 && titleIdx !== -1 && muscleIdx !== -1 && prIdx !== -1 && prevIdx !== -1 && machineIdx !== -1);
+  assert.ok(posIdx < titleIdx, 'Position must precede title');
+  assert.ok(actionIdx < titleIdx, 'Actions in top row must precede title');
+  assert.ok(titleIdx < muscleIdx, 'Title must precede muscle info');
+  assert.ok(muscleIdx < prIdx, 'Muscle info must precede PR');
+  assert.ok(prIdx < prevIdx, 'PR must precede previous record');
+  assert.ok(prevIdx < machineIdx, 'Previous record must precede machine CTA');
+
+  // 6. Machine CTA remains beneath the complete identity row with flush-left alignment
+  assert.match(activeCardHtml, /<div class="flex justify-start">/);
 });

@@ -230,7 +230,7 @@ export function ExerciseSessionCard({
   if (skipped) {
     return (
       <div className="space-y-3 pt-2" data-testid={`skipped-card-${exercise.id}`}>
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => onViewTechnique(exercise)}
@@ -244,16 +244,11 @@ export function ExerciseSessionCard({
             </div>
           </button>
           <div className="min-w-0 flex-1 space-y-1">
-            <div className="grid grid-cols-[1fr_auto] items-start gap-x-2">
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium leading-tight text-text-muted">
-                  {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
-                </p>
-                <h3 className="line-clamp-2 break-words text-base font-bold leading-snug text-text-secondary">
-                  {exercise.name}
-                </h3>
-              </div>
-              <div className="flex items-center gap-1 self-start">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-medium leading-tight text-text-muted">
+                {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+              </p>
+              <div className="flex items-center justify-end gap-1">
                 <IconButton
                   variant="ghost"
                   size="sm"
@@ -266,6 +261,9 @@ export function ExerciseSessionCard({
                 </IconButton>
               </div>
             </div>
+            <h3 className="break-words text-base font-bold leading-snug text-text-secondary">
+              {exercise.name}
+            </h3>
             <p className="truncate text-xs capitalize text-text-muted">
               {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
             </p>
@@ -306,7 +304,7 @@ export function ExerciseSessionCard({
 
   return (
     <div className="space-y-3 pt-2">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => onViewTechnique(exercise)}
@@ -320,16 +318,11 @@ export function ExerciseSessionCard({
           </div>
         </button>
         <div className="min-w-0 flex-1 space-y-1">
-          <div className="grid grid-cols-[1fr_auto] items-start gap-x-2">
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium leading-tight text-text-muted">
-                {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
-              </p>
-              <h3 className="line-clamp-2 break-words text-base font-extrabold leading-snug text-text-primary sm:text-lg" title={exercise.name}>
-                {exercise.name}
-              </h3>
-            </div>
-            <div className={`flex items-center justify-end gap-1 self-start ${mode !== 'historical' && onSkipExercise ? 'min-w-[5.75rem]' : ''}`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium leading-tight text-text-muted">
+              {t('workout.exercisePosition', { current: exerciseIndex + 1, total: totalExercises })}
+            </p>
+            <div className={`flex items-center justify-end gap-1 ${mode !== 'historical' && onSkipExercise ? 'min-w-[5.75rem]' : ''}`}>
               {mode !== 'historical' && onSkipExercise && !hasCompletedSets && (
                 <IconButton
                   variant="ghost"
@@ -354,6 +347,9 @@ export function ExerciseSessionCard({
               </IconButton>
             </div>
           </div>
+          <h3 className="break-words text-base font-extrabold leading-snug text-text-primary sm:text-lg" title={exercise.name}>
+            {exercise.name}
+          </h3>
           <p className="truncate text-xs capitalize text-text-muted">
             {muscleLabel(exercise.primaryMuscle)} · {equipmentLabel(exercise.category)}
           </p>
