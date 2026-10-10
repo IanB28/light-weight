@@ -605,17 +605,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
             {/* Subsección A: Regiones Rezagadas / Sin Exposición */}
             {muscleAnalysisMode === 'balance' && underexposedPaths.length > 0 && (
-              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 overflow-hidden shadow-sm transition-all">
+              <div className="rounded-ui-xl bg-amber-500/10 border border-amber-500/25 overflow-hidden shadow-sm transition-all">
                 <button
                   type="button"
                   onClick={() => setIsNeglectedListOpen((prev) => !prev)}
-                  className="w-full p-3 flex items-center justify-between cursor-pointer hover:bg-amber-500/15 transition-colors"
+                  aria-expanded={isNeglectedListOpen}
+                  className="w-full min-h-12 p-3.5 flex items-center justify-between text-left cursor-pointer hover:bg-amber-500/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                    <span className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-extrabold text-xs flex items-center justify-center shrink-0">
+                    <span className="size-5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-extrabold text-xs flex items-center justify-center shrink-0">
                       !
                     </span>
-                    <div className="text-left min-w-0">
+                    <div className="min-w-0">
                       <span className="text-xs font-bold text-amber-300 block">
                         {underexposedPaths.length === 1
                           ? '1 región anatómica sin entrenar'
@@ -628,44 +629,46 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   </div>
 
                   <ChevronDown
-                    className={`w-4 h-4 text-amber-400 transition-transform duration-200 shrink-0 ${
+                    aria-hidden="true"
+                    className={`size-4 text-amber-400 transition-transform duration-200 shrink-0 ${
                       isNeglectedListOpen ? 'rotate-180' : ''
                     }`}
                   />
                 </button>
 
                 {isNeglectedListOpen && (
-                  <div className="p-3 pt-1 space-y-2 border-t border-amber-500/20 animate-in fade-in duration-150">
-                    <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  <div className="p-3.5 pt-1 space-y-2.5 border-t border-amber-500/20 animate-in fade-in duration-150">
+                    <p className="text-xs text-amber-200/90 leading-relaxed">
                       {t('stats.neglectedDescription')}
                     </p>
 
-                    <div className="space-y-1.5 pt-0.5">
+                    <div className="divide-y divide-amber-500/20 rounded-ui-lg border border-amber-500/25 bg-amber-500/5 overflow-hidden">
                       {underexposedPaths.map((path) => {
                         const pathName = getBodyPathDisplayName(path, 'es');
                         const sampleEx = getSampleExerciseForPath(path);
 
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={path}
                             onClick={() => setSelectedBalancePath(path)}
-                            className="p-2.5 rounded-xl bg-black/40 border border-amber-500/20 flex items-center justify-between hover:bg-amber-500/20 transition-all cursor-pointer group"
+                            className="w-full min-h-12 px-3 py-2.5 flex items-center justify-between text-left hover:bg-amber-500/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400 group cursor-pointer"
                           >
                             <div className="min-w-0 flex-1 pr-2">
-                              <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                              <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors block truncate">
                                 {pathName}
                               </span>
                               {sampleEx && (
-                                <span className="text-[10px] text-zinc-400 block truncate mt-0.5">
-                                  {t('stats.suggested')}: <strong className="text-zinc-300">{sampleEx.name}</strong>
+                                <span className="text-[10px] text-amber-300/80 block truncate mt-0.5">
+                                  {t('stats.suggested')}: <strong className="text-white font-semibold">{sampleEx.name}</strong>
                                 </span>
                               )}
                             </div>
 
-                            <span className="text-[10px] font-semibold text-amber-400 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 shrink-0">
+                            <span className="text-[10px] font-semibold text-amber-300 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 shrink-0">
                               {t('stats.viewOnMap')}
                             </span>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -675,27 +678,28 @@ export const StatsView: React.FC<StatsViewProps> = ({
             )}
 
             {/* Subsección B: Lista Desplegable de Series Efectivas por Grupo */}
-            <div className="rounded-2xl glass-subcard border border-white/[0.06] overflow-hidden transition-all">
+            <div className="rounded-ui-xl bg-surface border border-border-subtle overflow-hidden shadow-card transition-all">
               <button
                 type="button"
                 onClick={() => setIsEffectiveSetsOpen((prev) => !prev)}
-                className="w-full p-3 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.03] transition-colors"
+                aria-expanded={isEffectiveSetsOpen}
+                className="w-full min-h-12 p-3.5 flex items-center justify-between text-left cursor-pointer hover:bg-surface-active transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
               >
                 <div className="min-w-0 pr-2">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider font-mono">
                     {muscleAnalysisMode === 'balance'
                       ? 'Series de exposición'
                       : muscleAnalysisMode === 'fatigue'
                       ? t('stats.fatigueLoad')
                       : t('stats.relativeStrength')}
                   </h3>
-                  <span className="text-[10px] text-zinc-400 block mt-0.5">
+                  <span className="text-[10px] text-text-muted block mt-0.5">
                     {isEffectiveSetsOpen ? t('stats.collapse') : t('stats.expandRanking')}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] font-mono font-bold text-zinc-400 bg-white/[0.06] px-2.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-mono font-bold text-text-muted bg-surface-input border border-border-subtle px-2.5 py-0.5 rounded-full">
                     {muscleAnalysisMode === 'balance'
                       ? `${semanticBalance ? Object.values(semanticBalance.pathBalance).reduce((a, b) => a + (b?.exposureCount || 0), 0) : 0} series`
                       : muscleAnalysisMode === 'fatigue'
@@ -703,7 +707,8 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       : t('stats.groupCount', { count: ALL_MUSCLE_GROUPS.length })}
                   </span>
                   <ChevronDown
-                    className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
+                    aria-hidden="true"
+                    className={`size-4 text-text-muted transition-transform duration-200 shrink-0 ${
                       isEffectiveSetsOpen ? 'rotate-180 text-accent' : ''
                     }`}
                   />
@@ -711,205 +716,214 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </button>
 
               {isEffectiveSetsOpen && (
-                <div className="p-3 pt-0 space-y-1.5 border-t border-white/[0.04] animate-in fade-in duration-150">
-                  {muscleAnalysisMode === 'balance' ? (
-                    sortedBalancePaths.map((path) => {
-                      const pathData = semanticBalance?.pathBalance[path];
-                      const isSelected = selectedBalancePath === path;
-                      const exposureCount = pathData?.exposureCount ?? 0;
-                      const hardCount = pathData?.hardExposureCount ?? 0;
+                <div className="p-3.5 pt-0 border-t border-border-subtle animate-in fade-in duration-150">
+                  <div className="divide-y divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input overflow-hidden mt-3">
+                    {muscleAnalysisMode === 'balance' ? (
+                      sortedBalancePaths.map((path) => {
+                        const pathData = semanticBalance?.pathBalance[path];
+                        const isSelected = selectedBalancePath === path;
+                        const exposureCount = pathData?.exposureCount ?? 0;
+                        const hardCount = pathData?.hardExposureCount ?? 0;
 
-                      return (
-                        <div
-                          key={path}
-                          onClick={() => setSelectedBalancePath(isSelected ? null : path)}
-                          className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
-                            isSelected
-                              ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
-                              : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                exposureCount > 0 ? 'bg-accent' : 'bg-zinc-700'
-                              }`}
-                            />
-                            <div className="min-w-0">
-                              <span className="font-bold text-white capitalize block truncate">
-                                {getBodyPathDisplayName(path, 'es')}
-                              </span>
-                              {pathData && pathData.strongestRole && exposureCount > 0 && (
-                                <span className="text-[10px] font-mono text-zinc-400 block truncate">
-                                  Rol: {ROLE_DISPLAY_NAMES[pathData.strongestRole]?.es ?? pathData.strongestRole}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-right font-mono shrink-0">
-                            <span className="text-zinc-400">
-                              <strong className="text-accent">{exposureCount}</strong> {t('workout.sets')}
-                              {hardCount > 0 && (
-                                <span className="text-[10px] text-zinc-500 ml-1">
-                                  ({hardCount} duras)
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : muscleAnalysisMode === 'fatigue' ? (
-                    sortedFatiguePaths.map((path) => {
-                      const pathData = semanticFatigue?.pathFatigue[path];
-                      const isSelected = selectedFatiguePath === path;
-                      const residualFeu = pathData?.residualFeu ?? 0;
-                      const state = pathData?.state ?? 'fresh';
-                      const unknownCount = pathData?.unknownEffortCount ?? 0;
-                      const totalSets = pathData?.totalEligibleSets ?? 0;
-                      const hasIncompleteEffort = unknownCount > 0;
-                      const isAllUnknown = hasIncompleteEffort && unknownCount >= totalSets;
-                      const hoursAgo = pathData?.lastExposedAt
-                        ? Math.max(0, Math.round((Date.now() - Date.parse(pathData.lastExposedAt)) / (1000 * 60 * 60)))
-                        : null;
-
-                      return (
-                        <div
-                          key={path}
-                          onClick={() => setSelectedFatiguePath(isSelected ? null : path)}
-                          className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
-                            isSelected
-                              ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
-                              : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                state === 'fatigued'
-                                  ? 'bg-rose-500'
-                                  : state === 'recovering'
-                                  ? 'bg-amber-500'
-                                  : state === 'ready'
-                                  ? 'bg-emerald-500'
-                                  : hasIncompleteEffort
-                                  ? 'bg-zinc-600 ring-1 ring-amber-500/50'
-                                  : 'bg-zinc-700'
-                              }`}
-                            />
-                            <div className="min-w-0">
-                              <span className="font-bold text-white capitalize block truncate">
-                                {getBodyPathDisplayName(path, 'es')}
-                              </span>
-                              <span className="text-[10px] font-mono text-zinc-400 block truncate">
-                                {hoursAgo !== null
-                                  ? `Hace ${hoursAgo}h (${totalSets} series)`
-                                  : hasIncompleteEffort
-                                  ? 'Datos de esfuerzo incompletos'
-                                  : 'Fresco • Sin entreno reciente'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="text-right font-mono shrink-0">
-                            <div>
+                        return (
+                          <button
+                            type="button"
+                            key={path}
+                            onClick={() => setSelectedBalancePath(isSelected ? null : path)}
+                            aria-pressed={isSelected}
+                            className={`w-full min-h-12 px-3 py-2.5 flex items-center justify-between text-left transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+                              isSelected
+                                ? 'bg-surface-active ring-1 ring-inset ring-accent'
+                                : 'hover:bg-surface-active/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
                               <span
-                                className={`font-bold block ${
-                                  state === 'fatigued'
-                                    ? 'text-rose-400'
-                                    : state === 'recovering'
-                                    ? 'text-amber-400'
-                                    : state === 'ready'
-                                    ? 'text-emerald-400'
-                                    : 'text-zinc-400'
+                                className={`size-2.5 rounded-full shrink-0 ${
+                                  exposureCount > 0 ? 'bg-accent shadow-[0_0_6px_var(--accent-glow)]' : 'bg-border-subtle'
                                 }`}
-                              >
-                                {state === 'fatigued'
-                                  ? 'Fatigado'
-                                  : state === 'recovering'
-                                  ? 'En recuperación'
-                                  : state === 'ready'
-                                  ? 'Listo'
-                                  : isAllUnknown
-                                  ? 'Fresco · s/ esfuerzo reg.'
-                                  : hasIncompleteEffort
-                                  ? 'Fresco · certeza baja'
-                                  : 'Fresco'}{' '}
-                                <span className="text-zinc-500 font-normal text-[10px]">
-                                  ({residualFeu.toFixed(2)} FEU)
+                              />
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold text-text-primary capitalize block truncate">
+                                  {getBodyPathDisplayName(path, 'es')}
                                 </span>
+                                {pathData && pathData.strongestRole && exposureCount > 0 && (
+                                  <span className="text-[10px] font-mono text-text-muted block truncate">
+                                    Rol: {ROLE_DISPLAY_NAMES[pathData.strongestRole]?.es ?? pathData.strongestRole}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-right font-mono shrink-0">
+                              <span className="text-xs text-text-secondary">
+                                <strong className="text-accent font-bold ui-metric">{exposureCount}</strong>{' '}
+                                <span className="text-text-muted">{t('workout.sets')}</span>
+                                {hardCount > 0 && (
+                                  <span className="text-[10px] text-text-muted ml-1">
+                                    ({hardCount} duras)
+                                  </span>
+                                )}
                               </span>
-                              {pathData && (hasIncompleteEffort || (pathData.confidence && pathData.confidence !== 'high')) && (
-                                <span className={`text-[10px] block ${hasIncompleteEffort ? 'text-amber-400/90' : 'text-zinc-500'}`}>
-                                  {isAllUnknown
-                                    ? 'Esfuerzo sin registrar'
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : muscleAnalysisMode === 'fatigue' ? (
+                      sortedFatiguePaths.map((path) => {
+                        const pathData = semanticFatigue?.pathFatigue[path];
+                        const isSelected = selectedFatiguePath === path;
+                        const residualFeu = pathData?.residualFeu ?? 0;
+                        const state = pathData?.state ?? 'fresh';
+                        const unknownCount = pathData?.unknownEffortCount ?? 0;
+                        const totalSets = pathData?.totalEligibleSets ?? 0;
+                        const hasIncompleteEffort = unknownCount > 0;
+                        const isAllUnknown = hasIncompleteEffort && unknownCount >= totalSets;
+                        const hoursAgo = pathData?.lastExposedAt
+                          ? Math.max(0, Math.round((Date.now() - Date.parse(pathData.lastExposedAt)) / (1000 * 60 * 60)))
+                          : null;
+
+                        return (
+                          <button
+                            type="button"
+                            key={path}
+                            onClick={() => setSelectedFatiguePath(isSelected ? null : path)}
+                            aria-pressed={isSelected}
+                            className={`w-full min-h-12 px-3 py-2.5 flex items-center justify-between text-left transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+                              isSelected
+                                ? 'bg-surface-active ring-1 ring-inset ring-accent'
+                                : 'hover:bg-surface-active/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                              <span
+                                className={`size-2.5 rounded-full shrink-0 ${
+                                  state === 'fatigued'
+                                    ? 'bg-rose-500'
+                                    : state === 'recovering'
+                                    ? 'bg-amber-500'
+                                    : state === 'ready'
+                                    ? 'bg-emerald-500'
                                     : hasIncompleteEffort
-                                    ? `${unknownCount} de ${totalSets} s/ esfuerzo`
-                                    : `Certeza: ${pathData.confidence === 'moderate' ? 'moderada' : 'baja'}`}
+                                    ? 'bg-border-subtle ring-1 ring-amber-500/50'
+                                    : 'bg-border-subtle'
+                                }`}
+                              />
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold text-text-primary capitalize block truncate">
+                                  {getBodyPathDisplayName(path, 'es')}
                                 </span>
-                              )}
+                                <span className="text-[10px] font-mono text-text-muted block truncate">
+                                  {hoursAgo !== null
+                                    ? `Hace ${hoursAgo}h (${totalSets} series)`
+                                    : hasIncompleteEffort
+                                    ? 'Datos de esfuerzo incompletos'
+                                    : 'Fresco • Sin entreno reciente'}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    ALL_MUSCLE_GROUPS.map((m) => {
-                      const item = fullMuscleAnalytics[m];
-                      const isSelected = selectedMuscle === m;
 
-                      return (
-                        <div
-                          key={m}
-                          onClick={() => setSelectedMuscle(isSelected ? null : m)}
-                          className={`p-3 rounded-2xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
-                            isSelected
-                              ? 'bg-zinc-800/80 border-sky-400/50 shadow-sm'
-                              : 'bg-black/40 border-white/[0.04] hover:bg-zinc-900/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                            {item.strengthEvaluation && (
-                              <StrengthRankBadge rank={item.strengthEvaluation.rank} size="sm" />
-                            )}
-
-                            <div className="min-w-0">
-                              <span className="font-bold text-white capitalize block truncate">
-                                {muscleLabel(m)}
-                              </span>
-                              {item.strengthEvaluation && (
+                            <div className="text-right font-mono shrink-0">
+                              <div>
                                 <span
-                                  className="text-[10px] font-mono font-bold block truncate"
-                                  style={{ color: getStrengthRankColor(item.strengthEvaluation.rank) }}
+                                  className={`text-xs font-bold block ${
+                                    state === 'fatigued'
+                                      ? 'text-rose-400'
+                                      : state === 'recovering'
+                                      ? 'text-amber-400'
+                                      : state === 'ready'
+                                      ? 'text-emerald-400'
+                                      : 'text-text-muted'
+                                  }`}
                                 >
-                                  {t(`ranks.${item.strengthEvaluation.rank}`)} • {item.strengthEvaluation.currentRatio.toFixed(2)}× BW
+                                  {state === 'fatigued'
+                                    ? 'Fatigado'
+                                    : state === 'recovering'
+                                    ? 'En recuperación'
+                                    : state === 'ready'
+                                    ? 'Listo'
+                                    : isAllUnknown
+                                    ? 'Fresco · s/ esfuerzo reg.'
+                                    : hasIncompleteEffort
+                                    ? 'Fresco · certeza baja'
+                                    : 'Fresco'}{' '}
+                                  <span className="text-text-muted font-normal text-[10px] ui-metric">
+                                    ({residualFeu.toFixed(2)} FEU)
+                                  </span>
                                 </span>
-                              )}
+                                {pathData && (hasIncompleteEffort || (pathData.confidence && pathData.confidence !== 'high')) && (
+                                  <span className={`text-[10px] block ${hasIncompleteEffort ? 'text-amber-400/90' : 'text-text-muted'}`}>
+                                    {isAllUnknown
+                                      ? 'Esfuerzo sin registrar'
+                                      : hasIncompleteEffort
+                                      ? `${unknownCount} de ${totalSets} s/ esfuerzo`
+                                      : `Certeza: ${pathData.confidence === 'moderate' ? 'moderada' : 'baja'}`}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      ALL_MUSCLE_GROUPS.map((m) => {
+                        const item = fullMuscleAnalytics[m];
+                        const isSelected = selectedMuscle === m;
 
-                          <div className="text-right font-mono shrink-0">
-                            <div>
-                              <span className="text-white font-bold block">
-                                {item.topEst1RmKg > 0 ? formatDisplayWeight(item.topEst1RmKg, preferences.units) : t('stats.noData')}
-                              </span>
-                              {item.strengthEvaluation?.nextRank && item.strengthEvaluation.kgToNextRank !== null ? (
-                                <span className="text-purple-400 text-[10px] block truncate">
-                                  +{formatDisplayWeight(item.strengthEvaluation.kgToNextRank, preferences.units)} → {t(`ranks.${item.strengthEvaluation.nextRank}`)}
+                        return (
+                          <button
+                            type="button"
+                            key={m}
+                            onClick={() => setSelectedMuscle(isSelected ? null : m)}
+                            aria-pressed={isSelected}
+                            className={`w-full min-h-12 px-3 py-2.5 flex items-center justify-between text-left transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+                              isSelected
+                                ? 'bg-surface-active ring-1 ring-inset ring-accent'
+                                : 'hover:bg-surface-active/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                              {item.strengthEvaluation && (
+                                <StrengthRankBadge rank={item.strengthEvaluation.rank} size="sm" />
+                              )}
+
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold text-text-primary capitalize block truncate">
+                                  {muscleLabel(m)}
                                 </span>
-                              ) : item.strengthEvaluation?.rank === 'dios' ? (
-                                <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
-                                  <span>{t('stats.maxRank')}</span>
-                                  <Sparkles className="w-3.5 h-3.5 text-accent inline" />
-                                </span>
-                              ) : null}
+                                {item.strengthEvaluation && (
+                                  <span
+                                    className="text-[10px] font-mono font-bold block truncate"
+                                    style={{ color: getStrengthRankColor(item.strengthEvaluation.rank) }}
+                                  >
+                                    {t(`ranks.${item.strengthEvaluation.rank}`)} • {item.strengthEvaluation.currentRatio.toFixed(2)}× BW
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+
+                            <div className="text-right font-mono shrink-0">
+                              <div>
+                                <span className="text-xs text-text-primary font-bold block ui-metric">
+                                  {item.topEst1RmKg > 0 ? formatDisplayWeight(item.topEst1RmKg, preferences.units) : t('stats.noData')}
+                                </span>
+                                {item.strengthEvaluation?.nextRank && item.strengthEvaluation.kgToNextRank !== null ? (
+                                  <span className="text-purple-400 text-[10px] block truncate">
+                                    +{formatDisplayWeight(item.strengthEvaluation.kgToNextRank, preferences.units)} → {t(`ranks.${item.strengthEvaluation.nextRank}`)}
+                                  </span>
+                                ) : item.strengthEvaluation?.rank === 'dios' ? (
+                                  <span className="text-accent font-bold text-[10px] flex items-center justify-end gap-1">
+                                    <span>{t('stats.maxRank')}</span>
+                                    <Sparkles className="size-3.5 text-accent inline" />
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               )}
             </div>
