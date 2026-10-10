@@ -342,22 +342,24 @@ export const StatsView: React.FC<StatsViewProps> = ({
         <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input">
           <div className="min-w-0 px-2 py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.bestE1rm')}</span>
-            <strong className="mt-1 block truncate text-sm text-text-primary">
+            <strong className="mt-1 block truncate text-base font-bold ui-metric text-text-primary">
               {progressSummary.bestEstimatedOneRm > 0 ? formatDisplayWeight(progressSummary.bestEstimatedOneRm, preferences.units) : '—'}
             </strong>
           </div>
           <div className="min-w-0 px-2 py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.sessions')}</span>
-            <strong className="mt-1 block text-sm text-text-primary">{progressSummary.sessions}</strong>
+            <strong className="mt-1 block text-base font-bold ui-metric text-text-primary">{progressSummary.sessions}</strong>
           </div>
           <div className="min-w-0 px-2 py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.volume')}</span>
-            <strong className="mt-1 block truncate text-sm text-text-primary">{compactNumber.format(displayWeight(progressSummary.volumeKg, preferences.units))} {weightUnit}</strong>
+            <strong className="mt-1 block truncate text-base font-bold ui-metric text-text-primary">
+              {compactNumber.format(displayWeight(progressSummary.volumeKg, preferences.units))} {weightUnit}
+            </strong>
           </div>
         </div>
 
-        <div className="flex min-h-10 items-center justify-between gap-3 text-xs">
-          <span className="min-w-0 truncate text-text-muted">
+        <div className="flex min-h-9 items-center justify-between gap-3 text-xs">
+          <span className="min-w-0 truncate text-text-muted font-medium">
             {progressSummary.bestExerciseName || t('stats.noMarks')}
           </span>
           <span className="shrink-0 font-semibold text-text-secondary">
@@ -366,9 +368,16 @@ export const StatsView: React.FC<StatsViewProps> = ({
         </div>
 
         {totalVolumeTonnage > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setIsTonnageModalOpen(true)} className="w-full text-text-muted">
-            <Flame aria-hidden="true" className="size-4 text-accent" />
-            Tonelaje histórico: {compactNumber.format(displayWeight(totalVolumeTonnage, preferences.units))} {weightUnit}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsTonnageModalOpen(true)}
+            className="w-full text-text-muted hover:text-text-primary hover:bg-surface-active transition-colors min-h-[36px]"
+          >
+            <Flame aria-hidden="true" className="size-4 shrink-0 text-accent" />
+            <span>
+              Tonelaje histórico: <strong className="ui-metric font-bold text-text-secondary">{compactNumber.format(displayWeight(totalVolumeTonnage, preferences.units))} {weightUnit}</strong>
+            </span>
           </Button>
         )}
       </AppCard>
@@ -392,13 +401,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
-              <Activity className="w-5 h-5" />
+              <Activity className="size-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 {t('stats.musclesTitle')}
               </h2>
-              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
+              <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">
                 {t('stats.musclesDescription')}
               </p>
             </div>
@@ -406,12 +415,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
             {history.length === 0 ? (
-              <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-1 text-[10px] font-bold text-text-muted">
+              <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-0.5 text-[10px] font-sans font-bold text-text-muted">
                 {t('stats.noData')}
               </span>
             ) : (muscleAnalysisMode === 'balance' ? underexposedPaths.length > 0 : muscleAnalysis.neglected.length > 0) ? (
               <span
-                className="w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)] shrink-0"
+                className="size-6 rounded-full flex items-center justify-center font-bold text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)] shrink-0"
                 title={
                   muscleAnalysisMode === 'balance'
                     ? `${underexposedPaths.length} regiones sin entrenar`
@@ -422,7 +431,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
               </span>
             ) : (
               <span
-                className="w-2.5 h-2.5 rounded-full bg-accent shadow-[0_0_6px_var(--accent-glow)] shrink-0"
+                className="size-2.5 rounded-full bg-accent shadow-[0_0_6px_var(--accent-glow)] shrink-0"
                 title="Todas las regiones activas"
               />
             )}
@@ -905,13 +914,13 @@ export const StatsView: React.FC<StatsViewProps> = ({
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
-              <TrendingUp className="w-5 h-5" />
+              <TrendingUp className="size-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 {t('stats.exerciseProgressTitle')}
               </h2>
-              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
+              <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">
                 {t('stats.exerciseProgressDescription')}
               </p>
             </div>
@@ -919,7 +928,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
             {bestAllTimeEstimate > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/25 shrink-0">
+              <span className="rounded-full border border-accent/30 bg-accent-soft px-2 py-0.5 text-[10px] font-sans font-bold text-accent shrink-0">
                 PR: {formatDisplayWeight(bestAllTimeEstimate, preferences.units)}
               </span>
             )}
@@ -1056,20 +1065,20 @@ export const StatsView: React.FC<StatsViewProps> = ({
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
-              <Calendar className="w-5 h-5" />
+              <Calendar className="size-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 {t('stats.consistencyTitle')}
               </h2>
-              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
+              <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">
                 {t('stats.consistencyDescription')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
+            <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-0.5 text-[10px] font-sans font-bold text-text-secondary shrink-0">
               {t('stats.sessionCount', { count: history.length })}
             </span>
             <ChevronDown
@@ -1163,14 +1172,14 @@ export const StatsView: React.FC<StatsViewProps> = ({
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 {t('stats.bodyweightTitle')}
               </h2>
-              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
+              <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">
                 {t('stats.bodyweightDescription')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
+            <span className="rounded-full border border-border-subtle bg-surface-input px-2 py-0.5 text-[10px] font-sans font-bold text-text-secondary shrink-0">
               {bodyweightEntries.length > 0 ? formatDisplayWeight(bodyweightEntries[bodyweightEntries.length - 1].weightKg, preferences.bodyweightUnits) : '—'}
             </span>
             <ChevronDown
@@ -1254,20 +1263,20 @@ export const StatsView: React.FC<StatsViewProps> = ({
         >
           <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
-              <Calculator className="w-5 h-5" />
+              <Calculator className="size-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
                 {t('stats.calculatorTitle')}
               </h2>
-              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
+              <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">
                 {t('stats.calculatorDescription')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-accent/15 text-accent border border-accent/25 shrink-0">
+            <span className="rounded-full border border-accent/30 bg-accent-soft px-2.5 py-0.5 text-[11px] font-sans font-bold text-accent shrink-0">
               {formatDisplayWeight(estimate.average, preferences.units)}
             </span>
             <ChevronDown
