@@ -340,29 +340,39 @@ export const StatsView: React.FC<StatsViewProps> = ({
         </div>
 
         <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input">
-          <div className="min-w-0 px-2 py-3 text-center">
+          <div className="min-w-0 px-1.5 py-2.5 sm:px-2 sm:py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.bestE1rm')}</span>
-            <strong className="mt-1 block truncate text-base font-bold ui-metric text-text-primary">
-              {progressSummary.bestEstimatedOneRm > 0 ? formatDisplayWeight(progressSummary.bestEstimatedOneRm, preferences.units) : '—'}
+            <strong className="mt-1 flex flex-wrap items-baseline justify-center gap-x-1 text-sm sm:text-base font-bold ui-metric text-text-primary leading-tight">
+              {progressSummary.bestEstimatedOneRm > 0 ? (
+                <>
+                  <span>{displayWeight(progressSummary.bestEstimatedOneRm, preferences.units)}</span>
+                  <span className="text-[11px] font-semibold text-text-muted ui-unit">{weightUnit}</span>
+                </>
+              ) : (
+                <span>—</span>
+              )}
             </strong>
           </div>
-          <div className="min-w-0 px-2 py-3 text-center">
+          <div className="min-w-0 px-1.5 py-2.5 sm:px-2 sm:py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.sessions')}</span>
-            <strong className="mt-1 block text-base font-bold ui-metric text-text-primary">{progressSummary.sessions}</strong>
+            <strong className="mt-1 flex items-baseline justify-center text-sm sm:text-base font-bold ui-metric text-text-primary leading-tight">
+              <span>{progressSummary.sessions}</span>
+            </strong>
           </div>
-          <div className="min-w-0 px-2 py-3 text-center">
+          <div className="min-w-0 px-1.5 py-2.5 sm:px-2 sm:py-3 text-center">
             <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.volume')}</span>
-            <strong className="mt-1 block truncate text-base font-bold ui-metric text-text-primary">
-              {compactNumber.format(displayWeight(progressSummary.volumeKg, preferences.units))} {weightUnit}
+            <strong className="mt-1 flex flex-wrap items-baseline justify-center gap-x-1 text-sm sm:text-base font-bold ui-metric text-text-primary leading-tight">
+              <span>{compactNumber.format(displayWeight(progressSummary.volumeKg, preferences.units))}</span>
+              <span className="text-[11px] font-semibold text-text-muted ui-unit">{weightUnit}</span>
             </strong>
           </div>
         </div>
 
-        <div className="flex min-h-9 items-center justify-between gap-3 text-xs">
-          <span className="min-w-0 truncate text-text-muted font-medium">
+        <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs py-0.5">
+          <span className="min-w-0 max-w-[65%] sm:max-w-none text-text-muted font-medium line-clamp-2 leading-snug">
             {progressSummary.bestExerciseName || t('stats.noMarks')}
           </span>
-          <span className="shrink-0 font-semibold text-text-secondary">
+          <span className="shrink-0 font-semibold text-text-secondary text-right ml-auto">
             {t('stats.streakWeeks', { count: progressSummary.weeklyStreak })}
           </span>
         </div>
@@ -372,7 +382,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
             variant="ghost"
             size="sm"
             onClick={() => setIsTonnageModalOpen(true)}
-            className="w-full text-text-muted hover:text-text-primary hover:bg-surface-active transition-colors min-h-[36px]"
+            className="w-full text-text-muted hover:text-text-primary hover:bg-surface-active transition-colors min-h-11"
           >
             <Flame aria-hidden="true" className="size-4 shrink-0 text-accent" />
             <span>

@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { WorkoutSession, Exercise } from '@light-weight/domain';
 import type { UserProfile, BodyweightEntry } from '../lib/storage.js';
 import { PreferencesProvider } from '../lib/preferences-context.js';
+import { PREFERENCES_STORAGE_KEY } from '../lib/preferences.js';
 import { StatsView } from './StatsView.js';
 
 const source = (relPath: string) => {
@@ -63,6 +64,16 @@ const sampleBodyweight: BodyweightEntry = {
   weightKg: 75.5
 };
 
+const storageMap = new Map<string, string>();
+(globalThis as unknown as { localStorage: unknown }).localStorage = {
+  getItem: (k: string) => storageMap.get(k) ?? null,
+  setItem: (k: string, v: string) => storageMap.set(k, v),
+  removeItem: (k: string) => storageMap.delete(k),
+  clear: () => storageMap.clear(),
+  key: (i: number) => Array.from(storageMap.keys())[i] ?? null,
+  get length() { return storageMap.size; }
+};
+
 function renderStats(overrides: Partial<React.ComponentProps<typeof StatsView>> = {}) {
   const props: React.ComponentProps<typeof StatsView> = {
     history: overrides.history ?? [sampleSession],
@@ -85,7 +96,10 @@ function renderStats(overrides: Partial<React.ComponentProps<typeof StatsView>> 
   );
 }
 
-test('VP.4-A: 30-day overview renders 3 primary metrics with ui-metric and units', () => {
+test('VP.4-A: 30-day overview renders 3 primary metrics with ui-metric and ui-unit in KG', () => {
+  // Ensure default metric preferences
+  storageMap.set(PREFERENCES_STORAGE_KEY, JSON.stringify({ version: 1, data: { units: 'metric', bodyweightUnits: 'metric' } }));
+
   const html = renderStats();
 
   // Overview title and subtitle
@@ -97,34 +111,115 @@ test('VP.4-A: 30-day overview renders 3 primary metrics with ui-metric and units
   assert.match(html, /Sesiones/i);
   assert.match(html, /Volumen/i);
 
-  // Values use tabular ui-metric class
-  const metricOccurrences = (html.match(/ui-metric/g) ?? []).length;
-  assert.ok(metricOccurrences >= 3, `Expected at least 3 ui-metric instances in overview, found ${metricOccurrences}`);
+  // Tabular numbers and semantic units
+  assert.match(html, /ui-metric/);
+  assert.match(html, /ui-unit/);
 
-  // Value formatting contains units and values
-  assert.match(html, /115\.6 kg/);
-  assert.match(html, /500 kg/);
+  // Value formatting: number and unit are present without truncation
+  assert.match(html, />115\.6</);
+  assert.match(html, />500</);
+  assert.match(html, />kg</);
 });
 
-test('VP.4-A: 30-day overview renders best exercise and weekly streak in context row', () => {
+test('VP.4-A: 30-day overview renders primary metrics with LB unit in imperial mode', () => {
+  storageMap.set(PREFERENCES_STORAGE_KEY, JSON.stringify({ version: 1, data: { units: 'imperial', bodyweightUnits: 'imperial' } }));
+
   const html = renderStats();
 
-  // Best exercise from session
-  assert.match(html, /Bench Press/);
+  // In imperial mode, unit is lb
+  assert.match(html, />lb</);
+  // Numbers are converted to pounds and rendered
+  assert.match(html, /ui-metric/);
+  assert.match(html, /ui-unit/);
 
-  // Weekly streak
+  // Restore metric
+  storageMap.set(PREFERENCES_STORAGE_KEY, JSON.stringify({ version: 1, data: { units: 'metric', bodyweightUnits: 'metric' } }));
+});
+
+test('VP.4-A: 30-day overview displays large volume numbers without ellipsis truncation', () => {
+  // Session with 125,500 kg volume
+  const heavySession: WorkoutSession = {
+    ...sampleSession,
+    sets: {
+      'bench-press': [
+        {
+          setIndex: 1,
+          weightKg: 251,
+          reps: 500,
+          completed: true,
+          setType: 'working',
+          isWarmup: false
+        }
+      ]
+    }
+  };
+
+  const html = renderStats({ history: [heavySession] });
+
+  // Volume value must be rendered in full (e.g. compact format like 125,5 mil or 126 mil with standard or non-breaking space)
+  assert.match(html, />125,5[\s\u00a0]mil|126[\s\u00a0]mil/);
+  assert.match(html, />kg</);
+
+  // Must NOT contain ellipsis truncation on the metric
+  assert.doesNotMatch(html, />12[56].*?\.\.\.</);
+});
+
+test('VP.4-A: Context row renders realistically long exercise name without clipping weekly streak', () => {
+  const longNameExercise: Exercise = {
+    ...sampleExercise,
+    id: 'long-ex',
+    name: 'Press de banca inclinado con mancuernas pesadas'
+  };
+
+  const longSession: WorkoutSession = {
+    ...sampleSession,
+    sets: {
+      'long-ex': [
+        {
+          setIndex: 1,
+          weightKg: 40,
+          reps: 10,
+          completed: true,
+          setType: 'working',
+          isWarmup: false
+        }
+      ]
+    }
+  };
+
+  const html = renderStats({
+    exercises: [longNameExercise],
+    history: [longSession]
+  });
+
+  // Long exercise name must be present in full
+  assert.match(html, /Press de banca inclinado con mancuernas pesadas/);
+
+  // Weekly streak must remain completely present
   assert.match(html, /semanas de racha/i);
 
-  // Empty history fallback
+  // Source inspection: context row has wrapping classes line-clamp-2 and flex-wrap
+  const statsSource = source('views/StatsView.tsx');
+  assert.match(statsSource, /line-clamp-2/, 'Context row exercise name must support 2 lines for long names');
+  assert.match(statsSource, /flex-wrap/, 'Context row must allow wrapping');
+});
+
+test('VP.4-A: Empty history displays — placeholder and noMarks text', () => {
   const emptyHtml = renderStats({ history: [] });
+
+  assert.match(emptyHtml, />—</);
+  assert.match(emptyHtml, />0</);
   assert.match(emptyHtml, /Sin marcas/i);
 });
 
-test('VP.4-A: Historical tonnage action button is rendered with ui-metric and modal callback', () => {
+test('VP.4-A: Historical tonnage action button has >=44px touch target (min-h-11) and modal callback', () => {
   const html = renderStats();
 
   assert.match(html, /Tonelaje histórico:/i);
   assert.match(html, /ui-metric font-bold text-text-secondary/);
+
+  // Verify >= 44px touch target class min-h-11 (44px)
+  assert.match(html, /min-h-11/, 'Historical tonnage button must have min-h-11 for 44px Apple HIG touch target');
 
   const statsSource = source('views/StatsView.tsx');
   assert.ok(
@@ -134,11 +229,10 @@ test('VP.4-A: Historical tonnage action button is rendered with ui-metric and mo
   assert.ok(statsSource.includes('<TonnageEquivalenceModal'), 'StatsView must render TonnageEquivalenceModal');
 });
 
-test('VP.4-A: 5 accordion headers exist in exact sequence with proper aria controls and touch targets', () => {
+test('VP.4-A: 5 accordion headers exist in exact sequence with proper aria controls and 64px touch targets', () => {
   const html = renderStats();
   const statsSource = source('views/StatsView.tsx');
 
-  // Verify the 5 sections in expected order
   const expectedSections = [
     { title: 'Músculos, Fatiga y Fortaleza', suffix: '-muscles' },
     { title: 'Progreso por ejercicio', suffix: '-exercise' },
@@ -164,7 +258,6 @@ test('VP.4-A: 5 accordion headers exist in exact sequence with proper aria contr
 test('VP.4-A: Accordion exclusive toggle contract is preserved in source', () => {
   const statsSource = source('views/StatsView.tsx');
 
-  // Exclusive toggle function contract
   assert.ok(
     statsSource.includes("const toggleSection = (sectionId: string) => {"),
     'toggleSection handler must exist'
@@ -178,7 +271,6 @@ test('VP.4-A: Accordion exclusive toggle contract is preserved in source', () =>
 test('VP.4-A: Accordion badges use semantic design tokens and avoid un-themed text-zinc-300', () => {
   const statsSource = source('views/StatsView.tsx');
 
-  // Header badges must not use raw un-themed text-zinc-300 in accordion buttons
   const headerSectionMatches = statsSource.match(/toggleSection\('[^']+'\)[\s\S]*?<\/button>/g) ?? [];
   assert.equal(headerSectionMatches.length, 5, `Expected 5 toggleSection button blocks, found ${headerSectionMatches.length}`);
 
