@@ -467,31 +467,33 @@ export const StatsView: React.FC<StatsViewProps> = ({
         {openSection === 'muscles' && history.length > 0 && (
           <div id={sectionPanelIds.muscles} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
             {/* Barra de Perfil Biométrico: Género y Peso Corporal */}
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] font-mono font-bold text-text-muted uppercase">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
                 {t('stats.strengthStandards')}
               </span>
-              <div className="flex items-center gap-1.5 bg-surface-input border border-border-subtle p-1 rounded-xl text-xs font-mono">
+              <div className="flex items-center gap-1.5 bg-surface-input border border-border-subtle p-1 rounded-ui-lg text-xs">
                 {currentGender ? (
-                  <span className="px-2.5 py-0.5 rounded-lg font-bold bg-accent-soft text-accent text-xs">
+                  <span className="px-2.5 py-1 rounded-ui-md font-bold bg-accent-soft text-accent text-xs">
                     {currentGender === 'male' ? t('stats.male') : t('stats.female')}
                   </span>
                 ) : (
                   <button
                     type="button"
                     onClick={onOpenSettings}
-                    className="px-2.5 py-0.5 rounded-lg font-bold text-xs bg-accent text-accent-fg hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                    className="min-h-8 px-2.5 py-1 rounded-ui-md font-bold text-xs bg-accent text-accent-fg hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     {t('stats.configureGender')}
                   </button>
                 )}
-                <span className="text-border-subtle px-0.5">|</span>
-                <span className="text-text-secondary font-bold px-1.5">{currentBodyweightKg ? formatDisplayWeight(currentBodyweightKg, preferences.bodyweightUnits) : t('stats.noWeight')}</span>
+                <span className="text-border-subtle px-0.5" aria-hidden="true">|</span>
+                <span className="text-text-secondary font-bold px-1.5 ui-metric">
+                  {currentBodyweightKg ? formatDisplayWeight(currentBodyweightKg, preferences.bodyweightUnits) : t('stats.noWeight')}
+                </span>
               </div>
             </div>
 
             {/* Segmented Switcher: [ Equilibrio | Fatiga | Fortaleza ] */}
-            <div className="p-1 rounded-2xl glass-subcard border border-white/[0.06] grid grid-cols-3 gap-1 text-xs">
+            <div className="p-1 rounded-ui-xl bg-surface-input border border-border-subtle grid grid-cols-3 gap-1 text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -499,10 +501,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   setSelectedMuscle(null);
                   setSelectedFatiguePath(null);
                 }}
-                className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                aria-pressed={muscleAnalysisMode === 'balance'}
+                className={`min-h-11 py-2 px-1.5 rounded-ui-lg font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   muscleAnalysisMode === 'balance'
-                    ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-accent text-accent-fg shadow-sm'
+                    : 'text-text-muted hover:text-text-primary hover:bg-surface-active'
                 }`}
               >
                 <Scale className="w-3.5 h-3.5" />
@@ -515,10 +518,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   setSelectedMuscle(null);
                   setSelectedBalancePath(null);
                 }}
-                className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                aria-pressed={muscleAnalysisMode === 'fatigue'}
+                className={`min-h-11 py-2 px-1.5 rounded-ui-lg font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   muscleAnalysisMode === 'fatigue'
-                    ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-accent text-accent-fg shadow-sm'
+                    : 'text-text-muted hover:text-text-primary hover:bg-surface-active'
                 }`}
               >
                 <Flame className="w-3.5 h-3.5" />
@@ -532,10 +536,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   setSelectedBalancePath(null);
                   setSelectedFatiguePath(null);
                 }}
-                className={`py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                aria-pressed={muscleAnalysisMode === 'strength'}
+                className={`min-h-11 py-2 px-1.5 rounded-ui-lg font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   muscleAnalysisMode === 'strength'
-                    ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-accent text-accent-fg shadow-sm'
+                    : 'text-text-muted hover:text-text-primary hover:bg-surface-active'
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -545,9 +550,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
             {/* Filtros Contextuales según el Modo */}
             {muscleAnalysisMode === 'balance' && (
-              <div className="flex items-center justify-between px-1 text-xs">
-                <span className="text-zinc-500 font-mono text-[10px] uppercase font-bold">{t('stats.window')}</span>
-                <div className="flex items-center gap-1 bg-black/40 border border-white/[0.06] p-0.5 rounded-xl text-[11px] font-mono">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+                <span className="text-text-muted text-[11px] uppercase tracking-wider font-bold">{t('stats.window')}</span>
+                <div className="flex items-center gap-1 bg-surface-input border border-border-subtle p-1 rounded-ui-lg text-xs font-mono">
                   {([
                     { days: 7, label: '7d', title: t('stats.last7Days') },
                     { days: 90, label: '90d', title: t('stats.last90Days') },
@@ -557,10 +562,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       key={opt.days}
                       type="button"
                       onClick={() => setMuscleWindow(opt.days)}
-                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      aria-pressed={muscleWindow === opt.days}
+                      className={`min-h-8 px-2.5 py-1 rounded-ui-md font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                         muscleWindow === opt.days
                           ? 'bg-accent text-accent-fg shadow-sm'
-                          : 'text-zinc-400 hover:text-white'
+                          : 'text-text-muted hover:text-text-primary hover:bg-surface-active'
                       }`}
                       title={opt.title}
                     >
