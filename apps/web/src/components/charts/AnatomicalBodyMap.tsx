@@ -427,19 +427,19 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Both Views: Anterior (Frontal) & Posterior (Dorsal) with openGym Frosted Glass & Rim Depth */}
-      <div className="flex items-center justify-center gap-3 sm:gap-6 py-3 px-2 sm:px-4 bg-gradient-to-b from-white/[0.07] to-white/[0.02] rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+      {/* Both Views: Anterior (Frontal) & Posterior (Dorsal) with semantic surface */}
+      <div className="flex items-center justify-center gap-3 sm:gap-6 py-3 px-2 sm:px-4 bg-surface-input rounded-ui-2xl border border-border-subtle shadow-card relative overflow-hidden">
         <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
             {t('stats.front')}
           </span>
           {renderView(genderPaths.front, true)}
         </div>
 
-        <div className="w-[1px] h-56 sm:h-64 bg-gradient-to-b from-transparent via-white/15 to-transparent shrink-0" />
+        <div className="w-px h-56 sm:h-64 bg-gradient-to-b from-transparent via-border-subtle to-transparent shrink-0" />
 
         <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
-          <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
             {t('stats.back')}
           </span>
           {renderView(genderPaths.back, false)}
@@ -448,10 +448,10 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
       {/* Mode Legends: Compact, non-deforming, responsive */}
       {mode === 'balance' && (
-        <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[11px] font-mono text-zinc-400 shadow-sm">
+        <div className="flex items-center justify-between px-3 py-2 bg-surface-input rounded-ui-lg border border-border-subtle text-xs text-text-muted shadow-sm">
           <span>Menos</span>
           <div className="flex items-center gap-1.5">
-            <span className="w-3.5 h-3.5 rounded bg-white/[0.08] border border-white/20" title="Sin exposición (l0)" />
+            <span className="w-3.5 h-3.5 rounded bg-border-subtle border border-border-subtle" title="Sin exposición (l0)" />
             <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_32%,rgba(255,255,255,0.08))] border border-accent/40" title="Exposición baja (l1)" />
             <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_56%,rgba(255,255,255,0.08))] border border-accent/60" title="Exposición media (l2)" />
             <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_78%,rgba(255,255,255,0.08))] border border-accent/80" title="Exposición alta (l3)" />
@@ -462,7 +462,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       )}
 
       {mode === 'fatigue' && (
-        <div className="grid grid-cols-4 gap-1.5 p-2 bg-zinc-900/70 rounded-2xl border border-white/[0.06] text-[10px] font-mono text-center shadow-sm">
+        <div className="grid grid-cols-4 gap-1.5 p-2 bg-surface-input rounded-ui-lg border border-border-subtle text-[10px] text-center shadow-sm">
           <div className="flex items-center justify-center gap-1 text-rose-400 font-semibold" title="Fatigado (≥3.00 FEU)">
             <span className="w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 shrink-0" />
             <span className="truncate">Fatigado</span>
@@ -475,8 +475,8 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 shrink-0" />
             <span className="truncate">Listo</span>
           </div>
-          <div className="flex items-center justify-center gap-1 text-zinc-400 font-semibold" title="Fresco (<0.25 FEU)">
-            <span className="w-2 h-2 rounded-full bg-white/20 border border-white/30 shrink-0" />
+          <div className="flex items-center justify-center gap-1 text-text-muted font-semibold" title="Fresco (<0.25 FEU)">
+            <span className="w-2 h-2 rounded-full bg-border-subtle border border-border-subtle shrink-0" />
             <span className="truncate">Fresco</span>
           </div>
         </div>
@@ -502,14 +502,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             (() => {
               const pathData = balanceByPath?.[selectedPath];
               return (
-                <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
+                <div className="p-3.5 rounded-ui-xl bg-surface border border-border-subtle space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-card">
                   {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-extrabold text-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <h4 className="text-sm font-extrabold text-text-primary">
                         {getBodyPathDisplayName(selectedPath, 'es')}
                       </h4>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent-soft text-accent border border-accent/20">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-soft text-accent border border-accent/20">
                         Región anatómica
                       </span>
                     </div>
@@ -517,35 +517,32 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectPath?.(null)}
-                      className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
+                      className="min-h-8 px-2.5 py-1 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       Cerrar
                     </button>
                   </div>
 
-                  {/* 3 Metrics Cards */}
-                  <div className="grid grid-cols-3 gap-2 text-center font-mono">
-                    {/* Metric 1: Exposures */}
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                      <span className="text-[10px] text-zinc-500 block uppercase">Series de exposición</span>
-                      <span className="text-sm font-bold text-white">{pathData?.exposureCount ?? 0} series</span>
-                      <span className="text-[10px] text-zinc-400 block mt-0.5">Estímulo directo</span>
+                  {/* 3 Metrics Strip */}
+                  <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input text-center">
+                    <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
+                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Series de exposición</span>
+                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-text-primary">{pathData?.exposureCount ?? 0} series</strong>
+                      <span className="block truncate text-[10px] text-text-muted mt-0.5">Estímulo directo</span>
                     </div>
 
-                    {/* Metric 2: Hard sets */}
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                      <span className="text-[10px] text-zinc-500 block uppercase">Series duras</span>
-                      <span className="text-sm font-bold text-accent">{pathData?.hardExposureCount ?? 0} series</span>
-                      <span className="text-[10px] text-zinc-400 block mt-0.5">RIR ≤ 2 / RPE ≥ 8</span>
+                    <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
+                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Series duras</span>
+                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-accent">{pathData?.hardExposureCount ?? 0} series</strong>
+                      <span className="block truncate text-[10px] text-text-muted mt-0.5">RIR ≤ 2 / RPE ≥ 8</span>
                     </div>
 
-                    {/* Metric 3: Strongest role */}
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                      <span className="text-[10px] text-zinc-500 block uppercase">Rol dominante</span>
-                      <span className="text-sm font-bold text-white">
+                    <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
+                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Rol dominante</span>
+                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold text-text-primary truncate">
                         {pathData?.strongestRole ? (ROLE_DISPLAY_NAMES[pathData.strongestRole]?.es ?? pathData.strongestRole) : '—'}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 block mt-0.5">
+                      </strong>
+                      <span className="block truncate text-[10px] text-text-muted mt-0.5">
                         {pathData?.roles?.length ? `${pathData.roles.length} roles` : 'Sin series'}
                       </span>
                     </div>
@@ -553,15 +550,15 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
                   {/* Contributors list */}
                   {pathData && pathData.contributors.length > 0 && (
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04] space-y-1.5 font-mono">
-                      <span className="text-[10px] text-zinc-400 block font-semibold">
+                    <div className="p-2.5 rounded-ui-lg bg-surface-input border border-border-subtle space-y-1.5">
+                      <span className="text-[11px] text-text-muted block font-semibold">
                         Componentes anatómicos que aportan a esta región:
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {pathData.contributors.map((c) => (
                           <span
                             key={getContributionTargetKey(c)}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-white/[0.06] border border-white/10 text-zinc-300"
+                            className="px-2 py-0.5 rounded-ui-md text-[10px] font-medium bg-surface border border-border-subtle text-text-secondary"
                           >
                             {getMuscleTargetDisplayName(c, 'es')}
                           </span>
@@ -573,7 +570,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               );
             })()
           ) : (
-            <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
+            <p className="text-xs text-text-muted text-center py-1 font-medium">
               Toca cualquier región anatómica en el cuerpo para ver sus series de exposición y componentes reclutados.
             </p>
           )
@@ -592,26 +589,26 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                   ? { text: 'En recuperación', bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
                   : state === 'ready'
                   ? { text: 'Listo', bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' }
-                  : { text: 'Fresco', bg: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
+                  : { text: 'Fresco', bg: 'bg-surface-input text-text-muted border-border-subtle' };
 
               return (
-                <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
+                <div className="p-3.5 rounded-ui-xl bg-surface border border-border-subtle space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-card">
                   {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-extrabold text-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <h4 className="text-sm font-extrabold text-text-primary">
                         {getBodyPathDisplayName(selectedPath, 'es')}
                       </h4>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${stateBadge.bg}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${stateBadge.bg}`}>
                         {stateBadge.text}
                       </span>
                       {fData && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-white/[0.06] border border-white/10">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] text-text-muted bg-surface-input border border-border-subtle">
                           Certeza: {fData.confidence === 'high' ? 'Alta' : fData.confidence === 'moderate' ? 'Moderada' : 'Baja'}
                         </span>
                       )}
                       {fData && fData.unknownEffortCount > 0 && fData.unknownEffortCount >= fData.totalEligibleSets && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/30">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/30">
                           Esfuerzo sin registrar
                         </span>
                       )}
@@ -620,7 +617,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectPath?.(null)}
-                      className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
+                      className="min-h-8 px-2.5 py-1 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       Cerrar
                     </button>
@@ -628,48 +625,45 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
                   {/* Incomplete effort alert banner */}
                   {fData && fData.unknownEffortCount > 0 && (
-                    <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 font-mono leading-relaxed">
+                    <div className="p-2.5 rounded-ui-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-300 leading-relaxed">
                       ⚠️ Datos de esfuerzo incompletos: {fData.unknownEffortCount} de {fData.totalEligibleSets} series no registraron RIR o RPE. La baja carga residual estimada refleja ausencia de datos de intensidad, no necesariamente recuperación muscular completa.
                     </div>
                   )}
 
-                  {/* 3 Metrics Cards */}
-                  <div className="grid grid-cols-3 gap-2 text-center font-mono">
-                    {/* Metric 1: Residual Load */}
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                      <span className="text-[10px] text-zinc-500 block uppercase">Carga residual</span>
-                      <span className={`text-sm font-bold ${
+                  {/* 3 Metrics Strip */}
+                  <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input text-center">
+                    <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
+                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Carga residual</span>
+                      <strong className={`mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric ${
                         state === 'fatigued'
                           ? 'text-rose-400'
                           : state === 'recovering'
                           ? 'text-amber-400'
                           : state === 'ready'
                           ? 'text-emerald-400'
-                          : 'text-white'
+                          : 'text-text-primary'
                       }`}>
                         {fData?.residualFeu ? fData.residualFeu.toFixed(2) : '0.00'} FEU
-                      </span>
-                      <span className="text-[10px] text-zinc-400 block mt-0.5">Activa ahora</span>
+                      </strong>
+                      <span className="block truncate text-[10px] text-text-muted mt-0.5">Activa ahora</span>
                     </div>
 
-                    {/* Metric 2: 7-day Load */}
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                      <span className="text-[10px] text-zinc-500 block uppercase">Carga 7 días</span>
-                      <span className="text-sm font-bold text-accent">
+                    <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
+                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Carga 7 días</span>
+                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-accent">
                         {fData?.rolling7DayFeu ? fData.rolling7DayFeu.toFixed(2) : '0.00'} FEU
-                      </span>
-                      <span className="text-[10px] text-zinc-400 block mt-0.5">
+                      </strong>
+                      <span className="block truncate text-[10px] text-text-muted mt-0.5">
                         {fData?.totalEligibleSets ?? 0} series
                       </span>
                     </div>
 
-                    {/* Metric 3: Time elapsed */}
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                      <span className="text-[10px] text-zinc-500 block uppercase">Última exposición</span>
-                      <span className="text-sm font-bold text-white">
+                    <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
+                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Última exposición</span>
+                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold text-text-primary truncate">
                         {hoursAgo !== null ? `Hace ${hoursAgo}h` : 'Descansado'}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 block mt-0.5">
+                      </strong>
+                      <span className="block truncate text-[10px] text-text-muted mt-0.5">
                         {fData?.unknownEffortCount ? `${fData.unknownEffortCount} s/ RIR` : 'Esfuerzo medido'}
                       </span>
                     </div>
@@ -677,15 +671,15 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
                   {/* Contributors list */}
                   {fData && fData.contributors.length > 0 && (
-                    <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04] space-y-1.5 font-mono">
-                      <span className="text-[10px] text-zinc-400 block font-semibold">
+                    <div className="p-2.5 rounded-ui-lg bg-surface-input border border-border-subtle space-y-1.5">
+                      <span className="text-[11px] text-text-muted block font-semibold">
                         Componentes anatómicos que aportan a esta región:
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {fData.contributors.map((c) => (
                           <span
                             key={getContributionTargetKey(c.target)}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-white/[0.06] border border-white/10 text-zinc-300 flex items-center gap-1"
+                            className="px-2 py-0.5 rounded-ui-md text-[10px] font-medium bg-surface border border-border-subtle text-text-secondary flex items-center gap-1"
                           >
                             <span>{getMuscleTargetDisplayName(c.target, 'es')}</span>
                             <span className="text-accent font-bold">({c.residualFeu.toFixed(2)} FEU)</span>
@@ -698,69 +692,64 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               );
             })()
           ) : (
-            <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
+            <p className="text-xs text-text-muted text-center py-1 font-medium">
               Toca cualquier región anatómica en el cuerpo para ver su carga de fatiga en FEU y componentes reclutados.
             </p>
           )
         ) : mode === 'strength' && selectedData ? (
-          <div className="p-4 rounded-3xl bg-zinc-900/90 border border-white/[0.08] space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
+          <div className="p-3.5 rounded-ui-xl bg-surface border border-border-subtle space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-card">
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-extrabold text-white">
-                      {selectedData.nameEs}
-                    </h4>
-                    {selectedData.strengthEvaluation && (() => {
-                      const visual = getStrengthRankVisual(selectedData.strengthEvaluation.rank);
-                      return (
-                        <span
-                          className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
-                          style={{
-                            backgroundColor: visual.glow,
-                            color: visual.stroke,
-                            border: `1px solid ${visual.stroke}80`
-                          }}
-                        >
-                          {t(`ranks.${selectedData.strengthEvaluation.rank}`)}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <h4 className="text-sm font-extrabold text-text-primary">
+                  {selectedData.nameEs}
+                </h4>
+                {selectedData.strengthEvaluation && (() => {
+                  const visual = getStrengthRankVisual(selectedData.strengthEvaluation.rank);
+                  return (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+                      style={{
+                        backgroundColor: visual.glow,
+                        color: visual.stroke,
+                        border: `1px solid ${visual.stroke}80`
+                      }}
+                    >
+                      {t(`ranks.${selectedData.strengthEvaluation.rank}`)}
+                    </span>
+                  );
+                })()}
               </div>
 
               <button
+                type="button"
                 onClick={() => onSelectMuscle?.(null)}
-                className="text-[10px] text-zinc-400 hover:text-white px-2.5 py-1 rounded-full bg-zinc-800 cursor-pointer transition-colors"
+                className="min-h-8 px-2.5 py-1 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 Cerrar
               </button>
             </div>
 
-            {/* 2 Metrics Cards: Strictly Strength-Derived (Relative Strength & Estimated 1RM) */}
-            <div className="grid grid-cols-2 gap-2 text-center font-mono">
-              {/* Metric 1: Relative Strength */}
-              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                <span className="text-[10px] text-zinc-500 block uppercase">Fuerza Relativa</span>
-                <span className="text-sm font-bold text-accent block">
+            {/* 2 Metrics Strip */}
+            <div className="grid grid-cols-2 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input text-center">
+              <div className="min-w-0 px-2 py-2 min-[390px]:py-2.5">
+                <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Fuerza Relativa</span>
+                <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-accent">
                   {selectedData.topEst1RmKg > 0
                     ? `${selectedData.strengthEvaluation?.currentRatio.toFixed(2)}× BW`
                     : '—'}
-                </span>
-                <span className="text-[10px] text-zinc-400 block mt-0.5">
+                </strong>
+                <span className="block truncate text-[10px] text-text-muted mt-0.5">
                   {selectedData.strengthEvaluation ? `${selectedData.strengthEvaluation.strengthScore.toFixed(2)} / 9.00` : 'Sin evaluar'}
                 </span>
               </div>
 
-              {/* Metric 2: Estimated 1RM */}
-              <div className="p-2.5 rounded-2xl bg-black/40 border border-white/[0.04]">
-                <span className="text-[10px] text-zinc-500 block uppercase">1RM Estimado</span>
-                <span className="text-sm font-bold text-white block">
+              <div className="min-w-0 px-2 py-2 min-[390px]:py-2.5">
+                <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">1RM Estimado</span>
+                <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-text-primary">
                   {selectedData.topEst1RmKg > 0 ? formatDisplayWeight(selectedData.topEst1RmKg, preferences.units) : '—'}
-                </span>
-                <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[140px] mx-auto" title={selectedData.topExerciseName}>
+                </strong>
+                <span className="block truncate text-[10px] text-text-muted mt-0.5 max-w-[140px] mx-auto" title={selectedData.topExerciseName}>
                   {selectedData.topEst1RmKg > 0 ? (selectedData.topExerciseName || 'Top set') : 'Sin registro'}
                 </span>
               </div>
@@ -768,28 +757,28 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
             {/* Gamification Progress Bar toward Next Rank */}
             {selectedData.strengthEvaluation && selectedData.strengthEvaluation.nextRank && (
-              <div className="p-3 rounded-2xl bg-black/50 border border-white/[0.06] space-y-1.5 font-mono">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-400 text-[11px] flex items-center gap-1">
+              <div className="p-3 rounded-ui-lg bg-surface-input border border-border-subtle space-y-1.5 font-mono">
+                <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+                  <span className="text-text-muted text-[11px] flex items-center gap-1">
                     Siguiente Rango:
-                    <strong className="text-white">
+                    <strong className="text-text-primary">
                       {t(`ranks.${selectedData.strengthEvaluation.nextRank}`)}
                     </strong>
                   </span>
-                  <span className="text-accent font-bold text-[11px]">
+                  <span className="text-accent font-bold text-[11px] ui-metric">
                     Faltan ≈ +{formatDisplayWeight(selectedData.strengthEvaluation.kgToNextRank ?? 0, preferences.units)}
                   </span>
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-surface-active h-2 rounded-full overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-sky-500 via-accent to-purple-500 h-full rounded-full transition-all duration-300"
                     style={{ width: `${selectedData.strengthEvaluation.progressPctToNextRank}%` }}
                   />
                 </div>
 
-                <div className="flex justify-between text-[10px] text-zinc-500">
+                <div className="flex justify-between text-[10px] text-text-muted">
                   <span>Actual: {formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)}</span>
                   <span>Objetivo: {formatDisplayWeight(selectedData.strengthEvaluation.targetOneRmKg ?? 0, preferences.units)} ({selectedData.strengthEvaluation.targetRatio}× BW)</span>
                 </div>
@@ -797,14 +786,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             )}
 
             {selectedData.strengthEvaluation && selectedData.strengthEvaluation.rank === 'dios' && (
-              <div className="p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-center font-mono text-xs text-amber-300 flex items-center justify-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+              <div className="p-2.5 rounded-ui-lg bg-amber-500/15 border border-amber-500/30 text-center font-mono text-xs text-amber-300 flex items-center justify-center gap-1.5">
+                <Sparkles className="size-4 text-amber-300 shrink-0" />
                 <span>Rango Dios alcanzado (Rango máximo de fuerza).</span>
               </div>
             )}
           </div>
         ) : (
-          <p className="text-[11px] text-zinc-500 text-center py-1 font-mono">
+          <p className="text-xs text-text-muted text-center py-1 font-medium">
             Toca cualquier grupo muscular en el cuerpo para ver su nivel de fuerza y rango estimado.
           </p>
         )
