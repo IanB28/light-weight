@@ -198,10 +198,13 @@ test('VP.4-A: Context row renders realistically long exercise name without clipp
   // Weekly streak must remain completely present
   assert.match(html, /semanas de racha/i);
 
-  // Source inspection: context row has wrapping classes line-clamp-2 and flex-wrap
+  // Source inspection: context row has wrapping flex-wrap and strictly NO line-clamp or max-w- restriction
   const statsSource = source('views/StatsView.tsx');
-  assert.match(statsSource, /line-clamp-2/, 'Context row exercise name must support 2 lines for long names');
+  const contextRowSource = statsSource.match(/progressSummary\.bestExerciseName[\s\S]*?progressSummary\.weeklyStreak/)?.[0] ?? '';
+  assert.doesNotMatch(contextRowSource, /line-clamp/, 'Context row exercise name must not use line-clamp to ensure full visibility');
+  assert.doesNotMatch(contextRowSource, /max-w-/, 'Context row exercise name must not use artificial max-w constraint');
   assert.match(statsSource, /flex-wrap/, 'Context row must allow wrapping');
+  assert.match(statsSource, /min-\[390px\]:text-base/, 'Overview metrics must scale to 16px at min-[390px]');
 });
 
 test('VP.4-A: Empty history displays — placeholder and noMarks text', () => {
