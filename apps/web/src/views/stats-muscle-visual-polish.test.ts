@@ -177,11 +177,10 @@ test('VP.4-B1: Balance period selector renders 7d, 90d, and full history options
 // STAGE B2 TESTS: ANATOMICAL BODY MAP PRESENTATION & LEGENDS
 // ============================================================================
 
-test('VP.4-B2: AnatomicalBodyMap container uses semantic tokens and preserves front and back views', () => {
+test('VP.4-B2: AnatomicalBodyMap container uses semantic tokens for stats and preserves front and back views', () => {
   const mapSrc = source('components/charts/AnatomicalBodyMap.tsx');
   assert.ok(mapSrc.includes('bg-surface-input'));
   assert.ok(mapSrc.includes('border-border-subtle'));
-  assert.ok(!mapSrc.includes('bg-gradient-to-b from-white/[0.07] to-white/[0.02]'));
 
   const html = renderMap({
     mode: 'balance',
@@ -189,6 +188,7 @@ test('VP.4-B2: AnatomicalBodyMap container uses semantic tokens and preserves fr
     data: {}
   });
 
+  assert.ok(html.includes('bg-surface-input rounded-ui-2xl border border-border-subtle shadow-card'));
   assert.ok(html.includes('Frente'));
   assert.ok(html.includes('Dorso'));
   assert.ok(html.includes('role="img"'));
@@ -215,7 +215,7 @@ test('VP.4-B2: All 9 strength ranks exist in the strength legend with badge imag
   assert.ok(html.includes('Dios'));
 });
 
-test('VP.4-B2: Fatigue legend preserves 4 states with semantic container', () => {
+test('VP.4-B2: Fatigue legend preserves 4 states with semantic container and canonical swatches (Blocker B-04)', () => {
   const html = renderMap({
     mode: 'fatigue',
     gender: 'male',
@@ -226,6 +226,8 @@ test('VP.4-B2: Fatigue legend preserves 4 states with semantic container', () =>
   assert.ok(html.includes('Recuperando'));
   assert.ok(html.includes('Listo'));
   assert.ok(html.includes('Fresco'));
+  assert.ok(html.includes('--untrained-muscle-fill'));
+  assert.ok(html.includes('--untrained-muscle-stroke'));
 });
 
 // ============================================================================
@@ -307,6 +309,8 @@ test('VP.4-B4: Selected balance path detail renders 3-column metric strip and co
   assert.ok(html.includes('Rol dominante'));
   assert.ok(html.includes('Pectoral mayor'));
   assert.ok(html.includes('Cerrar'));
+  assert.ok(html.includes('min-h-11 px-3 py-2'));
+  assert.ok(html.includes('leading-tight break-words'));
 });
 
 test('VP.4-B4: Selected fatigue path detail renders residual FEU, 7-day load, and incomplete-effort banner', () => {
@@ -350,6 +354,8 @@ test('VP.4-B4: Selected fatigue path detail renders residual FEU, 7-day load, an
   assert.ok(html.includes('En recuperación'));
   assert.ok(html.includes('Datos de esfuerzo incompletos: 2 de 5 series'));
   assert.ok(html.includes('Cerrar'));
+  assert.ok(html.includes('min-h-11 px-3 py-2'));
+  assert.ok(html.includes('leading-tight break-words'));
 });
 
 test('VP.4-B4: Selected strength muscle detail renders relative ratio, 1RM, next-rank delta and progress bar', () => {
@@ -403,19 +409,25 @@ test('VP.4-B4: Selected strength muscle detail renders relative ratio, 1RM, next
   assert.ok(html.includes('Maestro'));
   assert.ok(html.includes('Faltan ≈ +12 kg'));
   assert.ok(html.includes('Cerrar'));
+  assert.ok(html.includes('min-h-11 px-3 py-2'));
+  assert.ok(html.includes('leading-tight break-words'));
 });
 
 // ============================================================================
-// SHARED PROFILE & SOCIAL SAFETY TESTS
+// SHARED PROFILE & SOCIAL SAFETY TESTS (BLOCKER B-01)
 // ============================================================================
 
-test('VP.4-B: Profile Strength presentation does not leak detail panels or custom stats containers', () => {
+test('VP.4-B: Profile Strength presentation does not leak detail panels and preserves baseline frosted container (Blocker B-01)', () => {
   const html = renderMap({
     mode: 'strength',
     strengthPresentation: 'profile',
     gender: 'male',
     data: {}
   });
+
+  // Must preserve baseline frosted glass container and mono labels
+  assert.ok(html.includes('bg-gradient-to-b from-white/[0.07] to-white/[0.02] rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xl'));
+  assert.ok(html.includes('text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest'));
 
   // Must NOT render detail card in profile presentation
   assert.ok(!html.includes('Siguiente Rango:'));
@@ -426,7 +438,7 @@ test('VP.4-B: Profile Strength presentation does not leak detail panels or custo
   assert.ok(html.includes('Dios'));
 });
 
-test('VP.4-B: Social presentation renders non-interactive SVG paths without selection handlers', () => {
+test('VP.4-B: Social presentation renders non-interactive SVG paths and preserves baseline frosted container (Blocker B-01)', () => {
   const html = renderMap({
     mode: 'strength',
     strengthPresentation: 'social',
@@ -434,5 +446,7 @@ test('VP.4-B: Social presentation renders non-interactive SVG paths without sele
     data: {}
   });
 
+  // Must preserve baseline frosted glass container
+  assert.ok(html.includes('bg-gradient-to-b from-white/[0.07] to-white/[0.02] rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xl'));
   assert.ok(html.includes('data-interactive="false"'));
 });

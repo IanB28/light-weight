@@ -127,6 +127,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   const { t } = useI18n();
   const { muscleLabel } = useExerciseLabels();
   const isSocialStrength = mode === 'strength' && strengthPresentation === 'social';
+  const isProfileOrSocial = strengthPresentation === 'profile' || strengthPresentation === 'social';
 
   // Guard clause: If user hasn't set gender, display an informative state prompting selection
   if (!gender) {
@@ -427,19 +428,35 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Both Views: Anterior (Frontal) & Posterior (Dorsal) with semantic surface */}
-      <div className="flex items-center justify-center gap-3 sm:gap-6 py-3 px-2 sm:px-4 bg-surface-input rounded-ui-2xl border border-border-subtle shadow-card relative overflow-hidden">
+      {/* Both Views: Anterior (Frontal) & Posterior (Dorsal) */}
+      <div className={`flex items-center justify-center gap-3 sm:gap-6 py-3 px-2 sm:px-4 relative overflow-hidden ${
+        isProfileOrSocial
+          ? 'bg-gradient-to-b from-white/[0.07] to-white/[0.02] rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xl'
+          : 'bg-surface-input rounded-ui-2xl border border-border-subtle shadow-card'
+      }`}>
         <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+          <span className={
+            isProfileOrSocial
+              ? 'text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5'
+              : 'text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5'
+          }>
             {t('stats.front')}
           </span>
           {renderView(genderPaths.front, true)}
         </div>
 
-        <div className="w-px h-56 sm:h-64 bg-gradient-to-b from-transparent via-border-subtle to-transparent shrink-0" />
+        <div className={`h-56 sm:h-64 shrink-0 ${
+          isProfileOrSocial
+            ? 'w-[1px] bg-gradient-to-b from-transparent via-white/15 to-transparent'
+            : 'w-px bg-gradient-to-b from-transparent via-border-subtle to-transparent'
+        }`} />
 
         <div className="flex flex-col items-center flex-1 min-w-0 max-w-[190px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5">
+          <span className={
+            isProfileOrSocial
+              ? 'text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest mb-1.5'
+              : 'text-xs font-semibold uppercase tracking-wider text-text-muted mb-1.5'
+          }>
             {t('stats.back')}
           </span>
           {renderView(genderPaths.back, false)}
@@ -451,7 +468,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         <div className="flex items-center justify-between px-3 py-2 bg-surface-input rounded-ui-lg border border-border-subtle text-xs text-text-muted shadow-sm">
           <span>Menos</span>
           <div className="flex items-center gap-1.5">
-            <span className="w-3.5 h-3.5 rounded bg-border-subtle border border-border-subtle" title="Sin exposición (l0)" />
+            <span
+              className="w-3.5 h-3.5 rounded border"
+              style={{
+                backgroundColor: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))',
+                borderColor: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))'
+              }}
+              title="Sin exposición (l0)"
+            />
             <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_32%,rgba(255,255,255,0.08))] border border-accent/40" title="Exposición baja (l1)" />
             <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_56%,rgba(255,255,255,0.08))] border border-accent/60" title="Exposición media (l2)" />
             <span className="w-3.5 h-3.5 rounded bg-[color-mix(in_srgb,var(--accent-color)_78%,rgba(255,255,255,0.08))] border border-accent/80" title="Exposición alta (l3)" />
@@ -476,8 +500,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             <span className="truncate">Listo</span>
           </div>
           <div className="flex items-center justify-center gap-1 text-text-muted font-semibold" title="Fresco (<0.25 FEU)">
-            <span className="w-2 h-2 rounded-full bg-border-subtle border border-border-subtle shrink-0" />
-            <span className="truncate">Fresco</span>
+            <span
+              className="w-2 h-2 rounded-full border shrink-0"
+              style={{
+                backgroundColor: 'var(--untrained-muscle-fill, rgba(255, 255, 255, 0.07))',
+                borderColor: 'var(--untrained-muscle-stroke, rgba(255, 255, 255, 0.16))'
+              }}
+            />
+            <span className="leading-tight">Fresco</span>
           </div>
         </div>
       )}
@@ -517,7 +547,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectPath?.(null)}
-                      className="min-h-8 px-2.5 py-1 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className="min-h-11 px-3 py-2 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle inline-flex items-center justify-center cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       Cerrar
                     </button>
@@ -526,23 +556,23 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                   {/* 3 Metrics Strip */}
                   <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input text-center">
                     <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
-                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Series de exposición</span>
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">Series de exposición</span>
                       <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-text-primary">{pathData?.exposureCount ?? 0} series</strong>
-                      <span className="block truncate text-[10px] text-text-muted mt-0.5">Estímulo directo</span>
+                      <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words">Estímulo directo</span>
                     </div>
 
                     <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
-                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Series duras</span>
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">Series duras</span>
                       <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-accent">{pathData?.hardExposureCount ?? 0} series</strong>
-                      <span className="block truncate text-[10px] text-text-muted mt-0.5">RIR ≤ 2 / RPE ≥ 8</span>
+                      <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words">RIR ≤ 2 / RPE ≥ 8</span>
                     </div>
 
                     <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
-                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Rol dominante</span>
-                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold text-text-primary truncate">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">Rol dominante</span>
+                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold text-text-primary leading-tight break-words">
                         {pathData?.strongestRole ? (ROLE_DISPLAY_NAMES[pathData.strongestRole]?.es ?? pathData.strongestRole) : '—'}
                       </strong>
-                      <span className="block truncate text-[10px] text-text-muted mt-0.5">
+                      <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words">
                         {pathData?.roles?.length ? `${pathData.roles.length} roles` : 'Sin series'}
                       </span>
                     </div>
@@ -617,7 +647,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectPath?.(null)}
-                      className="min-h-8 px-2.5 py-1 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className="min-h-11 px-3 py-2 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle inline-flex items-center justify-center cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       Cerrar
                     </button>
@@ -633,7 +663,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                   {/* 3 Metrics Strip */}
                   <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input text-center">
                     <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
-                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Carga residual</span>
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">Carga residual</span>
                       <strong className={`mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric ${
                         state === 'fatigued'
                           ? 'text-rose-400'
@@ -645,25 +675,25 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                       }`}>
                         {fData?.residualFeu ? fData.residualFeu.toFixed(2) : '0.00'} FEU
                       </strong>
-                      <span className="block truncate text-[10px] text-text-muted mt-0.5">Activa ahora</span>
+                      <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words">Activa ahora</span>
                     </div>
 
                     <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
-                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Carga 7 días</span>
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">Carga 7 días</span>
                       <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-accent">
                         {fData?.rolling7DayFeu ? fData.rolling7DayFeu.toFixed(2) : '0.00'} FEU
                       </strong>
-                      <span className="block truncate text-[10px] text-text-muted mt-0.5">
+                      <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words">
                         {fData?.totalEligibleSets ?? 0} series
                       </span>
                     </div>
 
                     <div className="min-w-0 px-1.5 py-2 min-[390px]:px-2 min-[390px]:py-2.5">
-                      <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Última exposición</span>
-                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold text-text-primary truncate">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">Última exposición</span>
+                      <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold text-text-primary leading-tight break-words">
                         {hoursAgo !== null ? `Hace ${hoursAgo}h` : 'Descansado'}
                       </strong>
-                      <span className="block truncate text-[10px] text-text-muted mt-0.5">
+                      <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words">
                         {fData?.unknownEffortCount ? `${fData.unknownEffortCount} s/ RIR` : 'Esfuerzo medido'}
                       </span>
                     </div>
@@ -724,7 +754,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectMuscle?.(null)}
-                className="min-h-8 px-2.5 py-1 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="min-h-11 px-3 py-2 text-xs font-semibold text-text-muted hover:text-text-primary rounded-ui-md bg-surface-input hover:bg-surface-active border border-border-subtle inline-flex items-center justify-center cursor-pointer transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 Cerrar
               </button>
@@ -733,23 +763,23 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             {/* 2 Metrics Strip */}
             <div className="grid grid-cols-2 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input text-center">
               <div className="min-w-0 px-2 py-2 min-[390px]:py-2.5">
-                <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">Fuerza Relativa</span>
+                <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">Fuerza Relativa</span>
                 <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-accent">
                   {selectedData.topEst1RmKg > 0
                     ? `${selectedData.strengthEvaluation?.currentRatio.toFixed(2)}× BW`
                     : '—'}
                 </strong>
-                <span className="block truncate text-[10px] text-text-muted mt-0.5">
+                <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words">
                   {selectedData.strengthEvaluation ? `${selectedData.strengthEvaluation.strengthScore.toFixed(2)} / 9.00` : 'Sin evaluar'}
                 </span>
               </div>
 
               <div className="min-w-0 px-2 py-2 min-[390px]:py-2.5">
-                <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">1RM Estimado</span>
+                <span className="block text-[10px] font-bold uppercase tracking-wide text-text-muted leading-tight break-words">1RM Estimado</span>
                 <strong className="mt-0.5 block text-xs min-[390px]:text-sm font-bold ui-metric text-text-primary">
                   {selectedData.topEst1RmKg > 0 ? formatDisplayWeight(selectedData.topEst1RmKg, preferences.units) : '—'}
                 </strong>
-                <span className="block truncate text-[10px] text-text-muted mt-0.5 max-w-[140px] mx-auto" title={selectedData.topExerciseName}>
+                <span className="block text-[10px] text-text-muted mt-0.5 leading-tight break-words max-w-[160px] mx-auto" title={selectedData.topExerciseName}>
                   {selectedData.topEst1RmKg > 0 ? (selectedData.topExerciseName || 'Top set') : 'Sin registro'}
                 </span>
               </div>
@@ -778,7 +808,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                   />
                 </div>
 
-                <div className="flex justify-between text-[10px] text-text-muted">
+                <div className="flex flex-wrap justify-between gap-1 text-[10px] text-text-muted">
                   <span>Actual: {formatDisplayWeight(selectedData.topEst1RmKg, preferences.units)}</span>
                   <span>Objetivo: {formatDisplayWeight(selectedData.strengthEvaluation.targetOneRmKg ?? 0, preferences.units)} ({selectedData.strengthEvaluation.targetRatio}× BW)</span>
                 </div>

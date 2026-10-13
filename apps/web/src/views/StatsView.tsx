@@ -480,7 +480,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   <button
                     type="button"
                     onClick={onOpenSettings}
-                    className="min-h-8 px-2.5 py-1 rounded-ui-md font-bold text-xs bg-accent text-accent-fg hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="min-h-11 px-3 py-2 rounded-ui-md font-bold text-xs bg-accent text-accent-fg inline-flex items-center justify-center hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     {t('stats.configureGender')}
                   </button>
@@ -563,7 +563,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       type="button"
                       onClick={() => setMuscleWindow(opt.days)}
                       aria-pressed={muscleWindow === opt.days}
-                      className={`min-h-8 px-2.5 py-1 rounded-ui-md font-bold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      className={`min-h-11 px-3 py-2 rounded-ui-md font-bold inline-flex items-center justify-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                         muscleWindow === opt.days
                           ? 'bg-accent text-accent-fg shadow-sm'
                           : 'text-text-muted hover:text-text-primary hover:bg-surface-active'
@@ -655,11 +655,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                             className="w-full min-h-12 px-3 py-2.5 flex items-center justify-between text-left hover:bg-amber-500/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400 group cursor-pointer"
                           >
                             <div className="min-w-0 flex-1 pr-2">
-                              <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors block truncate">
+                              <span className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors block leading-tight break-words">
                                 {pathName}
                               </span>
                               {sampleEx && (
-                                <span className="text-[10px] text-amber-300/80 block truncate mt-0.5">
+                                <span className="text-[10px] text-amber-300/80 block leading-tight break-words mt-0.5">
                                   {t('stats.suggested')}: <strong className="text-white font-semibold">{sampleEx.name}</strong>
                                 </span>
                               )}
@@ -744,11 +744,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                 }`}
                               />
                               <div className="min-w-0">
-                                <span className="text-xs font-bold text-text-primary capitalize block truncate">
+                                <span className="text-xs font-bold text-text-primary capitalize block leading-tight break-words">
                                   {getBodyPathDisplayName(path, 'es')}
                                 </span>
                                 {pathData && pathData.strongestRole && exposureCount > 0 && (
-                                  <span className="text-[10px] font-mono text-text-muted block truncate">
+                                  <span className="text-[10px] font-mono text-text-muted block leading-tight break-words">
                                     Rol: {ROLE_DISPLAY_NAMES[pathData.strongestRole]?.es ?? pathData.strongestRole}
                                   </span>
                                 )}
@@ -810,10 +810,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                 }`}
                               />
                               <div className="min-w-0">
-                                <span className="text-xs font-bold text-text-primary capitalize block truncate">
+                                <span className="text-xs font-bold text-text-primary capitalize block leading-tight break-words">
                                   {getBodyPathDisplayName(path, 'es')}
                                 </span>
-                                <span className="text-[10px] font-mono text-text-muted block truncate">
+                                <span className="text-[10px] font-mono text-text-muted block leading-tight break-words">
                                   {hoursAgo !== null
                                     ? `Hace ${hoursAgo}h (${totalSets} series)`
                                     : hasIncompleteEffort
@@ -888,12 +888,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
                               )}
 
                               <div className="min-w-0">
-                                <span className="text-xs font-bold text-text-primary capitalize block truncate">
+                                <span className="text-xs font-bold text-text-primary capitalize block leading-tight break-words">
                                   {muscleLabel(m)}
                                 </span>
                                 {item.strengthEvaluation && (
                                   <span
-                                    className="text-[10px] font-mono font-bold block truncate"
+                                    className="text-[10px] font-mono font-bold block leading-tight break-words"
                                     style={{ color: getStrengthRankColor(item.strengthEvaluation.rank) }}
                                   >
                                     {t(`ranks.${item.strengthEvaluation.rank}`)} • {item.strengthEvaluation.currentRatio.toFixed(2)}× BW
@@ -908,7 +908,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                                   {item.topEst1RmKg > 0 ? formatDisplayWeight(item.topEst1RmKg, preferences.units) : t('stats.noData')}
                                 </span>
                                 {item.strengthEvaluation?.nextRank && item.strengthEvaluation.kgToNextRank !== null ? (
-                                  <span className="text-purple-400 text-[10px] block truncate">
+                                  <span className="text-purple-400 text-[10px] block leading-tight break-words">
                                     +{formatDisplayWeight(item.strengthEvaluation.kgToNextRank, preferences.units)} → {t(`ranks.${item.strengthEvaluation.nextRank}`)}
                                   </span>
                                 ) : item.strengthEvaluation?.rank === 'dios' ? (
