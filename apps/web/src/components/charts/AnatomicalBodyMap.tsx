@@ -486,18 +486,18 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       )}
 
       {mode === 'fatigue' && (
-        <div className="grid grid-cols-4 gap-1.5 p-2 bg-surface-input rounded-ui-lg border border-border-subtle text-[10px] text-center shadow-sm">
+        <div className="grid grid-cols-4 gap-1 min-[360px]:gap-1.5 px-1.5 py-2 min-[360px]:p-2 bg-surface-input rounded-ui-lg border border-border-subtle text-[9px] min-[340px]:text-[9.5px] min-[380px]:text-[10px] tracking-tight min-[380px]:tracking-normal text-center shadow-sm">
           <div className="flex items-center justify-center gap-1 text-rose-400 font-semibold" title="Fatigado (≥3.00 FEU)">
             <span className="w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 shrink-0" />
-            <span className="truncate">Fatigado</span>
+            <span className="leading-tight">Fatigado</span>
           </div>
           <div className="flex items-center justify-center gap-1 text-amber-400 font-semibold" title="En recuperación (1.00 – 2.99 FEU)">
             <span className="w-2 h-2 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50 shrink-0" />
-            <span className="truncate">Recuperando</span>
+            <span className="leading-tight">Recuperando</span>
           </div>
           <div className="flex items-center justify-center gap-1 text-emerald-400 font-semibold" title="Listo (0.25 – 0.99 FEU)">
             <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 shrink-0" />
-            <span className="truncate">Listo</span>
+            <span className="leading-tight">Listo</span>
           </div>
           <div className="flex items-center justify-center gap-1 text-text-muted font-semibold" title="Fresco (<0.25 FEU)">
             <span

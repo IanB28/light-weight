@@ -170,7 +170,7 @@ test('VP.4-B1: Balance period selector renders 7d, 90d, and full history options
   assert.ok(statsSrc.includes("days: 0, label: t('stats.allTime')"));
   assert.ok(statsSrc.includes('aria-pressed={muscleWindow === opt.days}'));
   assert.ok(statsSrc.includes("t('stats.window')"));
-  assert.ok(statsSrc.includes('min-h-11'));
+  assert.ok(statsSrc.includes('min-w-11 min-h-11'));
 });
 
 // ============================================================================

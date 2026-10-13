@@ -563,7 +563,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       type="button"
                       onClick={() => setMuscleWindow(opt.days)}
                       aria-pressed={muscleWindow === opt.days}
-                      className={`min-h-11 px-3 py-2 rounded-ui-md font-bold inline-flex items-center justify-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      className={`min-w-11 min-h-11 px-3 py-2 rounded-ui-md font-bold inline-flex items-center justify-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                         muscleWindow === opt.days
                           ? 'bg-accent text-accent-fg shadow-sm'
                           : 'text-text-muted hover:text-text-primary hover:bg-surface-active'
