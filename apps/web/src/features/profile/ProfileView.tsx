@@ -367,7 +367,7 @@ export function ProfileView({
         {[
           [summary.totalWorkouts, t('profile.workouts')],
           [new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(displayWeight(summary.totalVolumeKg, preferences.units)), t('profile.volume', { unit: WEIGHT_UNIT_PRESETS[preferences.units].unit })],
-          [summary.streak, t('profile.weeks')]
+          [summary.streak, t(summary.streak === 1 ? 'profile.week' : 'profile.weeks')]
         ].map(([value, label]) => <div key={String(label)} className="min-w-0 px-1.5"><p className="truncate text-base font-extrabold tracking-tight tabular-nums text-text-primary">{value}</p><p className="mt-0.5 text-[10px] font-medium leading-tight text-text-muted">{label}</p></div>)}
       </AppCard>
 
