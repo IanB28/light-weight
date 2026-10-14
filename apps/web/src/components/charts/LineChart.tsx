@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 
 export interface ChartPoint {
   t: number;        // timestamp in ms
@@ -31,6 +31,12 @@ export const LineChart: React.FC<LineChartProps> = ({
     if (!points || points.length === 0) return [];
     return [...points].sort((a, b) => a.t - b.t);
   }, [points]);
+
+  useEffect(() => {
+    setActivePoint(null);
+  }, [points]);
+
+  const visibleActivePoint = activePoint && sorted.includes(activePoint) ? activePoint : null;
 
   if (!sorted || sorted.length === 0) {
     return (
@@ -86,7 +92,7 @@ export const LineChart: React.FC<LineChartProps> = ({
   const gridSteps = [maxY - yRange * 0.15, midYVal, minY + yRange * 0.15];
 
   // Three useful date labels avoid repeated month names on short ranges.
-  const monthLabels = useMemo(() => {
+  const monthLabels = (() => {
     const d0 = new Date(t0);
     const d1 = new Date(t1);
     const formatDate = (date: Date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
@@ -101,7 +107,7 @@ export const LineChart: React.FC<LineChartProps> = ({
       { text: cap(mMid), x: W / 2 },
       { text: cap(m1), x: W - padding.right - 20 }
     ];
-  }, [t0, t1, W, padding]);
+  })();
 
   const latestPoint = sorted[sorted.length - 1];
 
@@ -234,7 +240,7 @@ export const LineChart: React.FC<LineChartProps> = ({
         {sorted.map((p, idx) => {
           const cx = getX(p.t);
           const cy = getY(p.y);
-          const isSelected = activePoint === p;
+          const isSelected = visibleActivePoint === p;
           return (
             <g
               key={idx}
@@ -279,13 +285,13 @@ export const LineChart: React.FC<LineChartProps> = ({
       </svg>
 
       {/* Tooltip Card when tapped */}
-      {activePoint && (
+      {visibleActivePoint && (
         <div className="mt-1 p-2 px-3 rounded-xl bg-zinc-900/90 border border-white/[0.08] text-xs flex items-center justify-between shadow-lg backdrop-blur-md">
           <span className="text-[10px] text-zinc-400">
-            {activePoint.dateStr || new Date(activePoint.t).toLocaleDateString('es-ES')}
+            {visibleActivePoint.dateStr || new Date(visibleActivePoint.t).toLocaleDateString('es-ES')}
           </span>
           <span className="font-bold text-white text-xs">
-            {activePoint.y.toString().replace('.', ',')} {unit}
+            {visibleActivePoint.y.toString().replace('.', ',')} {unit}
           </span>
         </div>
       )}

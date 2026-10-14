@@ -60,6 +60,7 @@
     "src/components/ui/**/*.tsx",
     "src/components/StrengthRankBadge.tsx",
     "src/components/charts/AnatomicalBodyMap.tsx",
+    "src/components/charts/LineChart.test.ts",
     "src/components/charts/ExerciseAnatomyMap.tsx",
     "src/components/charts/exercise-anatomy-map.test.ts",
     "src/components/charts/anatomical-map-integrity.test.ts",

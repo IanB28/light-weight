@@ -45,29 +45,41 @@ function renderStats(history: WorkoutSession[] = []) {
     })));
 }
 
-test('Progress restores its informational 30-day card above exactly three analytical sections', () => {
-  for (const history of [[], [workout]] as WorkoutSession[][]) {
-    const html = renderStats(history);
-    const summaryAt = html.indexOf('data-testid="progress-30-day-summary"');
-    const analysisAt = html.indexOf(dictionaries.es['stats.fullAnalysis']);
-    assert.ok(summaryAt >= 0 && summaryAt < analysisAt);
-    assert.ok(html.includes(dictionaries.es['stats.last30']));
-    assert.equal((html.match(/aria-expanded="false"/g) ?? []).length, 3);
-    for (const key of ['stats.musclesTitle', 'stats.exerciseProgressTitle', 'stats.calculatorTitle'] as const) {
-      assert.ok(html.includes(dictionaries.es[key]), key);
+test('Progress restores its informational 30-day card with clock-stable singular and plural streaks', (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-14T12:00:00.000Z') });
+  const previousWeek: WorkoutSession = {
+    ...workout, id: 'progress-previous-week', startedAt: '2026-10-05T16:00:00.000Z', performedDate: '2026-10-05'
+  };
+  try {
+    for (const { history, streak } of [
+      { history: [] as WorkoutSession[], streak: 0 },
+      { history: [workout], streak: 1 },
+      { history: [workout, previousWeek], streak: 2 }
+    ]) {
+      const html = renderStats(history);
+      const summaryAt = html.indexOf('data-testid="progress-30-day-summary"');
+      const analysisAt = html.indexOf(dictionaries.es['stats.fullAnalysis']);
+      assert.ok(summaryAt >= 0 && summaryAt < analysisAt);
+      assert.ok(html.includes(dictionaries.es['stats.last30']));
+      assert.equal((html.match(/aria-expanded="false"/g) ?? []).length, 3);
+      for (const key of ['stats.musclesTitle', 'stats.exerciseProgressTitle', 'stats.calculatorTitle'] as const) {
+        assert.ok(html.includes(dictionaries.es[key]), key);
+      }
+      for (const key of ['stats.bodyweightTitle', 'stats.consistencyTitle'] as const) {
+        assert.ok(!html.includes(dictionaries.es[key]), key);
+      }
+      const summary = html.slice(summaryAt, analysisAt);
+      assert.ok(summary.includes(dictionaries.es['stats.bestE1rm']));
+      assert.ok(summary.includes(dictionaries.es['stats.sessions']));
+      assert.ok(summary.includes(dictionaries.es['stats.volume']));
+      const streakKey = streak === 1 ? 'stats.streakWeek' : 'stats.streakWeeks';
+      assert.ok(summary.includes(dictionaries.es[streakKey].replace('{{count}}', String(streak))));
+      assert.equal((summary.match(/<button\b/g) ?? []).length, history.length ? 1 : 0);
+      if (history.length) assert.ok(summary.includes(dictionaries.es['stats.totalHistoricalTonnage']));
+      assert.ok(html.includes('02:35'));
     }
-    for (const key of ['stats.bodyweightTitle', 'stats.consistencyTitle'] as const) {
-      assert.ok(!html.includes(dictionaries.es[key]), key);
-    }
-    const summary = html.slice(summaryAt, analysisAt);
-    assert.ok(summary.includes(dictionaries.es['stats.bestE1rm']));
-    assert.ok(summary.includes(dictionaries.es['stats.sessions']));
-    assert.ok(summary.includes(dictionaries.es['stats.volume']));
-    const streakKey = history.length ? 'stats.streakWeek' : 'stats.streakWeeks';
-    assert.ok(summary.includes(dictionaries.es[streakKey].replace('{{count}}', history.length ? '1' : '0')));
-    assert.equal((summary.match(/<button\b/g) ?? []).length, history.length ? 1 : 0);
-    if (history.length) assert.ok(summary.includes(dictionaries.es['stats.totalHistoricalTonnage']));
-    assert.ok(html.includes('02:35'));
+  } finally {
+    context.mock.timers.reset();
   }
 });
 
