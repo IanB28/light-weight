@@ -233,6 +233,15 @@ export function selectProgressSummary(
   };
 }
 
+export function selectTotalVolumeTonnage(
+  history: WorkoutSession[],
+  exercisesById: Record<string, Exercise>,
+  bodyweightEntries: BodyweightEntry[] = []
+): number {
+  return history.reduce((total, session) =>
+    total + calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries), 0);
+}
+
 export function selectLastTopSet(
   history: WorkoutSession[],
   exerciseId: string,
@@ -289,9 +298,7 @@ export function selectStatsSnapshot(
   historicalPersonalRecords?: HistoricalPersonalRecord[]
 ) {
   const exercisesById = buildExercisesById(exercises);
-  const totalVolumeTonnage = history.reduce((total, session) => {
-    return total + calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries ?? []);
-  }, 0);
+  const totalVolumeTonnage = selectTotalVolumeTonnage(history, exercisesById, bodyweightEntries);
 
   const strength = selectStrengthSnapshot(history, exercisesById, {
     bodyweightKg,

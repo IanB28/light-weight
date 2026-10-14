@@ -141,7 +141,7 @@ test('keyboard-hidden destinations leave the tab order without changing selectio
   assert.doesNotMatch(html, /workout-running-indicator/);
 });
 
-test('semantic icon call sites use bodyweight artwork while Stats balance retains Scale', () => {
+test('Home owns bodyweight artwork while Stats balance retains Scale', () => {
   const profile = readFileSync(new URL('../../src/features/profile/ProfileView.tsx', import.meta.url), 'utf8');
   const tracker = readFileSync(new URL('../../src/components/WeightTrackerCard.tsx', import.meta.url), 'utf8');
   const modal = readFileSync(new URL('../../src/components/BodyweightModal.tsx', import.meta.url), 'utf8');
@@ -157,7 +157,7 @@ test('semantic icon call sites use bodyweight artwork while Stats balance retain
   assert.match(widget, /icon === 'target'/);
   assert.match(widget, /SEMANTIC_ICON_ASSETS\.goalWeight/);
   assert.match(widget, /SEMANTIC_ICON_ASSETS\.bodyweight/);
-  assert.match(stats, /SEMANTIC_ICON_ASSETS\.bodyweight/);
+  assert.doesNotMatch(stats, /SEMANTIC_ICON_ASSETS\.bodyweight/);
   assert.match(stats, /<Scale className="w-3\.5 h-3\.5" \/>\s*<span>\{t\('stats\.balance'\)\}/);
 });
 

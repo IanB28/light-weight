@@ -277,10 +277,6 @@ export function App() {
           onOpenSettings={openRootSettings}
           profile={effectiveProfile}
           bodyweightEntries={data.bodyweightEntries}
-          targetWeight={data.targetWeight}
-          onSaveBodyweight={data.saveBodyweight}
-          onSaveTargetWeight={data.saveTargetWeight}
-          onSaveProfile={handleSaveProfile}
         />}
 
         {currentTab === 'plan' && <PlanHeader

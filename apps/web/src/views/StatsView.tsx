@@ -4,8 +4,6 @@ import {
   Calculator,
   Flame,
   Scale,
-  Calendar,
-  ChevronRight,
   ChevronDown,
   Plus,
   Minus,
@@ -20,12 +18,8 @@ import {
 } from 'lucide-react';
 import {
   estimateOneRm,
-  calculateWeeklyStreak,
   getExerciseProgressSeries,
-  getNeglectedMuscles,
   evaluateRelativeStrength,
-  shouldCountForPersonalRecord,
-  shouldCountForVolume,
   type Gender,
   type WorkoutSession,
   type Exercise,
@@ -34,24 +28,17 @@ import {
 } from '@light-weight/domain';
 import { type UserProfile, type BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from '../components/charts/LineChart.js';
-import { ActivityHeatmap } from '../components/charts/ActivityHeatmap.js';
-import { BodyweightModal } from '../components/BodyweightModal.js';
-import { MaskedPngIcon } from '../components/ui/MaskedPngIcon.js';
-import { SEMANTIC_ICON_ASSETS } from '../components/ui/icon-assets.js';
-import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
-import { TonnageEquivalenceModal } from '../components/TonnageEquivalenceModal.js';
 import { ViewHeader } from '../components/ViewHeader.js';
 import {
   AnatomicalBodyMap,
   AnalysisMode
 } from '../components/charts/AnatomicalBodyMap.js';
-import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
+import { EmptyState, SectionHeader } from '../components/ui/index.js';
 import { ExercisePicker } from '../components/ExercisePicker.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
-import { selectLastTopSet, selectStatsSnapshot } from '../features/stats/stats-selectors.js';
-import { calculateHistoricalSessionVolume } from '../lib/historical-volume.js';
+import { buildExercisesById, selectExercisesWithHistory, selectLastTopSet, selectMuscleAnalytics } from '../features/stats/stats-selectors.js';
 import { StrengthRankBadge } from '../components/StrengthRankBadge.js';
 import { getStrengthRankColor } from '../lib/strength-rank-visuals.js';
 import {
@@ -77,10 +64,6 @@ interface StatsViewProps {
   onOpenSettings?: () => void;
   profile: UserProfile;
   bodyweightEntries: BodyweightEntry[];
-  targetWeight: number | null;
-  onSaveBodyweight: (weightKg: number) => void;
-  onSaveTargetWeight: (weightKg: number) => void;
-  onSaveProfile: (profile: Partial<UserProfile>) => void;
 }
 
 const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
@@ -106,24 +89,17 @@ export const StatsView: React.FC<StatsViewProps> = ({
   onNavigateToWorkout,
   onOpenSettings,
   profile,
-  bodyweightEntries,
-  targetWeight,
-  onSaveBodyweight,
-  onSaveTargetWeight,
-  onSaveProfile
+  bodyweightEntries
 }) => {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
-  const bodyweightUnit = WEIGHT_UNIT_PRESETS[preferences.bodyweightUnits].unit;
   const calculatorStepKg = preferences.units === 'imperial' ? parseDisplayWeight(5, 'imperial') : 2.5;
   const { muscleLabel } = useExerciseLabels();
   const accordionId = React.useId();
   const sectionPanelIds = {
     muscles: `${accordionId}-muscles`,
     exercise: `${accordionId}-exercise`,
-    consistency: `${accordionId}-consistency`,
-    bodyweight: `${accordionId}-bodyweight`,
     calculator: `${accordionId}-calculator`
   } as const;
 
@@ -136,7 +112,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
   const currentGender: Gender | undefined = profile.gender;
 
-  const [isBwModalOpen, setIsBwModalOpen] = useState(false);
   const currentBodyweightKg = useMemo(() => bodyweightEntries.at(-1)?.weightKg ?? null, [bodyweightEntries]);
 
   // =========================================================================
@@ -149,18 +124,18 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [selectedFatiguePath, setSelectedFatiguePath] = useState<BodyMusclePath | null>(null);
 
   // Exercise lookup dictionary
-  const statsSnapshot = useMemo(
-    () => selectStatsSnapshot(history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries, historicalPersonalRecords),
-    [history, exercises, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries, historicalPersonalRecords]
+  const exercisesById = useMemo(() => buildExercisesById(exercises), [exercises]);
+  const muscleSnapshot = useMemo(
+    () => selectMuscleAnalytics(history, exercisesById, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries, historicalPersonalRecords),
+    [history, exercisesById, muscleWindow, currentBodyweightKg, currentGender, bodyweightEntries, historicalPersonalRecords]
   );
-  const exercisesById = statsSnapshot.exercisesById;
 
   // Muscle Balance & Neglected Muscles calculation
-  const muscleAnalysis = statsSnapshot.muscle.muscleAnalysis;
+  const muscleAnalysis = muscleSnapshot.muscleAnalysis;
 
-  const fullMuscleAnalytics = statsSnapshot.muscle.fullMuscleAnalytics;
-  const semanticBalance = statsSnapshot.muscle.semanticBalance;
-  const semanticFatigue = statsSnapshot.muscle.semanticFatigue;
+  const fullMuscleAnalytics = muscleSnapshot.fullMuscleAnalytics;
+  const semanticBalance = muscleSnapshot.semanticBalance;
+  const semanticFatigue = muscleSnapshot.semanticFatigue;
 
   const underexposedPaths = useMemo(() => {
     if (!semanticBalance) return [];
@@ -190,7 +165,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [selectedExId, setSelectedExId] = useState<string>('ex-bench');
   const [exMetric, setExMetric] = useState<'top' | 'e1rm' | 'rir'>('top');
 
-  const exercisesWithHistory = statsSnapshot.exercisesWithHistory;
+  const exercisesWithHistory = useMemo(() => selectExercisesWithHistory(history, exercisesById), [history, exercisesById]);
 
   const currentExerciseId = exercisesWithHistory.some((e) => e.id === selectedExId)
     ? selectedExId
@@ -229,26 +204,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   }, [exerciseSeries]);
 
   // =========================================================================
-  // 3. PESO CORPORAL & METAS
-  // =========================================================================
-  const bwChartPoints: ChartPoint[] = useMemo(() => {
-    return bodyweightEntries.map((b) => ({
-      t: b.timestamp,
-      y: displayWeight(b.weightKg, preferences.bodyweightUnits),
-      dateStr: b.date
-    }));
-  }, [bodyweightEntries, preferences.bodyweightUnits]);
-
-  const bw30DayDelta = useMemo(() => {
-    if (bodyweightEntries.length < 2) return null;
-    const latest = bodyweightEntries[bodyweightEntries.length - 1].weightKg;
-    const past = bodyweightEntries[0].weightKg;
-    return displayWeight(latest - past, preferences.bodyweightUnits);
-  }, [bodyweightEntries, preferences.bodyweightUnits]);
-
-  // =========================================================================
-  // =========================================================================
-  // 4. CALCULADORA 1RM PERSONALIZADA CON HISTORIAL Y BIOMETRÍA
+  // 3. CALCULADORA 1RM PERSONALIZADA CON HISTORIAL Y BIOMETRÍA
   // =========================================================================
   const calcExerciseOptions = useMemo(() => {
     const map = new Map<string, Exercise>();
@@ -297,27 +253,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
   const [isNeglectedListOpen, setIsNeglectedListOpen] = useState(false);
   const [isEffectiveSetsOpen, setIsEffectiveSetsOpen] = useState(false);
 
-  // Total tonnage y modal de equivalencias cotidianas
-  const [isTonnageModalOpen, setIsTonnageModalOpen] = useState(false);
-  const totalVolumeTonnage = statsSnapshot.totalVolumeTonnage;
-  const progressSummary = statsSnapshot.progressSummary;
-
-  const compactNumber = useMemo(
-    () => new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }),
-    [locale]
-  );
-
-  // Modal handlers
-  const [inspectingSession, setInspectingSession] = useState<WorkoutSession | null>(null);
-
-  const handleSaveWeight = (weightKg: number) => {
-    onSaveBodyweight(weightKg);
-  };
-
-  const handleSaveGoal = (goalKg: number) => {
-    onSaveTargetWeight(goalKg);
-  };
-
   return (
     <div className="space-y-4 pb-28">
       {/* El primer nivel responde cómo va el usuario antes de exponer la analítica. */}
@@ -330,48 +265,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
         onOpenSettings={onOpenSettings}
       />
 
-      <AppCard compact className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-wider text-text-secondary">{t('stats.last30')}</p>
-            <p className="mt-0.5 text-[11px] text-text-muted">{t('stats.activity')}</p>
-          </div>
-          <TrendingUp aria-hidden="true" className="size-5 shrink-0 text-accent" />
-        </div>
-
-        <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input">
-          <div className="min-w-0 px-2 py-3 text-center">
-            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.bestE1rm')}</span>
-            <strong className="mt-1 block truncate text-sm text-text-primary">
-              {progressSummary.bestEstimatedOneRm > 0 ? formatDisplayWeight(progressSummary.bestEstimatedOneRm, preferences.units) : '—'}
-            </strong>
-          </div>
-          <div className="min-w-0 px-2 py-3 text-center">
-            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.sessions')}</span>
-            <strong className="mt-1 block text-sm text-text-primary">{progressSummary.sessions}</strong>
-          </div>
-          <div className="min-w-0 px-2 py-3 text-center">
-            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.volume')}</span>
-            <strong className="mt-1 block truncate text-sm text-text-primary">{compactNumber.format(displayWeight(progressSummary.volumeKg, preferences.units))} {weightUnit}</strong>
-          </div>
-        </div>
-
-        <div className="flex min-h-10 items-center justify-between gap-3 text-xs">
-          <span className="min-w-0 truncate text-text-muted">
-            {progressSummary.bestExerciseName || t('stats.noMarks')}
-          </span>
-          <span className="shrink-0 font-semibold text-text-secondary">
-            {t('stats.streakWeeks', { count: progressSummary.weeklyStreak })}
-          </span>
-        </div>
-
-        {totalVolumeTonnage > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setIsTonnageModalOpen(true)} className="w-full text-text-muted">
-            <Flame aria-hidden="true" className="size-4 text-accent" />
-            Tonelaje histórico: {compactNumber.format(displayWeight(totalVolumeTonnage, preferences.units))} {weightUnit}
-          </Button>
-        )}
-      </AppCard>
 
       <SectionHeader title={t('stats.fullAnalysis')} meta={t('stats.openSection')} />
 
@@ -1044,205 +937,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
       </div>
 
       {/* ------------------------------------------------------------------------- */}
-      {/* 3. SECCIÓN: CONSISTENCIA & CALENDARIO                                     */}
-      {/* ------------------------------------------------------------------------- */}
-      <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
-        <button
-          type="button"
-          onClick={() => toggleSection('consistency')}
-          aria-expanded={openSection === 'consistency'}
-          aria-controls={sectionPanelIds.consistency}
-          className="flex min-h-16 w-full items-center justify-between p-4 text-left transition-[transform,background-color] duration-100 ease-out hover:bg-surface-active active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
-        >
-          <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
-                {t('stats.consistencyTitle')}
-              </h2>
-              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                {t('stats.consistencyDescription')}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
-              {t('stats.sessionCount', { count: history.length })}
-            </span>
-            <ChevronDown
-              aria-hidden="true"
-              className={`size-5 shrink-0 text-text-muted transition-transform duration-200 ${
-                openSection === 'consistency' ? 'rotate-180 text-accent' : ''
-              }`}
-            />
-          </div>
-        </button>
-
-        {openSection === 'consistency' && (
-          <div id={sectionPanelIds.consistency} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
-            {/* Mapa de Calor */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
-                  {t('stats.activity32')}
-                </span>
-                <span className="text-[10px] text-zinc-400 font-mono">
-                  {history.length} sesiones registradas
-                </span>
-              </div>
-              <ActivityHeatmap history={history} exercisesById={exercisesById} bodyweightEntries={bodyweightEntries} />
-            </div>
-
-            {/* Listado Reciente de Entrenamientos */}
-            <div className="space-y-2 pt-1">
-              <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase block">
-                {t('stats.recentWorkouts')}
-              </span>
-              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                {history.slice(0, 10).map((session) => {
-                  const vol = calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries);
-                  const totalSets = Object.values(session.sets).reduce(
-                    (acc, sList) => acc + sList.filter((s) => s.completed).length,
-                    0
-                  );
-
-                  return (
-                    <div
-                      key={session.id}
-                      onClick={() => setInspectingSession(session)}
-                      className="p-3 rounded-2xl glass-subcard hover:border-white/20 transition-all flex items-center justify-between cursor-pointer active:scale-[0.98]"
-                    >
-                      <div>
-                        <span className="text-xs font-bold text-white block">
-                          {session.routineName}
-                        </span>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">
-                          {new Date(session.startedAt).toLocaleDateString(locale, {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short'
-                          })}{' '}
-                          • {totalSets} {t('workout.sets')}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-accent">
-                          {displayWeight(vol, preferences.units).toLocaleString(locale)} {weightUnit}
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-zinc-500" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ------------------------------------------------------------------------- */}
-      {/* 4. SECCIÓN: PESO CORPORAL & META                                          */}
-      {/* ------------------------------------------------------------------------- */}
-      <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
-        <button
-          type="button"
-          onClick={() => toggleSection('bodyweight')}
-          aria-expanded={openSection === 'bodyweight'}
-          aria-controls={sectionPanelIds.bodyweight}
-          className="flex min-h-16 w-full items-center justify-between p-4 text-left transition-[transform,background-color] duration-100 ease-out hover:bg-surface-active active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
-        >
-          <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-ui-lg border border-border-subtle bg-surface-input text-accent">
-              <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-base font-extrabold leading-snug tracking-tight text-text-primary">
-                {t('stats.bodyweightTitle')}
-              </h2>
-              <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                {t('stats.bodyweightDescription')}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/[0.04] text-zinc-300 border border-white/[0.06] shrink-0">
-              {bodyweightEntries.length > 0 ? formatDisplayWeight(bodyweightEntries[bodyweightEntries.length - 1].weightKg, preferences.bodyweightUnits) : '—'}
-            </span>
-            <ChevronDown
-              aria-hidden="true"
-              className={`size-5 shrink-0 text-text-muted transition-transform duration-200 ${
-                openSection === 'bodyweight' ? 'rotate-180 text-accent' : ''
-              }`}
-            />
-          </div>
-        </button>
-
-        {openSection === 'bodyweight' && (
-          <div id={sectionPanelIds.bodyweight} className="space-y-4 border-t border-border-subtle p-4 pt-1 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
-                {t('stats.weightSummary')}
-              </span>
-              <button
-                onClick={() => setIsBwModalOpen(true)}
-                className="px-3.5 py-1.5 rounded-full bg-accent text-accent-fg font-bold text-xs flex items-center gap-1 active:scale-95 transition-all shadow-sm cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                {t('weight.log')}
-              </button>
-            </div>
-
-            {bodyweightEntries.length === 0 ? (
-              <EmptyState title={t('weight.empty')} description={t('weight.emptyDescription')} icon={<MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5" />} actionLabel={t('weight.log')} onAction={() => setIsBwModalOpen(true)} />
-            ) : (<>
-            {/* Metric Banner */}
-            <div className="grid grid-cols-3 gap-2 p-3 glass-subcard rounded-2xl text-center">
-              <div>
-                <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.latestWeight')}</span>
-                <span className="text-base font-extrabold text-white font-mono">
-                  {bodyweightEntries.length > 0 ? formatDisplayWeight(bodyweightEntries[bodyweightEntries.length - 1].weightKg, preferences.bodyweightUnits) : '—'}
-                </span>
-              </div>
-              <div className="border-x border-white/[0.06]">
-                <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.goal')}</span>
-                <span className="text-base font-extrabold text-accent font-mono">
-                  {targetWeight ? formatDisplayWeight(targetWeight, preferences.bodyweightUnits) : '—'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] text-zinc-500 font-mono block">{t('stats.delta30')}</span>
-                <span
-                  className={`text-base font-extrabold font-mono ${
-                    bw30DayDelta && bw30DayDelta < 0 ? 'text-accent' : 'text-zinc-300'
-                  }`}
-                >
-                  {bw30DayDelta !== null ? `${bw30DayDelta > 0 ? '+' : ''}${bw30DayDelta} ${bodyweightUnit}` : '—'}
-                </span>
-              </div>
-            </div>
-
-            {/* LineChart con Meta */}
-            <div className="pt-2">
-              <LineChart
-                points={bwChartPoints}
-                height={160}
-                unit={bodyweightUnit}
-                color="var(--accent-color)"
-                goal={targetWeight === null ? null : displayWeight(targetWeight, preferences.bodyweightUnits)}
-              />
-            </div>
-            </>)}
-          </div>
-        )}
-      </div>
-
-      {/* ------------------------------------------------------------------------- */}
-      {/* 5. SECCIÓN: CALCULADORA 1RM PERSONALIZADA                                 */}
+      {/* 3. SECCIÓN: CALCULADORA 1RM PERSONALIZADA                                 */}
       {/* ------------------------------------------------------------------------- */}
       <div className="glass-surface relative overflow-hidden rounded-ui-xl border border-border-subtle shadow-card transition-colors hover:border-border-active">
         <button
@@ -1498,29 +1193,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
         )}
       </div>
 
-      {/* MODALES */}
-      <BodyweightModal
-        isOpen={isBwModalOpen}
-        onClose={() => setIsBwModalOpen(false)}
-        currentGoal={targetWeight}
-        currentWeightKg={currentBodyweightKg}
-        onSaveWeight={handleSaveWeight}
-        onSaveGoal={handleSaveGoal}
-      />
-
-      <WorkoutDetailModal
-        session={inspectingSession}
-        onClose={() => setInspectingSession(null)}
-        exercisesById={exercisesById}
-        bodyweightEntries={bodyweightEntries}
-      />
-
-      {/* Modal Interactivo de Equivalencias Cotidianas de Tonelaje */}
-      <TonnageEquivalenceModal
-        isOpen={isTonnageModalOpen}
-        onClose={() => setIsTonnageModalOpen(false)}
-        totalKg={totalVolumeTonnage}
-      />
     </div>
   );
 };

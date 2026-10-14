@@ -24,6 +24,7 @@
     "src/lib/workout-history-index.test.ts",
     "src/lib/historical-volume.test.ts",
     "src/views/home-reorganization.test.ts",
+    "src/views/progress-consolidation.test.ts",
     "src/lib/routine-identity-r3.test.ts",
     "src/lib/routine-sync-authority-r31.test.ts",
     "src/features/workouts/historical-prefill-gate.test.ts",
