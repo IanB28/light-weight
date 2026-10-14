@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronUp, Plus } from 'lucide-react';
 import { BodyweightEntry } from '../lib/storage.js';
 import { LineChart, ChartPoint } from './charts/LineChart.js';
-import { AppCard, Button, EmptyState } from './ui/index.js';
+import { AppCard, Button, EmptyState, IconButton } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
@@ -14,13 +14,15 @@ interface WeightTrackerCardProps {
   targetWeight: number | null;
   onOpenLogModal: () => void;
   onOpenGoalModal: () => void;
+  onCollapse?: () => void;
 }
 
 export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
   entries,
   targetWeight,
   onOpenLogModal,
-  onOpenGoalModal
+  onOpenGoalModal,
+  onCollapse
 }) => {
   const { locale, t } = useI18n();
   const { preferences } = usePreferences();
@@ -75,10 +77,15 @@ export const WeightTrackerCard: React.FC<WeightTrackerCardProps> = ({
     <AppCard className="min-w-0 space-y-3 select-none">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <h3 className="ui-section-title min-w-0 flex-1 text-text-secondary">{t('weight.title')}</h3>
-        <Button size="md" onClick={onOpenLogModal} className="shrink-0 rounded-full px-3" aria-label={t('weight.logToday')}>
-          <Plus aria-hidden="true" className="size-4" />
-          <span>{t('weight.log')}</span>
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button size="md" onClick={onOpenLogModal} className="shrink-0 rounded-full px-3" aria-label={t('weight.logToday')}>
+            <Plus aria-hidden="true" className="size-4" />
+            <span>{t('weight.log')}</span>
+          </Button>
+          {onCollapse && <IconButton variant="ghost" aria-label={t('home.collapseWeight')} onClick={onCollapse}>
+            <ChevronUp aria-hidden="true" className="size-4" />
+          </IconButton>}
+        </div>
       </div>
 
       {!latestEntry ? (

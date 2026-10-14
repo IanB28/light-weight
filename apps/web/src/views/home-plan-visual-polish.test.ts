@@ -43,7 +43,7 @@ test('Home keeps its header, logo, seven accessible days and week navigation', (
   assert.match(source('views/HomeView.tsx'), /<AppLogo/);
 });
 
-test('Home today keeps scheduled start, rest focus, alternate training and monthly calendar callbacks', () => {
+test('Home today keeps scheduled start, rest focus, alternate training and weekly historical access', () => {
   const today = DAY_NUM_TO_WEEKDAY[new Date().getDay()];
   const scheduledHtml = renderHome({ ...week(), [today]: routine.id });
   const restHtml = renderHome();
@@ -55,7 +55,7 @@ test('Home today keeps scheduled start, rest focus, alternate training and month
   for (const contract of [
     'onStartWorkout(todayScheduledRoutine.id)',
     'setIsFocusModalOpen(true)',
-    'setIsMonthCalendarOpen(true)',
+    "setSelectedDayDate(item.date)",
     'onOpenLogModal={handleOpenLogWeight}',
     'onOpenGoalModal={handleOpenGoalWeight}'
   ]) assert.ok(homeSource.includes(contract), contract);

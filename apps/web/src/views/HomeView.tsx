@@ -3,7 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dumbbell,
-  Calendar,
+  ChevronDown,
   Flame
 } from 'lucide-react';
 import { ViewHeader } from '../components/ViewHeader.js';
@@ -28,9 +28,11 @@ import { BodyweightModal } from '../components/BodyweightModal.js';
 import { WorkoutFocusModal, WorkoutFocus } from '../components/WorkoutFocusModal.js';
 import { DayDetailModal } from '../components/DayDetailModal.js';
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal.js';
-import { MonthCalendarModal } from '../components/MonthCalendarModal.js';
 import { HistoricalWorkoutModal } from '../components/HistoricalWorkoutModal.js';
 import { AppCard, AppLogo, Button, IconButton } from '../components/ui/index.js';
+import { MaskedPngIcon } from '../components/ui/MaskedPngIcon.js';
+import { SEMANTIC_ICON_ASSETS } from '../components/ui/icon-assets.js';
+import { HomeHistoryCard } from '../components/HomeHistoryCard.js';
 import { TranslationKey, useI18n } from '../lib/i18n.js';
 
 interface HomeViewProps {
@@ -76,6 +78,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const { locale, t } = useI18n();
   const [weekOffset, setWeekOffset] = useState<number>(0);
+  const [weightExpanded, setWeightExpanded] = useState(true);
 
   const storedName = userName || getStoredUserInfo().name;
   const effectiveUserName = !storedName || storedName === 'Atleta' ? t('profile.athlete') : storedName;
@@ -85,9 +88,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [isBwModalOpen, setIsBwModalOpen] = useState(false);
   const [bwModalInitialMode, setBwModalInitialMode] = useState<'log' | 'goal'>('log');
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
-  const [selectedDaySource, setSelectedDaySource] = useState<'weekly' | 'month' | null>(null);
   const [inspectedSession, setInspectedSession] = useState<WorkoutSession | null>(null);
-  const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
   const [historicalDate, setHistoricalDate] = useState<Date | undefined>();
   const [historicalRoutineId, setHistoricalRoutineId] = useState<string | undefined>();
   const [isHistoricalOpen, setIsHistoricalOpen] = useState(false);
@@ -115,10 +116,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const thisWeekSessions = useMemo(() => {
     return getWorkoutsThisWeek(history);
   }, [history]);
-
-  const plannedPerWeek = useMemo(() => {
-    return Object.values(weeklySchedule).filter(Boolean).length;
-  }, [weeklySchedule]);
 
   // Determinar qué rutina toca HOY
   const todayWeekDay = DAY_NUM_TO_WEEKDAY[today.getDay()];
@@ -242,7 +239,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
         onOpenSettings={onOpenSettings}
       />
 
-      {/* 2. Calendario semanal y decisión de hoy */}
+      {/* Recorded-session streak, independent of planning completion and history exploration. */}
+      <AppCard compact className="flex min-h-16 min-w-0 items-center gap-3" data-testid="home-weekly-streak">
+        <Flame aria-hidden="true" className="size-5 shrink-0 text-accent" />
+        <div className="min-w-0">
+          <h3 className="ui-card-title break-words text-text-primary">
+            {t('home.streak', { count: streakCount, unit: streakCount === 1 ? t('home.week') : t('home.weeks') })}
+          </h3>
+          <p className="ui-caption break-words">
+            {t(thisWeekSessions.length === 1 ? 'home.weeklyRecordedSession' : 'home.weeklyRecordedSessions', { count: thisWeekSessions.length })} · {history.length} {t('home.totalWorkouts')}
+          </p>
+        </div>
+      </AppCard>
+
+      {/* Weekly planning and today's training action remain separate from history. */}
       <AppCard className="space-y-3">
         {/* Navegación de semana con rango de fechas real */}
         <div className="flex min-w-0 items-center justify-between gap-1">
@@ -280,7 +290,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
               data-testid="home-week-day"
               onClick={() => {
                 setSelectedDayDate(item.date);
-                setSelectedDaySource('weekly');
               }}
               aria-label={`${item.dayShort} ${item.dayNum}${item.completed ? `, ${t('home.completed')}` : item.routine ? `, ${item.routine.name}` : `, ${t('home.rest')}`}`}
               aria-current={item.isToday ? 'date' : undefined}
@@ -365,37 +374,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </AppCard>
 
-      {/* 4. Peso corporal */}
-      <WeightTrackerCard
-        entries={bodyweightEntries}
-        targetWeight={targetWeight}
-        onOpenLogModal={handleOpenLogWeight}
-        onOpenGoalModal={handleOpenGoalWeight}
-      />
+      {weightExpanded ? <WeightTrackerCard
+        entries={bodyweightEntries} targetWeight={targetWeight}
+        onOpenLogModal={handleOpenLogWeight} onOpenGoalModal={handleOpenGoalWeight}
+        onCollapse={() => setWeightExpanded(false)}
+      /> : <AppCard compact className="min-w-0">
+        <button type="button" onClick={() => setWeightExpanded(true)}
+          aria-label={t('home.expandWeight')} aria-expanded="false"
+          className="ui-focus-visible ui-pressable flex min-h-11 w-full items-center gap-3 rounded-ui-md text-left">
+          <MaskedPngIcon {...SEMANTIC_ICON_ASSETS.bodyweight} className="size-5 shrink-0 text-accent" />
+          <span className="ui-card-title min-w-0 flex-1 break-words text-text-primary">{t('home.bodyweightAndGoal')}</span>
+          <ChevronDown aria-hidden="true" className="size-5 shrink-0 text-text-secondary" />
+        </button>
+      </AppCard>}
 
-      {/* 5. Consistencia semanal */}
-      <button
-        type="button"
-        onClick={() => setIsMonthCalendarOpen(true)}
-        aria-label={t('home.streak', { count: streakCount, unit: streakCount === 1 ? t('home.week') : t('home.weeks') })}
-        className="glass-surface ui-interactive-surface ui-focus-visible ui-pressable flex min-h-16 w-full min-w-0 items-center justify-between gap-3 rounded-ui-xl border p-card-compact text-left transition-[border-color,transform] duration-150"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start gap-2">
-            <Flame className="size-5 shrink-0 text-accent" />
-            <h3 className="ui-card-title min-w-0 break-words text-text-primary">
-              {t('home.streak', { count: streakCount, unit: streakCount === 1 ? t('home.week') : t('home.weeks') })}
-            </h3>
-          </div>
-          <p className="ui-caption mt-1 break-words">
-            {thisWeekSessions.length} / {plannedPerWeek} {t('home.thisWeek').toLocaleLowerCase()} · {history.length} {t('home.totalWorkouts')}
-          </p>
-        </div>
-
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-input text-text-secondary">
-          <Calendar className="size-4 text-text-secondary" />
-        </div>
-      </button>
+      <HomeHistoryCard history={history} exercisesById={exercisesById} bodyweightEntries={bodyweightEntries} />
 
       {/* Modal: Categorización de Sesión Inmediata ("¿Qué harás hoy?") */}
       <WorkoutFocusModal
@@ -415,28 +408,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
         onSaveGoal={onSaveTargetWeight}
       />
 
-      {/* Modal: Calendario Mensual estilo openGym al pulsar la Racha */}
-      <MonthCalendarModal
-        isOpen={isMonthCalendarOpen}
-        onClose={() => setIsMonthCalendarOpen(false)}
-        history={history}
-        exercisesById={exercisesById}
-        bodyweightEntries={bodyweightEntries}
-        weeklySchedule={weeklySchedule}
-        routines={routines}
-        onSelectDay={(date) => {
-          setSelectedDayDate(date);
-          setSelectedDaySource('month');
-        }}
-      />
-
       {/* Modal: Detalle del Día al pulsar en el Calendario */}
       {selectedDayInfo && (
         <DayDetailModal
           isOpen={Boolean(selectedDayDate)}
           onClose={() => {
             setSelectedDayDate(null);
-            setSelectedDaySource(null);
           }}
           date={selectedDayInfo.date}
           completedSessions={selectedDayInfo.completedSessions}
@@ -447,7 +424,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
           onAssignRoutine={handleAssignRoutineToDay}
           onViewSessionDetail={(session) => setInspectedSession(session)}
           onRegisterHistorical={
-            selectedDaySource === 'weekly' &&
             selectedDayInfo.date.getTime() < new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() &&
             onSaveHistoricalWorkout
               ? (date, routineId) => {

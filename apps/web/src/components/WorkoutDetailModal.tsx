@@ -22,7 +22,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   bodyweightEntries = []
 }) => {
   const { preferences } = usePreferences();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   if (!session) return null;
 
@@ -37,7 +37,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
     : null;
 
   const [year, month, day] = resolveWorkoutDateKey(session).split('-').map(Number);
-  const formattedDate = new Date(year, month - 1, day).toLocaleDateString('es-ES', {
+  const formattedDate = new Date(year, month - 1, day).toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -54,7 +54,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
         <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
           <div>
             <h3 id="workout-detail-title" className="text-base font-extrabold text-white tracking-tight">
-              {session.routineName || 'Entrenamiento Libre'}
+              {session.routineName || t('workout.freeWorkout')}
             </h3>
             <span className="text-[11px] text-zinc-400 font-mono capitalize">
               {formattedDate}
@@ -63,7 +63,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar detalle del entrenamiento"
+            aria-label={t('home.closeWorkoutDetail')}
             className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
           >
             <X className="w-4 h-4 stroke-[2.2]" />
@@ -73,19 +73,19 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
         {/* Summary Metric Chips */}
         <div className="grid grid-cols-3 gap-2 p-4 bg-white/[0.02] border-b border-white/[0.04] text-center font-mono">
           <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
-            <span className="text-[10px] text-zinc-500 block uppercase">Tonelaje</span>
+            <span className="text-[10px] text-zinc-500 block uppercase">{t('home.detailVolume')}</span>
             <span className="text-sm font-extrabold text-accent">
               {displayWeight(totalVolume, preferences.units).toLocaleString()} {weightUnit}
             </span>
           </div>
 
           <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
-            <span className="text-[10px] text-zinc-500 block uppercase">Series</span>
+            <span className="text-[10px] text-zinc-500 block uppercase">{t('workout.sets')}</span>
             <span className="text-sm font-extrabold text-white">{totalSets}</span>
           </div>
 
           <div className="p-2 rounded-2xl glass-subcard border border-white/[0.06]">
-            <span className="text-[10px] text-zinc-500 block uppercase">Duración</span>
+            <span className="text-[10px] text-zinc-500 block uppercase">{t('home.detailDuration')}</span>
             <span className="text-sm font-extrabold text-white">{durationMin === null ? '—' : `${durationMin} min`}</span>
           </div>
         </div>
@@ -95,7 +95,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
           {Object.entries(session.sets).map(([exId, sets]) => {
             const exercise = exercisesById[exId] || {
               id: exId,
-              name: 'Ejercicio',
+              name: t('library.exercise'),
               category: 'other',
               primaryMuscle: 'chest'
             };
@@ -117,7 +117,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
                     </div>
                   </div>
                   <span className="shrink-0 text-xs font-mono font-bold text-zinc-400">
-                    {completedSets.length} series
+                    {completedSets.length} {t(completedSets.length === 1 ? 'home.effectiveSet' : 'home.effectiveSets')}
                   </span>
                 </div>
 
@@ -153,7 +153,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
                           {setTypeMarker}
                         </span>
                         <span className="font-bold">
-                          {formatDisplayWeight(s.weightKg, preferences.units)} × {s.reps} reps
+                          {formatDisplayWeight(s.weightKg, preferences.units)} × {s.reps} {t('home.detailReps')}
                         </span>
                         <span className="text-[11px] text-zinc-500">
                           {s.rir !== undefined ? `RIR ${s.rir}` : '—'}
