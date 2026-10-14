@@ -7,7 +7,8 @@ import { WorkoutView } from './views/WorkoutView.js';
 import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
-import { PlanSectionSelector, type PlanSection } from './views/PlanSectionSelector.js';
+import { type PlanSection } from './views/PlanSectionSelector.js';
+import { PlanHeader } from './views/PlanHeader.js';
 import { initTheme } from './lib/theme.js';
 import { usePreferences } from './lib/preferences-context.js';
 import { useFeedback } from './lib/feedback-context.js';
@@ -37,6 +38,7 @@ export function App() {
   const { currentTab, settingsOpen, settingsTarget } = surfaces;
   const [planSection, setPlanSection] = useState<PlanSection>('week');
   const [planVisited, setPlanVisited] = useState(false);
+  const [exercisesVisited, setExercisesVisited] = useState(false);
   const data = useAppData();
   const workout = useWorkoutSession({
     exercises: data.exercises,
@@ -281,7 +283,14 @@ export function App() {
           onSaveProfile={handleSaveProfile}
         />}
 
-        {currentTab === 'plan' && <div className="mb-4"><PlanSectionSelector value={planSection} onChange={setPlanSection} /></div>}
+        {currentTab === 'plan' && <PlanHeader
+          section={planSection}
+          onSectionChange={(section) => { setPlanSection(section); if (section === 'exercises') setExercisesVisited(true); }}
+          isWorkoutActive={workout.isWorkoutActive}
+          activeWorkoutDuration={workout.duration}
+          onNavigateToWorkout={() => navigateToTab('workout')}
+          onOpenSettings={openRootSettings}
+        />}
         {(planVisited || currentTab === 'plan') && <div hidden={currentTab !== 'plan' || planSection !== 'week'}><PlanView
           isActive={currentTab === 'plan' && planSection === 'week'}
           routines={data.routines}
@@ -292,25 +301,19 @@ export function App() {
           onSelectAndStartRoutine={startWorkout}
           onSaveRoutine={(routine) => { data.saveRoutine(routine); showFeedback(t('feedback.routineSaved')); }}
           onDeleteRoutine={data.deleteRoutine}
-          isWorkoutActive={workout.isWorkoutActive}
-          activeWorkoutDuration={workout.duration}
-          onNavigateToWorkout={() => navigateToTab('workout')}
-          onOpenSettings={openRootSettings}
           preferences={preferences}
         /></div>}
 
-        {currentTab === 'plan' && planSection === 'exercises' && <LibraryView
+        {(exercisesVisited || (currentTab === 'plan' && planSection === 'exercises')) && <div hidden={currentTab !== 'plan' || planSection !== 'exercises'}><LibraryView
+          isActive={currentTab === 'plan' && planSection === 'exercises'}
           exercises={data.exercises}
           history={data.history}
           catalogStatus={data.catalogStatus}
           onRetryCatalog={() => { void data.loadCatalog().catch(() => undefined); }}
           isWorkoutActive={workout.isWorkoutActive}
-          activeWorkoutDuration={workout.duration}
-          onNavigateToWorkout={() => navigateToTab('workout')}
-          onOpenSettings={openRootSettings}
           onAddExerciseToActiveWorkout={workout.addExercise}
           onStartWorkoutWithExercise={startWorkoutWithExercise}
-        />}
+        /></div>}
       </main>
 
       <RestTimerBar

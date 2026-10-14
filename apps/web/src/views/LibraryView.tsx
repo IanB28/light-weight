@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Dumbbell, Check, Eye, ChevronRight, List, LayoutGrid, SlidersHorizontal } from 'lucide-react';
+import { Plus, Dumbbell, List, LayoutGrid, SlidersHorizontal } from 'lucide-react';
 import { Exercise, WorkoutSession } from '@light-weight/domain';
 import { ExerciseThumbnail } from '../components/ExerciseThumbnail.js';
 import {
@@ -10,7 +10,6 @@ import {
 } from '../lib/exercise-filters.js';
 import { ExerciseMediaModal } from '../components/ExerciseMediaModal.js';
 import { ExerciseFilterControls } from '../components/ExerciseFilterControls.js';
-import { ViewHeader } from '../components/ViewHeader.js';
 import { AppCard, BottomSheet, Button, EmptyState, ErrorState, LoadingState, SearchInput, SectionHeader, SegmentedControl } from '../components/ui/index.js';
 import { deriveExerciseUsage, rankExerciseDiscovery } from '../lib/exercise-discovery.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
@@ -18,11 +17,9 @@ import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { ExerciseCatalogCard, ExerciseCatalogRow } from '../components/ExerciseCatalogCard.js';
 
 interface LibraryViewProps {
+  isActive?: boolean;
   exercises?: Exercise[];
   isWorkoutActive?: boolean;
-  activeWorkoutDuration?: string;
-  onNavigateToWorkout?: () => void;
-  onOpenSettings?: () => void;
   onAddExerciseToActiveWorkout?: (exercise: Exercise) => void;
   onStartWorkoutWithExercise?: (exercise: Exercise) => void;
   catalogStatus?: 'loading' | 'ready' | 'error';
@@ -37,11 +34,9 @@ export function resolveExerciseViewMode(saved: string | null): ViewMode {
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
+  isActive = true,
   exercises = [],
   isWorkoutActive = false,
-  activeWorkoutDuration = '00:00',
-  onNavigateToWorkout,
-  onOpenSettings,
   onAddExerciseToActiveWorkout,
   onStartWorkoutWithExercise,
   catalogStatus = 'ready',
@@ -61,6 +56,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
   const [selectedMediaExercise, setSelectedMediaExercise] = useState<Exercise | null>(null);
   const [visibleCount, setVisibleCount] = useState(60);
+
+  useEffect(() => {
+    if (!isActive) {
+      setFiltersOpen(false);
+      setSelectedMediaExercise(null);
+    }
+  }, [isActive]);
 
   // Modo de visualización: 'grid' (predeterminado) o 'list'
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -128,15 +130,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   if (catalogStatus !== 'ready') {
     return (
-      <div className="space-y-4 pb-28">
-        <ViewHeader
-          title={t('library.title')}
-          subtitle={t('library.subtitle')}
-          isWorkoutActive={isWorkoutActive}
-          activeWorkoutDuration={activeWorkoutDuration}
-          onNavigateToWorkout={onNavigateToWorkout}
-          onOpenSettings={onOpenSettings}
-        />
+      <div className="space-y-4">
         <AppCard>
           {catalogStatus === 'loading' ? (
             <LoadingState title={t('library.loading')} description={t('library.loadingDescription')} />
@@ -149,16 +143,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   }
 
   return (
-    <div className="space-y-4 pb-28">
-      {/* 1. Header Homogéneo */}
-      <ViewHeader
-        title={t('library.title')}
-        isWorkoutActive={isWorkoutActive}
-        activeWorkoutDuration={activeWorkoutDuration}
-        onNavigateToWorkout={onNavigateToWorkout}
-        onOpenSettings={onOpenSettings}
-      />
-
+    <div className="space-y-4">
       {/* Search bar */}
       <SearchInput
           label={t('library.searchLabel')}
@@ -243,12 +228,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       {/* 8. Modal de Demostración Visual (GIF & Instrucciones) */}
       <ExerciseMediaModal
         exercise={selectedMediaExercise}
-        isOpen={Boolean(selectedMediaExercise)}
+        isOpen={isActive && Boolean(selectedMediaExercise)}
         onClose={() => setSelectedMediaExercise(null)}
       />
 
       <BottomSheet
-        open={filtersOpen}
+        open={isActive && filtersOpen}
         onClose={() => setFiltersOpen(false)}
         title={t('library.filters')}
         description={t('library.filtersDescription')}

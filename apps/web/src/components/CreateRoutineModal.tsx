@@ -37,6 +37,7 @@ export function buildRoutinePayload(
 
 export interface CreateRoutineModalProps {
   isOpen: boolean;
+  isActive?: boolean;
   onClose: () => void;
   availableExercises: Exercise[];
   onSaveRoutine: (newRoutine: Routine) => void;
@@ -46,6 +47,7 @@ export interface CreateRoutineModalProps {
 
 export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   isOpen,
+  isActive = true,
   onClose,
   availableExercises,
   onSaveRoutine,
@@ -55,6 +57,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   return (
     <RoutineEditorModal
       isOpen={isOpen}
+      isActive={isActive}
       onClose={onClose}
       availableExercises={availableExercises}
       onSaveRoutine={onSaveRoutine}

@@ -120,7 +120,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
     if (!isActive) setShowDiscardConfirm(false);
   }, [isActive]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isActive) return null;
 
   const isDirty = isRoutineEditorDraftDirty(initialDraftRef.current, draft);
   const exerciseMap = new Map(availableExercises.map((e) => [e.id, e]));

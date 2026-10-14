@@ -40,7 +40,8 @@ test('Profile and Plan are primary surfaces without resetting workout or rest se
   assert.match(app, /const workout = useWorkoutSession\(/);
   assert.match(app, /const restTimer = useRestTimer\(/);
   assert.match(app, /\(planVisited \|\| currentTab === 'plan'\).*hidden=/s);
-  assert.match(app, /currentTab === 'plan' && planSection === 'exercises' && <LibraryView/);
+  assert.match(app, /exercisesVisited \|\| \(currentTab === 'plan' && planSection === 'exercises'\)/);
+  assert.match(app, /isActive=\{currentTab === 'plan' && planSection === 'exercises'\}/);
 });
 
 test('a routine detail sheet renders only while its owning Plan context supplies a selection', () => {

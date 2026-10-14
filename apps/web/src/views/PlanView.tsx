@@ -3,7 +3,6 @@ import { ChevronRight, Dumbbell, Plus } from 'lucide-react';
 import { Exercise, Routine, getRoutineExerciseIds } from '@light-weight/domain';
 import { CreateRoutineModal } from '../components/CreateRoutineModal.js';
 import { RoutineEditorModal } from '../components/RoutineEditorModal.js';
-import { ViewHeader } from '../components/ViewHeader.js';
 import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
 import { RoutineDetailSheet } from '../features/routines/RoutineDetailSheet.js';
 import { RoutinePicker } from '../components/RoutinePicker.js';
@@ -21,10 +20,6 @@ interface PlanViewProps {
   onSelectAndStartRoutine: (routineId: string) => void;
   onSaveRoutine: (newRoutine: Routine) => void;
   onDeleteRoutine?: (routineId: string) => void;
-  isWorkoutActive?: boolean;
-  activeWorkoutDuration?: string;
-  onNavigateToWorkout?: () => void;
-  onOpenSettings?: () => void;
   routineOwnerId?: string;
   preferences?: AppPreferences;
 }
@@ -40,10 +35,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
   onSelectAndStartRoutine,
   onSaveRoutine,
   onDeleteRoutine,
-  isWorkoutActive = false,
-  activeWorkoutDuration = '00:00',
-  onNavigateToWorkout,
-  onOpenSettings,
   routineOwnerId,
   preferences
 }) => {
@@ -64,15 +55,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
   return (
     <div className="space-y-section">
-      <ViewHeader
-        title={t('plan.title')}
-        subtitle={t('plan.subtitle')}
-        isWorkoutActive={isWorkoutActive}
-        activeWorkoutDuration={activeWorkoutDuration}
-        onNavigateToWorkout={onNavigateToWorkout}
-        onOpenSettings={onOpenSettings}
-      />
-
       <section className="space-y-2">
         <SectionHeader
           title={t('plan.thisWeek')}
@@ -101,8 +83,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
           ))}
         </AppCard>
       </section>
-
-      <ReceivedRoutines isActive={isActive} onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
 
       <section className="space-y-2">
         <SectionHeader
@@ -159,8 +139,11 @@ export const PlanView: React.FC<PlanViewProps> = ({
         )}
       </section>
 
+      <ReceivedRoutines isActive={isActive} onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
+
       <CreateRoutineModal
         isOpen={isCreateModalOpen}
+        isActive={isActive}
         onClose={() => setIsCreateModalOpen(false)}
         availableExercises={exercises}
         onSaveRoutine={onSaveRoutine}
