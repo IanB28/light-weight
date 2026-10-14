@@ -106,6 +106,7 @@
     "src/features/routines/ReceivedRoutines.tsx",
     "src/views/PlanView.tsx",
     "src/views/pre-expo-navigation.test.ts",
+    "src/views/routine-draft-navigation.test.ts",
     "src/views/plan-consolidation.test.ts",
     "src/views/home-plan-visual-polish.test.ts",
     "src/views/LibraryView.tsx",

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronRight, Dumbbell, Plus } from 'lucide-react';
 import { Exercise, Routine, getRoutineExerciseIds } from '@light-weight/domain';
 import { CreateRoutineModal } from '../components/CreateRoutineModal.js';
@@ -43,11 +43,34 @@ export const PlanView: React.FC<PlanViewProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
+  const [suspendedEditor, setSuspendedEditor] = useState<'create' | 'edit' | null>(null);
+  const [focusAfterClose, setFocusAfterClose] = useState<'new' | string | null>(null);
+  const resumeButtonRef = useRef<HTMLButtonElement>(null);
+  const newRoutineButtonRef = useRef<HTMLButtonElement>(null);
+  const routineButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const assignedCount = Object.values(weeklySchedule).filter(Boolean).length;
 
   useEffect(() => {
     if (!isActive) setSelectedRoutine(null);
   }, [isActive]);
+
+  useEffect(() => {
+    if (isActive && suspendedEditor) resumeButtonRef.current?.focus();
+  }, [isActive, suspendedEditor]);
+
+  useEffect(() => {
+    if (!isActive || !focusAfterClose) return;
+    (focusAfterClose === 'new'
+      ? newRoutineButtonRef.current
+      : routineButtonRefs.current.get(focusAfterClose) ?? newRoutineButtonRef.current)?.focus();
+    setFocusAfterClose(null);
+  }, [isActive, focusAfterClose]);
+
+  const resumeDraft = () => setSuspendedEditor(null);
+  const startCreating = () => {
+    if (suspendedEditor) resumeDraft();
+    else setIsCreateModalOpen(true);
+  };
 
   const assignRoutine = (day: WeekDay, routineId: string | null) => {
     onUpdateWeeklySchedule?.({ ...weeklySchedule, [day]: routineId });
@@ -88,13 +111,21 @@ export const PlanView: React.FC<PlanViewProps> = ({
         <SectionHeader
           title={t('plan.myRoutines')}
           meta={`${routines.length} ${t('plan.saved')}`}
-          action={
-            <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>
+          action={!suspendedEditor &&
+            <Button ref={newRoutineButtonRef} size="sm" onClick={startCreating}>
               <Plus className="size-4" />
               {t('plan.newRoutine')}
             </Button>
           }
         />
+        {suspendedEditor && (
+          <AppCard compact className="mb-2 flex items-center justify-between gap-3">
+            <span className="min-w-0 text-sm text-text-secondary">{t('routine.unsavedDraft')}</span>
+            <Button ref={resumeButtonRef} variant="secondary" onClick={resumeDraft} className="shrink-0">
+              {t('routine.resumeEditing')}
+            </Button>
+          </AppCard>
+        )}
         {routines.length === 0 ? (
           <AppCard compact>
             <EmptyState
@@ -102,8 +133,8 @@ export const PlanView: React.FC<PlanViewProps> = ({
               icon={<Dumbbell className="size-5" />}
               title={t('plan.noRoutines')}
               description={t('plan.noRoutinesDescription')}
-              actionLabel={t('plan.createFirst')}
-              onAction={() => setIsCreateModalOpen(true)}
+              actionLabel={suspendedEditor ? undefined : t('plan.createFirst')}
+              onAction={startCreating}
             />
           </AppCard>
         ) : (
@@ -113,6 +144,10 @@ export const PlanView: React.FC<PlanViewProps> = ({
               return (
                 <button
                   key={routine.id}
+                  ref={(node) => {
+                    if (node) routineButtonRefs.current.set(routine.id, node);
+                    else routineButtonRefs.current.delete(routine.id);
+                  }}
                   type="button"
                   onClick={() => setSelectedRoutine(routine)}
                   className="glass-surface ui-interactive-surface ui-focus-visible ui-pressable flex min-h-16 w-full min-w-0 items-center justify-between gap-3 rounded-ui-xl border p-card-compact text-left transition-[border-color,transform] duration-150"
@@ -144,7 +179,13 @@ export const PlanView: React.FC<PlanViewProps> = ({
       <CreateRoutineModal
         isOpen={isCreateModalOpen}
         isActive={isActive}
-        onClose={() => setIsCreateModalOpen(false)}
+        isSuspended={suspendedEditor === 'create'}
+        onPostpone={() => setSuspendedEditor('create')}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setSuspendedEditor(null);
+          setFocusAfterClose('new');
+        }}
         availableExercises={exercises}
         onSaveRoutine={onSaveRoutine}
         ownerId={routineOwnerId}
@@ -159,7 +200,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
           setSelectedRoutine(null);
           onSelectAndStartRoutine(routineId);
         }}
-        onEdit={(routine) => {
+        onEdit={suspendedEditor ? undefined : (routine) => {
           setSelectedRoutine(null);
           setEditingRoutine(routine);
         }}
@@ -169,7 +210,13 @@ export const PlanView: React.FC<PlanViewProps> = ({
       <RoutineEditorModal
         isOpen={Boolean(editingRoutine)}
         isActive={isActive}
-        onClose={() => setEditingRoutine(null)}
+        isSuspended={suspendedEditor === 'edit'}
+        onPostpone={() => setSuspendedEditor('edit')}
+        onClose={(reason) => {
+          if (reason !== 'save' && editingRoutine) setFocusAfterClose(editingRoutine.id);
+          setEditingRoutine(null);
+          setSuspendedEditor(null);
+        }}
         availableExercises={exercises}
         mode="edit"
         initialRoutine={editingRoutine}
@@ -179,6 +226,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
           onSaveRoutine(updated);
           setSelectedRoutine(updated);
           setEditingRoutine(null);
+          setSuspendedEditor(null);
         }}
       />
     </div>

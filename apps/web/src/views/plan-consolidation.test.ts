@@ -69,7 +69,7 @@ test('Plan keeps both section instances mounted and gates their transient overla
   assert.match(app, /\(exercisesVisited \|\| \(currentTab === 'plan' && planSection === 'exercises'\)\).*<LibraryView/s);
   assert.match(library, /open=\{isActive && filtersOpen\}/);
   assert.match(library, /isOpen=\{isActive && Boolean\(selectedMediaExercise\)\}/);
-  assert.match(editor, /if \(!isOpen \|\| !isActive\) return null/);
+  assert.match(editor, /if \(!isOpen \|\| !isActive \|\| isSuspended\) return null/);
   assert.match(app, /const restTimer = useRestTimer\(\)/);
   assert.match(app, /const workout = useWorkoutSession\(/);
 });
