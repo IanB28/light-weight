@@ -94,7 +94,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
           <div className="flex gap-1.5 items-center">
             {/* Days of week labels */}
             <div className="flex flex-col justify-between h-[92px] text-[9px] font-mono text-text-muted pr-1 select-none">
-              {(locale === 'en' ? ['M', 'W', 'F', 'S'] : ['L', 'X', 'V', 'D']).map((label, index) => <span key={index}>{label}</span>)}
+              {(locale.startsWith('en') ? ['M', 'W', 'F', 'S'] : ['L', 'X', 'V', 'D']).map((label, index) => <span key={index}>{label}</span>)}
             </div>
 
             {/* Weeks Columns */}
