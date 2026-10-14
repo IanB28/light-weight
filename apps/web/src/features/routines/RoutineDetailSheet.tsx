@@ -1,5 +1,5 @@
 import { Dumbbell, Pencil, Play, Send, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Exercise, Routine, getRoutineExerciseIds } from '@light-weight/domain';
 import { BottomSheet, Button, EmptyState } from '../../components/ui/index.js';
 import { useAuth } from '../../lib/auth-context.js';
@@ -27,6 +27,10 @@ export function RoutineDetailSheet({
   const auth = useAuth();
   const { t } = useI18n();
   const [sharing, setSharing] = useState(false);
+
+  useEffect(() => {
+    if (!routine) setSharing(false);
+  }, [routine]);
 
   if (!routine) return null;
 

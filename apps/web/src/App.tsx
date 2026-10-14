@@ -283,6 +283,7 @@ export function App() {
 
         {currentTab === 'plan' && <div className="mb-4"><PlanSectionSelector value={planSection} onChange={setPlanSection} /></div>}
         {(planVisited || currentTab === 'plan') && <div hidden={currentTab !== 'plan' || planSection !== 'week'}><PlanView
+          isActive={currentTab === 'plan' && planSection === 'week'}
           routines={data.routines}
           exercises={data.exercises}
           routineOwnerId={auth.user?.id || data.userInfo.id}

@@ -52,6 +52,7 @@ export type RoutineCreationStep = 'details' | 'exercises';
 
 export interface RoutineEditorModalProps {
   isOpen: boolean;
+  isActive?: boolean;
   onClose: () => void;
   availableExercises: Exercise[];
   onSaveRoutine: (routine: Routine) => void;
@@ -65,6 +66,7 @@ export interface RoutineEditorModalProps {
 
 export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   isOpen,
+  isActive = true,
   onClose,
   availableExercises,
   onSaveRoutine,
@@ -113,6 +115,10 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   useEffect(() => {
     setVisibleCount(60);
   }, [searchTerm, selectedMuscle, selectedEquipment]);
+
+  useEffect(() => {
+    if (!isActive) setShowDiscardConfirm(false);
+  }, [isActive]);
 
   if (!isOpen) return null;
 
@@ -678,7 +684,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
 
       {/* Discard Confirmation Modal */}
       <Modal
-        open={showDiscardConfirm}
+        open={isActive && showDiscardConfirm}
         onClose={() => setShowDiscardConfirm(false)}
         title={t('routine.discardTitle')}
         description={t('routine.discardDesc')}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronRight, Dumbbell, Plus } from 'lucide-react';
 import { Exercise, Routine, getRoutineExerciseIds } from '@light-weight/domain';
 import { CreateRoutineModal } from '../components/CreateRoutineModal.js';
@@ -13,6 +13,7 @@ import { ReceivedRoutines } from '../features/routines/ReceivedRoutines.js';
 import type { AppPreferences } from '../lib/preferences.js';
 
 interface PlanViewProps {
+  isActive?: boolean;
   routines: Routine[];
   exercises: Exercise[];
   weeklySchedule: WeeklySchedule;
@@ -31,6 +32,7 @@ interface PlanViewProps {
 const DAYS_LIST: WeekDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export const PlanView: React.FC<PlanViewProps> = ({
+  isActive = true,
   routines,
   exercises,
   weeklySchedule,
@@ -51,6 +53,10 @@ export const PlanView: React.FC<PlanViewProps> = ({
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const assignedCount = Object.values(weeklySchedule).filter(Boolean).length;
+
+  useEffect(() => {
+    if (!isActive) setSelectedRoutine(null);
+  }, [isActive]);
 
   const assignRoutine = (day: WeekDay, routineId: string | null) => {
     onUpdateWeeklySchedule?.({ ...weeklySchedule, [day]: routineId });
@@ -85,6 +91,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
             <div key={day} className="grid min-h-14 grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
               <span className="min-w-0 text-xs font-semibold text-text-secondary">{dayLabel(day, 'short')}</span>
               <RoutinePicker
+                isActive={isActive}
                 dayLabel={dayLabel(day, 'full')}
                 value={weeklySchedule[day]}
                 routines={routines}
@@ -95,7 +102,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
         </AppCard>
       </section>
 
-      <ReceivedRoutines onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
+      <ReceivedRoutines isActive={isActive} onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
 
       <section className="space-y-2">
         <SectionHeader
@@ -162,10 +169,13 @@ export const PlanView: React.FC<PlanViewProps> = ({
       />
 
       <RoutineDetailSheet
-        routine={selectedRoutine}
+        routine={isActive ? selectedRoutine : null}
         exercises={exercises}
         onClose={() => setSelectedRoutine(null)}
-        onStart={onSelectAndStartRoutine}
+        onStart={(routineId) => {
+          setSelectedRoutine(null);
+          onSelectAndStartRoutine(routineId);
+        }}
         onEdit={(routine) => {
           setSelectedRoutine(null);
           setEditingRoutine(routine);
@@ -175,6 +185,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
       <RoutineEditorModal
         isOpen={Boolean(editingRoutine)}
+        isActive={isActive}
         onClose={() => setEditingRoutine(null)}
         availableExercises={exercises}
         mode="edit"
