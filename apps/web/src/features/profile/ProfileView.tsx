@@ -289,6 +289,13 @@ export function ProfileView({
               {t('profile.edit')}
             </h1>
           </div>
+          {onOpenSettings && <IconButton
+            variant="secondary"
+            aria-label={t('header.openSettings')}
+            onClick={onOpenSettings}
+          >
+            <Settings aria-hidden="true" className="size-4" />
+          </IconButton>}
         </header>
 
         <form onSubmit={handleSave} className="space-y-4">

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, UsersRound, X } from 'lucide-react';
+import { ChevronLeft, Settings, UsersRound, X } from 'lucide-react';
 import type { BodyweightEntry, Exercise, HistoricalPersonalRecord, PublicUserSummary, WorkoutSession } from '@light-weight/domain';
 import type { AuthStatus } from '../../lib/auth-session-state.js';
 import type { AuthUser } from '@light-weight/domain';
@@ -86,6 +86,7 @@ export function ProfileScreen({
         <FriendProfileView
           friend={panel.friend}
           onBack={() => setPanel({ type: 'friends' })}
+          onOpenSettings={() => onOpenSettings('root')}
           titleRef={titleRef}
         />
       ) : panel.type === 'friends' ? (
@@ -102,6 +103,9 @@ export function ProfileScreen({
               </IconButton>
               <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary outline-none">{title}</h1>
             </div>
+            <IconButton variant="secondary" aria-label={t('header.openSettings')} onClick={() => onOpenSettings('root')}>
+              <Settings aria-hidden="true" className="size-4" />
+            </IconButton>
           </header>
 
           {friendsAvailable

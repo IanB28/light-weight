@@ -72,13 +72,18 @@ test('Plan gates portal overlays by active navigation without discarding editor 
   assert.doesNotMatch(plan, /isOpen=\{isActive && Boolean\(editingRoutine\)\}/);
 });
 
-test('Profile keeps Settings in the summary header and local Back/Cancel actions in subviews', () => {
+test('Profile keeps Settings in summary, edit, Friends, and friend-profile headers without replacing local Back/Cancel', () => {
   const profile = readFileSync(new URL('../../src/features/profile/ProfileView.tsx', import.meta.url), 'utf8');
   const screen = readFileSync(new URL('../../src/features/profile/ProfileScreen.tsx', import.meta.url), 'utf8');
   const friend = readFileSync(new URL('../../src/features/profile/FriendProfileView.tsx', import.meta.url), 'utf8');
-  assert.match(profile, /aria-label=\{t\('header.openSettings'\)\}/);
+  assert.equal((profile.match(/aria-label=\{t\('header.openSettings'\)\}/g) ?? []).length, 2);
   assert.match(profile, /aria-label=\{t\('common.cancel'\)\}/);
+  assert.match(profile, /onClick=\{onOpenSettings\}/);
+  assert.match(screen, /onOpenSettings=\{\(\) => onOpenSettings\('root'\)\}/);
+  assert.match(screen, /aria-label=\{t\('header.openSettings'\)\}/);
   assert.match(screen, /onBack=\{\(\) => setPanel\(\{ type: 'friends' \}\)\}/);
   assert.match(screen, /onClick=\{\(\) => setPanel\(\{ type: 'summary' \}\)\}/);
   assert.match(friend, /aria-label=\{t\('friends.backToFriends'\)\}/);
+  assert.match(friend, /aria-label=\{t\('header.openSettings'\)\}/);
+  assert.match(friend, /onClick=\{onOpenSettings\}/);
 });
