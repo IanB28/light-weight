@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, ListFilter, Pencil, UserRound, X } from 'lucide-react';
+import { Camera, ListFilter, Pencil, Settings, UserRound, X } from 'lucide-react';
 import {
   calculateAge,
   calculateWeeklyStreak,
@@ -54,7 +54,7 @@ interface ProfileViewProps {
   summaryAccessory?: React.ReactNode;
   onUploadAvatar?: (avatar: NormalizedAvatar) => Promise<OperationResult<AuthUser>>;
   avatarUploadAvailable?: boolean;
-  onClose?: () => void;
+  onOpenSettings?: () => void;
   titleRef?: React.Ref<HTMLHeadingElement>;
   featuredPrSelections?: FeaturedPrSelection[];
   featuredPrResolvedSelections?: ResolvedFeaturedPrSelection[];
@@ -81,7 +81,7 @@ export function ProfileView({
   summaryAccessory,
   onUploadAvatar,
   avatarUploadAvailable = false,
-  onClose,
+  onOpenSettings,
   titleRef,
   featuredPrSelections = [],
   featuredPrResolvedSelections = [],
@@ -330,27 +330,17 @@ export function ProfileView({
     <div className="space-y-5">
       <header className="flex min-h-12 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          {onClose && (
-            <IconButton
-              variant="ghost"
-              aria-label={t('profile.close')}
-              onClick={onClose}
-              className="-ml-1"
-            >
-              <X aria-hidden="true" className="size-5" />
-            </IconButton>
-          )}
           <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary outline-none">
             {t('profile.title')}
           </h1>
         </div>
-        <IconButton
+        {onOpenSettings && <IconButton
           variant="secondary"
-          aria-label={t('profile.edit')}
-          onClick={openEdit}
+          aria-label={t('header.openSettings')}
+          onClick={onOpenSettings}
         >
-          <Pencil aria-hidden="true" className="size-4" />
-        </IconButton>
+          <Settings aria-hidden="true" className="size-4" />
+        </IconButton>}
       </header>
 
       <div className="flex flex-col items-center text-center">
@@ -360,6 +350,10 @@ export function ProfileView({
         <p className="mt-0.5 text-xs font-semibold text-text-secondary">
           {t('profile.athlete')}{age !== null ? ` · ${t('profile.years', { count: age })}` : ''}
         </p>
+        <Button type="button" variant="secondary" size="sm" onClick={openEdit} className="mt-3 min-h-11 rounded-full">
+          <Pencil aria-hidden="true" className="size-4" />
+          {t('profile.edit')}
+        </Button>
       </div>
 
       <AppCard compact className="grid grid-cols-3 divide-x divide-border-subtle text-center">

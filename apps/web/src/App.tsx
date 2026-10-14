@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { BottomNav, type TabType } from './components/BottomNav.js';
 import { RestTimerBar } from './components/RestTimerBar.js';
 import { SettingsSheet } from './components/SettingsSheet.js';
@@ -7,6 +7,7 @@ import { WorkoutView } from './views/WorkoutView.js';
 import { StatsView } from './views/StatsView.js';
 import { PlanView } from './views/PlanView.js';
 import { LibraryView } from './views/LibraryView.js';
+import { PlanSectionSelector, type PlanSection } from './views/PlanSectionSelector.js';
 import { initTheme } from './lib/theme.js';
 import { usePreferences } from './lib/preferences-context.js';
 import { useFeedback } from './lib/feedback-context.js';
@@ -22,7 +23,6 @@ import { AuthLoadingScreen } from './features/auth/AuthLoadingScreen.js';
 import { UsernameOnboardingScreen } from './features/auth/UsernameOnboardingScreen.js';
 import { resolveAuthScreenTarget } from './features/auth/auth-routing.js';
 import { ProfileScreen } from './features/profile/ProfileScreen.js';
-import { ProfileIdentityProvider } from './features/profile/ProfileIdentityButton.js';
 import { appSurfaceReducer, INITIAL_APP_SURFACE_STATE, type SettingsTarget } from './features/profile/profile-surface-state.js';
 import { saveProfileUpdate } from './features/profile/profile-save.js';
 import { resolveEffectiveProfile } from './features/profile/profile-authority.js';
@@ -34,7 +34,9 @@ export function App() {
   const auth = useAuth();
   const previousAuthScope = useRef<string | null>(null);
   const [surfaces, dispatchSurface] = useReducer(appSurfaceReducer, INITIAL_APP_SURFACE_STATE);
-  const { currentTab, profileOpen, settingsOpen, settingsTarget } = surfaces;
+  const { currentTab, settingsOpen, settingsTarget } = surfaces;
+  const [planSection, setPlanSection] = useState<PlanSection>('week');
+  const [planVisited, setPlanVisited] = useState(false);
   const data = useAppData();
   const workout = useWorkoutSession({
     exercises: data.exercises,
@@ -57,6 +59,7 @@ export function App() {
   }, [auth.status, auth.user?.id]);
 
   const navigateToTab = useCallback((tab: TabType) => {
+    if (tab === 'plan') setPlanVisited(true);
     dispatchSurface({ type: 'select_tab', tab });
   }, []);
   const openSettings = useCallback((target: SettingsTarget = 'root') => {
@@ -173,13 +176,8 @@ export function App() {
       <div className="pointer-events-none fixed top-[52%] -right-24 -z-10 size-[32rem] rounded-full blur-[170px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-3)' }} />
       <div className="pointer-events-none fixed top-[22%] left-1/2 -z-10 size-[28rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-brand, rgba(34, 197, 94, 0.08))' }} />
 
-      <ProfileIdentityProvider value={{
-        displayName: effectiveProfile.displayName === 'Atleta' ? effectiveUserInfo.name : effectiveProfile.displayName,
-        avatarUrl: effectiveProfile.avatarUrl,
-        onOpenProfile: () => dispatchSurface({ type: 'open_profile' })
-      }}>
       <main className="flex-1 max-w-md w-full mx-auto px-page pt-[max(0.75rem,env(safe-area-inset-top))] pb-page-safe">
-        {profileOpen ? <ProfileScreen
+        {currentTab === 'profile' && <ProfileScreen
           profile={effectiveProfile}
           userInfo={effectiveUserInfo}
           history={data.history}
@@ -192,10 +190,9 @@ export function App() {
           onSave={handleSaveProfile}
           onUploadAvatar={auth.uploadAvatar}
           avatarUploadAvailable={auth.status === 'authenticated'}
-          onClose={() => dispatchSurface({ type: 'close_profile' })}
           onOpenSettings={openSettings}
           onSyncBeforeFeaturedPrSave={data.sync}
-        /> : <>
+        />}
         {currentTab === 'home' && <HomeView
           userName={data.profile.displayName === 'Atleta' ? data.userInfo.name : data.profile.displayName}
           history={data.history}
@@ -284,7 +281,8 @@ export function App() {
           onSaveProfile={handleSaveProfile}
         />}
 
-        {currentTab === 'plan' && <PlanView
+        {currentTab === 'plan' && <div className="mb-4"><PlanSectionSelector value={planSection} onChange={setPlanSection} /></div>}
+        {(planVisited || currentTab === 'plan') && <div hidden={currentTab !== 'plan' || planSection !== 'week'}><PlanView
           routines={data.routines}
           exercises={data.exercises}
           routineOwnerId={auth.user?.id || data.userInfo.id}
@@ -298,9 +296,9 @@ export function App() {
           onNavigateToWorkout={() => navigateToTab('workout')}
           onOpenSettings={openRootSettings}
           preferences={preferences}
-        />}
+        /></div>}
 
-        {currentTab === 'exercises' && <LibraryView
+        {currentTab === 'plan' && planSection === 'exercises' && <LibraryView
           exercises={data.exercises}
           history={data.history}
           catalogStatus={data.catalogStatus}
@@ -312,9 +310,7 @@ export function App() {
           onAddExerciseToActiveWorkout={workout.addExercise}
           onStartWorkoutWithExercise={startWorkoutWithExercise}
         />}
-        </>}
       </main>
-      </ProfileIdentityProvider>
 
       <RestTimerBar
         secondsLeft={restTimer.secondsLeft}
@@ -323,7 +319,7 @@ export function App() {
         onDismiss={restTimer.cancel}
       />
 
-      <BottomNav currentTab={currentTab} onSelectTab={navigateToTab} isWorkoutActive={workout.isWorkoutActive} />
+      <BottomNav currentTab={currentTab} onSelectTab={navigateToTab} isWorkoutActive={workout.isWorkoutActive} profileIdentity={{ displayName: effectiveProfile.displayName === 'Atleta' ? effectiveUserInfo.name : effectiveProfile.displayName, avatarUrl: effectiveProfile.avatarUrl }} />
 
       <SettingsSheet
         isOpen={settingsOpen}

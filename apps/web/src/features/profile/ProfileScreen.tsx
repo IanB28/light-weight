@@ -34,7 +34,6 @@ interface ProfileScreenProps {
   onSave: (profile: UserProfile) => void | string | Promise<void | string>;
   onUploadAvatar: (avatar: NormalizedAvatar) => Promise<OperationResult<AuthUser>>;
   avatarUploadAvailable: boolean;
-  onClose: () => void;
   onOpenSettings: (target?: SettingsTarget) => void;
   onSyncBeforeFeaturedPrSave: () => Promise<OperationResult<{ syncedCount: number }>>;
 }
@@ -52,7 +51,6 @@ export function ProfileScreen({
   onSave,
   onUploadAvatar,
   avatarUploadAvailable,
-  onClose,
   onSyncBeforeFeaturedPrSave,
   onOpenSettings
 }: ProfileScreenProps) {
@@ -130,7 +128,7 @@ export function ProfileScreen({
             onUploadAvatar={onUploadAvatar}
             avatarUploadAvailable={avatarUploadAvailable}
             onConfigureGender={() => onOpenSettings('gender')}
-            onClose={onClose}
+            onOpenSettings={() => onOpenSettings('root')}
             titleRef={titleRef}
             featuredPrSelections={featuredPrs.selections}
             featuredPrResolvedSelections={featuredPrs.resolvedSelections}

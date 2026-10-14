@@ -6,67 +6,56 @@ import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 import { ViewHeader } from '../../components/ViewHeader.js';
 import { dictionaries } from '../../lib/i18n.js';
-import { ProfileIdentityProvider, getProfileInitials } from './ProfileIdentityButton.js';
+import { getProfileInitials } from './ProfileIdentityButton.js';
 import { appSurfaceReducer, INITIAL_APP_SURFACE_STATE } from './profile-surface-state.js';
 import { countAcceptedFriends } from './profile-friends.js';
 import type { FriendshipSummary } from '@light-weight/domain';
 
 const source = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), 'src', relativePath), 'utf8');
 
-test('Profile is an app-level surface that preserves and restores the underlying tab', () => {
+test('Profile is a primary tab and selecting another tab closes Settings', () => {
   const onStats = appSurfaceReducer(INITIAL_APP_SURFACE_STATE, { type: 'select_tab', tab: 'stats' });
-  const withProfile = appSurfaceReducer(onStats, { type: 'open_profile' });
-  assert.equal(withProfile.currentTab, 'stats');
-  assert.equal(withProfile.profileOpen, true);
-
-  const closed = appSurfaceReducer(withProfile, { type: 'close_profile' });
-  assert.equal(closed.currentTab, 'stats');
-  assert.equal(closed.profileOpen, false);
+  const profile = appSurfaceReducer(onStats, { type: 'select_tab', tab: 'profile' });
+  assert.equal(profile.currentTab, 'profile');
+  const settings = appSurfaceReducer(profile, { type: 'open_settings' });
+  const onPlan = appSurfaceReducer(settings, { type: 'select_tab', tab: 'plan' });
+  assert.equal(onPlan.currentTab, 'plan');
+  assert.equal(onPlan.settingsOpen, false);
 });
 
 test('Bottom navigation selection closes secondary surfaces and navigates normally', () => {
-  const withProfileAndSettings = {
+  const withSettings = {
     ...INITIAL_APP_SURFACE_STATE,
     currentTab: 'stats' as const,
-    profileOpen: true,
     settingsOpen: true,
     settingsTarget: 'training' as const
   };
-  const next = appSurfaceReducer(withProfileAndSettings, { type: 'select_tab', tab: 'plan' });
+  const next = appSurfaceReducer(withSettings, { type: 'select_tab', tab: 'plan' });
   assert.deepEqual(next, {
     currentTab: 'plan',
-    profileOpen: false,
     settingsOpen: false,
     settingsTarget: 'training'
   });
 });
 
 test('Profile to the direct Gender Settings panel keeps Profile underneath when Settings closes', () => {
-  const profile = appSurfaceReducer(INITIAL_APP_SURFACE_STATE, { type: 'open_profile' });
+  const profile = appSurfaceReducer(INITIAL_APP_SURFACE_STATE, { type: 'select_tab', tab: 'profile' });
   const settings = appSurfaceReducer(profile, { type: 'open_settings', target: 'gender' });
-  assert.equal(settings.profileOpen, true);
+  assert.equal(settings.currentTab, 'profile');
   assert.equal(settings.settingsOpen, true);
   assert.equal(settings.settingsTarget, 'gender');
 
   const closedSettings = appSurfaceReducer(settings, { type: 'close_settings' });
-  assert.equal(closedSettings.profileOpen, true);
+  assert.equal(closedSettings.currentTab, 'profile');
   assert.equal(closedSettings.settingsOpen, false);
-  assert.equal(closedSettings.currentTab, 'home');
 });
 
-test('ViewHeader exposes independent accessible Profile and Settings actions', () => {
+test('ViewHeader keeps Settings access without duplicating the Profile avatar', () => {
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(
-      ProfileIdentityProvider,
-      {
-        value: { displayName: 'Alex Athlete', onOpenProfile: () => {} },
-        children: React.createElement(ViewHeader, { title: 'Progreso', onOpenSettings: () => {} })
-      }
-    )
+    React.createElement(ViewHeader, { title: 'Progreso', onOpenSettings: () => {} })
   );
-  assert.ok(html.includes('aria-label="Abrir perfil de Alex Athlete"'));
   assert.ok(html.includes('aria-label="Abrir ajustes"'));
-  assert.ok(html.includes('AA'), 'Header profile action must render stable initials without an avatar');
+  assert.ok(!html.includes('Abrir perfil de'));
 });
 
 test('profile identity initials are stable for empty, single and long display names', () => {
@@ -105,8 +94,8 @@ test('ProfileScreen owns Friends and places its presentation accessory below met
 test('App owns independent Profile/Settings orchestration and preserves auth routing', () => {
   const app = source('App.tsx');
   assert.ok(app.includes('useReducer(appSurfaceReducer, INITIAL_APP_SURFACE_STATE)'));
-  assert.ok(app.includes('profileOpen ? <ProfileScreen'));
-  assert.ok(app.includes("dispatchSurface({ type: 'open_profile' })"));
+  assert.ok(app.includes("currentTab === 'profile' && <ProfileScreen"));
+  assert.ok(app.includes('<BottomNav currentTab={currentTab} onSelectTab={navigateToTab}'));
   assert.ok(app.includes('target={settingsTarget}'));
   assert.ok(app.includes('onOpenSettings={openSettings}'));
   assert.ok(app.includes('saveProfileUpdate'));
@@ -121,7 +110,7 @@ test('ProfileView delegates social/account ownership and shares avatar fallback 
   assert.ok(!profileView.includes('onLogout'));
   assert.ok(!profileView.includes('isRemote'));
   assert.ok(!profileView.includes('SegmentedControl'));
-  assert.ok(profileView.includes("aria-label={t('profile.edit')}"));
+  assert.ok(profileView.includes("onClick={openEdit}"));
   assert.ok(profileView.includes('<Pencil aria-hidden="true" className="size-4" />'));
   assert.ok(profileView.includes('{summaryAccessory}'));
   assert.ok(profileView.includes('type="file"'));
@@ -163,7 +152,7 @@ test('new Profile surface labels are complete in Spanish and English', () => {
   }
 });
 
-test('Block 19.3: Profile header uses sketch layout (X + title on left, Pencil on right, cardless identity)', () => {
+test('Profile header keeps its cardless identity and reserves the top-right action for Settings', () => {
   const profileScreen = source('features/profile/ProfileScreen.tsx');
   const profileView = source('features/profile/ProfileView.tsx');
 
@@ -171,12 +160,11 @@ test('Block 19.3: Profile header uses sketch layout (X + title on left, Pencil o
   assert.ok(!profileView.includes('<ElevatedSurface'), 'ProfileView must not enclose photo/identity in an ElevatedSurface or card');
   assert.ok(!profileScreen.includes('<ElevatedSurface'), 'ProfileScreen must not use ElevatedSurface wrapper');
 
-  // Header has X close button and title on the left
-  assert.ok(profileView.includes("aria-label={t('profile.close')}"), 'ProfileView header must include X close button');
+  // The primary tab no longer has an overlay close action.
+  assert.ok(!profileView.includes("aria-label={t('profile.close')}"));
   assert.ok(profileView.includes("id=\"profile-screen-title\""), 'ProfileView header must include screen title');
-
-  // Header has Pencil edit button on the right
-  assert.ok(profileView.includes("aria-label={t('profile.edit')}"), 'ProfileView header must include edit pencil button');
+  assert.ok(profileView.includes("aria-label={t('header.openSettings')}"));
+  assert.ok(profileView.includes("onClick={openEdit}"));
   assert.ok(profileView.includes('<Pencil aria-hidden="true" className="size-4" />'), 'ProfileView header must use Pencil icon');
 
   // Identity is rendered directly without enclosing surface
@@ -190,25 +178,21 @@ test('Block 19.3: Profile header uses sketch layout (X + title on left, Pencil o
   assert.ok(!profileScreen.includes('bg-neutral-9'), 'Header must not use hardcoded neutral-9xx');
 });
 
-test('Block 19.3: Profile top surface uses X close control and eliminates Settings button', () => {
+test('Profile summary exposes Settings while Friends return remains local to Profile', () => {
   const profileScreen = source('features/profile/ProfileScreen.tsx');
 
-  // No visible Settings button in Profile
-  assert.ok(!profileScreen.includes('<Settings'), 'Visible Settings button must be removed from Profile');
-  assert.ok(!profileScreen.includes('Settings,') && !profileScreen.includes(', Settings'), 'Unused Settings icon import must be removed');
-  assert.ok(!profileScreen.includes('header.openSettings'), 'header.openSettings must not be used on a visible button in Profile');
+  assert.ok(profileScreen.includes("onOpenSettings={() => onOpenSettings('root')}"));
 
   // onOpenSettings plumbing must be preserved for gender configuration
   assert.ok(profileScreen.includes("onConfigureGender={() => onOpenSettings('gender')}"), 'onOpenSettings gender flow must be preserved');
 
-  // X icon is used as the close control in Profile summary and Friends panel
+  // X icon remains the Friends-to-summary return control.
   assert.ok(profileScreen.includes('<X aria-hidden="true" className="size-5" />'), 'X icon must be used as close control');
 
   // ChevronLeft is NOT used as a top surface close control (no back icon before title)
   assert.ok(!profileScreen.includes('ChevronLeft aria-hidden="true" className="size-5"'), 'ChevronLeft must not be used as top close control');
 
-  // Close semantics remain intact
-  assert.ok(profileScreen.includes('onClose={onClose}'), 'Summary close control must pass onClose');
+  assert.ok(!profileScreen.includes('onClose={onClose}'));
   assert.ok(profileScreen.includes("onClick={() => setPanel({ type: 'summary' })}"), 'Friends close control must return to summary panel');
 });
 

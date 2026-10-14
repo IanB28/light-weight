@@ -9,7 +9,7 @@ import { WeightWidget } from './WeightWidget.js';
 import { MaskedPngIcon } from './ui/MaskedPngIcon.js';
 import { NAVIGATION_ICON_ASSETS, SEMANTIC_ICON_ASSETS } from './ui/icon-assets.js';
 
-const tabs: TabType[] = ['home', 'plan', 'workout', 'stats', 'exercises'];
+const tabs: TabType[] = ['home', 'plan', 'workout', 'stats', 'profile'];
 
 test('MaskedPngIcon uses both CSS mask engines, currentColor, className, and decorative semantics', () => {
   const html = renderToStaticMarkup(React.createElement(MaskedPngIcon, {
@@ -35,6 +35,7 @@ test('BottomNav renders five equal-width destinations with one selected internal
     const html = renderToStaticMarkup(React.createElement(BottomNav, {
       currentTab,
       isWorkoutActive: false,
+      profileIdentity: { displayName: 'Alex Athlete' },
       onSelectTab: () => undefined
     }));
 
@@ -47,11 +48,27 @@ test('BottomNav renders five equal-width destinations with one selected internal
     assert.match(html, /Plan/);
     assert.match(html, /Entrenar/);
     assert.match(html, /Progreso/);
-    assert.match(html, /Ejercicios/);
-    for (const asset of Object.values(NAVIGATION_ICON_ASSETS)) {
+    assert.match(html, /Perfil/);
+    assert.doesNotMatch(html, /Ejercicios/);
+    assert.ok(html.indexOf('Inicio') < html.indexOf('Plan') && html.indexOf('Plan') < html.indexOf('Entrenar') && html.indexOf('Entrenar') < html.indexOf('Progreso') && html.indexOf('Progreso') < html.indexOf('Perfil'));
+    for (const asset of Object.values(NAVIGATION_ICON_ASSETS).filter((item) => item !== NAVIGATION_ICON_ASSETS.exercises)) {
       assert.match(html, new RegExp(asset.src.replaceAll('/', '\\/').replace('.', '\\.')));
     }
   }
+});
+
+test('Profile destination renders current avatar or stable initials and keeps the selected label', () => {
+  const render = (avatarUrl?: string) => renderToStaticMarkup(React.createElement(BottomNav, {
+    currentTab: 'profile', isWorkoutActive: false, profileIdentity: { displayName: 'Alex Athlete', avatarUrl }, onSelectTab: () => undefined
+  }));
+  const initials = render();
+  assert.match(initials, /aria-label="Perfil"[^>]*aria-current="page"|aria-current="page"[^>]*aria-label="Perfil"/);
+  assert.match(initials, />AA<\/span>/);
+  assert.doesNotMatch(initials, /<img/);
+  const photo = render('/avatar-one.jpg');
+  assert.match(photo, /src="\/avatar-one.jpg"/);
+  assert.match(render('/avatar-two.jpg'), /src="\/avatar-two.jpg"/);
+  assert.doesNotMatch(render('/avatar-two.jpg'), /src="\/avatar-one.jpg"/);
 });
 
 test('BottomNavItem invokes the selected tab and keeps running workout state independent', () => {
