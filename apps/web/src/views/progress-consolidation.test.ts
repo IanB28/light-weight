@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -44,16 +45,28 @@ function renderStats(history: WorkoutSession[] = []) {
     })));
 }
 
-test('Progress has exactly three analytical sections and no duplicate weight, consistency or 30-day recap', () => {
-  for (const html of [renderStats(), renderStats([workout])]) {
+test('Progress restores its informational 30-day card above exactly three analytical sections', () => {
+  for (const history of [[], [workout]] as WorkoutSession[][]) {
+    const html = renderStats(history);
+    const summaryAt = html.indexOf('data-testid="progress-30-day-summary"');
+    const analysisAt = html.indexOf(dictionaries.es['stats.fullAnalysis']);
+    assert.ok(summaryAt >= 0 && summaryAt < analysisAt);
+    assert.ok(html.includes(dictionaries.es['stats.last30']));
     assert.equal((html.match(/aria-expanded="false"/g) ?? []).length, 3);
     for (const key of ['stats.musclesTitle', 'stats.exerciseProgressTitle', 'stats.calculatorTitle'] as const) {
       assert.ok(html.includes(dictionaries.es[key]), key);
     }
-    for (const key of ['stats.bodyweightTitle', 'stats.consistencyTitle', 'stats.last30'] as const) {
+    for (const key of ['stats.bodyweightTitle', 'stats.consistencyTitle'] as const) {
       assert.ok(!html.includes(dictionaries.es[key]), key);
     }
-    assert.ok(!html.includes('Tonelaje histórico'));
+    const summary = html.slice(summaryAt, analysisAt);
+    assert.ok(summary.includes(dictionaries.es['stats.bestE1rm']));
+    assert.ok(summary.includes(dictionaries.es['stats.sessions']));
+    assert.ok(summary.includes(dictionaries.es['stats.volume']));
+    const streakKey = history.length ? 'stats.streakWeek' : 'stats.streakWeeks';
+    assert.ok(summary.includes(dictionaries.es[streakKey].replace('{{count}}', history.length ? '1' : '0')));
+    assert.equal((summary.match(/<button\b/g) ?? []).length, history.length ? 1 : 0);
+    if (history.length) assert.ok(summary.includes(dictionaries.es['stats.totalHistoricalTonnage']));
     assert.ok(html.includes('02:35'));
   }
 });
@@ -70,18 +83,41 @@ test('Home retains its weight tracker, passive streak and independent historical
   assert.ok(html.includes(dictionaries.es['weight.title']));
   assert.ok(html.includes('data-testid="home-history-card"'));
   assert.ok(html.includes('aria-label="Contraer peso corporal y meta"'));
+  assert.ok(!html.includes('data-testid="home-progress-recap"'));
   assert.ok(!html.includes('Tonelaje histórico'));
+  const homeHistorySource = readFileSync(new URL('../../src/components/HomeHistoryCard.tsx', import.meta.url), 'utf8');
+  assert.match(homeHistorySource, /<ActivityHeatmap\b/);
+  assert.match(homeHistorySource, /<WorkoutDetailModal\b/);
+  assert.match(homeHistorySource, /home\.recordedDays/);
+  assert.doesNotMatch(homeHistorySource, /selectProgressSummary|selectTotalVolumeTonnage|TonnageEquivalenceModal/);
 });
 
-test('Home recap preserves the exact 30-day selector and historical tonnage semantics', () => {
+test('Progress card keeps the original 30-day selector distinct from all-time tonnage', () => {
   const now = Date.parse('2026-10-13T12:00:00.000Z');
-  const summary = selectProgressSummary([workout], exerciseMap, weights, now);
+  const olderWorkout: WorkoutSession = {
+    ...workout, id: 'older-progress-r4', startedAt: '2026-08-01T16:00:00.000Z', performedDate: '2026-08-01',
+    sets: { bench: [{ setIndex: 1, weightKg: 20, reps: 5, setType: 'working', completed: true }] }
+  };
+  const history = [workout, olderWorkout];
+  const summary = selectProgressSummary(history, exerciseMap, weights, now);
   assert.equal(summary.sessions, 1);
   assert.equal(summary.volumeKg, 400);
   assert.equal(summary.bestExerciseName, 'Bench');
   assert.ok(Math.abs(summary.bestEstimatedOneRm - estimateOneRm(80, 5).average) < 0.001);
-  assert.equal(summary.weeklyStreak, calculateWeeklyStreak([workout]));
-  assert.equal(selectTotalVolumeTonnage([workout], exerciseMap, weights), 400);
+  assert.equal(summary.weeklyStreak, calculateWeeklyStreak(history));
+  assert.equal(selectTotalVolumeTonnage(history, exerciseMap, weights), 500);
+  const snapshot = selectStatsSnapshot(history, [bench], 7, 75, 'male', weights);
+  assert.deepEqual(snapshot.progressSummary, selectProgressSummary(history, exerciseMap, weights));
+  assert.equal(snapshot.totalVolumeTonnage, 500);
+});
+
+test('Progress tonnage action is wired only to its existing modal and disappears on tab change', () => {
+  const stats = readFileSync(new URL('../../src/views/StatsView.tsx', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(stats, /onClick=\{\(\) => setIsTonnageModalOpen\(true\)\}/);
+  assert.match(stats, /<TonnageEquivalenceModal\s+isOpen=\{isTonnageModalOpen\}/);
+  assert.match(stats, /onClose=\{\(\) => setIsTonnageModalOpen\(false\)\}/);
+  assert.match(app, /currentTab === 'stats' && <StatsView/);
 });
 
 test('Exercise Progress and calculator retain workout-derived weights, RIR and estimation parity', () => {

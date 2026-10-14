@@ -83,7 +83,7 @@ test('G: mixed session has identical Domain, historical UI and Stats selector to
   assert.equal(selectStatsSnapshot([mixed], Object.values(exercisesById), 30, 90, undefined, historicalWeights).totalVolumeTonnage, expected);
 });
 
-test('G: Profile, Home summary selector, Detail, Heatmap and Calendar use the historical context adapter', () => {
+test('G: Profile, Progress summary selector, Detail, Heatmap and Calendar use the historical context adapter', () => {
   const surfaces = [
     'src/features/profile/ProfileView.tsx',
     'src/features/stats/stats-selectors.ts',
@@ -96,8 +96,10 @@ test('G: Profile, Home summary selector, Detail, Heatmap and Calendar use the hi
     assert.match(source, /calculateHistoricalSessionVolume\(/, `${path} must use canonical historical tonnage`);
     assert.doesNotMatch(source, /calculateSessionTotalVolume\(session\)/, `${path} must not omit historical context`);
   }
+  const progress = readFileSync(resolve(process.cwd(), 'src/views/StatsView.tsx'), 'utf8');
   const homeHistory = readFileSync(resolve(process.cwd(), 'src/components/HomeHistoryCard.tsx'), 'utf8');
-  assert.match(homeHistory, /selectTotalVolumeTonnage\(/);
+  assert.match(progress, /selectTotalVolumeTonnage\(/);
+  assert.doesNotMatch(homeHistory, /selectTotalVolumeTonnage\(/);
 });
 
 test('H: performedDate, not startedAt or recordedAt, chooses the bodyweight', () => {

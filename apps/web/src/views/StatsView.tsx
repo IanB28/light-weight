@@ -33,12 +33,13 @@ import {
   AnatomicalBodyMap,
   AnalysisMode
 } from '../components/charts/AnatomicalBodyMap.js';
-import { EmptyState, SectionHeader } from '../components/ui/index.js';
+import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
+import { TonnageEquivalenceModal } from '../components/TonnageEquivalenceModal.js';
 import { ExercisePicker } from '../components/ExercisePicker.js';
 import { useExerciseLabels, useI18n } from '../lib/i18n.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, formatDisplayWeight, parseDisplayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
-import { buildExercisesById, selectExercisesWithHistory, selectLastTopSet, selectMuscleAnalytics } from '../features/stats/stats-selectors.js';
+import { buildExercisesById, selectExercisesWithHistory, selectLastTopSet, selectMuscleAnalytics, selectProgressSummary, selectTotalVolumeTonnage } from '../features/stats/stats-selectors.js';
 import { StrengthRankBadge } from '../components/StrengthRankBadge.js';
 import { getStrengthRankColor } from '../lib/strength-rank-visuals.js';
 import {
@@ -252,6 +253,19 @@ export const StatsView: React.FC<StatsViewProps> = ({
   // Estados de listas desplegables internas
   const [isNeglectedListOpen, setIsNeglectedListOpen] = useState(false);
   const [isEffectiveSetsOpen, setIsEffectiveSetsOpen] = useState(false);
+  const [isTonnageModalOpen, setIsTonnageModalOpen] = useState(false);
+  const progressSummary = useMemo(
+    () => selectProgressSummary(history, exercisesById, bodyweightEntries),
+    [history, exercisesById, bodyweightEntries]
+  );
+  const totalVolumeTonnage = useMemo(
+    () => selectTotalVolumeTonnage(history, exercisesById, bodyweightEntries),
+    [history, exercisesById, bodyweightEntries]
+  );
+  const compactNumber = useMemo(
+    () => new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }),
+    [locale]
+  );
 
   return (
     <div className="space-y-4 pb-28">
@@ -265,6 +279,48 @@ export const StatsView: React.FC<StatsViewProps> = ({
         onOpenSettings={onOpenSettings}
       />
 
+      <AppCard compact className="space-y-3" data-testid="progress-30-day-summary">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-text-secondary">{t('stats.last30')}</p>
+            <p className="mt-0.5 text-[11px] text-text-muted">{t('stats.activity')}</p>
+          </div>
+          <TrendingUp aria-hidden="true" className="size-5 shrink-0 text-accent" />
+        </div>
+
+        <div className="grid grid-cols-3 divide-x divide-border-subtle rounded-ui-lg border border-border-subtle bg-surface-input">
+          <div className="min-w-0 px-2 py-3 text-center">
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.bestE1rm')}</span>
+            <strong className="mt-1 block truncate text-sm text-text-primary">
+              {progressSummary.bestEstimatedOneRm > 0 ? formatDisplayWeight(progressSummary.bestEstimatedOneRm, preferences.units) : '—'}
+            </strong>
+          </div>
+          <div className="min-w-0 px-2 py-3 text-center">
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.sessions')}</span>
+            <strong className="mt-1 block text-sm text-text-primary">{progressSummary.sessions}</strong>
+          </div>
+          <div className="min-w-0 px-2 py-3 text-center">
+            <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-text-muted">{t('stats.volume')}</span>
+            <strong className="mt-1 block truncate text-sm text-text-primary">{compactNumber.format(displayWeight(progressSummary.volumeKg, preferences.units))} {weightUnit}</strong>
+          </div>
+        </div>
+
+        <div className="flex min-h-10 items-center justify-between gap-3 text-xs">
+          <span className="min-w-0 truncate text-text-muted">
+            {progressSummary.bestExerciseName || t('stats.noMarks')}
+          </span>
+          <span className="shrink-0 font-semibold text-text-secondary">
+            {t(progressSummary.weeklyStreak === 1 ? 'stats.streakWeek' : 'stats.streakWeeks', { count: progressSummary.weeklyStreak })}
+          </span>
+        </div>
+
+        {totalVolumeTonnage > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setIsTonnageModalOpen(true)} className="w-full text-text-muted">
+            <Flame aria-hidden="true" className="size-4 text-accent" />
+            {t('stats.totalHistoricalTonnage')}: {compactNumber.format(displayWeight(totalVolumeTonnage, preferences.units))} {weightUnit}
+          </Button>
+        )}
+      </AppCard>
 
       <SectionHeader title={t('stats.fullAnalysis')} meta={t('stats.openSection')} />
 
@@ -1193,6 +1249,11 @@ export const StatsView: React.FC<StatsViewProps> = ({
         )}
       </div>
 
+      <TonnageEquivalenceModal
+        isOpen={isTonnageModalOpen}
+        onClose={() => setIsTonnageModalOpen(false)}
+        totalKg={totalVolumeTonnage}
+      />
     </div>
   );
 };
