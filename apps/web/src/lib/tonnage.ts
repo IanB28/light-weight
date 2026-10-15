@@ -1,74 +1,54 @@
 export interface RealWorldComparison {
   id: string;
-  name: string;
   unitKg: number;
   icon: string;
-  description: string;
 }
 
 export const REAL_WORLD_OBJECTS: RealWorldComparison[] = [
   {
     id: 'gorilla',
-    name: 'Gorilas de lomo plateado',
     unitKg: 180,
-    icon: '🦍',
-    description: 'Un imponente macho alfa de la selva africana (~180 kg)'
+    icon: '🦍'
   },
   {
     id: 'piano',
-    name: 'Pianos de cola de concierto',
     unitKg: 450,
-    icon: '🎹',
-    description: 'Un piano de concierto Steinway clásico (~450 kg)'
+    icon: '🎹'
   },
   {
     id: 'car',
-    name: 'Coches sedán promedio',
     unitKg: 1400,
-    icon: '🚗',
-    description: 'Un automóvil sedán estándar moderno (~1,400 kg)'
+    icon: '🚗'
   },
   {
     id: 'rhino',
-    name: 'Rinocerontes blancos',
     unitKg: 2300,
-    icon: '🦏',
-    description: 'Uno de los mayores mamíferos terrestres (~2,300 kg)'
+    icon: '🦏'
   },
   {
     id: 'elephant',
-    name: 'Elefantes africanos adultos',
     unitKg: 5500,
-    icon: '🐘',
-    description: 'El mamífero terrestre más colosal del planeta (~5,500 kg)'
+    icon: '🐘'
   },
   {
     id: 'trex',
-    name: 'Tiranosaurios Rex',
     unitKg: 8000,
-    icon: '🦖',
-    description: 'El mayor depredador del Cretácico (~8,000 kg)'
+    icon: '🦖'
   },
   {
     id: 'plane',
-    name: 'Aviones Boeing 737 comerciales',
     unitKg: 41000,
-    icon: '✈️',
-    description: 'Un avión de pasajeros de línea comercial (~41,000 kg vacío)'
+    icon: '✈️'
   },
   {
     id: 'whale',
-    name: 'Ballenas azules adultas',
     unitKg: 140000,
-    icon: '🐋',
-    description: 'El animal más grande que ha existido en la Tierra (~140,000 kg)'
+    icon: '🐋'
   },
   {
     id: 'statue',
-    name: 'Estatuas de la Libertad',
     unitKg: 225000,
-    icon: '🗽',
-    description: 'La célebre escultura monumental de cobre y hierro (~225,000 kg)'
+    icon: '🗽'
   }
 ];
 
@@ -76,23 +56,20 @@ export interface TonnageEquivalenceResult {
   totalKg: number;
   totalTonnes: number;
   primary: {
-    name: string;
+    id: string;
     count: number;
     countFormatted: string;
     icon: string;
-    sentence: string;
   };
   breakdown: Array<{
     id: string;
-    name: string;
     count: number;
     countFormatted: string;
     icon: string;
     unitKg: number;
-    description: string;
   }>;
   nextMilestone: {
-    name: string;
+    id: string;
     icon: string;
     targetKg: number;
     remainingKg: number;
@@ -118,12 +95,10 @@ export function getTonnageEquivalences(totalKg: number): TonnageEquivalenceResul
 
     return {
       id: obj.id,
-      name: obj.name,
       count: rawCount,
       countFormatted,
       icon: obj.icon,
       unitKg: obj.unitKg,
-      description: obj.description
     };
   });
 
@@ -143,16 +118,15 @@ export function getTonnageEquivalences(totalKg: number): TonnageEquivalenceResul
   }
 
   const primary = {
-    name: bestObj.name,
+    id: bestObj.id,
     count: bestObj.count,
     countFormatted: bestObj.countFormatted,
-    icon: bestObj.icon,
-    sentence: `¡Has levantado el peso equivalente a ${bestObj.countFormatted} ${bestObj.name.toLowerCase()}!`
+    icon: bestObj.icon
   };
 
   // Siguiente Hito
   const milestoneTarget = REAL_WORLD_OBJECTS.find((obj) => obj.unitKg > safeKg) || {
-    name: '100 Coches Sedán',
+    id: 'car100',
     unitKg: 140000,
     icon: '🚗'
   };
@@ -161,7 +135,7 @@ export function getTonnageEquivalences(totalKg: number): TonnageEquivalenceResul
   const progressPercent = Math.min(100, Math.round((safeKg / milestoneTarget.unitKg) * 100));
 
   const nextMilestone = {
-    name: `1 ${milestoneTarget.name.replace(/es$|s$/, '')}`,
+    id: milestoneTarget.id,
     icon: milestoneTarget.icon,
     targetKg: milestoneTarget.unitKg,
     remainingKg,
@@ -175,4 +149,13 @@ export function getTonnageEquivalences(totalKg: number): TonnageEquivalenceResul
     breakdown,
     nextMilestone
   };
+}
+
+/** Localizes the already-rounded display count without changing equivalence math. */
+export function formatTonnageCount(countFormatted: string, locale: string): string {
+  const decimals = countFormatted.split('.')[1]?.length ?? 0;
+  return Number(countFormatted).toLocaleString(locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
 }

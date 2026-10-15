@@ -174,7 +174,7 @@ test('ViewHeader consumes shared screen hierarchy without changing status behavi
   const header = source('components/ViewHeader.tsx');
   assert.match(header, /ui-screen-title/);
   assert.match(header, /ui-focus-visible/);
-  for (const contract of ['subscribeToSyncStatus', 'ProfileIdentityButton', 'onOpenSettings', 'isWorkoutActive', 'isOffline']) {
+  for (const contract of ['subscribeToSyncStatus', 'onOpenSettings', 'isWorkoutActive', 'isOffline']) {
     assert.ok(header.includes(contract), contract);
   }
 });

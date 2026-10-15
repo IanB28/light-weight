@@ -3,13 +3,15 @@ import { createPortal } from 'react-dom';
 import { useI18n } from '../lib/i18n.js';
 import { MaskedPngIcon } from './ui/MaskedPngIcon.js';
 import { NAVIGATION_ICON_ASSETS } from './ui/icon-assets.js';
+import { ProfileAvatar, type ProfileIdentity } from '../features/profile/ProfileIdentityButton.js';
 
-export type TabType = 'home' | 'plan' | 'workout' | 'stats' | 'exercises';
+export type TabType = 'home' | 'plan' | 'workout' | 'stats' | 'profile';
 
 interface BottomNavProps {
   currentTab: TabType;
   onSelectTab: (tab: TabType) => void;
   isWorkoutActive: boolean;
+  profileIdentity: ProfileIdentity;
 }
 
 const EDITABLE_SELECTOR = 'input, textarea, select, [contenteditable="true"]';
@@ -18,7 +20,7 @@ interface BottomNavItemProps {
   tab: {
     id: TabType;
     label: string;
-    icon: { src: string; opticalScale: number };
+    icon?: { src: string; opticalScale: number };
   };
   isActive: boolean;
   isWorkoutActive: boolean;
@@ -26,6 +28,7 @@ interface BottomNavItemProps {
   workoutActiveLabel: string;
   sessionActiveLabel: string;
   onSelectTab: (tab: TabType) => void;
+  profileIdentity?: ProfileIdentity;
 }
 
 export const BottomNavItem: React.FC<BottomNavItemProps> = ({
@@ -35,7 +38,8 @@ export const BottomNavItem: React.FC<BottomNavItemProps> = ({
   mobileKeyboardOpen,
   workoutActiveLabel,
   sessionActiveLabel,
-  onSelectTab
+  onSelectTab,
+  profileIdentity
 }) => {
   const isActiveWorkout = tab.id === 'workout' && isWorkoutActive;
   const accessibleLabel = isActiveWorkout ? workoutActiveLabel : tab.label;
@@ -55,11 +59,9 @@ export const BottomNavItem: React.FC<BottomNavItemProps> = ({
       }`}
     >
       <span className="relative z-10 flex h-[22px] items-center justify-center">
-        <MaskedPngIcon
-          src={tab.icon.src}
-          opticalScale={tab.icon.opticalScale}
-          className="size-[1.375rem]"
-        />
+        {tab.id === 'profile' && profileIdentity
+          ? <ProfileAvatar {...profileIdentity} className="size-[1.375rem] text-[8px]" />
+          : tab.icon && <MaskedPngIcon src={tab.icon.src} opticalScale={tab.icon.opticalScale} className="size-[1.375rem]" />}
         {isActiveWorkout && (
           <span
             aria-hidden="true"
@@ -85,6 +87,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   currentTab,
   onSelectTab,
   isWorkoutActive,
+  profileIdentity,
 }) => {
   const { t } = useI18n();
   const tabs = [
@@ -92,8 +95,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     { id: 'plan', label: t('nav.plan'), icon: NAVIGATION_ICON_ASSETS.plan },
     { id: 'workout', label: t('nav.workout'), icon: NAVIGATION_ICON_ASSETS.workout },
     { id: 'stats', label: t('nav.stats'), icon: NAVIGATION_ICON_ASSETS.stats },
-    { id: 'exercises', label: t('nav.exercises'), icon: NAVIGATION_ICON_ASSETS.exercises },
-  ] satisfies { id: TabType; label: string; icon: { src: string; opticalScale: number } }[];
+    { id: 'profile', label: t('nav.profile') },
+  ] satisfies { id: TabType; label: string; icon?: { src: string; opticalScale: number } }[];
   const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false);
 
   useEffect(() => {
@@ -147,6 +150,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               workoutActiveLabel={t('nav.workoutActive')}
               sessionActiveLabel={t('nav.sessionActive')}
               onSelectTab={onSelectTab}
+              profileIdentity={profileIdentity}
             />
           ))}
         </div>

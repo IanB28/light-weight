@@ -5,6 +5,7 @@ import { BottomSheet, EmptyState, SearchInput } from './ui/index.js';
 import { useI18n } from '../lib/i18n.js';
 
 interface RoutinePickerProps {
+  isActive?: boolean;
   dayLabel: string;
   value: string | null;
   routines: Routine[];
@@ -17,12 +18,16 @@ const normalizeSearch = (value: string) => value
   .toLocaleLowerCase('es')
   .trim();
 
-export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePickerProps) {
+export function RoutinePicker({ isActive = true, dayLabel, value, routines, onChange }: RoutinePickerProps) {
   const { language, t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const selectedRoutine = routines.find((routine) => routine.id === value);
+
+  useEffect(() => {
+    if (!isActive) setOpen(false);
+  }, [isActive]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +51,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
       <button
         type="button"
         aria-haspopup="dialog"
-        aria-expanded={open}
+        aria-expanded={isActive && open}
         aria-label={`${t('routine.forDay', { day: dayLabel })}: ${selectedRoutine?.name || t('routine.rest')}`}
         disabled={routines.length === 0}
         onClick={() => {
@@ -67,7 +72,7 @@ export function RoutinePicker({ dayLabel, value, routines, onChange }: RoutinePi
       </button>
 
       <BottomSheet
-        open={open}
+        open={isActive && open}
         onClose={() => setOpen(false)}
         title={t('routine.forDay', { day: dayLabel })}
         description={t('routine.chooseDescription')}

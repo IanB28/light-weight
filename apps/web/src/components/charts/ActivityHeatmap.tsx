@@ -1,8 +1,10 @@
 import React, { useRef, useEffect } from 'react';
-import { type BodyweightEntry, type Exercise, type WorkoutSession, formatLocalWorkoutDateKey, resolveWorkoutDateKey } from '@light-weight/domain';
+import { type BodyweightEntry, type Exercise, type WorkoutSession, formatLocalWorkoutDateKey } from '@light-weight/domain';
 import { usePreferences } from '../../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../../lib/weight-units.js';
 import { calculateHistoricalSessionVolume } from '../../lib/historical-volume.js';
+import { groupWorkoutSessionsByDate } from '../../lib/home-history.js';
+import { useI18n } from '../../lib/i18n.js';
 
 interface ActivityHeatmapProps {
   history: WorkoutSession[];
@@ -19,6 +21,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   onSelectDate
 }) => {
   const { preferences } = usePreferences();
+  const { locale, t } = useI18n();
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -31,21 +34,14 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   // Aggregate workouts by YYYY-MM-DD
   const sessionsByDate: Record<string, { sessions: WorkoutSession[]; volumeKg: number; sets: number }> = {};
 
-  for (const session of history) {
-    const d = resolveWorkoutDateKey(session);
-    const vol = calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries);
-    const sets = Object.values(session.sets).reduce(
-      (acc, sList) => acc + sList.filter((s) => s.completed).length,
-      0
-    );
-
-    if (!sessionsByDate[d]) {
-      sessionsByDate[d] = { sessions: [session], volumeKg: vol, sets };
-    } else {
-      sessionsByDate[d].sessions.push(session);
-      sessionsByDate[d].volumeKg += vol;
-      sessionsByDate[d].sets += sets;
-    }
+  for (const [dateKey, sessions] of Object.entries(groupWorkoutSessionsByDate(history))) {
+    sessionsByDate[dateKey] = {
+      sessions,
+      volumeKg: sessions.reduce((sum, session) => sum + calculateHistoricalSessionVolume(session, exercisesById, bodyweightEntries), 0),
+      sets: sessions.reduce((sum, session) => sum + Object.values(session.sets).reduce(
+        (count, sets) => count + sets.filter((set) => set.completed).length, 0
+      ), 0)
+    };
   }
 
   // Generate 26 weeks (6 months) or 52 weeks (1 year) grid
@@ -80,7 +76,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
   }
 
   const getLevelClass = (data?: { volumeKg: number; sets: number }) => {
-    if (!data) return 'bg-zinc-900/90 border border-white/[0.04]';
+    if (!data) return 'bg-surface-input border border-border-subtle';
     if (data.sets >= 15 || data.volumeKg >= 8000) return 'bg-accent border border-accent/80 shadow-sm shadow-accent/40';
     if (data.sets >= 10 || data.volumeKg >= 5000) return 'bg-accent/80 border border-accent/60';
     if (data.sets >= 5 || data.volumeKg >= 2500) return 'bg-accent/50 border border-accent/40';
@@ -97,11 +93,8 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
           {/* Heatmap Grid (7 rows, N weeks cols) */}
           <div className="flex gap-1.5 items-center">
             {/* Days of week labels */}
-            <div className="flex flex-col justify-between h-[92px] text-[9px] font-mono text-zinc-500 pr-1 select-none">
-              <span>L</span>
-              <span>X</span>
-              <span>V</span>
-              <span>D</span>
+            <div className="flex flex-col justify-between h-[92px] text-[9px] font-mono text-text-muted pr-1 select-none">
+              {(locale.startsWith('en') ? ['M', 'W', 'F', 'S'] : ['L', 'X', 'V', 'D']).map((label, index) => <span key={index}>{label}</span>)}
             </div>
 
             {/* Weeks Columns */}
@@ -112,28 +105,13 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
                   const isFuture = day.date > today;
                   const levelCls = getLevelClass(day.data);
 
-                  return (
-                    <div
-                      key={dIdx}
-                      onClick={() => {
-                        if (day.data && onSelectDate) {
-                          onSelectDate(day.dateStr, day.data.sessions);
-                        }
-                      }}
-                      title={`${day.dateStr}${
-                        day.data
-                          ? ` • ${day.data.sessions.length} sesiones • ${day.data.sets} series • ${displayWeight(day.data.volumeKg, preferences.units).toLocaleString()} ${weightUnit}`
-                          : ''
-                      }`}
-                      className={`w-3 h-3 rounded-[3px] transition-all ${
-                        isFuture
-                          ? 'opacity-20 pointer-events-none bg-zinc-900'
-                          : levelCls
-                      } ${
-                        day.data ? 'cursor-pointer hover:scale-125' : ''
-                      } ${isToday ? 'ring-1 ring-white/60' : ''}`}
-                    />
-                  );
+                  const title = `${day.date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${day.data ? ` · ${t('home.historySessions', { count: day.data.sessions.length })} · ${day.data.sets} ${t('workout.sets')} · ${displayWeight(day.data.volumeKg, preferences.units).toLocaleString(locale)} ${weightUnit}` : ''}`;
+                  const className = `block size-3 rounded-[3px] ${isFuture ? 'opacity-20 bg-surface-input' : levelCls} ${isToday ? 'ring-1 ring-text-secondary' : ''}`;
+                  return day.data && onSelectDate && !isFuture ? (
+                    <button key={dIdx} type="button" title={title} aria-label={title}
+                      onClick={() => onSelectDate(day.dateStr, day.data!.sessions)}
+                      className={`ui-focus-visible ${className}`} />
+                  ) : <span key={dIdx} aria-hidden="true" title={title} className={className} />;
                 })}
               </div>
             ))}
@@ -142,16 +120,16 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono px-1">
-        <span>Menos actividad</span>
+      <div className="flex items-center justify-between text-[10px] text-text-muted font-mono px-1">
+        <span>{t('home.lessActivity')}</span>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-zinc-900 border border-white/[0.04]" />
+          <span className="w-2.5 h-2.5 rounded-[2px] bg-surface-input border border-border-subtle" />
           <span className="w-2.5 h-2.5 rounded-[2px] bg-accent/25" />
           <span className="w-2.5 h-2.5 rounded-[2px] bg-accent/50" />
           <span className="w-2.5 h-2.5 rounded-[2px] bg-accent/80" />
           <span className="w-2.5 h-2.5 rounded-[2px] bg-accent" />
         </div>
-        <span>Más actividad</span>
+        <span>{t('home.moreActivity')}</span>
       </div>
     </div>
   );

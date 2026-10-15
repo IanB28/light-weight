@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronRight, Dumbbell, Plus } from 'lucide-react';
 import { Exercise, Routine, getRoutineExerciseIds } from '@light-weight/domain';
 import { CreateRoutineModal } from '../components/CreateRoutineModal.js';
 import { RoutineEditorModal } from '../components/RoutineEditorModal.js';
-import { ViewHeader } from '../components/ViewHeader.js';
 import { AppCard, Button, EmptyState, SectionHeader } from '../components/ui/index.js';
 import { RoutineDetailSheet } from '../features/routines/RoutineDetailSheet.js';
 import { RoutinePicker } from '../components/RoutinePicker.js';
@@ -13,6 +12,7 @@ import { ReceivedRoutines } from '../features/routines/ReceivedRoutines.js';
 import type { AppPreferences } from '../lib/preferences.js';
 
 interface PlanViewProps {
+  isActive?: boolean;
   routines: Routine[];
   exercises: Exercise[];
   weeklySchedule: WeeklySchedule;
@@ -20,10 +20,6 @@ interface PlanViewProps {
   onSelectAndStartRoutine: (routineId: string) => void;
   onSaveRoutine: (newRoutine: Routine) => void;
   onDeleteRoutine?: (routineId: string) => void;
-  isWorkoutActive?: boolean;
-  activeWorkoutDuration?: string;
-  onNavigateToWorkout?: () => void;
-  onOpenSettings?: () => void;
   routineOwnerId?: string;
   preferences?: AppPreferences;
 }
@@ -31,6 +27,7 @@ interface PlanViewProps {
 const DAYS_LIST: WeekDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export const PlanView: React.FC<PlanViewProps> = ({
+  isActive = true,
   routines,
   exercises,
   weeklySchedule,
@@ -38,10 +35,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
   onSelectAndStartRoutine,
   onSaveRoutine,
   onDeleteRoutine,
-  isWorkoutActive = false,
-  activeWorkoutDuration = '00:00',
-  onNavigateToWorkout,
-  onOpenSettings,
   routineOwnerId,
   preferences
 }) => {
@@ -50,7 +43,34 @@ export const PlanView: React.FC<PlanViewProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
+  const [suspendedEditor, setSuspendedEditor] = useState<'create' | 'edit' | null>(null);
+  const [focusAfterClose, setFocusAfterClose] = useState<'new' | string | null>(null);
+  const resumeButtonRef = useRef<HTMLButtonElement>(null);
+  const newRoutineButtonRef = useRef<HTMLButtonElement>(null);
+  const routineButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const assignedCount = Object.values(weeklySchedule).filter(Boolean).length;
+
+  useEffect(() => {
+    if (!isActive) setSelectedRoutine(null);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (isActive && suspendedEditor) resumeButtonRef.current?.focus();
+  }, [isActive, suspendedEditor]);
+
+  useEffect(() => {
+    if (!isActive || !focusAfterClose) return;
+    (focusAfterClose === 'new'
+      ? newRoutineButtonRef.current
+      : routineButtonRefs.current.get(focusAfterClose) ?? newRoutineButtonRef.current)?.focus();
+    setFocusAfterClose(null);
+  }, [isActive, focusAfterClose]);
+
+  const resumeDraft = () => setSuspendedEditor(null);
+  const startCreating = () => {
+    if (suspendedEditor) resumeDraft();
+    else setIsCreateModalOpen(true);
+  };
 
   const assignRoutine = (day: WeekDay, routineId: string | null) => {
     onUpdateWeeklySchedule?.({ ...weeklySchedule, [day]: routineId });
@@ -58,15 +78,6 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
   return (
     <div className="space-y-section">
-      <ViewHeader
-        title={t('plan.title')}
-        subtitle={t('plan.subtitle')}
-        isWorkoutActive={isWorkoutActive}
-        activeWorkoutDuration={activeWorkoutDuration}
-        onNavigateToWorkout={onNavigateToWorkout}
-        onOpenSettings={onOpenSettings}
-      />
-
       <section className="space-y-2">
         <SectionHeader
           title={t('plan.thisWeek')}
@@ -85,6 +96,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
             <div key={day} className="grid min-h-14 grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 px-2 py-1.5">
               <span className="min-w-0 text-xs font-semibold text-text-secondary">{dayLabel(day, 'short')}</span>
               <RoutinePicker
+                isActive={isActive}
                 dayLabel={dayLabel(day, 'full')}
                 value={weeklySchedule[day]}
                 routines={routines}
@@ -95,19 +107,25 @@ export const PlanView: React.FC<PlanViewProps> = ({
         </AppCard>
       </section>
 
-      <ReceivedRoutines onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
-
       <section className="space-y-2">
         <SectionHeader
           title={t('plan.myRoutines')}
           meta={`${routines.length} ${t('plan.saved')}`}
-          action={
-            <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>
+          action={!suspendedEditor &&
+            <Button ref={newRoutineButtonRef} size="sm" onClick={startCreating}>
               <Plus className="size-4" />
               {t('plan.newRoutine')}
             </Button>
           }
         />
+        {suspendedEditor && (
+          <AppCard compact className="mb-2 flex items-center justify-between gap-3">
+            <span className="min-w-0 text-sm text-text-secondary">{t('routine.unsavedDraft')}</span>
+            <Button ref={resumeButtonRef} variant="secondary" onClick={resumeDraft} className="shrink-0">
+              {t('routine.resumeEditing')}
+            </Button>
+          </AppCard>
+        )}
         {routines.length === 0 ? (
           <AppCard compact>
             <EmptyState
@@ -115,8 +133,8 @@ export const PlanView: React.FC<PlanViewProps> = ({
               icon={<Dumbbell className="size-5" />}
               title={t('plan.noRoutines')}
               description={t('plan.noRoutinesDescription')}
-              actionLabel={t('plan.createFirst')}
-              onAction={() => setIsCreateModalOpen(true)}
+              actionLabel={suspendedEditor ? undefined : t('plan.createFirst')}
+              onAction={startCreating}
             />
           </AppCard>
         ) : (
@@ -126,6 +144,10 @@ export const PlanView: React.FC<PlanViewProps> = ({
               return (
                 <button
                   key={routine.id}
+                  ref={(node) => {
+                    if (node) routineButtonRefs.current.set(routine.id, node);
+                    else routineButtonRefs.current.delete(routine.id);
+                  }}
                   type="button"
                   onClick={() => setSelectedRoutine(routine)}
                   className="glass-surface ui-interactive-surface ui-focus-visible ui-pressable flex min-h-16 w-full min-w-0 items-center justify-between gap-3 rounded-ui-xl border p-card-compact text-left transition-[border-color,transform] duration-150"
@@ -152,9 +174,18 @@ export const PlanView: React.FC<PlanViewProps> = ({
         )}
       </section>
 
+      <ReceivedRoutines isActive={isActive} onImport={onSaveRoutine} exercises={exercises} preferences={preferences} />
+
       <CreateRoutineModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        isActive={isActive}
+        isSuspended={suspendedEditor === 'create'}
+        onPostpone={() => setSuspendedEditor('create')}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setSuspendedEditor(null);
+          setFocusAfterClose('new');
+        }}
         availableExercises={exercises}
         onSaveRoutine={onSaveRoutine}
         ownerId={routineOwnerId}
@@ -162,11 +193,14 @@ export const PlanView: React.FC<PlanViewProps> = ({
       />
 
       <RoutineDetailSheet
-        routine={selectedRoutine}
+        routine={isActive ? selectedRoutine : null}
         exercises={exercises}
         onClose={() => setSelectedRoutine(null)}
-        onStart={onSelectAndStartRoutine}
-        onEdit={(routine) => {
+        onStart={(routineId) => {
+          setSelectedRoutine(null);
+          onSelectAndStartRoutine(routineId);
+        }}
+        onEdit={suspendedEditor ? undefined : (routine) => {
           setSelectedRoutine(null);
           setEditingRoutine(routine);
         }}
@@ -175,7 +209,14 @@ export const PlanView: React.FC<PlanViewProps> = ({
 
       <RoutineEditorModal
         isOpen={Boolean(editingRoutine)}
-        onClose={() => setEditingRoutine(null)}
+        isActive={isActive}
+        isSuspended={suspendedEditor === 'edit'}
+        onPostpone={() => setSuspendedEditor('edit')}
+        onClose={(reason) => {
+          if (reason !== 'save' && editingRoutine) setFocusAfterClose(editingRoutine.id);
+          setEditingRoutine(null);
+          setSuspendedEditor(null);
+        }}
         availableExercises={exercises}
         mode="edit"
         initialRoutine={editingRoutine}
@@ -185,6 +226,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
           onSaveRoutine(updated);
           setSelectedRoutine(updated);
           setEditingRoutine(null);
+          setSuspendedEditor(null);
         }}
       />
     </div>

@@ -1,9 +1,10 @@
 import React from 'react';
 import { Trophy, Clock, Dumbbell, Flame, Check, Sparkles } from 'lucide-react';
 import type { Exercise, ExerciseLoadMode } from '@light-weight/domain';
-import { getTonnageEquivalences } from '../lib/tonnage.js';
+import { formatTonnageCount, getTonnageEquivalences } from '../lib/tonnage.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { formatDisplayWeight } from '../lib/weight-units.js';
+import { useI18n, type TranslationKey } from '../lib/i18n.js';
 
 export interface CompletedWorkoutSummary {
   routineName: string;
@@ -31,6 +32,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   onConfirmSave,
 }) => {
   const { preferences } = usePreferences();
+  const { locale, t } = useI18n();
   if (!isOpen || !summary) return null;
 
   const sessionEquivalence = summary.totalVolumeKg > 0 ? getTonnageEquivalences(summary.totalVolumeKg) : null;
@@ -100,7 +102,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
                 EQUIVALENCIA DE SESIÓN
               </span>
               <p className="text-xs font-bold text-white tracking-tight leading-snug">
-                {sessionEquivalence.primary.sentence}
+                {t('tonnage.primarySentence', { count: formatTonnageCount(sessionEquivalence.primary.countFormatted, locale), name: t(`tonnage.object.${sessionEquivalence.primary.id}` as TranslationKey) })}
               </p>
             </div>
           </div>

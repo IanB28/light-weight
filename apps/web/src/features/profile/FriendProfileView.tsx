@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, Shield, Trophy, UserRound } from 'lucide-react';
+import { ChevronLeft, Settings, Shield, Trophy, UserRound } from 'lucide-react';
 import type { ApiError } from '../../lib/api-errors.js';
 import { mapApiError } from '../../lib/api-errors.js';
 import type { FriendProfileProjection, PublicUserSummary } from '@light-weight/domain';
@@ -17,6 +17,7 @@ import { OverallStrengthCard } from './OverallStrengthCard.js';
 interface FriendProfileViewProps {
   friend: PublicUserSummary;
   onBack: () => void;
+  onOpenSettings: () => void;
   titleRef?: React.Ref<HTMLHeadingElement>;
 }
 
@@ -33,16 +34,21 @@ export function classifyFriendProfileError(error: ApiError): FriendProfileFailur
   return 'retryable';
 }
 
-function FriendProfileHeader({ onBack, titleRef }: Pick<FriendProfileViewProps, 'onBack' | 'titleRef'>) {
+function FriendProfileHeader({ onBack, onOpenSettings, titleRef }: Pick<FriendProfileViewProps, 'onBack' | 'onOpenSettings' | 'titleRef'>) {
   const { t } = useI18n();
   return (
-    <header className="flex min-h-12 items-center gap-2">
-      <IconButton variant="ghost" aria-label={t('friends.backToFriends')} onClick={onBack} className="-ml-1">
-        <ChevronLeft aria-hidden="true" className="size-5" />
+    <header className="flex min-h-12 items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <IconButton variant="ghost" aria-label={t('friends.backToFriends')} onClick={onBack} className="-ml-1">
+          <ChevronLeft aria-hidden="true" className="size-5" />
+        </IconButton>
+        <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary outline-none">
+          {t('friends.profileTitle')}
+        </h1>
+      </div>
+      <IconButton variant="secondary" aria-label={t('header.openSettings')} onClick={onOpenSettings}>
+        <Settings aria-hidden="true" className="size-4" />
       </IconButton>
-      <h1 ref={titleRef} id="profile-screen-title" tabIndex={-1} className="truncate text-[clamp(1.5rem,6.5vw,1.95rem)] font-extrabold leading-tight tracking-tight text-text-primary outline-none">
-        {t('friends.profileTitle')}
-      </h1>
     </header>
   );
 }
@@ -117,7 +123,7 @@ export function FriendProfileContent({ profile }: { profile: FriendProfileProjec
   );
 }
 
-export function FriendProfileView({ friend, onBack, titleRef }: FriendProfileViewProps) {
+export function FriendProfileView({ friend, onBack, onOpenSettings, titleRef }: FriendProfileViewProps) {
   const { t } = useI18n();
   const [retryKey, setRetryKey] = useState(0);
   const [state, setState] = useState<FriendProfileState>({ status: 'loading' });
@@ -137,7 +143,7 @@ export function FriendProfileView({ friend, onBack, titleRef }: FriendProfileVie
 
   return (
     <div className="space-y-5">
-      <FriendProfileHeader onBack={onBack} titleRef={titleRef} />
+      <FriendProfileHeader onBack={onBack} onOpenSettings={onOpenSettings} titleRef={titleRef} />
       {state.status === 'loading' && (
         <div role="status" aria-label={t('friends.profileLoading')} className="space-y-4">
           <div className="flex flex-col items-center gap-3 py-3"><ProfileAvatar displayName={friend.displayName} avatarUrl={friend.avatarUrl} className="size-24 text-xl opacity-70" /><div className="h-5 w-32 animate-pulse rounded-full bg-surface-active" /><div className="h-3 w-20 animate-pulse rounded-full bg-surface-active" /></div>

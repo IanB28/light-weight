@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routine, Exercise, normalizeRoutine } from '@light-weight/domain';
-import { RoutineEditorModal } from './RoutineEditorModal.js';
+import { RoutineEditorModal, type RoutineEditorCloseReason } from './RoutineEditorModal.js';
 import { AppPreferences } from '../lib/preferences.js';
 
 export type RoutineCreationStep = 'details' | 'exercises';
@@ -37,7 +37,10 @@ export function buildRoutinePayload(
 
 export interface CreateRoutineModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  isActive?: boolean;
+  isSuspended?: boolean;
+  onPostpone?: () => void;
+  onClose: (reason?: RoutineEditorCloseReason) => void;
   availableExercises: Exercise[];
   onSaveRoutine: (newRoutine: Routine) => void;
   ownerId?: string;
@@ -46,6 +49,9 @@ export interface CreateRoutineModalProps {
 
 export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   isOpen,
+  isActive = true,
+  isSuspended = false,
+  onPostpone,
   onClose,
   availableExercises,
   onSaveRoutine,
@@ -55,6 +61,9 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   return (
     <RoutineEditorModal
       isOpen={isOpen}
+      isActive={isActive}
+      isSuspended={isSuspended}
+      onPostpone={onPostpone}
       onClose={onClose}
       availableExercises={availableExercises}
       onSaveRoutine={onSaveRoutine}

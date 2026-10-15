@@ -54,7 +54,8 @@ export function ReceivedRoutinePreview({ share, exercises, preferences, busy, on
   </BottomSheet>;
 }
 
-export function ReceivedRoutines({ onImport, exercises, preferences }: {
+export function ReceivedRoutines({ isActive = true, onImport, exercises, preferences }: {
+  isActive?: boolean;
   onImport: (routine: Routine) => void;
   exercises: Exercise[];
   preferences?: AppPreferences;
@@ -67,6 +68,10 @@ export function ReceivedRoutines({ onImport, exercises, preferences }: {
   const busyRef = useRef(false);
   const [error, setError] = useState<TranslationKey | null>(null);
   const [notice, setNotice] = useState<TranslationKey | null>(null);
+
+  useEffect(() => {
+    if (!isActive) setSelected(null);
+  }, [isActive]);
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
@@ -139,7 +144,7 @@ export function ReceivedRoutines({ onImport, exercises, preferences }: {
         </Button>
       </AppCard>)}
     </div>
-    {selected && <ReceivedRoutinePreview share={selected} exercises={exercises} preferences={preferences} busy={busyId !== null}
+    {isActive && selected && <ReceivedRoutinePreview share={selected} exercises={exercises} preferences={preferences} busy={busyId !== null}
       onImport={() => void importShare(selected)} onDismiss={() => void dismiss(selected)} onClose={() => setSelected(null)} />}
   </section>;
 }

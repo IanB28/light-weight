@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, Flame, Target, Sparkles } from 'lucide-react';
-import { getTonnageEquivalences } from '../lib/tonnage.js';
+import { X, Flame, Target } from 'lucide-react';
+import { formatTonnageCount, getTonnageEquivalences } from '../lib/tonnage.js';
 import { usePreferences } from '../lib/preferences-context.js';
 import { displayWeight, WEIGHT_UNIT_PRESETS } from '../lib/weight-units.js';
+import { useI18n, type TranslationKey } from '../lib/i18n.js';
 
 interface TonnageEquivalenceModalProps {
   isOpen: boolean;
@@ -16,10 +17,14 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
   totalKg
 }) => {
   const { preferences } = usePreferences();
+  const { locale, t } = useI18n();
   const weightUnit = WEIGHT_UNIT_PRESETS[preferences.units].unit;
   if (!isOpen) return null;
 
   const data = getTonnageEquivalences(totalKg);
+  const formatWeight = (kg: number) => `${displayWeight(kg, preferences.units).toLocaleString(locale)} ${weightUnit}`;
+  const objectName = (id: string) => t(`tonnage.object.${id}` as TranslationKey);
+  const milestoneName = t(`tonnage.milestone.${data.nextMilestone.id}` as TranslationKey);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl animate-in fade-in duration-200">
@@ -35,10 +40,10 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
             </div>
             <div>
               <span className="text-[10px] font-mono font-extrabold uppercase tracking-widest text-accent">
-                VOLUMEN TOTAL ACUMULADO
+                {t('tonnage.eyebrow')}
               </span>
               <h3 id="tonnage-title" className="text-xl font-black text-white tracking-tight leading-tight">
-                Equivalencias de Tonelaje
+                {t('tonnage.title')}
               </h3>
             </div>
           </div>
@@ -46,7 +51,7 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar equivalencias de tonelaje"
+            aria-label={t('tonnage.close')}
             className="flex size-11 shrink-0 items-center justify-center rounded-full glass-subcard text-zinc-400 transition-all hover:border-white/20 hover:text-white active:scale-[0.96]"
           >
             <X className="w-4 h-4" />
@@ -61,11 +66,11 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
               {data.primary.icon}
             </div>
             <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-              {displayWeight(data.totalKg, preferences.units).toLocaleString()} <span className="text-sm font-normal text-zinc-400">{weightUnit}</span>
-              <span className="text-xs text-zinc-400 font-normal ml-2">({data.totalTonnes} t)</span>
+              {displayWeight(data.totalKg, preferences.units).toLocaleString(locale)} <span className="text-sm font-normal text-zinc-400">{weightUnit}</span>
+              <span className="text-xs text-zinc-400 font-normal ml-2">({data.totalTonnes.toLocaleString(locale)} t)</span>
             </div>
             <p className="text-xs sm:text-sm font-bold text-accent">
-              {data.primary.sentence}
+              {t('tonnage.primarySentence', { count: formatTonnageCount(data.primary.countFormatted, locale), name: objectName(data.primary.id) })}
             </p>
           </div>
 
@@ -74,7 +79,7 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="flex items-center gap-1.5 text-zinc-300">
                 <Target className="w-3.5 h-3.5 text-accent" />
-                <span>Próximo Hito: {data.nextMilestone.name}</span>
+                <span>{t('tonnage.nextMilestone', { name: milestoneName })}</span>
               </span>
               <span className="text-accent font-mono font-bold">
                 {data.nextMilestone.progressPercent}%
@@ -90,9 +95,9 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-              <span>{displayWeight(data.totalKg, preferences.units).toLocaleString()} {weightUnit}</span>
-              <span>
-                Faltan {displayWeight(data.nextMilestone.remainingKg, preferences.units).toLocaleString()} {weightUnit} para {displayWeight(data.nextMilestone.targetKg, preferences.units).toLocaleString()} {weightUnit}
+              <span>{formatWeight(data.totalKg)}</span>
+              <span className="text-right">
+                {t('tonnage.remaining', { remaining: formatWeight(data.nextMilestone.remainingKg), target: formatWeight(data.nextMilestone.targetKg) })}
               </span>
             </div>
           </div>
@@ -101,10 +106,10 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                Comparaciones del Mundo Real
+                {t('tonnage.comparisons')}
               </span>
               <span className="text-[10px] font-mono text-zinc-500">
-                Peso × Reps
+                {t('tonnage.weightTimesReps')}
               </span>
             </div>
 
@@ -117,16 +122,16 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
                   <div className="flex items-start justify-between">
                     <span className="text-2xl">{item.icon}</span>
                     <span className="text-xs font-bold font-mono text-accent">
-                      ~{item.countFormatted}
+                      ~{formatTonnageCount(item.countFormatted, locale)}
                     </span>
                   </div>
 
                   <div className="mt-2 min-w-0">
                     <h4 className="text-xs font-bold text-white tracking-tight truncate">
-                      {item.name}
+                      {objectName(item.id)}
                     </h4>
                     <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                      {displayWeight(item.unitKg, preferences.units).toLocaleString()} {weightUnit} c/u
+                      {t('tonnage.perItem', { weight: formatWeight(item.unitKg) })}
                     </p>
                   </div>
                 </div>
@@ -135,7 +140,7 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
           </div>
 
           <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.04] text-[11px] text-zinc-400 leading-relaxed">
-            💡 <strong className="text-zinc-200">¿Cómo se calcula?</strong> Cada serie completada suma el peso levantado multiplicado por las repeticiones ejecutadas. Este tonelaje es el trabajo mecánico acumulado por tus músculos.
+            💡 <strong className="text-zinc-200">{t('tonnage.explanationTitle')}</strong> {t('tonnage.explanation')}
           </div>
         </div>
 
@@ -145,7 +150,7 @@ export const TonnageEquivalenceModal: React.FC<TonnageEquivalenceModalProps> = (
           onClick={onClose}
           className="w-full py-3 rounded-2xl bg-accent text-accent-fg font-extrabold text-sm hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer shadow-lg shadow-accent/20"
         >
-          ¡Seguir Levantando!
+          {t('tonnage.continue')}
         </button>
       </div>
     </div>

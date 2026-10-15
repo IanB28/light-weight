@@ -49,10 +49,14 @@ import {
 } from '../features/routines/routine-editor-draft.js';
 
 export type RoutineCreationStep = 'details' | 'exercises';
+export type RoutineEditorCloseReason = 'save' | 'discard';
 
 export interface RoutineEditorModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  isActive?: boolean;
+  isSuspended?: boolean;
+  onPostpone?: () => void;
+  onClose: (reason?: RoutineEditorCloseReason) => void;
   availableExercises: Exercise[];
   onSaveRoutine: (routine: Routine) => void;
   mode?: 'create' | 'edit';
@@ -65,6 +69,9 @@ export interface RoutineEditorModalProps {
 
 export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   isOpen,
+  isActive = true,
+  isSuspended = false,
+  onPostpone,
   onClose,
   availableExercises,
   onSaveRoutine,
@@ -83,6 +90,9 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
     createRoutineEditorDraft(initialRoutine, ownerId)
   );
   const initialDraftRef = useRef<RoutineEditorDraft>(draft);
+  const wasOpenRef = useRef(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<ExerciseMuscleFilter>('all');
@@ -93,9 +103,9 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(initialExpandedExerciseId);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
-  // Initialize draft when modal opens or initialRoutine changes
+  // A suspended editor remains open in memory; only a new editing session resets its draft.
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpenRef.current) {
       const initial = createRoutineEditorDraft(initialRoutine, ownerId);
       setDraft(initial);
       initialDraftRef.current = initial;
@@ -108,13 +118,24 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
       setExpandedExerciseId(initialExpandedExerciseId);
       setShowDiscardConfirm(false);
     }
+    wasOpenRef.current = isOpen;
   }, [isOpen, initialRoutine, ownerId, initialStep, initialExpandedExerciseId]);
+
+  useEffect(() => {
+    if (!isOpen || !isActive || isSuspended) return;
+    if (mode === 'create' && step === 'details') nameInputRef.current?.focus();
+    else closeButtonRef.current?.focus();
+  }, [isOpen, isActive, isSuspended, mode, step]);
 
   useEffect(() => {
     setVisibleCount(60);
   }, [searchTerm, selectedMuscle, selectedEquipment]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isActive) setShowDiscardConfirm(false);
+  }, [isActive]);
+
+  if (!isOpen || !isActive || isSuspended) return null;
 
   const isDirty = isRoutineEditorDraftDirty(initialDraftRef.current, draft);
   const exerciseMap = new Map(availableExercises.map((e) => [e.id, e]));
@@ -139,14 +160,14 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
 
   const handleConfirmDiscard = () => {
     setShowDiscardConfirm(false);
-    onClose();
+    onClose('discard');
   };
 
   const handleSave = () => {
     if (!canSaveRoutineEditorDraft(draft)) return;
     const routine = buildRoutineFromEditorDraft(draft);
     onSaveRoutine(routine);
-    onClose();
+    onClose('save');
   };
 
   const toggleSelectExercise = (exerciseId: string) => {
@@ -182,6 +203,12 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="routine-editor-title"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              handleRequestClose();
+            }
+          }}
           className="relative w-full max-w-xl dark-glass-card border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col z-10 animate-slide-up"
         >
           {/* iOS Grab Handle */}
@@ -211,6 +238,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
             </div>
 
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={handleRequestClose}
               aria-label={t('common.close')}
@@ -230,6 +258,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                     {t('routine.name')} <span className="text-accent">*</span>
                   </label>
                   <input
+                    ref={nameInputRef}
                     type="text"
                     autoFocus={mode === 'create'}
                     placeholder={t('routine.namePlaceholder')}
@@ -623,7 +652,13 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
           )}
 
           {/* Modal Footer */}
-          <div className="p-4 border-t border-white/[0.08] bg-black/40 flex items-center gap-2.5 shrink-0">
+          <div className="p-4 border-t border-white/[0.08] bg-black/40 flex flex-col gap-2.5 shrink-0">
+            {onPostpone && (
+              <Button variant="secondary" className="w-full" onClick={onPostpone}>
+                {t('routine.postponeEditing')}
+              </Button>
+            )}
+            <div className="flex w-full items-center gap-2.5">
             {step === 'details' ? (
               <>
                 <button
@@ -672,13 +707,14 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                 </button>
               </>
             )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Discard Confirmation Modal */}
       <Modal
-        open={showDiscardConfirm}
+        open={isActive && showDiscardConfirm}
         onClose={() => setShowDiscardConfirm(false)}
         title={t('routine.discardTitle')}
         description={t('routine.discardDesc')}
