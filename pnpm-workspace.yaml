@@ -3,3 +3,9 @@ packages:
   - 'packages/*'
 allowBuilds:
   esbuild: true
+overrides:
+  proxy-addr: 2.0.8
+  shell-quote: 1.11.0
+  source-map-js: 1.2.2
+  # Express 4.22.2 pins ~6.15.1, which excludes the patched qs 6.16.0.
+  qs: 6.16.0
