@@ -78,6 +78,8 @@
   --bottom-nav-surface-height: 4rem;
   --bottom-nav-bottom-gap: max(0.5rem, env(safe-area-inset-bottom));
   --bottom-nav-height: calc(var(--bottom-nav-surface-height) + 1.25rem);
+  --rest-timer-bottom: calc(var(--bottom-nav-surface-height) + var(--bottom-nav-bottom-gap) + 1.5rem);
+  --rest-timer-height: calc(2.75rem + 1.25rem + 2px);
   --orb-1: rgba(59, 130, 246, 0.16);
   --orb-2: rgba(99, 102, 241, 0.14);
   --orb-3: rgba(14, 165, 233, 0.1);
@@ -232,7 +234,8 @@ button, [role="button"] { touch-action: manipulation; }
 .pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
 .pt-safe { padding-top: max(0.75rem, env(safe-area-inset-top)); }
 .pb-page-safe { padding-bottom: calc(var(--bottom-nav-height) + max(0px, env(safe-area-inset-bottom) - 0.5rem)); }
-.bottom-above-nav { bottom: calc(var(--bottom-nav-surface-height) + var(--bottom-nav-bottom-gap) + 1.5rem); }
+.pb-page-safe[data-workout-active="true"] { padding-bottom: max(calc(var(--bottom-nav-height) + max(0px, env(safe-area-inset-bottom) - 0.5rem)), calc(var(--rest-timer-bottom) + var(--rest-timer-height) + var(--section-gap))); }
+.bottom-above-nav, .rest-timer-slot { bottom: var(--rest-timer-bottom); }
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
