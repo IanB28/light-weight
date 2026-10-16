@@ -27,6 +27,7 @@ import { ProfileScreen } from './features/profile/ProfileScreen.js';
 import { appSurfaceReducer, INITIAL_APP_SURFACE_STATE, type SettingsTarget } from './features/profile/profile-surface-state.js';
 import { saveProfileUpdate } from './features/profile/profile-save.js';
 import { resolveEffectiveProfile } from './features/profile/profile-authority.js';
+import { useNavigationScroll } from './lib/useNavigationScroll.js';
 
 export function App() {
   const { preferences } = usePreferences();
@@ -50,6 +51,10 @@ export function App() {
     bodyweightEntries: data.bodyweightEntries
   });
   const restTimer = useRestTimer();
+  const captureNavigationScroll = useNavigationScroll(currentTab, planSection,
+    workout.isWorkoutActive ? workout.workoutStartedAt : null);
+  const [restTimerHeight, setRestTimerHeight] = useState<number>();
+  const measureRestTimer = useCallback((height: number) => setRestTimerHeight(height), []);
 
   useEffect(() => { initTheme(); }, []);
   useEffect(() => {
@@ -61,9 +66,11 @@ export function App() {
   }, [auth.status, auth.user?.id]);
 
   const navigateToTab = useCallback((tab: TabType) => {
+    if (tab === currentTab) return;
+    captureNavigationScroll();
     if (tab === 'plan') setPlanVisited(true);
     dispatchSurface({ type: 'select_tab', tab });
-  }, []);
+  }, [currentTab, captureNavigationScroll]);
   const openSettings = useCallback((target: SettingsTarget = 'root') => {
     dispatchSurface({ type: 'open_settings', target });
   }, []);
@@ -172,13 +179,14 @@ export function App() {
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-x-clip bg-transparent font-sans text-text-primary selection:bg-accent selection:text-accent-fg">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-x-clip bg-transparent font-sans text-text-primary selection:bg-accent selection:text-accent-fg"
+      style={restTimerHeight === undefined ? undefined : { '--rest-timer-height': `${restTimerHeight}px` } as React.CSSProperties}>
       <div className="pointer-events-none fixed -top-24 left-1/2 -z-10 h-[26rem] w-[36rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-1)' }} />
       <div className="pointer-events-none fixed top-[28%] -left-28 -z-10 size-[32rem] rounded-full blur-[170px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-2)' }} />
       <div className="pointer-events-none fixed top-[52%] -right-24 -z-10 size-[32rem] rounded-full blur-[170px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-3)' }} />
       <div className="pointer-events-none fixed top-[22%] left-1/2 -z-10 size-[28rem] -translate-x-1/2 rounded-full blur-[160px] transition-colors duration-700" style={{ backgroundColor: 'var(--orb-brand, rgba(34, 197, 94, 0.08))' }} />
 
-      <main className="flex-1 max-w-md w-full mx-auto px-page pt-[max(0.75rem,env(safe-area-inset-top))] pb-page-safe">
+      <main data-workout-active={workout.isWorkoutActive || undefined} className="flex-1 max-w-md w-full mx-auto px-page pt-[max(0.75rem,env(safe-area-inset-top))] pb-page-safe">
         {currentTab === 'profile' && <ProfileScreen
           profile={effectiveProfile}
           userInfo={effectiveUserInfo}
@@ -281,7 +289,12 @@ export function App() {
 
         {currentTab === 'plan' && <PlanHeader
           section={planSection}
-          onSectionChange={(section) => { setPlanSection(section); if (section === 'exercises') setExercisesVisited(true); }}
+          onSectionChange={(section) => {
+            if (section === planSection) return;
+            captureNavigationScroll();
+            setPlanSection(section);
+            if (section === 'exercises') setExercisesVisited(true);
+          }}
           isWorkoutActive={workout.isWorkoutActive}
           activeWorkoutDuration={workout.duration}
           onNavigateToWorkout={() => navigateToTab('workout')}
@@ -317,6 +330,8 @@ export function App() {
         totalSeconds={restTimer.totalSeconds}
         onAddSeconds={restTimer.add}
         onDismiss={restTimer.cancel}
+        reserveSpace={workout.isWorkoutActive}
+        onHeightChange={measureRestTimer}
       />
 
       <BottomNav currentTab={currentTab} onSelectTab={navigateToTab} isWorkoutActive={workout.isWorkoutActive} profileIdentity={{ displayName: effectiveProfile.displayName === 'Atleta' ? effectiveUserInfo.name : effectiveProfile.displayName, avatarUrl: effectiveProfile.avatarUrl }} />
